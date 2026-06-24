@@ -1,0 +1,233 @@
+
+-- Oramira OS — Migration 0006: helper functions, identity-matching
+-- chokepoint, invite acceptance, contractor suggestion engine, and the
+-- automation triggers from Phase 4.
+
+-- ===== RLS helper functions (security definer — identity checks only) =====
+
+create or replace function current_role() returns user_role as $$
+  select role from profiles where id = auth.uid();
+$$ language sql stable security definer;
+
+create or replace function current_contact_id() returns uuid as $$
+  select contact_id from profiles where id = auth.uid();
+$$ language sql stable security definer;
+
+create or replace function current_contractor_id() returns uuid as $$
+  select contractor_id from profiles where id = auth.uid();
+$$ language sql stable security definer;
+
+create or replace function is_staff() returns boolean as $$
+  select current_role() in ('admin', 'sales', 'management');
+$$ language sql stable security definer;
+
+create or replace function owns_unit_as_homeowner(target_unit_id uuid) returns boolean as $$
+  select exists (
+    select 1 from homeowners h
+    where h.unit_id = target_unit_id and h.contact_id = current_contact_id()
+  );
+$$ language sql stable security definer;
+
+create or replace function owns_unit_as_buyer(target_unit_id uuid) returns boolean as $$
+  select exists (
+    select 1 from units u where u.id = target_unit_id and u.buyer_contact_id = current_contact_id()
+  ) or exists (
+    select 1 from contracts c where c.unit_id = target_unit_id and c.buyer_contact_id = current_contact_id()
+  );
+$$ language sql stable security definer;
+
+create or replace function contractor_assigned_to_ticket(target_ticket_id uuid) returns boolean as $$
+  select exists (
+    select 1 from maintenance_tickets t where t.id = target_ticket_id and t.contractor_id = current_contractor_id()
+  );
+$$ language sql stable security definer;
+
+create or replace function contractor_assigned_to_task(target_task_id uuid) returns boolean as $$
+  select exists (
+    select 1 from construction_tasks t where t.id = target_task_id and t.contractor_id = current_contractor_id()
+  );
+$$ language sql stable security definer;
+
+create or replace function contractor_assigned_to_project(target_project_id uuid) returns boolean as $$
+  select exists (
+    select 1 from contractor_project_assignments a
+    where a.project_id = target_project_id and a.contractor_id = current_contractor_id()
+  );
+$$ language sql stable security definer;
+
+create or replace function investor_holds_project(target_project_id uuid) returns boolean as $$
+  select exists (
+    select 1 from investor_holdings ih join investors i on i.id = ih.investor_id
+    where ih.project_id = target_project_id and i.contact_id = current_contact_id()
+  );
+$$ language sql stable security definer;
+
+create or replace function investor_holds_unit(target_unit_id uuid) returns boolean as $$
+  select exists (
+    select 1 from investor_holdings ih join investors i on i.id = ih.investor_id
+    where ih.unit_id = target_unit_id and i.contact_id = current_contact_id()
+  );
+$$ language sql stable security definer;
+
+-- ===== Identity matching chokepoint =====
+-- The ONLY path that should ever create or match a contact. Every public
+-- intake route (contact form, newsletter) and every internal "add lead"
+-- flow calls this rather than inserting into contacts directly.
+create or replace function find_or_create_contact(
+  p_email text, p_name text default null, p_phone text default null
+) returns uuid as $$
+declare
+  v_id uuid;
+begin
+  select id into v_id from contacts where email = lower(trim(p_email));
+  if v_id is null then
+    insert into contacts (email, full_name, phone)
+    values (lower(trim(p_email)), p_name, p_phone)
+    returning id into v_id;
+  else
+    update contacts set
+      full_name = coalesce(contacts.full_name, p_name),
+      phone = coalesce(contacts.phone, p_phone),
+      updated_at = now()
+    where id = v_id;
+  end if;
+  return v_id;
+end;
+$$ language plpgsql security definer;
+
+-- ===== Invite acceptance =====
+create or replace function accept_invite(invite_token text, new_user_id uuid)
+returns void as $$
+declare
+  inv invites;
+begin
+  select * into inv from invites where token = invite_token and status = 'pending' and expires_at > now();
+  if inv is null then
+    raise exception 'Invalid or expired invite';
+  end if;
+
+  insert into profiles (id, contact_id, contractor_id, role, full_name)
+  values (
+    new_user_id,
+    case when inv.role <> 'contractor' then inv.contact_id else null end,
+    case when inv.role = 'contractor' then inv.related_entity_id else null end,
+    inv.role,
+    (select full_name from contacts where id = inv.contact_id)
+  );
+
+  update invites set status = 'accepted', accepted_at = now() where id = inv.id;
+end;
+$$ language plpgsql security definer;
+
+-- ===== Contractor suggestion engine — read-only, never assigns =====
+create or replace function suggest_contractors(
+  p_trade text, p_project_id uuid
+) returns table (
+  contractor_id uuid, company_name text, score numeric, is_available boolean,
+  open_assignments int, avg_rating numeric, same_region boolean, same_project_history boolean
+) as $$
+  with workload as (
+    select c.id as contractor_id,
+      (select count(*) from maintenance_tickets t where t.contractor_id = c.id and t.status not in ('resolved','closed'))
+      + (select count(*) from construction_tasks k where k.contractor_id = c.id and k.status not in ('complete'))
+      as open_assignments
+    from contractors c
+  ),
+  performance as (
+    select contractor_id, avg(rating)::numeric(3,1) as avg_rating
+    from contractor_performance_notes group by contractor_id
+  ),
+  project_history as (
+    select distinct contractor_id from contractor_project_assignments where project_id = p_project_id
+  )
+  select
+    c.id, c.company_name,
+    ( (case when c.is_available then 30 else 0 end)
+    + (greatest(0, 25 - coalesce(w.open_assignments,0) * 5))
+    + (coalesce(p.avg_rating, 3) / 5.0 * 25)
+    + (case when ph.contractor_id is not null then 20 else 0 end)
+    )::numeric(5,1) as score,
+    c.is_available,
+    coalesce(w.open_assignments, 0),
+    coalesce(p.avg_rating, 0),
+    (c.region = (select location from projects where id = p_project_id)),
+    (ph.contractor_id is not null)
+  from contractors c
+  left join workload w on w.contractor_id = c.id
+  left join performance p on p.contractor_id = c.id
+  left join project_history ph on ph.contractor_id = c.id
+  where c.trade = p_trade and c.is_active = true
+  order by score desc
+  limit 5;
+$$ language sql stable;
+
+-- ===== Triggers: lead created =====
+create or replace function on_lead_created() returns trigger as $$
+begin
+  insert into activity_log (entity_type, entity_id, action, metadata)
+  values ('lead', NEW.id, 'created', jsonb_build_object('source', NEW.source));
+
+  insert into follow_up_tasks (lead_id, contact_id, assigned_to, due_at, note)
+  values (NEW.id, NEW.contact_id, NEW.assigned_to, now() + interval '24 hours', 'Initial follow-up — new lead');
+
+  perform pg_notify('lead_created', NEW.id::text);
+  return NEW;
+end;
+$$ language plpgsql;
+
+create trigger trg_lead_created after insert on leads
+  for each row execute function on_lead_created();
+
+-- ===== Trigger: buyer portal eligibility recompute =====
+create or replace function recompute_buyer_portal_eligibility() returns trigger as $$
+declare
+  v_buyer_contact_id uuid;
+  v_reservation_id uuid;
+begin
+  if TG_TABLE_NAME = 'contracts' then
+    v_buyer_contact_id := NEW.buyer_contact_id;
+    v_reservation_id := NEW.reservation_id;
+    if NEW.status = 'signed' and (OLD.status is distinct from NEW.status) then
+      insert into activity_log (entity_type, entity_id, action) values ('contract', NEW.id, 'signed');
+      perform pg_notify('contract_signed', NEW.id::text);
+    end if;
+    update buyers set portal_eligible = (
+      NEW.status = 'signed' and exists (
+        select 1 from reservations r where r.id = v_reservation_id and r.deposit_paid = true
+      )
+    ) where contact_id = v_buyer_contact_id;
+  elsif TG_TABLE_NAME = 'reservations' then
+    update buyers set portal_eligible = (
+      NEW.deposit_paid = true and exists (
+        select 1 from contracts c where c.reservation_id = NEW.id and c.status = 'signed'
+      )
+    ) where contact_id = NEW.buyer_contact_id;
+  end if;
+  return NEW;
+end;
+$$ language plpgsql;
+
+create trigger trg_contract_signed after update on contracts
+  for each row execute function recompute_buyer_portal_eligibility();
+
+create trigger trg_reservation_deposit after update on reservations
+  for each row when (NEW.deposit_paid = true and OLD.deposit_paid is distinct from true)
+  execute function recompute_buyer_portal_eligibility();
+
+-- ===== Trigger: milestone status changes =====
+create or replace function on_milestone_status_changed() returns trigger as $$
+begin
+  if NEW.status <> OLD.status then
+    insert into activity_log (entity_type, entity_id, action, metadata)
+    values ('project_milestone', NEW.id, 'status_changed',
+            jsonb_build_object('from', OLD.status, 'to', NEW.status, 'type', NEW.milestone_type));
+    if NEW.status = 'complete' then
+      perform pg_notify('milestone_complete', NEW.id::text);
+    end if;
+  end if;
+  return NEW;
+end;
+$$ language plpgsql;
+
+create trigger trg_milestone_status after update on project_milestones
+  for each row execute function on_milestone_status_changed();

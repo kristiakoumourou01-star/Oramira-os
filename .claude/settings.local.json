@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(awk -F: '{s+=$2} END {print s\" occurrences across \"NR\" files\"}')"
+    ]
+  }
+}

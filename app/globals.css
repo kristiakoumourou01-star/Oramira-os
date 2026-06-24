@@ -1,0 +1,88 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-stone text-charcoal font-sans antialiased;
+  }
+
+  /* Signature detail: every figure in the system — price, sqm, %, currency —
+     renders in tabular mono numerals. A ledger-like precision befitting a
+     developer who deals in exact numbers, kept understated rather than loud. */
+  .figure {
+    @apply font-mono tabular-nums;
+  }
+
+  h1, h2, h3 {
+    @apply font-display font-normal text-forest tracking-tight;
+  }
+
+  h4, h5 {
+    @apply font-sans font-semibold text-charcoal;
+  }
+
+  :focus-visible {
+    outline: 2px solid theme('colors.champagne.DEFAULT');
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.001ms !important;
+      transition-duration: 0.001ms !important;
+    }
+  }
+}
+
+@layer components {
+  /* Resting surface throughout the app — soft shadow, warm hairline border,
+     never a hard SaaS drop-shadow. */
+  .panel {
+    @apply bg-white border border-stone-line rounded-md shadow-soft;
+  }
+
+  .eyebrow {
+    @apply text-[11px] uppercase tracking-eyebrow text-olive font-medium;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded bg-forest px-5 py-2.5 text-sm font-medium text-stone-100 transition-colors hover:bg-forest-deep disabled:opacity-40 disabled:pointer-events-none;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded border border-stone-line bg-white px-5 py-2.5 text-sm font-medium text-charcoal transition-colors hover:bg-sand-100 disabled:opacity-40 disabled:pointer-events-none;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded px-3 py-1.5 text-sm font-medium text-charcoal-600 transition-colors hover:bg-sand-100 hover:text-forest;
+  }
+
+  .input {
+    @apply w-full rounded border border-stone-line bg-white px-3 py-2.5 text-sm text-charcoal placeholder:text-charcoal-600/50 focus-visible:border-champagne;
+  }
+
+  .table-base th {
+    @apply eyebrow border-b border-stone-line px-4 py-2.5 text-left;
+  }
+
+  .table-base td {
+    @apply border-b border-stone-line px-4 py-3 text-sm text-charcoal;
+  }
+
+  .badge {
+    @apply inline-flex items-center rounded-sm border px-2 py-0.5 text-xs font-medium;
+  }
+
+  .badge-forest {
+    @apply badge border-forest/20 bg-forest-50 text-forest;
+  }
+
+  .badge-champagne {
+    @apply badge border-champagne/30 bg-champagne-50 text-champagne-600;
+  }
+
+  .badge-neutral {
+    @apply badge border-stone-line bg-sand-100 text-charcoal-600;
+  }
+}
