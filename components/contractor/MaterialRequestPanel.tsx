@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus, Trash2, PackageOpen } from 'lucide-react';
 import { requestMaterials } from '@/app/actions/contractor';
+import { formatNumber } from '@/lib/format';
 
 interface LineItem { name: string; qty: number; unit_cost: number }
 
@@ -78,7 +79,7 @@ export function MaterialRequestPanel({ ticketId, requests }: { ticketId: string;
           </button>
           <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Note (optional)" className="input" />
           <div className="flex items-center justify-between pt-1">
-            <span className="text-sm text-charcoal-600/70">Estimated <span className="figure text-charcoal">€{estimated.toLocaleString()}</span></span>
+            <span className="text-sm text-charcoal-600/70">Estimated <span className="figure text-charcoal">€{formatNumber(estimated)}</span></span>
             <button onClick={submit} disabled={isPending} className="btn-primary">Submit request</button>
           </div>
         </div>
@@ -91,14 +92,14 @@ export function MaterialRequestPanel({ ticketId, requests }: { ticketId: string;
           {requests.map((r) => (
             <li key={r.id} className="rounded border border-stone-line p-3">
               <div className="mb-1.5 flex items-center justify-between">
-                <span className="figure text-sm text-charcoal">€{Number(r.estimated_cost ?? 0).toLocaleString()}</span>
+                <span className="figure text-sm text-charcoal">€{formatNumber(Number(r.estimated_cost ?? 0))}</span>
                 <span className={STATUS_CLASS[r.status] ?? 'badge-neutral'}>{r.status}</span>
               </div>
               <ul className="space-y-0.5 text-xs text-charcoal-600/80">
                 {r.items.map((it, i) => (
                   <li key={i} className="flex justify-between">
                     <span>{it.name} <span className="text-charcoal-600/50">×{it.qty}</span></span>
-                    <span className="figure">€{(Number(it.qty) * Number(it.unit_cost)).toLocaleString()}</span>
+                    <span className="figure">€{formatNumber(Number(it.qty) * Number(it.unit_cost))}</span>
                   </li>
                 ))}
               </ul>

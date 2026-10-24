@@ -1,4 +1,4 @@
-import { requireRole } from '@/lib/auth';
+import { requirePermission } from '@/lib/auth';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { notFound } from 'next/navigation';
 import { LifecycleBadges } from '@/components/crm/LifecycleBadges';
@@ -7,6 +7,7 @@ import { AIInsightPanel } from '@/components/crm/AIInsightPanel';
 import { ContactTimeline, type TimelineEntry } from '@/components/crm/ContactTimeline';
 import { UnitLinkCard } from '@/components/crm/UnitLinkCard';
 import { TaskList } from '@/components/ui/TaskList';
+import { formatNumber } from '@/lib/format';
 
 /**
  * The single 360-degree view of a contact — this is what makes the CRM the
@@ -15,7 +16,7 @@ import { TaskList } from '@/components/ui/TaskList';
  * renders on the SAME page because it's the same person.
  */
 export default async function ContactDetailPage({ params }: { params: { id: string } }) {
-  await requireRole(['admin', 'sales', 'management']);
+  await requirePermission('leads');
   const supabase = await createSupabaseServerClient();
 
   const { data: contact } = await supabase.from('contacts').select('*').eq('id', params.id).single();
@@ -124,7 +125,7 @@ export default async function ContactDetailPage({ params }: { params: { id: stri
                 <div>
                   <p className="eyebrow">Budget</p>
                   <p className="figure text-charcoal">
-                    €{Number(lead.budget_min ?? 0).toLocaleString()}–{Number(lead.budget_max ?? 0).toLocaleString()}
+                    €{formatNumber(Number(lead.budget_min ?? 0))}–{formatNumber(Number(lead.budget_max ?? 0))}
                   </p>
                 </div>
                 <div>
@@ -155,7 +156,7 @@ export default async function ContactDetailPage({ params }: { params: { id: stri
                     <tr key={h.id}>
                       <td>{h.projects?.name ?? '—'}</td>
                       <td>{h.units?.unit_number ?? '—'}</td>
-                      <td className="figure">€{Number(h.capital_invested ?? 0).toLocaleString()}</td>
+                      <td className="figure">€{formatNumber(Number(h.capital_invested ?? 0))}</td>
                       <td className="figure">{h.ownership_percentage ?? '—'}%</td>
                     </tr>
                   ))}

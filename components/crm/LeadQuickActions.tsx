@@ -3,7 +3,9 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Phone, MessageCircle, Mail, StickyNote, CalendarPlus, X } from 'lucide-react';
-import { addNote, scheduleFollowUp, logCommunication } from '@/app/actions/leads';
+import { addNote, setNextAction, logCommunication } from '@/app/actions/leads';
+
+const ACTION_TYPES = ['call', 'whatsapp', 'email', 'follow_up', 'viewing'];
 
 export interface QuickActionLead {
   id: string;
@@ -26,6 +28,7 @@ export function LeadQuickActions({ lead, size = 'sm' }: { lead: QuickActionLead;
   const [open, setOpen] = useState<null | 'note' | 'followup'>(null);
   const [draft, setDraft] = useState('');
   const [due, setDue] = useState('');
+  const [actionType, setActionType] = useState('follow_up');
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
@@ -50,13 +53,13 @@ export function LeadQuickActions({ lead, size = 'sm' }: { lead: QuickActionLead;
     });
   }
 
-  function saveFollowUp() {
+  function saveNextAction() {
     if (!due) return;
-    const dueAt = new Date(due).toISOString();
+    const date = due; // YYYY-MM-DD from the date input
     setDue('');
     setOpen(null);
     startTransition(async () => {
-      await scheduleFollowUp({ leadId: lead.id, contactId: lead.contact_id, dueAt });
+      await setNextAction(lead.id, date, actionType);
       router.refresh();
     });
   }
@@ -95,14 +98,14 @@ export function LeadQuickActions({ lead, size = 'sm' }: { lead: QuickActionLead;
       <button onClick={() => setOpen(open === 'note' ? null : 'note')} className={btn} title="Add note" aria-label="Add note">
         <StickyNote size={icon} strokeWidth={1.75} />
       </button>
-      <button onClick={() => setOpen(open === 'followup' ? null : 'followup')} className={btn} title="Set follow-up" aria-label="Set follow-up">
+      <button onClick={() => setOpen(open === 'followup' ? null : 'followup')} className={btn} title="Set next action" aria-label="Set next action">
         <CalendarPlus size={icon} strokeWidth={1.75} />
       </button>
 
       {open && (
         <div className="absolute right-0 top-9 z-20 w-64 rounded-md border border-stone-line bg-white p-3 shadow-overlay">
           <div className="mb-2 flex items-center justify-between">
-            <p className="eyebrow">{open === 'note' ? 'Add note' : 'Set follow-up'}</p>
+            <p className="eyebrow">{open === 'note' ? 'Add note' : 'Set next action'}</p>
             <button onClick={() => setOpen(null)} className="text-charcoal-600/60 hover:text-charcoal"><X size={14} strokeWidth={1.75} /></button>
           </div>
           {open === 'note' ? (
@@ -112,8 +115,11 @@ export function LeadQuickActions({ lead, size = 'sm' }: { lead: QuickActionLead;
             </>
           ) : (
             <>
-              <input type="datetime-local" value={due} onChange={(e) => setDue(e.target.value)} className="input" autoFocus />
-              <button onClick={saveFollowUp} disabled={isPending} className="btn-primary mt-2 w-full text-xs">Schedule</button>
+              <select value={actionType} onChange={(e) => setActionType(e.target.value)} className="input mb-2 capitalize">
+                {ACTION_TYPES.map((t) => <option key={t} value={t}>{t.replace('_', ' ')}</option>)}
+              </select>
+              <input type="date" value={due} onChange={(e) => setDue(e.target.value)} className="input" autoFocus />
+              <button onClick={saveNextAction} disabled={isPending} className="btn-primary mt-2 w-full text-xs">Set</button>
             </>
           )}
         </div>

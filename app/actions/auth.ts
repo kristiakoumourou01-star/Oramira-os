@@ -3,14 +3,26 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { homeRouteForRole } from '@/lib/auth';
+import { clearImpersonationCookie } from '@/lib/impersonation';
+import { logActivity } from '@/lib/activity';
 
-export async function login(formData: FormData) {
-  const email = String(formData.get('email'));
-  const password = String(formData.get('password'));
+export interface LoginState { error?: string }
+
+/**
+ * Login server action. Signature is (prevState, formData) so it can drive a
+ * useFormState form that surfaces errors and a pending state. Returns
+ * { error } on failure (rendered by the form); redirects on success.
+ */
+export async function login(_prevState: LoginState | undefined, formData: FormData): Promise<LoginState> {
+  const email = String(formData.get('email') ?? '').trim();
+  const password = String(formData.get('password') ?? '');
+
+  if (!email || !password) return { error: 'Enter your email and password.' };
 
   const supabase = await createSupabaseServerClient();
   const { error, data } = await supabase.auth.signInWithPassword({ email, password });
   if (error) {
+    console.error('[login] signIn failed:', error.message);
     return { error: error.message };
   }
 
@@ -20,12 +32,19 @@ export async function login(formData: FormData) {
     .eq('id', data.user.id)
     .single();
 
+  console.error('[login] success, role:', profile?.role ?? '(no profile)');
+  // Access event for the global audit log (captures IP + device via logActivity).
+  await logActivity({ entityType: 'auth', entityId: data.user.id, action: 'login', metadata: { role: profile?.role ?? null } });
   redirect(homeRouteForRole((profile?.role as any) ?? 'buyer'));
 }
 
 export async function logout() {
   const supabase = await createSupabaseServerClient();
+  const { data: auth } = await supabase.auth.getUser();
+  if (auth.user) await logActivity({ entityType: 'auth', entityId: auth.user.id, action: 'logout' });
   await supabase.auth.signOut();
+  // Never let a stale "view as" grant survive a sign-out / re-login.
+  await clearImpersonationCookie();
   redirect('/login');
 }
 

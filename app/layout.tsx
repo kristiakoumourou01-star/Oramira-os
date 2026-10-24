@@ -1,38 +1,54 @@
 import type { Metadata } from 'next';
-import { Source_Serif_4, IBM_Plex_Sans, IBM_Plex_Mono } from 'next/font/google';
+import {
+  Source_Serif_4,
+  IBM_Plex_Sans,
+  IBM_Plex_Mono,
+  Cormorant_Garamond,
+  Playfair_Display,
+  Montserrat,
+  Inter,
+  Work_Sans,
+} from 'next/font/google';
 import './globals.css';
-
-// Display serif — carries the brand's architectural, timeless character.
-// Used on page titles and project names across every module, internal and external.
-const display = Source_Serif_4({
-  subsets: ['latin'],
-  weight: ['400', '500', '600'],
-  variable: '--font-display',
-});
-
-// Body/UI sans — humanist, quiet, built for dense data without feeling cold.
-const sans = IBM_Plex_Sans({
-  subsets: ['latin'],
-  weight: ['400', '500', '600'],
-  variable: '--font-sans',
-});
+import { getBranding, brandCssVars } from '@/lib/branding';
 
 // Tabular figures — the ledger signature: every price, sqm, % renders here.
-const mono = IBM_Plex_Mono({
-  subsets: ['latin'],
-  weight: ['400', '500'],
-  variable: '--font-mono',
-});
+// Not re-skinnable; the brand's numeric voice is constant.
+const mono = IBM_Plex_Mono({ subsets: ['latin'], weight: ['400', '500'], variable: '--font-mono' });
 
-export const metadata: Metadata = {
-  title: 'Oramira OS',
-  description: 'The Oramira operating system — CRM, deal analysis, and client portals.',
-};
+// Curated, re-skinnable typefaces. Each is exposed under its own CSS variable;
+// branding (lib/branding.ts) aliases --font-display / --font-sans to the chosen
+// pair at the root, so headings and body can be changed from Settings.
+const sourceSerif = Source_Serif_4({ subsets: ['latin'], weight: ['400', '500', '600'], variable: '--font-source-serif' });
+const cormorant = Cormorant_Garamond({ subsets: ['latin'], weight: ['400', '500', '600'], variable: '--font-cormorant' });
+const playfair = Playfair_Display({ subsets: ['latin'], weight: ['400', '500', '600'], variable: '--font-playfair' });
+const montserrat = Montserrat({ subsets: ['latin'], weight: ['400', '500', '600'], variable: '--font-montserrat' });
+const ibmPlex = IBM_Plex_Sans({ subsets: ['latin'], weight: ['400', '500', '600'], variable: '--font-ibm-plex' });
+const inter = Inter({ subsets: ['latin'], weight: ['400', '500', '600'], variable: '--font-inter' });
+const workSans = Work_Sans({ subsets: ['latin'], weight: ['400', '500', '600'], variable: '--font-work-sans' });
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+const FONT_VARS = [sourceSerif, cormorant, playfair, montserrat, ibmPlex, inter, workSans, mono]
+  .map((f) => f.variable)
+  .join(' ');
+
+export async function generateMetadata(): Promise<Metadata> {
+  const { companyName } = await getBranding();
+  return {
+    title: `${companyName} OS`,
+    description: `The ${companyName} operating system — CRM, deal analysis, and client portals.`,
+  };
+}
+
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const branding = await getBranding();
   return (
-    <html lang="en" className={`${display.variable} ${sans.variable} ${mono.variable}`}>
-      <body>{children}</body>
+    <html lang="en" className={FONT_VARS}>
+      <body>
+        {/* Unlayered :root override from org_branding — wins over globals.css
+            @layer base defaults regardless of source order. */}
+        <style dangerouslySetInnerHTML={{ __html: brandCssVars(branding) }} />
+        {children}
+      </body>
     </html>
   );
 }

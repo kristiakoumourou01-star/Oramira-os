@@ -22,16 +22,16 @@ export function NavItem({
   return (
     <Link
       href={href}
-      className={`group relative flex items-center gap-3 rounded px-3 py-2 text-sm transition-colors ${
+      className={`group relative flex items-center gap-2.5 rounded-lg px-3 py-1.5 text-[13px] transition-all duration-150 ${
         active
-          ? 'bg-white/10 text-stone-100'
-          : 'text-stone-100/65 hover:bg-white/5 hover:text-stone-100'
+          ? 'bg-gradient-to-r from-champagne/[0.18] to-white/[0.05] font-medium text-champagne shadow-[inset_0_0_0_1px_rgba(200,169,107,0.2)]'
+          : 'text-stone-100/60 hover:translate-x-0.5 hover:bg-white/[0.07] hover:text-stone-100'
       }`}
     >
       {active && (
-        <span className="absolute left-0 top-1/2 h-4 w-[2px] -translate-y-1/2 bg-champagne" />
+        <span className="absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-r bg-champagne shadow-[0_0_8px_rgba(200,169,107,0.5)]" />
       )}
-      {icon}
+      <span className={active ? 'text-champagne' : 'text-stone-100/65 group-hover:text-stone-100'}>{icon}</span>
       <span>{label}</span>
     </Link>
   );

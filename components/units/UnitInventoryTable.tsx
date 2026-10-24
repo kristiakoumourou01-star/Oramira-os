@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { UnitStatusBadge } from './UnitStatusBadge';
+import { formatCurrency } from '@/lib/format';
 
 export interface InventoryUnit {
   id: string;
@@ -70,7 +71,7 @@ export function UnitInventoryTable({ projectId, units }: { projectId: string; un
                 <td className="figure text-charcoal-600">
                   {u.bedrooms ?? '—'} / {u.bathrooms ?? '—'}
                 </td>
-                <td className="figure">{u.price != null ? `€${Number(u.price).toLocaleString()}` : '—'}</td>
+                <td className="figure">{u.price != null ? `${formatCurrency(Number(u.price))}` : '—'}</td>
                 <td><UnitStatusBadge status={u.status} /></td>
               </tr>
             ))}

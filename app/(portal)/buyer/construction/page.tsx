@@ -6,6 +6,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { BuyerMilestoneTimeline } from '@/components/buyer/BuyerMilestoneTimeline';
 import { ProjectGallery } from '@/components/projects/ProjectGallery';
 import { getDocumentUrl } from '@/app/actions/storage';
+import { formatDate } from '@/lib/format';
 
 export default async function ConstructionProgressPage() {
   const profile = await requireRole(['buyer', 'admin', 'sales', 'management']);
@@ -55,7 +56,7 @@ export default async function ConstructionProgressPage() {
             <CalendarCheck size={16} className="text-champagne" strokeWidth={1.75} />
             <div className="leading-tight">
               <p className="text-[10px] uppercase tracking-eyebrow text-stone-100/60">Estimated handover</p>
-              <p className="figure text-sm">{new Date(estimatedHandover).toLocaleDateString()}</p>
+              <p className="figure text-sm">{formatDate(estimatedHandover)}</p>
             </div>
           </div>
         )}

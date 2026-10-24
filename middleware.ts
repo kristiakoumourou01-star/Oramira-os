@@ -9,7 +9,7 @@ import { createServerClient } from '@supabase/ssr';
  * shell/navigation, and gets redirected to where they belong instead of a
  * confusing empty page.
  */
-const STAFF_ROLES = new Set(['admin', 'sales', 'management']);
+const STAFF_ROLES = new Set(['admin', 'sales', 'management', 'finance', 'construction', 'viewer']);
 
 const PORTAL_PREFIX_TO_ROLE: Record<string, string> = {
   '/buyer': 'buyer',
@@ -18,7 +18,7 @@ const PORTAL_PREFIX_TO_ROLE: Record<string, string> = {
   '/contractor': 'contractor',
 };
 
-const PUBLIC_PATHS = ['/login', '/invite', '/reset-password'];
+const PUBLIC_PATHS = ['/login', '/invite', '/reset-password', '/book'];
 
 export async function middleware(request: NextRequest) {
   const { response, user } = await updateSession(request);
@@ -65,7 +65,9 @@ export async function middleware(request: NextRequest) {
     path.startsWith('/crm') ||
     path.startsWith('/deal-analyzer') ||
     path.startsWith('/projects') ||
+    path.startsWith('/property') ||
     path.startsWith('/financials') ||
+    path.startsWith('/hr') ||
     path.startsWith('/automation') ||
     path.startsWith('/homeowner-requests') ||
     path.startsWith('/settings');

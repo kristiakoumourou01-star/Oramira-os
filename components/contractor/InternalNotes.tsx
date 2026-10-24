@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Lock } from 'lucide-react';
 import { addInternalNote } from '@/app/actions/contractor';
+import { formatDateTime } from '@/lib/format';
 
 export interface JobNote {
   id: string;
@@ -54,7 +55,7 @@ export function InternalNotes({ ticketId, notes }: { ticketId: string; notes: Jo
           {notes.map((n) => (
             <li key={n.id} className="rounded border border-stone-line bg-sand-100/40 p-3">
               <p className="text-sm text-charcoal">{n.body}</p>
-              <p className="mt-1 text-xs text-charcoal-600/50">{new Date(n.created_at).toLocaleString()}</p>
+              <p className="mt-1 text-xs text-charcoal-600/50">{formatDateTime(n.created_at)}</p>
             </li>
           ))}
         </ul>

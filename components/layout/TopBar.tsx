@@ -1,11 +1,14 @@
-import { Search } from 'lucide-react';
 import { NotificationBell } from '@/components/ui/NotificationBell';
+import { CommandKButton } from '@/components/search/CommandKButton';
 import type { CurrentProfile } from '@/lib/auth';
 
 const ROLE_LABEL: Record<string, string> = {
   admin: 'Administrator',
-  sales: 'Sales',
-  management: 'Management',
+  sales: 'Sales Agent',
+  management: 'Manager',
+  finance: 'Finance',
+  construction: 'Construction',
+  viewer: 'Viewer',
   buyer: 'Buyer',
   homeowner: 'Homeowner',
   investor: 'Investor',
@@ -19,24 +22,17 @@ const ROLE_LABEL: Record<string, string> = {
  */
 export function TopBar({ profile, showSearch = false }: { profile: CurrentProfile; showSearch?: boolean }) {
   return (
-    <header className="flex h-16 items-center justify-between border-b border-stone-line bg-white px-8">
-      {showSearch ? (
-        <div className="flex max-w-sm items-center gap-2 rounded border border-stone-line bg-stone px-3 py-1.5 text-sm text-charcoal-600">
-          <Search size={15} strokeWidth={1.75} />
-          <span className="text-charcoal-600/70">Search leads, units, contacts…</span>
-        </div>
-      ) : (
-        <div />
-      )}
-      <div className="flex items-center gap-4">
+    <header className="sticky top-0 z-20 flex h-14 items-center justify-between bg-white/80 px-7 shadow-[0_1px_0_rgba(31,77,58,0.08)] backdrop-blur-xl">
+      {showSearch ? <CommandKButton /> : <div />}
+      <div className="flex items-center gap-3">
         <NotificationBell userId={profile.id} />
-        <div className="flex items-center gap-2.5 border-l border-stone-line pl-4">
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-sand text-sm font-medium text-forest">
+        <div className="flex items-center gap-2.5 border-l border-forest/10 pl-3.5">
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-forest to-[#0E2C20] text-[13px] font-medium text-champagne shadow-[0_2px_8px_rgba(31,77,58,0.2)] ring-1 ring-champagne/20">
             {(profile.fullName ?? '?').charAt(0)}
           </div>
           <div className="leading-tight">
-            <p className="text-sm font-medium text-charcoal">{profile.fullName ?? 'Unnamed'}</p>
-            <p className="text-xs text-charcoal-600/70">{ROLE_LABEL[profile.role]}</p>
+            <p className="text-[13px] font-medium text-charcoal">{profile.fullName ?? 'Unnamed'}</p>
+            <p className="text-[11px] text-charcoal-600/60">{ROLE_LABEL[profile.role]}</p>
           </div>
         </div>
       </div>

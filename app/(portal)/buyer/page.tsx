@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Building2, Wallet, HardHat, KeyRound, FileText, MessageSquare, ArrowRight, Megaphone } from 'lucide-react';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { UnitStatusBadge } from '@/components/units/UnitStatusBadge';
+import { formatDate, formatNumber } from '@/lib/format';
 
 export default async function BuyerOverviewPage() {
   const profile = await requireRole(['buyer', 'admin', 'sales', 'management']);
@@ -77,7 +78,7 @@ export default async function BuyerOverviewPage() {
           </div>
           <div className="text-right">
             <UnitStatusBadge status={unit.status} />
-            {total != null && <p className="figure mt-3 text-2xl text-champagne">€{Number(total).toLocaleString()}</p>}
+            {total != null && <p className="figure mt-3 text-2xl text-champagne">€{formatNumber(Number(total))}</p>}
             <span className="mt-3 inline-flex items-center gap-1 text-sm text-stone-100/70 transition-colors group-hover:text-champagne">
               View my unit <ArrowRight size={14} strokeWidth={1.75} />
             </span>
@@ -90,8 +91,8 @@ export default async function BuyerOverviewPage() {
         <div className="panel p-6">
           <p className="eyebrow mb-3">Payment progress</p>
           <div className="mb-2 flex items-baseline justify-between">
-            <span className="figure text-2xl text-forest">€{paid.toLocaleString()}</span>
-            {total != null && <span className="figure text-sm text-charcoal-600/70">of €{Number(total).toLocaleString()}</span>}
+            <span className="figure text-2xl text-forest">€{formatNumber(paid)}</span>
+            {total != null && <span className="figure text-sm text-charcoal-600/70">of €{formatNumber(Number(total))}</span>}
           </div>
           <div className="h-2 overflow-hidden rounded-full bg-sand-100"><div className="h-full rounded-full bg-forest" style={{ width: `${payPct}%` }} /></div>
         </div>
@@ -99,7 +100,7 @@ export default async function BuyerOverviewPage() {
           <p className="eyebrow mb-3">Construction progress</p>
           <div className="mb-2 flex items-baseline justify-between">
             <span className="figure text-2xl text-forest">{constructionPct}%</span>
-            <span className="text-sm text-charcoal-600/70">{unit.handover_date ? `Handover ${new Date(unit.handover_date).toLocaleDateString()}` : 'Handover TBC'}</span>
+            <span className="text-sm text-charcoal-600/70">{unit.handover_date ? `Handover ${formatDate(unit.handover_date)}` : 'Handover TBC'}</span>
           </div>
           <div className="h-2 overflow-hidden rounded-full bg-sand-100"><div className="h-full rounded-full bg-forest" style={{ width: `${constructionPct}%` }} /></div>
         </div>

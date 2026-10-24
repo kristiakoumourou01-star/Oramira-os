@@ -1,3 +1,4 @@
+import { formatNumber } from '@/lib/format';
 /**
  * Payment progress meter — a calm, ledger-like bar rather than a loud
  * percentage ring. Forest fill on a warm sand track, with the figure in the
@@ -10,9 +11,9 @@ export function PaymentProgress({ paid, total }: { paid: number; total: number |
   return (
     <div>
       <div className="mb-2 flex items-baseline justify-between">
-        <span className="figure text-2xl text-forest">€{paid.toLocaleString()}</span>
+        <span className="figure text-2xl text-forest">€{formatNumber(paid)}</span>
         {total != null && (
-          <span className="figure text-sm text-charcoal-600/70">of €{total.toLocaleString()}</span>
+          <span className="figure text-sm text-charcoal-600/70">of €{formatNumber(total)}</span>
         )}
       </div>
       <div className="h-2 overflow-hidden rounded-full bg-sand-100">
@@ -20,7 +21,7 @@ export function PaymentProgress({ paid, total }: { paid: number; total: number |
       </div>
       <div className="mt-2 flex items-center justify-between text-xs text-charcoal-600/70">
         <span className="figure text-champagne-600">{pct}% paid</span>
-        {remaining != null && <span>Remaining <span className="figure text-charcoal">€{remaining.toLocaleString()}</span></span>}
+        {remaining != null && <span>Remaining <span className="figure text-charcoal">€{formatNumber(remaining)}</span></span>}
       </div>
     </div>
   );

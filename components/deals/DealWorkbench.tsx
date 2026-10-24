@@ -4,7 +4,7 @@ import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Save, Check } from 'lucide-react';
 import { analyzeDeal, type DealInputs } from '@/lib/deal-analyzer';
-import type { DealAdvisory } from '@/lib/ai';
+import type { DealAdvisory } from '@/lib/ai-shared';
 import { saveDeal, updateDealStatus } from '@/app/actions/deals';
 import { InputsForm } from './InputsForm';
 import { AnalysisOutputs } from './AnalysisOutputs';

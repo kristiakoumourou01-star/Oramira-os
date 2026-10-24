@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus } from 'lucide-react';
 import { addMilestone, updateMilestoneStatus } from '@/app/actions/projects';
+import { formatDate } from '@/lib/format';
 
 const STAGES = ['permits', 'excavation', 'structure', 'mep', 'finishes', 'delivery'] as const;
 const STAGE_LABEL: Record<string, string> = {
@@ -116,9 +117,9 @@ export function ProjectTimeline({ projectId, milestones }: { projectId: string; 
                 </select>
               </div>
               <p className="mt-0.5 text-xs text-charcoal-600/60">
-                {m.planned_start ? new Date(m.planned_start).toLocaleDateString() : '—'}
+                {m.planned_start ? formatDate(m.planned_start) : '—'}
                 {' → '}
-                {m.planned_end ? new Date(m.planned_end).toLocaleDateString() : '—'}
+                {m.planned_end ? formatDate(m.planned_end) : '—'}
               </p>
               {m.notes && <p className="mt-1 text-xs text-charcoal-600/80">{m.notes}</p>}
             </li>

@@ -3,6 +3,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { requireRole } from '@/lib/auth';
 import { logActivity } from '@/lib/activity';
+import { onReservationCreated } from '@/lib/automation-events';
 import { revalidatePath } from 'next/cache';
 
 /**
@@ -76,6 +77,7 @@ export async function createReservation(params: {
 
   await logActivity({ entityType: 'unit', entityId: params.unitId, action: 'reserved', metadata: { reservationId: reservation.id } });
   await logActivity({ entityType: 'contact', entityId: params.buyerContactId, action: 'unit_reserved', metadata: { unitId: params.unitId } });
+  await onReservationCreated(params.buyerContactId, params.unitId);
 
   revalidatePath(`/projects/${unit.project_id}/units/${params.unitId}`);
   revalidatePath(`/crm/${params.buyerContactId}`);

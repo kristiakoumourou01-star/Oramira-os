@@ -5,6 +5,21 @@
     { "path": "/api/cron?job=maintenance", "schedule": "0 */6 * * *" },
     { "path": "/api/cron?job=warranty_expiry", "schedule": "0 8 * * *" },
     { "path": "/api/cron?job=payment_reminders", "schedule": "0 9 * * *" },
-    { "path": "/api/cron?job=crm", "schedule": "0 7 * * *" }
+    { "path": "/api/cron?job=crm", "schedule": "0 7 * * *" },
+    { "path": "/api/cron?job=speed_to_lead", "schedule": "*/5 * * * *" },
+    { "path": "/api/cron?job=sales_cadence", "schedule": "0 */6 * * *" },
+    { "path": "/api/cron?job=contract_reminders", "schedule": "0 6 * * *" },
+    { "path": "/api/cron?job=viewing_reminders", "schedule": "0 * * * *" },
+    { "path": "/api/cron?job=meeting_reminders", "schedule": "30 * * * *" },
+    { "path": "/api/cron?job=dead_lead_reactivation", "schedule": "0 10 * * *" },
+    { "path": "/api/cron?job=auto_calendar_events", "schedule": "0 5 * * *" },
+    { "path": "/api/cron?job=churn_detection", "schedule": "0 6 * * *" },
+    { "path": "/api/cron?job=owner_lifecycle", "schedule": "0 7 * * *" },
+    { "path": "/api/cron?job=task_orchestration", "schedule": "0 */2 * * *" },
+    { "path": "/api/cron?job=self_healing", "schedule": "0 8 * * *" },
+    { "path": "/api/cron?job=learning_loop", "schedule": "0 4 * * *" },
+    { "path": "/api/cron?job=executive_memory", "schedule": "0 3 * * *" },
+    { "path": "/api/cron?job=acquisition_cadence", "schedule": "0 9 * * *" },
+    { "path": "/api/cron?job=acquisition_ops", "schedule": "0 8 * * *" }
   ]
 }

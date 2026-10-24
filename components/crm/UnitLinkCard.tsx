@@ -3,6 +3,7 @@
 import { useTransition } from 'react';
 import { activateBuyerPortal } from '@/app/actions/invites';
 import { KeyRound, CheckCircle2 } from 'lucide-react';
+import { formatNumber } from '@/lib/format';
 
 export interface UnitLinkData {
   buyerId: string;
@@ -49,11 +50,11 @@ export function UnitLinkCard({ data }: { data: UnitLinkData }) {
         </div>
         <div>
           <p className="eyebrow">Price</p>
-          <p className="figure text-charcoal">€{Number(data.unit.price ?? 0).toLocaleString()}</p>
+          <p className="figure text-charcoal">€{formatNumber(Number(data.unit.price ?? 0))}</p>
         </div>
         <div>
           <p className="eyebrow">Paid to date</p>
-          <p className="figure text-charcoal">€{totalPaid.toLocaleString()}</p>
+          <p className="figure text-charcoal">€{formatNumber(totalPaid)}</p>
         </div>
       </div>
 

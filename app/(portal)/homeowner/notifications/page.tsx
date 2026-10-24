@@ -3,6 +3,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { getHomeownerUnit } from '@/lib/homeowner';
 import { ShieldAlert, Megaphone } from 'lucide-react';
 import { NotificationList, type NotificationRow } from '@/components/homeowner/NotificationList';
+import { formatDate } from '@/lib/format';
 
 export default async function NotificationsCenterPage() {
   const profile = await requireRole(['homeowner', 'admin', 'sales', 'management']);
@@ -42,7 +43,7 @@ export default async function NotificationsCenterPage() {
             {expiring.map((w) => (
               <li key={w.id} className="flex items-center justify-between py-2.5">
                 <p className="text-sm capitalize text-charcoal">{w.category} warranty</p>
-                <p className="text-xs text-charcoal-600/70">Expires <span className="figure">{new Date(w.ends_on).toLocaleDateString()}</span></p>
+                <p className="text-xs text-charcoal-600/70">Expires <span className="figure">{formatDate(w.ends_on)}</span></p>
               </li>
             ))}
           </ul>
@@ -62,7 +63,7 @@ export default async function NotificationsCenterPage() {
               <li key={a.id} className="border-b border-stone-line pb-4 last:border-0 last:pb-0">
                 <p className="text-sm font-medium text-charcoal">{a.title}</p>
                 <p className="mt-0.5 text-sm text-charcoal-600/80">{a.body}</p>
-                <p className="mt-1 text-xs text-charcoal-600/50">{new Date(a.published_at).toLocaleDateString()}</p>
+                <p className="mt-1 text-xs text-charcoal-600/50">{formatDate(a.published_at)}</p>
               </li>
             ))}
           </ul>

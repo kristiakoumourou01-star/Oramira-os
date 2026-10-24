@@ -3,6 +3,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server';
 import Link from 'next/link';
 import { CalendarClock, CheckCircle2, Truck, ChevronRight } from 'lucide-react';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { formatDateTime } from '@/lib/format';
 
 const STATUS_CLASS: Record<string, string> = {
   scheduled: 'badge-champagne',
@@ -42,7 +43,7 @@ export default async function ContractorSchedulePage() {
         <div>
           <p className="text-sm font-medium text-charcoal">{(v as any).maintenance_tickets?.title ?? 'Visit'}</p>
           <p className="figure text-xs text-charcoal-600/60">
-            {v.completed_at ? new Date(v.completed_at).toLocaleString() : v.scheduled_for ? new Date(v.scheduled_for).toLocaleString() : 'Time TBC'}
+            {v.completed_at ? formatDateTime(v.completed_at) : v.scheduled_for ? formatDateTime(v.scheduled_for) : 'Time TBC'}
           </p>
         </div>
       </div>

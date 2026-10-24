@@ -6,6 +6,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { PaymentProgress } from '@/components/buyer/PaymentProgress';
 import { DocumentList } from '@/components/ui/DocumentList';
 import { getDocumentUrl } from '@/app/actions/storage';
+import { formatDate, formatNumber, formatCurrency } from '@/lib/format';
 
 export default async function PaymentCenterPage() {
   const profile = await requireRole(['buyer', 'admin', 'sales', 'management']);
@@ -55,14 +56,14 @@ export default async function PaymentCenterPage() {
         </div>
         <div className="panel p-6">
           <p className="eyebrow mb-2">Remaining balance</p>
-          <p className="figure text-3xl text-forest">{total != null ? `€${Math.max(0, total - paid).toLocaleString()}` : '—'}</p>
+          <p className="figure text-3xl text-forest">{total != null ? `${formatCurrency(Math.max(0, total - paid))}` : '—'}</p>
           <p className="mt-1 text-xs text-charcoal-600/60">across {(schedules ?? []).length} installments</p>
         </div>
         <div className="panel p-6">
           <p className="eyebrow mb-2">Contract value</p>
-          <p className="figure text-3xl text-forest">{total != null ? `€${Number(total).toLocaleString()}` : '—'}</p>
+          <p className="figure text-3xl text-forest">{total != null ? `${formatCurrency(Number(total))}` : '—'}</p>
           {scheduledTotal > 0 && total != null && scheduledTotal !== total && (
-            <p className="mt-1 text-xs text-signal-warning">Scheduled €{scheduledTotal.toLocaleString()}</p>
+            <p className="mt-1 text-xs text-signal-warning">Scheduled €{formatNumber(scheduledTotal)}</p>
           )}
         </div>
       </div>
@@ -81,8 +82,8 @@ export default async function PaymentCenterPage() {
                 <tr key={s.id}>
                   <td className="figure">{s.installment_number}</td>
                   <td>{s.description ?? '—'}</td>
-                  <td className="figure text-charcoal-600">{s.due_date ? new Date(s.due_date).toLocaleDateString() : '—'}</td>
-                  <td className="figure">€{Number(s.amount).toLocaleString()}</td>
+                  <td className="figure text-charcoal-600">{s.due_date ? formatDate(s.due_date) : '—'}</td>
+                  <td className="figure">€{formatNumber(Number(s.amount))}</td>
                   <td>
                     {s.covered ? (
                       <span className="badge-forest"><CheckCircle2 size={11} strokeWidth={2} className="mr-1" /> Paid</span>
@@ -107,9 +108,9 @@ export default async function PaymentCenterPage() {
               {(payments ?? []).map((p) => (
                 <li key={p.id} className="flex items-center justify-between py-3">
                   <div>
-                    <p className="text-sm font-medium text-charcoal">€{Number(p.amount_paid).toLocaleString()}</p>
+                    <p className="text-sm font-medium text-charcoal">€{formatNumber(Number(p.amount_paid))}</p>
                     <p className="text-xs text-charcoal-600/60">
-                      {new Date(p.paid_at).toLocaleDateString()} · {p.method ?? 'payment'}{p.reference ? ` · ${p.reference}` : ''}
+                      {formatDate(p.paid_at)} · {p.method ?? 'payment'}{p.reference ? ` · ${p.reference}` : ''}
                     </p>
                   </div>
                   <CheckCircle2 size={16} className="text-signal-success" strokeWidth={1.75} />

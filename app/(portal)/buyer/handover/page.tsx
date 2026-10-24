@@ -7,6 +7,7 @@ import { HandoverChecklistView, type ChecklistItem } from '@/components/buyer/Ha
 import { TitleDeedTracker } from '@/components/buyer/TitleDeedTracker';
 import { DocumentList } from '@/components/ui/DocumentList';
 import { getDocumentUrl } from '@/app/actions/storage';
+import { formatDate } from '@/lib/format';
 
 export default async function HandoverCenterPage() {
   const profile = await requireRole(['buyer', 'admin', 'sales', 'management']);
@@ -70,7 +71,7 @@ export default async function HandoverCenterPage() {
                       <div>
                         <p className="text-sm font-medium capitalize text-charcoal">{w.category}</p>
                         <p className="text-xs text-charcoal-600/60">
-                          Until <span className="figure">{new Date(w.ends_on).toLocaleDateString()}</span>
+                          Until <span className="figure">{formatDate(w.ends_on)}</span>
                         </p>
                       </div>
                       <span className={active ? 'badge-forest' : 'badge-neutral'}>{active ? 'Active' : 'Expired'}</span>

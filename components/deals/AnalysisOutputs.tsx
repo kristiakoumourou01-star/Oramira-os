@@ -1,5 +1,6 @@
 import type { DealOutputs } from '@/lib/deal-analyzer';
 import { eur, pct } from '@/lib/deal-analyzer';
+import { formatNumber } from '@/lib/format';
 
 function Metric({ label, value, accent, hint }: { label: string; value: string; accent?: boolean; hint?: string }) {
   return (
@@ -53,12 +54,12 @@ export function AnalysisOutputs({ outputs }: { outputs: DealOutputs }) {
       <section className="panel p-6">
         <h4 className="mb-4">Development envelope</h4>
         <div className="grid grid-cols-3 gap-3">
-          <Metric label="Buildable" value={`${Math.round(o.buildableSqm).toLocaleString()} m²`} />
-          <Metric label="Sellable" value={`${Math.round(o.sellableSqm).toLocaleString()} m²`} />
+          <Metric label="Buildable" value={`${formatNumber(Math.round(o.buildableSqm))} m²`} />
+          <Metric label="Sellable" value={`${formatNumber(Math.round(o.sellableSqm))} m²`} />
           <Metric label="Estimated units" value={String(o.estimatedUnits)} />
           <Metric label="Effective price" value={`${eur(o.effectivePricePerSqm)}/m²`} hint="incl. VAT" />
           <Metric label="Break-even price" value={`${eur(o.breakEvenPricePerSqm)}/m²`} accent hint="incl. VAT" />
-          <Metric label="Green area" value={`${Math.round(o.greenAreaSqm).toLocaleString()} m²`} />
+          <Metric label="Green area" value={`${formatNumber(Math.round(o.greenAreaSqm))} m²`} />
         </div>
       </section>
 

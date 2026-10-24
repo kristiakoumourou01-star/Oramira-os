@@ -1,6 +1,7 @@
 import { requireProfile } from '@/lib/auth';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { TopBar } from '@/components/layout/TopBar';
+import { ImpersonationBanner } from '@/components/layout/ImpersonationBanner';
 import { logout } from '@/app/actions/auth';
 import {
   Home,
@@ -48,6 +49,7 @@ export default async function PortalLayout({ children }: { children: React.React
       {
         items: [
           { href: '/homeowner', label: 'Overview', icon: Home },
+          { href: '/homeowner/project', label: 'My Property', icon: Building2 },
           { href: '/homeowner/maintenance', label: 'Maintenance', icon: Wrench },
           { href: '/homeowner/warranty', label: 'Warranty', icon: ShieldCheck },
           { href: '/homeowner/contractor', label: 'Contractor', icon: HardHat },
@@ -93,6 +95,7 @@ export default async function PortalLayout({ children }: { children: React.React
         }
       />
       <div className="flex-1">
+        {profile.impersonator && <ImpersonationBanner name={profile.fullName} role={profile.role} />}
         <TopBar profile={profile} />
         <main className="p-8">{children}</main>
       </div>

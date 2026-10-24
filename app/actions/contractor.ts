@@ -5,6 +5,7 @@ import { requireRole } from '@/lib/auth';
 import { logActivity } from '@/lib/activity';
 import { notifyTicketHomeowner } from '@/lib/notifications';
 import { revalidatePath } from 'next/cache';
+import { formatDateTime } from '@/lib/format';
 
 /**
  * Contractor Portal — Server Actions. Every write is gated by contractor-scoped
@@ -91,10 +92,10 @@ export async function scheduleVisit(params: {
     notes: params.notes ?? null,
     created_by: userId,
   });
-  await addTicketUpdate(supabase, params.ticketId, userId, `Visit scheduled for ${new Date(params.scheduledFor).toLocaleString()}.`);
+  await addTicketUpdate(supabase, params.ticketId, userId, `Visit scheduled for ${formatDateTime(params.scheduledFor)}.`);
   await notifyTicketHomeowner(params.ticketId, {
     title: 'A visit has been scheduled',
-    body: `Your contractor will visit on ${new Date(params.scheduledFor).toLocaleString()}.`,
+    body: `Your contractor will visit on ${formatDateTime(params.scheduledFor)}.`,
     link: `/homeowner/maintenance/${params.ticketId}`,
   });
   revalidatePath(`/contractor/jobs/${params.ticketId}`);

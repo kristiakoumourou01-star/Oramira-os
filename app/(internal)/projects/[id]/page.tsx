@@ -1,10 +1,11 @@
-import { requireRole } from '@/lib/auth';
+import { requirePermission } from '@/lib/auth';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, MapPin } from 'lucide-react';
+import { ArrowLeft, MapPin, Map } from 'lucide-react';
 import { ProjectStatusControl } from '@/components/projects/ProjectStatusControl';
 import { EditProjectForm } from '@/components/projects/EditProjectForm';
+import { ProjectInfoForm } from '@/components/property/ProjectInfoForm';
 import { StructureManager } from '@/components/projects/StructureManager';
 import { ProjectTimeline } from '@/components/projects/ProjectTimeline';
 import { ContractorAssignment } from '@/components/projects/ContractorAssignment';
@@ -15,12 +16,12 @@ import { DocumentList } from '@/components/ui/DocumentList';
 import { getDocumentUrl } from '@/app/actions/storage';
 
 export default async function ProjectDetailPage({ params }: { params: { id: string } }) {
-  await requireRole(['admin', 'sales', 'management']);
+  await requirePermission('projects');
   const supabase = await createSupabaseServerClient();
 
   const { data: project } = await supabase
     .from('projects')
-    .select('id, name, location, description, status')
+    .select('id, name, location, description, status, delivery_date, common_areas, maintenance_schedule, management_contact, emergency_contact')
     .eq('id', params.id)
     .single();
   if (!project) notFound();
@@ -113,16 +114,21 @@ export default async function ProjectDetailPage({ params }: { params: { id: stri
           )}
           {project.description && <p className="mt-3 max-w-2xl text-sm text-charcoal-600/80">{project.description}</p>}
         </div>
-        <div className="text-right">
-          <p className="eyebrow mb-1">Status</p>
-          <ProjectStatusControl projectId={project.id} status={project.status} />
+        <div className="flex flex-col items-end gap-3 text-right">
+          <div>
+            <p className="eyebrow mb-1">Status</p>
+            <ProjectStatusControl projectId={project.id} status={project.status} />
+          </div>
+          <Link href={`/projects/${project.id}/map`} className="btn-secondary text-sm">
+            <Map size={14} strokeWidth={1.75} /> Interactive Map
+          </Link>
         </div>
       </div>
 
       <div className="grid grid-cols-3 gap-6">
         <div className="col-span-2 space-y-6">
           <div className="flex items-center justify-between">
-            <h4>Inventory <span className="text-charcoal-600/50">· {inventoryUnits.length} units</span></h4>
+            <h4>Houses <span className="text-charcoal-600/50">· {inventoryUnits.length}</span></h4>
             <NewUnitForm projectId={project.id} buildings={buildingOpts} phases={phaseOpts} />
           </div>
           <UnitInventoryTable projectId={project.id} units={inventoryUnits} />
@@ -143,6 +149,14 @@ export default async function ProjectDetailPage({ params }: { params: { id: stri
         <div className="space-y-6">
           <ProjectTimeline projectId={project.id} milestones={(milestones ?? []) as any} />
           <ContractorAssignment projectId={project.id} assignments={assignmentRows} />
+          <ProjectInfoForm
+            projectId={project.id}
+            deliveryDate={project.delivery_date}
+            commonAreas={project.common_areas}
+            maintenanceSchedule={project.maintenance_schedule}
+            managementContact={project.management_contact}
+            emergencyContact={project.emergency_contact}
+          />
         </div>
       </div>
     </div>

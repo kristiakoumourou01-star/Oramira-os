@@ -10,6 +10,7 @@ import {
   cancelReservation,
   convertReservationToContract,
 } from '@/app/actions/reservations';
+import { formatDate, formatCurrency } from '@/lib/format';
 
 export interface ReservationView {
   id: string;
@@ -149,13 +150,13 @@ export function ReservationPanel({
         <div className="flex justify-between">
           <span className="text-charcoal-600/70">Deposit</span>
           <span className="figure">
-            {reservation.deposit_amount != null ? `€${Number(reservation.deposit_amount).toLocaleString()}` : '—'}
+            {reservation.deposit_amount != null ? `${formatCurrency(Number(reservation.deposit_amount))}` : '—'}
           </span>
         </div>
         <div className="flex justify-between">
           <span className="text-charcoal-600/70">Hold expires</span>
           <span className={`figure ${lapsed ? 'text-signal-danger' : 'text-charcoal'}`}>
-            {expiresAt ? expiresAt.toLocaleDateString() : '—'}
+            {expiresAt ? formatDate(expiresAt) : '—'}
             {daysLeft != null && (lapsed ? ' · lapsed' : ` · ${daysLeft}d left`)}
           </span>
         </div>

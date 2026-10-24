@@ -3,6 +3,31 @@
 @tailwind utilities;
 
 @layer base {
+  /* Brand token defaults (space-separated RGB channels) — the built-in Oramira
+     identity. Overridden at runtime by an UNLAYERED :root{} block injected in
+     the root layout from org_branding (lib/branding.ts); unlayered always wins
+     over this @layer base rule, so custom branding applies regardless of CSS
+     source order, and these remain the resilient fallback. */
+  :root {
+    --c-forest: 31 58 48;
+    --c-forest-deep: 20 41 34;
+    --c-forest-50: 234 240 236;
+    --c-sand: 230 220 200;
+    --c-sand-100: 240 233 218;
+    --c-sand-300: 217 203 170;
+    --c-stone: 247 243 236;
+    --c-stone-line: 227 218 201;
+    --c-stone-200: 239 233 221;
+    --c-champagne: 200 168 107;
+    --c-champagne-50: 248 240 225;
+    --c-champagne-600: 173 140 82;
+    --c-olive: 138 133 96;
+    --c-charcoal: 43 42 39;
+    --c-charcoal-600: 83 79 71;
+    --font-display: var(--font-source-serif), Georgia, serif;
+    --font-sans: var(--font-ibm-plex), system-ui, sans-serif;
+  }
+
   body {
     @apply bg-stone text-charcoal font-sans antialiased;
   }
@@ -36,10 +61,13 @@
 }
 
 @layer components {
-  /* Resting surface throughout the app — soft shadow, warm hairline border,
-     never a hard SaaS drop-shadow. */
+  /* Resting content surface across every workspace — matches the dashboard's
+     premium card language (borderless, layered green-tinted shadow + inset
+     hairline) so a card looks identical on any page. Radius 16px sits one step
+     below the 18px hero cards for a subtle, consistent hierarchy. */
   .panel {
-    @apply bg-white border border-stone-line rounded-md shadow-soft;
+    @apply rounded-[16px] bg-white;
+    box-shadow: 0 1px 2px rgba(31, 77, 58, 0.04), 0 6px 16px rgba(31, 77, 58, 0.055), inset 0 0 0 1px rgba(31, 77, 58, 0.04);
   }
 
   .eyebrow {
@@ -47,19 +75,55 @@
   }
 
   .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 rounded bg-forest px-5 py-2.5 text-sm font-medium text-stone-100 transition-colors hover:bg-forest-deep disabled:opacity-40 disabled:pointer-events-none;
+    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-forest px-5 py-2.5 text-sm font-medium text-stone-100 transition-all duration-150 hover:bg-forest-deep active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none;
   }
 
   .btn-secondary {
-    @apply inline-flex items-center justify-center gap-2 rounded border border-stone-line bg-white px-5 py-2.5 text-sm font-medium text-charcoal transition-colors hover:bg-sand-100 disabled:opacity-40 disabled:pointer-events-none;
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-forest/30 bg-white px-5 py-2.5 text-sm font-medium text-forest transition-all duration-150 hover:border-forest/50 hover:bg-forest/5 active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none;
   }
 
   .btn-ghost {
-    @apply inline-flex items-center justify-center gap-2 rounded px-3 py-1.5 text-sm font-medium text-charcoal-600 transition-colors hover:bg-sand-100 hover:text-forest;
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium text-charcoal-600 transition-all duration-150 hover:bg-forest/5 hover:text-forest active:scale-[0.98];
   }
 
   .input {
-    @apply w-full rounded border border-stone-line bg-white px-3 py-2.5 text-sm text-charcoal placeholder:text-charcoal-600/50 focus-visible:border-champagne;
+    @apply w-full rounded-lg border border-stone-line bg-white px-3 py-2.5 text-sm text-charcoal placeholder:text-charcoal-600/50 transition-colors duration-150 focus-visible:border-forest focus-visible:ring-2 focus-visible:ring-forest/15 focus-visible:outline-none;
+  }
+
+  /* Layered depth system — separation by shadow, not outlines. ws-card =
+     secondary, primary = hero, flat = tertiary. Borderless; a faint hairline
+     ring only where white sits on white. */
+  .ws-card {
+    @apply rounded-[18px] bg-white p-5;
+    box-shadow: 0 1px 2px rgba(31, 77, 58, 0.04), 0 4px 10px rgba(31, 77, 58, 0.04), 0 14px 34px rgba(31, 77, 58, 0.06), inset 0 0 0 1px rgba(31, 77, 58, 0.035);
+    transition: transform 260ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 260ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  /* Self-contained premium card (used standalone by the hero cards). */
+  .ws-card-primary {
+    @apply rounded-[18px] bg-white p-5;
+    box-shadow: 0 1px 2px rgba(31, 77, 58, 0.04), 0 6px 16px rgba(31, 77, 58, 0.06), 0 28px 64px rgba(31, 77, 58, 0.12), inset 0 0 0 1px rgba(31, 77, 58, 0.04);
+  }
+  /* Tertiary — a soft green-tinted surface that separates without a shadow wall. */
+  .ws-card-flat {
+    @apply rounded-[16px] p-4;
+    background: linear-gradient(180deg, #FBFCFA 0%, #F4F8F2 100%);
+    box-shadow: inset 0 0 0 1px rgba(31, 77, 58, 0.05);
+  }
+  .ws-card-hover:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 2px 4px rgba(31, 77, 58, 0.05), 0 10px 22px rgba(31, 77, 58, 0.07), 0 26px 56px rgba(31, 77, 58, 0.13), inset 0 0 0 1px rgba(31, 77, 58, 0.05);
+  }
+  /* Frosted glass tint for hero chips / overlays. */
+  .ws-glass {
+    background: rgba(255, 255, 255, 0.62);
+    backdrop-filter: saturate(1.2) blur(8px);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.5), 0 1px 3px rgba(31, 77, 58, 0.05);
+  }
+
+  /* Soft green icon container for section headers. */
+  .ws-ico {
+    @apply flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-forest;
+    background: rgba(31, 77, 58, 0.08);
   }
 
   .table-base th {
@@ -85,4 +149,49 @@
   .badge-neutral {
     @apply badge border-stone-line bg-sand-100 text-charcoal-600;
   }
+}
+
+/* Premium micro-interactions — modal fade + panel pop (180ms ease). */
+@keyframes wsFadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes wsPop { from { opacity: 0; transform: translateY(8px) scale(0.98); } to { opacity: 1; transform: none; } }
+.ws-fade-in { animation: wsFadeIn 180ms ease-out; }
+.ws-pop { animation: wsPop 180ms ease-out; }
+
+/* Status pulses — a live ring around a status dot. Forest = live/now,
+   danger = overdue, champagne = urgent. Respects reduced-motion (base layer). */
+@keyframes wsPulseForest { 0% { box-shadow: 0 0 0 0 rgba(31,77,58,0.45); } 70% { box-shadow: 0 0 0 5px rgba(31,77,58,0); } 100% { box-shadow: 0 0 0 0 rgba(31,77,58,0); } }
+@keyframes wsPulseDanger { 0% { box-shadow: 0 0 0 0 rgba(156,74,58,0.5); } 70% { box-shadow: 0 0 0 5px rgba(156,74,58,0); } 100% { box-shadow: 0 0 0 0 rgba(156,74,58,0); } }
+@keyframes wsPulseChampagne { 0% { box-shadow: 0 0 0 0 rgba(200,169,107,0.55); } 70% { box-shadow: 0 0 0 5px rgba(200,169,107,0); } 100% { box-shadow: 0 0 0 0 rgba(200,169,107,0); } }
+.ws-pulse-live { animation: wsPulseForest 2s ease-out infinite; }
+.ws-pulse-danger { animation: wsPulseDanger 2s ease-out infinite; }
+.ws-pulse-urgent { animation: wsPulseChampagne 2s ease-out infinite; }
+
+/* Dual-thumb range slider (budget range) — overlap two range inputs and make
+   only their thumbs interactive so both handles stay draggable. */
+.range-thumb {
+  pointer-events: none;
+}
+.range-thumb::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  pointer-events: auto;
+  height: 16px;
+  width: 16px;
+  border-radius: 9999px;
+  background: #21392E; /* forest */
+  border: 2px solid #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+}
+.range-thumb::-moz-range-thumb {
+  pointer-events: auto;
+  height: 16px;
+  width: 16px;
+  border-radius: 9999px;
+  background: #21392E;
+  border: 2px solid #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+}
+.range-thumb::-webkit-slider-runnable-track {
+  background: transparent;
 }

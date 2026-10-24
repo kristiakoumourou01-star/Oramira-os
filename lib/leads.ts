@@ -1,31 +1,15 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { computePriority } from '@/lib/priority';
+import { selectResilient } from '@/lib/db-resilient';
+import type { LeadListItem } from '@/lib/leads-shared';
 
 /**
  * Enriched lead model for the sales workflow. One place resolves a lead +
  * contact + owner + next follow-up + computed priority, so the leads list, the
  * "Needs action today" rail, and the lead detail page all agree.
+ * The LeadListItem type lives in the client-safe shared module.
  */
-export interface LeadListItem {
-  id: string;
-  contact_id: string;
-  full_name: string | null;
-  email: string | null;
-  phone: string | null;
-  status: string;
-  source: string;
-  budget_min: number | null;
-  budget_max: number | null;
-  ai_score: number | null;
-  last_contacted_at: string | null;
-  created_at: string;
-  owner_id: string | null;
-  owner_name: string | null;
-  next_follow_up: string | null;
-  priority: number;
-  priority_reasons: string[];
-  needs_action: boolean;
-}
+export type { LeadListItem } from '@/lib/leads-shared';
 
 const DAY = 24 * 60 * 60 * 1000;
 const TERMINAL = ['won', 'lost'];
@@ -44,14 +28,20 @@ function deriveNeedsAction(status: string, lastContactedAt: string | null, creat
 export async function getEnrichedLeads(): Promise<LeadListItem[]> {
   const supabase = await createSupabaseServerClient();
 
-  const [{ data: leads }, { data: followUps }] = await Promise.all([
-    supabase
-      .from('leads')
-      .select(
-        `id, contact_id, status, source, budget_min, budget_max, ai_score, last_contacted_at, created_at, assigned_to,
-         contacts(full_name, email, phone), owner:assigned_to(full_name)`
-      )
-      .order('created_at', { ascending: false }),
+  // Resilient select: prefer the full column set, but degrade gracefully if the
+  // assignment/next-action columns (migrations 0020/0027) aren't on the DB yet —
+  // otherwise ONE missing column empties the entire pipeline + dashboard. Same
+  // philosophy as the AI layer: try the ideal, fall back to what works.
+  const BASE = `id, contact_id, status, source, budget_min, budget_max, ai_score, last_contacted_at, created_at,
+         assigned_to, contacts(full_name, email, phone), owner:assigned_to(full_name)`;
+  const FULL = `${BASE}, assigned_at, next_action_date, next_action_type`;
+
+  const [leads, { data: followUps }] = await Promise.all([
+    selectResilient(
+      supabase.from('leads').select(FULL).order('created_at', { ascending: false }),
+      () => supabase.from('leads').select(BASE).order('created_at', { ascending: false }),
+      'getEnrichedLeads',
+    ),
     supabase.from('follow_up_tasks').select('lead_id, due_at').eq('is_done', false),
   ]);
 
@@ -88,10 +78,13 @@ export async function getEnrichedLeads(): Promise<LeadListItem[]> {
       created_at: l.created_at,
       owner_id: l.assigned_to,
       owner_name: (l as any).owner?.full_name ?? null,
+      assigned_at: (l as any).assigned_at ?? null,
+      next_action_date: (l as any).next_action_date ?? null,
+      next_action_type: (l as any).next_action_type ?? null,
       next_follow_up: nextFollowUp,
       priority: score,
       priority_reasons: reasons,
-      needs_action: deriveNeedsAction(l.status, l.last_contacted_at, l.created_at, nextFollowUp),
+      needs_action: deriveNeedsAction(l.status, l.last_contacted_at, l.created_at, (l as any).next_action_date ?? nextFollowUp),
     };
   });
 

@@ -2,10 +2,10 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { formatDistanceToNow } from 'date-fns';
-import type { LeadListItem } from '@/lib/leads';
+import type { LeadListItem } from '@/lib/leads-shared';
 import { PriorityBadge } from './PriorityBadge';
 import { LeadQuickActions } from './LeadQuickActions';
+import { formatDate, formatRelative, formatNumber, formatCurrency } from '@/lib/format';
 
 const STATUSES = ['all', 'new', 'contacted', 'qualified', 'viewing', 'negotiating', 'reserved', 'won', 'lost', 'nurture'] as const;
 
@@ -23,7 +23,9 @@ const STATUS_CLASS: Record<string, string> = {
 
 function budgetLabel(min: number | null, max: number | null) {
   if (!min && !max) return '—';
-  return `€${Number(min ?? 0).toLocaleString()}–${Number(max ?? 0).toLocaleString()}`;
+  if (min && !max) return `${formatCurrency(min)}+`;
+  if (!min && max) return `up to ${formatCurrency(max)}`;
+  return `${formatCurrency(min!)}–${formatNumber(max!)}`;
 }
 
 /** The sales pipeline table — prioritised, clickable, with inline quick actions. */
@@ -83,10 +85,10 @@ export function LeadTable({ leads }: { leads: LeadListItem[] }) {
                   <td><span className={`${STATUS_CLASS[lead.status] ?? 'badge-neutral'} capitalize`}>{lead.status}</span></td>
                   <td><PriorityBadge score={lead.priority} /></td>
                   <td className={`figure text-xs ${overdue ? 'text-signal-danger' : 'text-charcoal-600/80'}`}>
-                    {lead.next_follow_up ? new Date(lead.next_follow_up).toLocaleDateString() : '—'}
+                    {lead.next_follow_up ? formatDate(lead.next_follow_up) : '—'}
                   </td>
                   <td className="text-xs text-charcoal-600/80">
-                    {lead.last_contacted_at ? formatDistanceToNow(new Date(lead.last_contacted_at), { addSuffix: true }) : 'Never'}
+                    {lead.last_contacted_at ? formatRelative(lead.last_contacted_at) : 'Never'}
                   </td>
                   <td className="text-xs text-charcoal-600">{lead.owner_name ?? '—'}</td>
                   <td><LeadQuickActions lead={lead} /></td>

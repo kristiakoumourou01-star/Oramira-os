@@ -1,0 +1,24 @@
+{
+  "extends": "next/core-web-vitals",
+  "overrides": [
+    {
+      "files": ["components/**/*.ts", "components/**/*.tsx"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              { "name": "next/headers", "message": "Server-only. A component must not import next/headers — do server work in a Server Component page or a Server Action." },
+              { "name": "server-only", "message": "Server-only module. Move this logic to a page/action; keep components client-safe." },
+              { "name": "@/lib/supabase/server", "message": "Server Supabase client. Components must not import it directly — fetch in a Server Component/Action, or use @/lib/supabase/client for browser access." },
+              { "name": "@/lib/supabase/middleware", "message": "Server/middleware only — not importable from components." }
+            ],
+            "patterns": [
+              { "group": ["next/server"], "message": "Server-only (next/server). Not importable from a component." }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

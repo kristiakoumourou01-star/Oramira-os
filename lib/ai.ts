@@ -1,5 +1,10 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { eur, pct, type DealInputs, type DealOutputs } from '@/lib/deal-analyzer';
+import { computePriority } from '@/lib/priority';
+import type { DealAdvisory, DraftedMessage, DraftIntent, AiSource } from '@/lib/ai-shared';
+
+// Client-safe AI types live in lib/ai-shared.ts; re-exported for existing importers.
+export type { DealAdvisory, DraftedMessage, DraftIntent, AiSource } from '@/lib/ai-shared';
 
 /**
  * The one place AI calls happen in the system. Never call the model
@@ -12,6 +17,8 @@ interface LeadAnalysis {
   reasoning: string;
   summary: string;
   next_steps: string;
+  source: AiSource;   // 'claude' when the model produced it, 'heuristic' otherwise
+  confidence: number; // 0–1
 }
 
 export async function runLeadAIAnalysis(leadId: string): Promise<LeadAnalysis | null> {
@@ -21,6 +28,7 @@ export async function runLeadAIAnalysis(leadId: string): Promise<LeadAnalysis | 
     .from('leads')
     .select(
       `id, contact_id, status, source, budget_min, budget_max, timeline_to_buy, message,
+       ai_score, last_contacted_at, created_at,
        contacts(full_name, email, nationality),
        projects:preferred_project_id(name)`
     )
@@ -47,14 +55,10 @@ export async function runLeadAIAnalysis(leadId: string): Promise<LeadAnalysis | 
   const context = buildContext(lead, notes ?? [], comms ?? []);
 
   if (!process.env.ANTHROPIC_API_KEY) {
-    // No key configured (local dev without AI) — return a deterministic
-    // placeholder so the UI flow still works end to end.
-    return {
-      score: 50,
-      reasoning: 'AI not configured — set ANTHROPIC_API_KEY to enable scoring.',
-      summary: 'AI summary unavailable in this environment.',
-      next_steps: 'Follow up directly with the lead.',
-    };
+    // No key configured — degrade gracefully to a genuine heuristic analysis
+    // (like runDealAdvisory does) so the CRM stays useful before AI is enabled,
+    // rather than a flat placeholder score.
+    return heuristicLeadAnalysis(lead);
   }
 
   const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -81,18 +85,64 @@ ${context}`,
   });
 
   if (!response.ok) {
-    return null;
+    // Claude unavailable (rate limit, outage, bad key) — degrade to the
+    // deterministic read so the CRM stays intelligent, never blank.
+    return heuristicLeadAnalysis(lead);
   }
 
   const data = await response.json();
   const text = data.content?.map((c: any) => c.text ?? '').join('') ?? '{}';
 
   try {
-    const cleaned = text.replace(/```json|```/g, '').trim();
-    return JSON.parse(cleaned);
+    const parsed = JSON.parse(text.replace(/```json|```/g, '').trim());
+    return { score: parsed.score, reasoning: parsed.reasoning, summary: parsed.summary, next_steps: parsed.next_steps, source: 'claude', confidence: 0.9 };
   } catch {
-    return null;
+    // Model returned unparseable output — fall back to the heuristic rather than
+    // nothing, so the agent still gets a useful read.
+    return heuristicLeadAnalysis(lead);
   }
+}
+
+const NEXT_BY_STATUS: Record<string, string> = {
+  new: 'Respond within 5 minutes on WhatsApp — speed-to-lead is the single biggest conversion lever. Qualify budget + timeline, then offer two viewing slots.',
+  contacted: 'Book a viewing while interest is warm. Send the project brochure and propose two specific dates.',
+  engaged: 'Move to a viewing or a call. Address open questions and confirm budget fit.',
+  qualified: 'Schedule a viewing and prepare 2–3 matching units within their budget.',
+  viewing: 'Confirm the viewing, send directions + brochure, and prepare tailored unit options.',
+  offer: 'Follow up on the offer — reinforce the value and propose a call to resolve open points.',
+  negotiating: 'Keep momentum: acknowledge their position, reinforce value, and propose a constructive next step.',
+  reserved: 'Progress to contract — confirm the deposit and coordinate the paperwork.',
+};
+
+/** Deterministic lead read from the signals — used when no AI key is set, so the
+ *  CRM still produces a useful score, summary and next step. Reuses the shared
+ *  priority scorer (no duplicated heuristics). */
+function heuristicLeadAnalysis(lead: any): LeadAnalysis {
+  const { score: prio, reasons } = computePriority({
+    status: lead.status, budget_min: lead.budget_min, budget_max: lead.budget_max,
+    ai_score: lead.ai_score ?? null, last_contacted_at: lead.last_contacted_at ?? null, created_at: lead.created_at,
+  });
+  // Priority (0–130ish) → likelihood-to-convert (0–100), floored so a fresh lead isn't "0".
+  const score = Math.max(20, Math.min(95, 35 + prio));
+
+  const name = lead.contacts?.full_name ?? 'This lead';
+  const nat = lead.contacts?.nationality ? `${lead.contacts.nationality}, ` : '';
+  const budget = (lead.budget_min || lead.budget_max)
+    ? `${eur(lead.budget_min ?? 0, { compact: true })}–${eur(lead.budget_max ?? 0, { compact: true })}`
+    : 'budget not stated';
+  const project = lead.projects?.name ? ` interested in ${lead.projects.name},` : '';
+  const summary = `${name} (${nat}${lead.source})${project} at the "${lead.status}" stage. Budget ${budget}; timeline ${lead.timeline_to_buy ?? 'unspecified'}.` +
+    (reasons.length ? ` Signals: ${reasons.map((r) => r.replace(/\s*\(\+\d+\)/, '')).join('; ')}.` : '');
+
+  return {
+    score,
+    reasoning: reasons.length ? `Scored on ${reasons.length} signal(s): ${reasons.join(', ')}.` : 'Baseline score — limited signal so far; more activity will sharpen it.',
+    summary,
+    next_steps: NEXT_BY_STATUS[lead.status] ?? 'Follow up with a warm, specific message and propose a clear next step (a call or a viewing).',
+    source: 'heuristic',
+    // Confidence grows with the number of concrete signals we could score on.
+    confidence: Math.min(0.8, 0.4 + reasons.length * 0.12),
+  };
 }
 
 function buildContext(lead: any, notes: any[], comms: any[]): string {
@@ -115,15 +165,6 @@ function buildContext(lead: any, notes: any[], comms: any[]): string {
 }
 
 // ===== Deal Analyzer — acquisitions advisory =====
-
-export interface DealAdvisory {
-  summary: string;
-  strengths: string[];
-  weaknesses: string[];
-  red_flags: string[];
-  recommended_strategy: string;
-  suggested_pricing: string;
-}
 
 /**
  * Strategic advisory on a development deal. Routed through the same single AI
@@ -191,10 +232,123 @@ ${context}`,
       red_flags: parsed.red_flags ?? [],
       recommended_strategy: parsed.recommended_strategy ?? '',
       suggested_pricing: parsed.suggested_pricing ?? '',
+      source: 'claude',
     };
   } catch {
     return heuristicAdvisory(params);
   }
+}
+
+
+const INTENT_BRIEF: Record<DraftIntent, string> = {
+  follow_up: 'Write a warm, non-pushy follow-up that re-opens the conversation and offers a clear next step (a call or a viewing).',
+  objection: 'Handle the buyer’s likely objections (price, financing, process, timing, distance) with empathy and concrete reassurance. Address concerns visible in the history.',
+  viewing_reminder: 'Send a friendly reminder/confirmation for an upcoming property viewing, including a gentle prompt to confirm the time.',
+  negotiation: 'Support the negotiation: acknowledge their position, reinforce the value, and propose a constructive path forward (without giving away discounts the agent hasn’t approved).',
+  nurture: 'Share value about the project and the Cyprus market to keep a cooling lead engaged, with no sales pressure.',
+};
+
+const INTENT_LANG = (language?: string | null) =>
+  language === 'ru' ? ' Write the message in Russian.' : language === 'el' ? ' Write the message in Greek.' : '';
+
+/**
+ * Drafts a context-aware message for a lead on a given channel and intent
+ * (follow-up, objection handling, viewing reminder, negotiation, nurture).
+ * Falls back to a sensible template when no AI key is configured, so the
+ * assistant always returns something usable.
+ */
+export async function draftLeadMessage(params: {
+  name: string;
+  project: string;
+  status: string;
+  channel: 'whatsapp' | 'email';
+  intent?: DraftIntent;
+  agent?: string;
+  language?: string | null;
+  buyerType?: string | null;
+  budget?: string | null;
+  context?: string;
+}): Promise<DraftedMessage> {
+  const { name, project, status, channel, agent = 'the Oramira team', context } = params;
+  const intent: DraftIntent = params.intent ?? 'follow_up';
+
+  if (!process.env.ANTHROPIC_API_KEY) {
+    return heuristicDraft(params, intent);
+  }
+
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 600,
+      messages: [
+        {
+          role: 'user',
+          content: `You are ${agent}, a sales agent for Oramira, a Cyprus luxury property developer. Draft a ${channel} message to a lead. Goal: ${INTENT_BRIEF[intent]}${INTENT_LANG(params.language)}
+Respond ONLY with JSON: {"subject": "<email subject, omit for whatsapp>", "message": "<the message; HTML for email, plain text for whatsapp>"}.
+
+Lead: ${name}
+Interested in: ${project}
+Pipeline stage: ${status}${params.buyerType ? `\nBuyer type: ${params.buyerType}` : ''}${params.budget ? `\nBudget: ${params.budget}` : ''}${context ? `\n\nRecent history (newest first):\n${context}` : ''}
+
+Be specific to this lead's history and stage. Keep it natural and human — never robotic or pushy.`,
+        },
+      ],
+    }),
+  });
+  if (!response.ok) return heuristicDraft(params, intent);
+  try {
+    const data = await response.json();
+    const text = (data.content?.map((c: any) => c.text ?? '').join('') ?? '{}').replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(text);
+    if (!parsed.message) return heuristicDraft(params, intent);
+    return { subject: parsed.subject, message: parsed.message, source: 'claude' };
+  } catch {
+    return heuristicDraft(params, intent);
+  }
+}
+
+/**
+ * Intent-aware deterministic draft — the safety net when Claude is unavailable.
+ * Each intent gets a genuinely different, on-brand message per channel (not one
+ * generic follow-up), so an agent can send it as-is and never feel the AI is
+ * down. Claude, when available, tailors to the full history + language; this
+ * keeps the workflow moving otherwise.
+ */
+function heuristicDraft(params: { name: string; project: string; channel: 'whatsapp' | 'email'; agent?: string }, intent: DraftIntent): DraftedMessage {
+  const { name, project, channel, agent = 'the Oramira team' } = params;
+  const T: Record<DraftIntent, { wa: string; subject: string; email: string }> = {
+    follow_up: {
+      wa: `Hi ${name}, just following up on ${project} — would you like me to arrange a viewing or answer any questions? Happy to find a time that suits you.`,
+      subject: `Following up on ${project}`,
+      email: `Dear ${name},<p>I wanted to follow up on your interest in ${project}. I'd be glad to arrange a viewing or answer any questions — simply reply here and we'll find a time that suits you.</p><p>Warm regards,<br/>${agent}</p>`,
+    },
+    objection: {
+      wa: `Hi ${name}, I completely understand wanting to be sure about ${project}. Whether it's the price, financing or the process, I'm happy to walk you through the details — would a short call help?`,
+      subject: `Happy to answer your questions on ${project}`,
+      email: `Dear ${name},<p>It's only natural to want clarity before a decision on ${project}. Whether your questions are about pricing, financing, the buying process or timing, I'd be glad to talk them through — often a short call clears everything up.</p><p>When would suit you?</p><p>Best,<br/>${agent}</p>`,
+    },
+    viewing_reminder: {
+      wa: `Hi ${name}, looking forward to your viewing at ${project}. Could you confirm the time still works for you? I'll send directions beforehand.`,
+      subject: `Your upcoming viewing at ${project}`,
+      email: `Dear ${name},<p>A friendly reminder about your upcoming viewing at ${project}. Could you confirm the time still works? I'll send directions and everything you need ahead of time.</p><p>Looking forward to meeting you,<br/>${agent}</p>`,
+    },
+    negotiation: {
+      wa: `Hi ${name}, thank you for your offer on ${project}. I want to find a way forward that works for you — let me review the details and propose the best next step. Could we speak later today?`,
+      subject: `Your offer on ${project}`,
+      email: `Dear ${name},<p>Thank you for your offer on ${project}. I appreciate your position and genuinely want to find a path that works for you while reflecting the value of the home. Let me review the details and come back with a constructive next step — could we speak later today?</p><p>Best,<br/>${agent}</p>`,
+    },
+    nurture: {
+      wa: `Hi ${name}, thought you might like a quick update on ${project} and the Cyprus market — no rush at all, just keeping you in the loop. Let me know if anything catches your eye.`,
+      subject: `A quick update on ${project}`,
+      email: `Dear ${name},<p>I thought you might appreciate a brief update on ${project} and the Cyprus market. There's no rush at all — I simply wanted to keep you in the loop as things develop. If anything catches your eye, I'm here.</p><p>Warm regards,<br/>${agent}</p>`,
+    },
+  };
+  const t = T[intent];
+  return channel === 'email'
+    ? { message: t.email, subject: t.subject, source: 'heuristic' }
+    : { message: t.wa, source: 'heuristic' };
 }
 
 /** Deterministic advisory from the numbers — used when no AI key is set. */
@@ -227,5 +381,6 @@ function heuristicAdvisory({ inputs, outputs }: { name: string; inputs: DealInpu
         ? 'Proceed to due diligence: lock the land price, verify the building coefficient with the planning authority, and firm up construction quotes before exchange.'
         : 'Renegotiate the land price or revisit the unit mix and pricing before proceeding — the current basis does not clear a comfortable return.',
     suggested_pricing: `Hold sale pricing at or above ${eur(outputs.breakEvenPricePerSqm * 1.2)}/m² to protect the margin; lead with off-plan reservations to de-risk absorption.`,
+    source: 'heuristic',
   };
 }

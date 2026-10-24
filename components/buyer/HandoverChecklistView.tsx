@@ -1,4 +1,5 @@
 import { Check, Circle } from 'lucide-react';
+import { formatDate } from '@/lib/format';
 
 export interface ChecklistItem {
   id: string;
@@ -35,7 +36,7 @@ export function HandoverChecklistView({ items }: { items: ChecklistItem[] }) {
               <p className={`text-sm ${item.is_complete ? 'text-charcoal' : 'text-charcoal-600'}`}>{item.label}</p>
               {item.description && <p className="mt-0.5 text-xs text-charcoal-600/60">{item.description}</p>}
               {item.is_complete && item.completed_at && (
-                <p className="mt-0.5 text-xs text-signal-success">Completed {new Date(item.completed_at).toLocaleDateString()}</p>
+                <p className="mt-0.5 text-xs text-signal-success">Completed {formatDate(item.completed_at)}</p>
               )}
             </div>
           </li>

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useTransition } from 'react';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 import { sendBuyerMessage } from '@/app/actions/buyer';
 import { Send } from 'lucide-react';
+import { formatDateTime } from '@/lib/format';
 
 export interface ThreadMessage {
   id: string;
@@ -86,7 +87,7 @@ export function BuyerMessageThread({
                 {!mine && <p className="mb-0.5 text-xs font-medium text-champagne-600">{m.sender_name ?? 'Oramira team'}</p>}
                 <p className="whitespace-pre-wrap">{m.body}</p>
                 <p className={`mt-1 text-[10px] ${mine ? 'text-stone-100/50' : 'text-charcoal-600/50'}`}>
-                  {new Date(m.created_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
+                  {formatDateTime(m.created_at)}
                 </p>
               </div>
             </div>

@@ -1,4 +1,4 @@
-import { requireRole } from '@/lib/auth';
+import { requirePermission } from '@/lib/auth';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
@@ -9,7 +9,20 @@ import { ContactTimeline, type TimelineEntry } from '@/components/crm/ContactTim
 import { LeadQuickActions } from '@/components/crm/LeadQuickActions';
 import { ConvertToReservation, type AvailableUnit } from '@/components/crm/ConvertToReservation';
 import { PriorityBadge } from '@/components/crm/PriorityBadge';
+import { LeadAssistant } from '@/components/crm/LeadAssistant';
+import { LeadNextAction } from '@/components/crm/LeadNextAction';
+import { RecommendedProperties } from '@/components/crm/RecommendedProperties';
+import { rankPropertiesForLead } from '@/lib/matching';
+import { SalesCoach } from '@/components/crm/SalesCoach';
+import { ViewingScheduler, type ViewingRow, type UnitOption, type AgentOption } from '@/components/crm/ViewingScheduler';
+import { NegotiationTracker, type NegotiationRow } from '@/components/crm/NegotiationTracker';
 import { computePriority } from '@/lib/priority';
+import { scoreLead } from '@/lib/lead-scoring';
+import { getSourceConversionMap } from '@/lib/learning-loop';
+import { PredictiveScore } from '@/components/crm/PredictiveScore';
+import { analyzeSalesStrategy } from '@/lib/sales-assistant';
+import { AssistantStrategy } from '@/components/crm/AssistantStrategy';
+import { formatDate, formatDateTime, formatNumber, formatCurrency } from '@/lib/format';
 
 const SOURCE_LABEL: Record<string, string> = {
   website: 'Website', meta: 'Meta', google: 'Google', organic: 'Organic',
@@ -17,33 +30,47 @@ const SOURCE_LABEL: Record<string, string> = {
 };
 
 export default async function LeadDetailPage({ params }: { params: { id: string } }) {
-  await requireRole(['admin', 'sales', 'management']);
+  await requirePermission('leads');
   const supabase = await createSupabaseServerClient();
 
-  const { data: lead } = await supabase
-    .from('leads')
-    .select(
-      `id, contact_id, status, source, budget_min, budget_max, timeline_to_buy, message,
+  // Resilient select: prefer the full record, but degrade to guaranteed columns
+  // if the assignment/doctrine columns (0020/0027) aren't on the DB yet — so a
+  // missing column shows a lead with less metadata instead of a false 404.
+  const FULL = `id, contact_id, status, source, budget_min, budget_max, timeline_to_buy, message, preferred_project_id,
+       ai_score, ai_score_reasoning, ai_summary, ai_next_steps, ai_summary_generated_at,
+       last_contacted_at, created_at, assigned_to, assigned_at, next_action_date, next_action_type, first_response_at,
+       contacts(full_name, email, phone, nationality, buyer_type, preferred_language), owner:assigned_to(full_name),
+       assigner:assigned_by(full_name), projects:preferred_project_id(name)`;
+  const BASE = `id, contact_id, status, source, budget_min, budget_max, timeline_to_buy, message, preferred_project_id,
        ai_score, ai_score_reasoning, ai_summary, ai_next_steps, ai_summary_generated_at,
        last_contacted_at, created_at, assigned_to,
-       contacts(full_name, email, phone, nationality), owner:assigned_to(full_name), projects:preferred_project_id(name)`
-    )
-    .eq('id', params.id)
-    .maybeSingle();
+       contacts(full_name, email, phone, nationality), owner:assigned_to(full_name),
+       projects:preferred_project_id(name)`;
+  let leadRes = await supabase.from('leads').select(FULL).eq('id', params.id).maybeSingle();
+  if (leadRes.error) {
+    console.warn('[lead detail] full select failed (%s) — base columns', leadRes.error.message);
+    leadRes = await supabase.from('leads').select(BASE).eq('id', params.id).maybeSingle();
+  }
+  const lead: any = leadRes.data;
   if (!lead) notFound();
 
   const contact = (lead as any).contacts;
   const ownerName = (lead as any).owner?.full_name ?? null;
+  const assignerName = (lead as any).assigner?.full_name ?? null;
 
-  const [{ data: followUps }, { data: notes }, { data: comms }, { data: units }] = await Promise.all([
+  const [{ data: followUps }, { data: notes }, { data: comms }, { data: units }, { data: history }, { data: viewings }, { data: negotiations }, { data: agents }] = await Promise.all([
     supabase.from('follow_up_tasks').select('id, due_at, note').eq('lead_id', lead.id).eq('is_done', false).order('due_at'),
     supabase
       .from('notes')
       .select('id, body, created_at, entity_type, profiles(full_name)')
       .or(`and(entity_type.eq.lead,entity_id.eq.${lead.id}),and(entity_type.eq.contact,entity_id.eq.${lead.contact_id})`)
       .order('created_at', { ascending: false }),
-    supabase.from('contact_communications').select('id, channel, direction, summary, occurred_at, profiles(full_name)').eq('contact_id', lead.contact_id).order('occurred_at', { ascending: false }),
-    supabase.from('units').select('id, unit_number, price, projects(name)').eq('status', 'available').order('unit_number'),
+    supabase.from('contact_communications').select('id, channel, direction, summary, status, ai_generated, occurred_at, profiles(full_name)').eq('contact_id', lead.contact_id).order('occurred_at', { ascending: false }),
+    supabase.from('units').select('id, unit_number, price, bedrooms, project_id, projects(name)').eq('status', 'available').order('unit_number'),
+    supabase.from('lead_assignments').select('id, note, created_at, to:assigned_to(full_name), by:assigned_by(full_name)').eq('lead_id', lead.id).order('created_at', { ascending: false }),
+    supabase.from('viewings').select('id, scheduled_at, status, notes, units(unit_number), projects(name), agent:agent_id(full_name)').eq('lead_id', lead.id).order('scheduled_at', { ascending: false }),
+    supabase.from('negotiations').select('id, offered_price, counter_offer, agreed_price, payment_terms, reservation_deposit, notes, created_at, profiles(full_name)').eq('lead_id', lead.id).order('created_at', { ascending: false }),
+    supabase.from('profiles').select('id, full_name').in('role', ['admin', 'sales', 'management']).order('full_name'),
   ]);
 
   const nextFollowUp = (followUps ?? [])[0]?.due_at ?? null;
@@ -52,18 +79,73 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
     ai_score: lead.ai_score, last_contacted_at: lead.last_contacted_at, created_at: lead.created_at,
   });
 
+  // Predictive score — computed from data already loaded above (no extra queries),
+  // calibrated by the learning loop's per-source conversion rates.
+  const inbound = (comms ?? []).filter((c: any) => c.direction === 'inbound');
+  const activeNeg = (negotiations ?? []).find((n: any) => n.agreed_price == null);
+  const sourceConversion = await getSourceConversionMap(supabase);
+  const leadScore = scoreLead({
+    status: lead.status, budgetMin: lead.budget_min, budgetMax: lead.budget_max, aiScore: lead.ai_score,
+    createdAt: lead.created_at, lastContactedAt: lead.last_contacted_at, firstResponseAt: lead.first_response_at,
+    buyerType: contact?.buyer_type ?? null,
+    inboundCount: inbound.length, outboundCount: (comms ?? []).length - inbound.length,
+    lastInboundAt: inbound.map((c: any) => c.occurred_at).sort().at(-1) ?? null,
+    viewingsCount: (viewings ?? []).length, viewingsAttended: (viewings ?? []).filter((v: any) => v.status === 'attended').length,
+    hasActiveNegotiation: !!activeNeg, objections: (activeNeg as any)?.notes ?? null,
+    openFollowUpOverdue: (followUps ?? []).some((f: any) => new Date(f.due_at).getTime() < Date.now()),
+    sourceConversionPct: sourceConversion[lead.source] ?? null,
+  });
+
+  const latestNeg = (negotiations ?? [])[0] as any;
+  const strategy = analyzeSalesStrategy({
+    status: lead.status, buyerType: contact?.buyer_type ?? null, language: contact?.preferred_language ?? null,
+    convertProbability: leadScore.convertProbability, urgency: leadScore.urgency,
+    viewingsAttended: (viewings ?? []).filter((v: any) => v.status === 'attended').length,
+    offered: latestNeg?.offered_price ?? null, counter: latestNeg?.counter_offer ?? null, agreed: latestNeg?.agreed_price ?? null,
+    objectionsNote: latestNeg?.notes ?? null,
+    lastInboundText: (comms ?? []).find((c: any) => c.direction === 'inbound')?.summary ?? null,
+  });
+
   const timeline: TimelineEntry[] = [
     ...(notes ?? []).map((n: any) => ({ id: n.id, kind: 'note' as const, body: n.body, author: n.profiles?.full_name, occurred_at: n.created_at })),
-    ...(comms ?? []).map((c: any) => ({ id: c.id, kind: 'communication' as const, body: c.summary, channel: c.channel, direction: c.direction, author: c.profiles?.full_name, occurred_at: c.occurred_at })),
+    ...(comms ?? []).map((c: any) => ({ id: c.id, kind: 'communication' as const, body: c.summary, channel: c.channel, direction: c.direction, status: c.status, ai_generated: c.ai_generated, author: c.profiles?.full_name, occurred_at: c.occurred_at })),
   ].sort((a, b) => new Date(b.occurred_at).getTime() - new Date(a.occurred_at).getTime());
 
   const availableUnits: AvailableUnit[] = (units ?? []).map((u: any) => ({
     id: u.id,
-    label: `${u.projects?.name ?? 'Project'} · Unit ${u.unit_number}${u.price != null ? ` · €${Number(u.price).toLocaleString()}` : ''}`,
+    label: `${u.projects?.name ?? 'Project'} · Unit ${u.unit_number}${u.price != null ? ` · ${formatCurrency(Number(u.price))}` : ''}`,
   }));
 
+  // Matching engine → recommended inventory for this buyer (renders only when
+  // there are real matches; empty until inventory exists).
+  const propertyMatches = rankPropertiesForLead(
+    { budgetMin: lead.budget_min, budgetMax: lead.budget_max, preferredProjectId: (lead as any).preferred_project_id ?? null },
+    (units ?? []).map((u: any) => ({ id: u.id, price: u.price, bedrooms: u.bedrooms, projectId: u.project_id, status: 'available' })),
+    { limit: 4 },
+  ).map((u: any) => {
+    const raw: any = (units ?? []).find((x: any) => x.id === u.id);
+    return { id: u.id, unit_number: raw?.unit_number, projectName: raw?.projects?.name, projectId: u.projectId, price: u.price, match: u.match };
+  });
+
+  const unitOptions: UnitOption[] = (units ?? []).map((u: any) => ({
+    id: u.id,
+    label: `${u.projects?.name ?? 'Project'} · Unit ${u.unit_number}`,
+    projectId: u.project_id ?? null,
+  }));
+  const viewingRows: ViewingRow[] = (viewings ?? []).map((v: any) => ({
+    id: v.id, scheduled_at: v.scheduled_at, status: v.status, notes: v.notes,
+    unit_label: v.units?.unit_number ? `${v.projects?.name ?? 'Project'} · Unit ${v.units.unit_number}` : v.projects?.name ?? null,
+    agent: v.agent?.full_name ?? null,
+  }));
+  const negotiationRows: NegotiationRow[] = (negotiations ?? []).map((n: any) => ({
+    id: n.id, offered_price: n.offered_price, counter_offer: n.counter_offer, agreed_price: n.agreed_price,
+    payment_terms: n.payment_terms, reservation_deposit: n.reservation_deposit, notes: n.notes, created_at: n.created_at,
+    author: n.profiles?.full_name ?? null,
+  }));
+  const agentOptions: AgentOption[] = (agents ?? []) as AgentOption[];
+
   const quickLead = { id: lead.id, contact_id: lead.contact_id, full_name: contact?.full_name ?? null, email: contact?.email ?? null, phone: contact?.phone ?? null };
-  const budget = lead.budget_min || lead.budget_max ? `€${Number(lead.budget_min ?? 0).toLocaleString()}–${Number(lead.budget_max ?? 0).toLocaleString()}` : '—';
+  const budget = lead.budget_min || lead.budget_max ? `${formatCurrency(Number(lead.budget_min ?? 0))}–${formatNumber(Number(lead.budget_max ?? 0))}` : '—';
 
   return (
     <div className="space-y-6">
@@ -95,6 +177,10 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
         </div>
       </div>
 
+      {/* The one authoritative "what to do now" — always-fresh deterministic
+          recommendation, one click from execution. */}
+      <LeadNextAction nba={leadScore.nba} source="heuristic" phone={contact?.phone ?? null} />
+
       <div className="grid grid-cols-3 gap-6">
         <div className="col-span-2 space-y-6">
           <div className="panel p-6">
@@ -105,10 +191,15 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
               <div><p className="eyebrow">Source</p><p className="text-charcoal">{SOURCE_LABEL[lead.source] ?? lead.source}</p></div>
               <div><p className="eyebrow">Timeline to buy</p><p className="text-charcoal">{lead.timeline_to_buy ?? '—'}</p></div>
               <div><p className="eyebrow">Interested project</p><p className="text-charcoal">{(lead as any).projects?.name ?? '—'}</p></div>
-              <div><p className="eyebrow">Last contacted</p><p className="text-charcoal">{lead.last_contacted_at ? new Date(lead.last_contacted_at).toLocaleDateString() : 'Never'}</p></div>
-              <div><p className="eyebrow">Next follow-up</p><p className={`text-charcoal ${nextFollowUp && new Date(nextFollowUp).getTime() <= Date.now() ? 'text-signal-danger' : ''}`}>{nextFollowUp ? new Date(nextFollowUp).toLocaleDateString() : '—'}</p></div>
+              <div><p className="eyebrow">Last contacted</p><p className="text-charcoal">{lead.last_contacted_at ? formatDate(lead.last_contacted_at) : 'Never'}</p></div>
+              <div><p className="eyebrow">Next follow-up</p><p className={`text-charcoal ${nextFollowUp && new Date(nextFollowUp).getTime() <= Date.now() ? 'text-signal-danger' : ''}`}>{nextFollowUp ? formatDate(nextFollowUp) : '—'}</p></div>
+              <div><p className="eyebrow">Next action</p><p className="text-charcoal capitalize">{lead.next_action_type ? `${lead.next_action_type.replace('_', ' ')}${lead.next_action_date ? ` · ${formatDate(lead.next_action_date)}` : ''}` : '—'}</p></div>
             </div>
           </div>
+
+          <ViewingScheduler leadId={lead.id} contactId={lead.contact_id} units={unitOptions} agents={agentOptions} viewings={viewingRows} />
+
+          <NegotiationTracker leadId={lead.id} entries={negotiationRows} />
 
           <ContactTimeline contactId={lead.contact_id} leadId={lead.id} entries={timeline} />
         </div>
@@ -123,6 +214,27 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
             generatedAt={lead.ai_summary_generated_at}
           />
 
+          <PredictiveScore score={leadScore} />
+
+          <RecommendedProperties matches={propertyMatches} />
+
+          <SalesCoach
+            signals={{
+              status: lead.status,
+              buyerType: contact?.buyer_type,
+              language: contact?.preferred_language,
+              createdAt: lead.created_at,
+              lastContactedAt: lead.last_contacted_at,
+              firstResponseAt: lead.first_response_at,
+              aiScore: lead.ai_score,
+              priority: score,
+            }}
+          />
+
+          <AssistantStrategy strategy={strategy} />
+
+          <LeadAssistant leadId={lead.id} hasPhone={!!contact?.phone} hasEmail={!!contact?.email} />
+
           <div className="panel p-6">
             <h4 className="mb-3">Priority score</h4>
             <p className="figure mb-3 text-3xl text-forest">{score}</p>
@@ -136,6 +248,28 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
           </div>
 
           <div className="panel p-6">
+            <h4 className="mb-3">Assignment</h4>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between"><span className="text-charcoal-600/70">Owner</span><span className="font-medium text-charcoal">{ownerName ?? 'Unassigned'}</span></div>
+              <div className="flex justify-between"><span className="text-charcoal-600/70">Assigned by</span><span className="text-charcoal">{assignerName ?? '—'}</span></div>
+              <div className="flex justify-between"><span className="text-charcoal-600/70">Assigned</span><span className="figure text-charcoal-600">{lead.assigned_at ? formatDate(lead.assigned_at) : '—'}</span></div>
+            </div>
+            {(history ?? []).length > 0 && (
+              <div className="mt-4 border-t border-stone-line pt-3">
+                <p className="eyebrow mb-2">History</p>
+                <ul className="space-y-1.5">
+                  {(history ?? []).map((h: any) => (
+                    <li key={h.id} className="text-xs text-charcoal-600/80">
+                      → <span className="text-charcoal">{h.to?.full_name ?? 'Unassigned'}</span>
+                      {h.by?.full_name ? ` by ${h.by.full_name}` : ''} · {formatDate(h.created_at)}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+
+          <div className="panel p-6">
             <h4 className="mb-3">Upcoming follow-ups</h4>
             {(followUps ?? []).length === 0 ? (
               <p className="text-sm text-charcoal-600/70">None scheduled. Use the calendar action above to add one.</p>
@@ -143,7 +277,7 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
               <ul className="divide-y divide-stone-line">
                 {(followUps ?? []).map((f: any) => (
                   <li key={f.id} className="py-2.5">
-                    <p className="figure text-sm text-charcoal">{new Date(f.due_at).toLocaleString()}</p>
+                    <p className="figure text-sm text-charcoal">{formatDateTime(f.due_at)}</p>
                     {f.note && <p className="text-xs text-charcoal-600/70">{f.note}</p>}
                   </li>
                 ))}

@@ -1,19 +1,13 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { BUCKETS, type BucketName } from '@/lib/storage-shared';
 
 /**
  * Storage buckets are split by sensitivity, not lumped into one — see
  * Phase 1. Every upload/download in the app should go through these
  * helpers so the bucket choice and signed-URL expiry stay consistent.
+ * BUCKETS + BucketName live in the client-safe shared module.
  */
-export const BUCKETS = {
-  projectMedia: 'project-media', // gallery, floorplans — broader read access
-  contracts: 'contracts', // private, signed URLs only
-  defectReports: 'defect-reports', // homeowner ticket photos
-  investorDocuments: 'investor-documents',
-  contractorInvoices: 'contractor-invoices',
-} as const;
-
-export type BucketName = (typeof BUCKETS)[keyof typeof BUCKETS];
+export { BUCKETS, type BucketName } from '@/lib/storage-shared';
 
 /** Uploads a file and records it in the polymorphic `documents` table in one step. */
 export async function uploadDocument(params: {

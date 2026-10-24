@@ -6,6 +6,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { UnitStatusBadge } from '@/components/units/UnitStatusBadge';
 import { DocumentList } from '@/components/ui/DocumentList';
 import { getDocumentUrl } from '@/app/actions/storage';
+import { formatCurrency } from '@/lib/format';
 
 export default async function MyUnitPage() {
   const profile = await requireRole(['buyer', 'admin', 'sales', 'management']);
@@ -101,7 +102,7 @@ export default async function MyUnitPage() {
           <div className="panel p-6">
             <p className="eyebrow mb-2">Purchase price</p>
             <p className="figure text-3xl text-forest">
-              {unit.price != null ? `€${Number(unit.price).toLocaleString()}` : '—'}
+              {unit.price != null ? `${formatCurrency(Number(unit.price))}` : '—'}
             </p>
           </div>
 

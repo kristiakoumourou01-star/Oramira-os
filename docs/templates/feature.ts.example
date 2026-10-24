@@ -1,0 +1,26 @@
+// docs/templates/feature.ts.example → copy to  lib/feature.ts
+//
+// SERVER library: database access / server-only logic.
+// ✅ May import @/lib/supabase/server (cookies) and other server libs.
+// ⛔ NOT importable from a Client Component.
+// ↳ Re-export the shared types so existing importers keep one import path,
+//   but Client Components must import them from '@/lib/feature-shared' instead.
+
+import { createSupabaseServerClient } from '@/lib/supabase/server';
+import type { FeatureItem, FeatureStage } from '@/lib/feature-shared';
+
+// Re-export the client-safe surface (types/constants live in the shared module).
+export { FEATURE_STAGES, STAGE_LABEL, isTerminal, type FeatureStage, type FeatureItem } from '@/lib/feature-shared';
+
+/** Server fetcher — uses cookies() via the server client, so this file is server-only. */
+export async function getFeatureItems(): Promise<FeatureItem[]> {
+  const supabase = await createSupabaseServerClient();
+  const { data } = await supabase.from('feature_items').select('id, title, stage');
+  return (data ?? []) as FeatureItem[];
+}
+
+// Corresponding pieces (not shown):
+//   app/actions/feature.ts        → 'use server'  (mutations; importable from clients as RPC)
+//   app/(internal)/feature/page.tsx → Server Component (calls getFeatureItems, renders client comps)
+//   components/feature/Board.tsx  → 'use client'  (imports FeatureItem from '@/lib/feature-shared'
+//                                                  and actions from '@/app/actions/feature')

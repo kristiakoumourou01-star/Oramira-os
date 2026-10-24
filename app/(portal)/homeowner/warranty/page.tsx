@@ -6,6 +6,7 @@ import { ShieldCheck, ChevronRight } from 'lucide-react';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { WarrantyClaimButton } from '@/components/homeowner/WarrantyClaimButton';
 import { TicketStatusBadge } from '@/components/homeowner/TicketStatusBadge';
+import { formatDate } from '@/lib/format';
 
 export default async function WarrantyCenterPage() {
   const profile = await requireRole(['homeowner', 'admin', 'sales', 'management']);
@@ -60,7 +61,7 @@ export default async function WarrantyCenterPage() {
                     </span>
                   </div>
                   <p className="text-xs text-charcoal-600/70">
-                    <span className="figure">{new Date(w.starts_on).toLocaleDateString()}</span> – <span className="figure">{ends.toLocaleDateString()}</span>
+                    <span className="figure">{formatDate(w.starts_on)}</span> – <span className="figure">{formatDate(ends)}</span>
                   </p>
                   {w.notes && <p className="mt-2 text-xs text-charcoal-600/80">{w.notes}</p>}
                   {active && (
@@ -86,7 +87,7 @@ export default async function WarrantyCenterPage() {
                 <Link href={`/homeowner/maintenance/${c.id}`} className="flex items-center justify-between py-3 transition-colors hover:bg-stone/60">
                   <div>
                     <p className="text-sm font-medium text-charcoal">{c.title}</p>
-                    <p className="text-xs text-charcoal-600/60">{new Date(c.created_at).toLocaleDateString()}</p>
+                    <p className="text-xs text-charcoal-600/60">{formatDate(c.created_at)}</p>
                   </div>
                   <div className="flex items-center gap-2">
                     <TicketStatusBadge status={c.status} />

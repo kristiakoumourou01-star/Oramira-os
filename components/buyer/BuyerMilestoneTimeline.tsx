@@ -1,4 +1,5 @@
 import { Check } from 'lucide-react';
+import { formatDate } from '@/lib/format';
 
 const STAGE_ORDER = ['permits', 'excavation', 'structure', 'mep', 'finishes', 'delivery'] as const;
 const STAGE_LABEL: Record<string, string> = {
@@ -69,9 +70,9 @@ export function BuyerMilestoneTimeline({ milestones }: { milestones: BuyerMilest
               {(m.actual_end || m.planned_end) && (
                 <p className="mt-0.5 text-xs text-charcoal-600/60">
                   {done && m.actual_end
-                    ? `Completed ${new Date(m.actual_end).toLocaleDateString()}`
+                    ? `Completed ${formatDate(m.actual_end)}`
                     : m.planned_end
-                    ? `Expected ${new Date(m.planned_end).toLocaleDateString()}`
+                    ? `Expected ${formatDate(m.planned_end)}`
                     : ''}
                 </p>
               )}

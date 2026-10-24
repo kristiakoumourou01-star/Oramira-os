@@ -1,9 +1,10 @@
-import { requireRole } from '@/lib/auth';
+import { requirePermission } from '@/lib/auth';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import Link from 'next/link';
 import { Building2, MapPin } from 'lucide-react';
 import { NewProjectForm } from '@/components/projects/NewProjectForm';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { WorkspaceHeader } from '@/components/ui/WorkspaceHeader';
 
 /**
  * Projects index — the operational inventory layer's front door. Each card
@@ -11,7 +12,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
  * available vs. committed.
  */
 export default async function ProjectsPage() {
-  await requireRole(['admin', 'sales', 'management']);
+  await requirePermission('projects');
   const supabase = await createSupabaseServerClient();
 
   const { data: projects } = await supabase
@@ -29,14 +30,8 @@ export default async function ProjectsPage() {
   }, {});
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="eyebrow mb-1">Operations</p>
-          <h1 className="text-3xl">Projects</h1>
-        </div>
-        <NewProjectForm />
-      </div>
+    <div className="space-y-5">
+      <WorkspaceHeader eyebrow="Operations" title="Projects" description="Developments, phases, and unit inventory." action={<NewProjectForm />} />
 
       {!projects || projects.length === 0 ? (
         <EmptyState

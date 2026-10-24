@@ -1,8 +1,9 @@
-import { requireRole } from '@/lib/auth';
+import { requirePermission } from '@/lib/auth';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { JOBS } from '@/lib/automations';
-import { RunJobButton } from '@/components/automation/RunJobButton';
-import { Workflow, CheckCircle2, XCircle, Clock } from 'lucide-react';
+import { AutomationCategories, type AutomationGroup } from '@/components/automation/AutomationCategories';
+import { WorkspaceHeader } from '@/components/ui/WorkspaceHeader';
+import { formatDateTime } from '@/lib/format';
 
 const STATUS_CLASS: Record<string, string> = {
   success: 'badge-forest',
@@ -10,8 +11,20 @@ const STATUS_CLASS: Record<string, string> = {
   partial: 'badge-champagne',
 };
 
+// Job → domain category. Every job maps to exactly one collapsible section.
+const CATEGORY: Record<string, string> = {
+  crm: 'Sales', speed_to_lead: 'Sales', sales_cadence: 'Sales', dead_lead_reactivation: 'Sales', viewing_reminders: 'Sales', meeting_reminders: 'Sales', churn_detection: 'Sales',
+  acquisition_ops: 'Acquisitions', acquisition_cadence: 'Acquisitions',
+  maintenance: 'Property', warranty_expiry: 'Property', reservation_expiry: 'Property', owner_lifecycle: 'Property',
+  contract_reminders: 'HR',
+  payment_reminders: 'Finance',
+  task_orchestration: 'AI · Autonomous', self_healing: 'AI · Autonomous', learning_loop: 'AI · Autonomous', executive_memory: 'AI · Autonomous',
+  website_sync: 'System', auto_calendar_events: 'System',
+};
+const ORDER = ['Sales', 'Acquisitions', 'Property', 'HR', 'Finance', 'AI · Autonomous', 'System'];
+
 export default async function AutomationCenterPage() {
-  await requireRole(['admin', 'sales', 'management']);
+  await requirePermission('automation');
   const supabase = await createSupabaseServerClient();
 
   const { data: runs } = await supabase
@@ -20,50 +33,27 @@ export default async function AutomationCenterPage() {
     .order('started_at', { ascending: false })
     .limit(60);
 
-  // Last run per job for the cards.
   type Run = NonNullable<typeof runs>[number];
   const lastByJob = new Map<string, Run>();
   for (const r of runs ?? []) if (!lastByJob.has(r.job)) lastByJob.set(r.job, r);
 
-  return (
-    <div className="space-y-8">
-      <div>
-        <p className="eyebrow mb-1">Operations</p>
-        <h1 className="text-3xl">Automation Center</h1>
-        <p className="mt-1 text-sm text-charcoal-600/70">The engine that keeps Oramira OS moving — reservations, warranties, payments, maintenance, CRM, and website sync.</p>
-      </div>
+  // Group jobs into categories (serialisable — the run() fn stays server-side).
+  const groups: AutomationGroup[] = ORDER.map((category) => ({
+    category,
+    jobs: JOBS.filter((j) => (CATEGORY[j.key] ?? 'System') === category).map((j) => {
+      const last = lastByJob.get(j.key);
+      return { key: j.key, label: j.label, description: j.description, schedule: j.schedule, lastStatus: last?.status ?? null, lastAt: last?.started_at ?? null };
+    }),
+  })).filter((g) => g.jobs.length > 0);
 
-      {/* Job cards */}
-      <div className="grid grid-cols-2 gap-4">
-        {JOBS.map((job) => {
-          const last = lastByJob.get(job.key);
-          return (
-            <div key={job.key} className="panel p-5">
-              <div className="mb-2 flex items-start justify-between">
-                <div className="flex items-center gap-2">
-                  <Workflow size={16} className="text-olive" strokeWidth={1.75} />
-                  <h4>{job.label}</h4>
-                </div>
-                <span className="badge-neutral">{job.schedule}</span>
-              </div>
-              <p className="mb-4 text-sm text-charcoal-600/75">{job.description}</p>
-              <div className="flex items-center justify-between border-t border-stone-line pt-3">
-                <div className="flex items-center gap-2 text-xs text-charcoal-600/70">
-                  {last ? (
-                    <>
-                      {last.status === 'success' ? <CheckCircle2 size={13} className="text-signal-success" strokeWidth={1.75} /> : last.status === 'failed' ? <XCircle size={13} className="text-signal-danger" strokeWidth={1.75} /> : <Clock size={13} strokeWidth={1.75} />}
-                      <span>Last run {new Date(last.started_at).toLocaleString()}</span>
-                    </>
-                  ) : (
-                    <span>Never run</span>
-                  )}
-                </div>
-                <RunJobButton jobKey={job.key} />
-              </div>
-            </div>
-          );
-        })}
-      </div>
+  const failing = (runs ?? []).length ? [...lastByJob.values()].filter((r) => r.status === 'failed').length : 0;
+
+  return (
+    <div className="space-y-5">
+      <WorkspaceHeader eyebrow="Operations" title="Automation Center" description={`${JOBS.length} automations across ${groups.length} domains${failing ? ` · ${failing} need attention` : ' · all healthy'}. Expand a category to run or inspect a job.`} />
+
+      {/* Collapsible category sections */}
+      <AutomationCategories groups={groups} />
 
       {/* Run history / audit log */}
       <div className="panel overflow-hidden">
@@ -85,7 +75,7 @@ export default async function AutomationCenterPage() {
                   <td className="figure text-charcoal-600">{r.processed}</td>
                   <td className="text-charcoal-600/85">{r.error ? <span className="text-signal-danger">{r.error}</span> : r.summary}</td>
                   <td className="text-charcoal-600/70 capitalize">{r.triggered_by}</td>
-                  <td className="figure text-charcoal-600/70">{new Date(r.started_at).toLocaleString()}</td>
+                  <td className="figure text-charcoal-600/70">{formatDateTime(r.started_at)}</td>
                 </tr>
               ))}
             </tbody>

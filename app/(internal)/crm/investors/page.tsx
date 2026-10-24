@@ -1,9 +1,9 @@
-import { requireRole } from '@/lib/auth';
+import { requirePermission } from '@/lib/auth';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import Link from 'next/link';
 
 export default async function InvestorsPage() {
-  await requireRole(['admin', 'sales', 'management']);
+  await requirePermission('leads');
   const supabase = await createSupabaseServerClient();
 
   const { data: investors } = await supabase

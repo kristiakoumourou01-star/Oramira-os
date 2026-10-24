@@ -14,6 +14,7 @@ import { MessageThread, type MessageItem } from '@/components/portal/MessageThre
 import { ProjectGallery } from '@/components/projects/ProjectGallery';
 import { getDocumentUrl } from '@/app/actions/storage';
 import type { ContractorJob } from '@/types/database.types';
+import { formatDate } from '@/lib/format';
 
 export default async function ContractorJobDetailPage({ params }: { params: { ticketId: string } }) {
   const profile = await requireRole(['contractor', 'admin', 'sales', 'management']);
@@ -107,7 +108,7 @@ export default async function ContractorJobDetailPage({ params }: { params: { ti
                     <span className="absolute -left-[23px] top-1 h-2 w-2 rounded-full bg-forest" />
                     {u.status_change && <p className="text-sm font-medium capitalize text-charcoal">{u.status_change.replace(/_/g, ' ')}</p>}
                     <p className="text-sm text-charcoal-600/80">{u.note}</p>
-                    <p className="mt-0.5 text-xs text-charcoal-600/50">{(u as any).profiles?.full_name ?? 'Oramira'} · {new Date(u.created_at).toLocaleDateString()}</p>
+                    <p className="mt-0.5 text-xs text-charcoal-600/50">{(u as any).profiles?.full_name ?? 'Oramira'} · {formatDate(u.created_at)}</p>
                   </li>
                 ))}
               </ol>
