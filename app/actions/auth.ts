@@ -3,8 +3,11 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { homeRouteForRole } from '@/lib/auth';
+import { isInternalRole } from '@/lib/permissions';
 import { clearImpersonationCookie } from '@/lib/impersonation';
 import { logActivity } from '@/lib/activity';
+import { getOrgSettings } from '@/lib/org-settings';
+import { START_SCREENS } from '@/lib/org-settings-shared';
 
 export interface LoginState { error?: string }
 
@@ -35,7 +38,16 @@ export async function login(_prevState: LoginState | undefined, formData: FormDa
   console.error('[login] success, role:', profile?.role ?? '(no profile)');
   // Access event for the global audit log (captures IP + device via logActivity).
   await logActivity({ entityType: 'auth', entityId: data.user.id, action: 'login', metadata: { role: profile?.role ?? null } });
-  redirect(homeRouteForRole((profile?.role as any) ?? 'buyer'));
+
+  const role = (profile?.role as any) ?? 'buyer';
+  // Internal staff land on the org-configured start screen (Settings → Layout),
+  // validated against the allow-list; portal users keep their fixed home.
+  let target = homeRouteForRole(role);
+  if (isInternalRole(role)) {
+    const { layout } = await getOrgSettings();
+    if (START_SCREENS.some((s) => s.value === layout.startScreen)) target = layout.startScreen;
+  }
+  redirect(target);
 }
 
 export async function logout() {

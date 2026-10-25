@@ -17,6 +17,7 @@ import { GoogleCalendarConnect } from '@/components/dashboard/GoogleCalendarConn
 import { computeLeaveSummary } from '@/lib/leave';
 import { getGoogleEventsForUser, isCalendarConnected } from '@/lib/calendar-sync';
 import { getEnrichedLeads } from '@/lib/leads';
+import { getOrgSettings } from '@/lib/org-settings';
 import { Wallet, FileText, BadgePercent, Bell, CheckSquare, Plane, Video, Target, Flame, Clock, TrendingUp, CalendarClock } from 'lucide-react';
 import { formatDayMonth, formatWeekdayTime, formatCurrency } from '@/lib/format';
 import { nextBestAction } from '@/lib/next-best-action';
@@ -62,6 +63,10 @@ export default async function DashboardPage() {
       supabase.from('profiles').select('id, full_name, avatar_url, contacts(email)').in('role', INTERNAL_ROLES).order('full_name'),
     ]);
   const routePlan = await buildRoutePlan(supabase, profile.id);
+  // Dashboard block visibility + order (Settings → Dashboard).
+  const dashBlocks = (await getOrgSettings()).dashboard.blocks;
+  const vis = (k: string) => dashBlocks.find((b) => b.key === k)?.visible !== false;
+  const ord = (k: string) => { const i = dashBlocks.findIndex((b) => b.key === k); return i < 0 ? 99 : i; };
   // Executive Command Center — CEO-level cross-module board, admins/management only.
   const isExec = ['admin', 'management'].includes(me?.role ?? profile.role);
   const commandCenter = isExec ? await buildCommandCenter(supabase) : null;
@@ -150,19 +155,30 @@ export default async function DashboardPage() {
     { key: 'deals', label: 'Active deals', value: String(pipelineLeads.length), tone: 'neutral', icon: Target },
   ];
 
-  return (
-    <div className="-mx-6 -my-5 min-h-screen bg-[#F7F4EE] px-6 py-5 text-charcoal">
-      {/* A · Greeting — the dashboard header (no separate profile header) */}
-      <MorningBrief supabase={supabase} profileId={profile.id} name={me?.full_name ?? profile.fullName ?? 'there'} action={<GoogleCalendarConnect connected={calConn.connected} configured={calConn.configured} />} />
+  const bothInsights = vis('pipeline') && vis('tasks');
 
-      {/* Executive command bar (leadership) → full board at /command-center */}
-      {commandCenter && <ExecutiveCommandCenter data={commandCenter} />}
+  return (
+    <div className="-mx-6 -my-5 flex min-h-screen flex-col gap-4 bg-[#F7F4EE] px-6 py-5 text-charcoal">
+      {/* A · Greeting — the dashboard header (no separate profile header) */}
+      {vis('briefing') && (
+        <div style={{ order: ord('briefing') }}>
+          <MorningBrief supabase={supabase} profileId={profile.id} name={me?.full_name ?? profile.fullName ?? 'there'} action={<GoogleCalendarConnect connected={calConn.connected} configured={calConn.configured} />} />
+          {/* Executive command bar (leadership) → full board at /command-center */}
+          {commandCenter && <div className="mt-4"><ExecutiveCommandCenter data={commandCenter} /></div>}
+        </div>
+      )}
 
       {/* B · Calendar + quick actions (main operational surface) */}
-      <PlannerBoard events={events} leads={leadOptions} projects={projectOptions} team={teamOptions} routePlan={routePlan} />
+      {vis('planner') && (
+        <div style={{ order: ord('planner') }}>
+          <PlannerBoard events={events} leads={leadOptions} projects={projectOptions} team={teamOptions} routePlan={routePlan} />
+        </div>
+      )}
 
       {/* C · Today's Pipeline + Today's Tasks side by side */}
-      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+      {(vis('pipeline') || vis('tasks')) && (
+      <div className={`grid gap-4 ${bothInsights ? 'lg:grid-cols-2' : 'grid-cols-1'}`} style={{ order: Math.min(ord('pipeline'), ord('tasks')) }}>
+      {vis('pipeline') && (
       <Card>
         <PanelTitle icon={Target}>Today Pipeline</PanelTitle>
         <div className="grid gap-x-6 gap-y-5 divide-y divide-[#F0EADF] md:grid-cols-3 md:divide-x md:divide-y-0">
@@ -217,12 +233,16 @@ export default async function DashboardPage() {
           </div>
         </div>
       </Card>
+      )}
       {/* Today's Tasks — the unified task feed (tasks + follow-ups + planner tasks) */}
+      {vis('tasks') && (
       <Card>
         <PanelTitle icon={CheckSquare}>Today&apos;s Tasks</PanelTitle>
         <CompactTaskList tasks={compactTasks} />
       </Card>
+      )}
       </div>
+      )}
     </div>
   );
 }

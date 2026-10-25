@@ -59,11 +59,9 @@ export const START_SCREENS: { value: string; label: string }[] = [
 export interface DashboardBlock { key: string; label: string; visible: boolean }
 export const DASHBOARD_BLOCK_DEFS: { key: string; label: string }[] = [
   { key: 'briefing', label: 'Morning briefing' },
-  { key: 'planner', label: 'Planner / agenda' },
-  { key: 'pipeline', label: 'Pipeline snapshot' },
-  { key: 'tasks', label: 'My to-dos' },
-  { key: 'performance', label: 'Performance / KPIs' },
-  { key: 'route', label: 'Route plan' },
+  { key: 'planner', label: 'Planner & quick actions' },
+  { key: 'pipeline', label: "Today's pipeline" },
+  { key: 'tasks', label: "Today's tasks" },
 ];
 export interface DashboardSettings { blocks: DashboardBlock[] }
 
