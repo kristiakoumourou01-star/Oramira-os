@@ -118,3 +118,52 @@ export async function getCalendarFeed(profileId: string, fromISO: string, toISO:
   items.sort((a, b) => a.start.localeCompare(b.start));
   return items;
 }
+
+/**
+ * Team calendar feed — internal events + viewings for several members over a
+ * window, grouped by member (one column each in the day Team view). Google is
+ * intentionally skipped here (N API calls); the per-person view keeps it.
+ * View-only (editable:false); resilient ({} on error).
+ */
+export async function getTeamCalendarFeed(memberIds: string[], fromISO: string, toISO: string): Promise<Record<string, CalendarItem[]>> {
+  const out: Record<string, CalendarItem[]> = {};
+  if (memberIds.length === 0) return out;
+  for (const id of memberIds) out[id] = [];
+  try {
+    const supabase = await createSupabaseServerClient();
+    const [{ data: events }, { data: viewings }] = await Promise.all([
+      supabase
+        .from('calendar_events')
+        .select('id, title, type, start_at, duration_min, status, color, location, meeting_link, related_lead_id, profile_id')
+        .in('profile_id', memberIds)
+        .neq('status', 'cancelled')
+        .gte('start_at', fromISO)
+        .lte('start_at', toISO),
+      supabase
+        .from('viewings')
+        .select('id, scheduled_at, status, meeting_link, lead_id, agent_id, contacts(full_name)')
+        .in('agent_id', memberIds)
+        .not('status', 'in', '("cancelled","no_show")')
+        .gte('scheduled_at', fromISO)
+        .lte('scheduled_at', toISO),
+    ]);
+    for (const e of (events ?? []) as any[]) {
+      (out[e.profile_id] ??= []).push({
+        id: e.id, source: 'internal', type: e.type || 'meeting', title: e.title, start: e.start_at,
+        durationMin: e.duration_min ?? 45, status: e.status ?? null, color: e.color ?? null,
+        location: e.location ?? null, meetingLink: e.meeting_link ?? null, leadId: e.related_lead_id ?? null, editable: false,
+      });
+    }
+    for (const v of (viewings ?? []) as any[]) {
+      (out[v.agent_id] ??= []).push({
+        id: v.id, source: 'viewing', type: 'viewing', title: `Viewing${v.contacts?.full_name ? ` — ${v.contacts.full_name}` : ''}`,
+        start: v.scheduled_at, durationMin: 60, status: v.status ?? null, color: null, location: null,
+        meetingLink: v.meeting_link ?? null, leadId: v.lead_id ?? null, editable: false,
+      });
+    }
+    for (const id of memberIds) out[id].sort((a, b) => a.start.localeCompare(b.start));
+    return out;
+  } catch {
+    return out;
+  }
+}

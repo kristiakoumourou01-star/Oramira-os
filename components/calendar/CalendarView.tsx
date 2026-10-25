@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ChevronLeft, ChevronRight, Plus, Video, X, CheckCircle2, Trash2, ExternalLink } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Video, X, CheckCircle2, Trash2, ExternalLink, Users } from 'lucide-react';
 import { CreateEventModal, type LeadOption, type ProjectOption, type TeamOption, type ModalPreset } from '@/components/dashboard/CreateEventModal';
 import { GoogleCalendarConnect } from '@/components/dashboard/GoogleCalendarConnect';
 import { cancelCalendarEvent, setEventStatus } from '@/app/actions/calendar';
@@ -45,6 +45,8 @@ export function CalendarView({
   team,
   googleConnected,
   googleConfigured,
+  teamMode = false,
+  teamEvents = {},
 }: {
   date: string; // YYYY-MM-DD anchor
   view: View;
@@ -54,6 +56,8 @@ export function CalendarView({
   team: TeamOption[];
   googleConnected: boolean;
   googleConfigured: boolean;
+  teamMode?: boolean;
+  teamEvents?: Record<string, CalendarItem[]>;
 }) {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
@@ -62,12 +66,19 @@ export function CalendarView({
   useEffect(() => setMounted(true), []);
 
   const anchor = useMemo(() => atMidnight(date), [date]);
-  const go = (d: Date, v: View = view) => router.push(`/calendar?date=${ymd(d)}&view=${v}`);
+  const go = (d: Date, v: View = view, t: boolean = teamMode) => router.push(`/calendar?date=${ymd(d)}&view=${v}${t ? '&team=1' : ''}`);
   const step = (dir: number) => {
     if (view === 'day') go(addDays(anchor, dir));
     else if (view === 'week') go(addDays(anchor, dir * 7));
     else { const m = new Date(anchor); m.setMonth(m.getMonth() + dir); go(m); }
   };
+  // Team view is a day view with one column per member.
+  const toggleTeam = () => go(anchor, 'day', !teamMode);
+  const useTeam = teamMode && view === 'day';
+
+  const columns: GridColumn[] = useTeam
+    ? team.map((m) => ({ key: m.id, label: m.name, date: anchor, items: (teamEvents[m.id] ?? []).filter((it) => sameDay(new Date(it.start), anchor)) }))
+    : (view === 'day' ? [anchor] : weekDays(anchor)).map((d) => ({ key: ymd(d), label: WEEKDAYS[(d.getDay() + 6) % 7], sublabel: String(d.getDate()), date: d, items: items.filter((it) => sameDay(new Date(it.start), d)) }));
 
   const title = view === 'month' ? formatMonthYear(anchor) : view === 'day' ? formatWeekdayLongDate(anchor) : `${ymd(startOfWeek(anchor))} → ${ymd(addDays(startOfWeek(anchor), 6))}`;
 
@@ -92,6 +103,13 @@ export function CalendarView({
         />
 
         <div className="ml-auto flex items-center gap-2">
+          <button
+            onClick={toggleTeam}
+            className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${teamMode ? 'border-forest bg-forest text-stone-100' : 'border-stone-line text-charcoal-600 hover:text-forest'}`}
+            title="Προβολή ομάδας (στήλη ανά άτομο)"
+          >
+            <Users size={13} /> Ομάδα
+          </button>
           <div className="flex rounded-lg border border-stone-line p-0.5">
             {(['day', 'week', 'month'] as View[]).map((v) => (
               <button key={v} onClick={() => go(anchor, v)} className={`rounded-md px-3 py-1 text-xs font-medium capitalize ${view === v ? 'bg-forest text-stone-100' : 'text-charcoal-600 hover:text-forest'}`}>
@@ -117,7 +135,7 @@ export function CalendarView({
       ) : view === 'month' ? (
         <MonthGrid anchor={anchor} items={items} onPick={(d) => go(d, 'day')} onNew={(iso) => setPreset({ startISO: iso })} onEvent={setDetail} />
       ) : (
-        <TimeGrid days={view === 'day' ? [anchor] : weekDays(anchor)} items={items} onSlot={(iso) => setPreset({ startISO: iso })} onEvent={setDetail} />
+        <TimeGrid columns={columns} onSlot={(iso) => setPreset({ startISO: iso })} onEvent={setDetail} />
       )}
 
       {preset && (
@@ -140,21 +158,26 @@ function defaultSlot(anchor: Date): string {
   return d.toISOString();
 }
 
-/* ---- Day/Week time grid ---- */
-function TimeGrid({ days, items, onSlot, onEvent }: { days: Date[]; items: CalendarItem[]; onSlot: (iso: string) => void; onEvent: (i: CalendarItem) => void }) {
+/* ---- Time grid: columns are either days (day/week) or people (team day) ---- */
+interface GridColumn { key: string; label: string; sublabel?: string; date: Date; items: CalendarItem[] }
+
+function TimeGrid({ columns, onSlot, onEvent }: { columns: GridColumn[]; onSlot: (iso: string) => void; onEvent: (i: CalendarItem) => void }) {
   const hours = Array.from({ length: DAY_END - DAY_START }, (_, i) => DAY_START + i);
   const now = new Date();
   return (
     <div className="panel overflow-x-auto p-0">
-      <div className="grid min-w-[640px]" style={{ gridTemplateColumns: `56px repeat(${days.length}, minmax(0,1fr))` }}>
+      <div className="grid min-w-[640px]" style={{ gridTemplateColumns: `56px repeat(${columns.length}, minmax(0,1fr))` }}>
         {/* header row */}
         <div className="border-b border-stone-line" />
-        {days.map((d) => (
-          <div key={ymd(d)} className={`border-b border-l border-stone-line px-2 py-2 text-center ${sameDay(d, now) ? 'bg-forest-50' : ''}`}>
-            <p className="text-[11px] uppercase tracking-wide text-charcoal-600/60">{WEEKDAYS[(d.getDay() + 6) % 7]}</p>
-            <p className={`text-sm font-medium ${sameDay(d, now) ? 'text-forest' : 'text-charcoal'}`}>{d.getDate()}</p>
-          </div>
-        ))}
+        {columns.map((c) => {
+          const isToday = sameDay(c.date, now);
+          return (
+            <div key={c.key} className={`border-b border-l border-stone-line px-2 py-2 text-center ${isToday ? 'bg-forest-50' : ''}`}>
+              <p className={`truncate text-[11px] uppercase tracking-wide ${isToday ? 'text-forest' : 'text-charcoal-600/60'}`}>{c.label}</p>
+              {c.sublabel && <p className={`text-sm font-medium ${isToday ? 'text-forest' : 'text-charcoal'}`}>{c.sublabel}</p>}
+            </div>
+          );
+        })}
 
         {/* hour labels column */}
         <div className="relative" style={{ height: GRID_PX }}>
@@ -163,25 +186,25 @@ function TimeGrid({ days, items, onSlot, onEvent }: { days: Date[]; items: Calen
           ))}
         </div>
 
-        {/* day columns */}
-        {days.map((d) => {
-          const dayItems = items.filter((it) => sameDay(new Date(it.start), d));
+        {/* columns */}
+        {columns.map((c) => {
+          const isToday = sameDay(c.date, now);
           return (
-            <div key={`col-${ymd(d)}`} className="relative border-l border-stone-line" style={{ height: GRID_PX }}>
+            <div key={`col-${c.key}`} className="relative border-l border-stone-line" style={{ height: GRID_PX }}>
               {hours.map((h) => (
                 <div
                   key={h}
-                  onClick={() => { const s = new Date(d); s.setHours(h, 0, 0, 0); onSlot(s.toISOString()); }}
+                  onClick={() => { const s = new Date(c.date); s.setHours(h, 0, 0, 0); onSlot(s.toISOString()); }}
                   className="absolute left-0 right-0 cursor-pointer border-b border-stone-line/60 hover:bg-forest/[0.03]"
                   style={{ top: (h - DAY_START) * HOUR_PX, height: HOUR_PX }}
                 />
               ))}
-              {sameDay(d, now) && (
+              {isToday && (
                 <div className="pointer-events-none absolute left-0 right-0 z-10 border-t border-signal-danger" style={{ top: minsToPx(now.getHours() * 60 + now.getMinutes()) }}>
                   <span className="absolute -left-1 -top-1 h-2 w-2 rounded-full bg-signal-danger" />
                 </div>
               )}
-              {dayItems.map((it) => <EventBlock key={`${it.source}-${it.id}`} item={it} onClick={() => onEvent(it)} />)}
+              {c.items.map((it) => <EventBlock key={`${c.key}-${it.source}-${it.id}`} item={it} onClick={() => onEvent(it)} />)}
             </div>
           );
         })}

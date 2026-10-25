@@ -2,7 +2,7 @@ import { requireProfile } from '@/lib/auth';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { INTERNAL_ROLES } from '@/lib/permissions';
 import { isCalendarConnected } from '@/lib/calendar-sync';
-import { getCalendarFeed } from '@/lib/calendar-feed';
+import { getCalendarFeed, getTeamCalendarFeed } from '@/lib/calendar-feed';
 import { WorkspaceHeader } from '@/components/ui/WorkspaceHeader';
 import { CalendarView } from '@/components/calendar/CalendarView';
 
@@ -25,7 +25,7 @@ function windowFor(anchor: Date, view: View): { from: Date; to: Date } {
   return { from: addDays(gridStart, -1), to: addDays(gridStart, 43) };
 }
 
-export default async function CalendarPage({ searchParams }: { searchParams: { date?: string; view?: string } }) {
+export default async function CalendarPage({ searchParams }: { searchParams: { date?: string; view?: string; team?: string } }) {
   const profile = await requireProfile();
   const supabase = await createSupabaseServerClient();
 
@@ -46,6 +46,10 @@ export default async function CalendarPage({ searchParams }: { searchParams: { d
   const leads = (leadsRes?.data ?? []).map((l: any) => ({ id: l.id, name: l.full_name ?? 'Lead', contactId: l.contact_id ?? null }));
   const team = (teamRes?.data ?? []).map((m: any) => ({ id: m.id, name: m.full_name ?? 'Team member', email: m.contacts?.email ?? '', avatar_url: m.avatar_url ?? null }));
 
+  // Team view (day only): one column per member.
+  const teamMode = searchParams.team === '1' && view === 'day';
+  const teamEvents = teamMode ? await getTeamCalendarFeed(team.map((m) => m.id), from.toISOString(), to.toISOString()) : {};
+
   return (
     <div className="space-y-5">
       <WorkspaceHeader
@@ -62,6 +66,8 @@ export default async function CalendarPage({ searchParams }: { searchParams: { d
         team={team}
         googleConnected={conn.connected}
         googleConfigured={conn.configured}
+        teamMode={teamMode}
+        teamEvents={teamEvents}
       />
     </div>
   );
