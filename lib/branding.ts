@@ -10,7 +10,7 @@
 
 import { cache } from 'react';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
-import { DEFAULT_BRANDING, type Branding, type FontKey } from '@/lib/branding-shared';
+import { DEFAULT_BRANDING, type Branding, type FontKey, type ContentWidth, type Density } from '@/lib/branding-shared';
 
 export * from '@/lib/branding-shared';
 
@@ -24,7 +24,7 @@ export const getBranding = cache(async function getBranding(): Promise<Branding>
     const supabase = await createSupabaseServerClient();
     const { data, error } = await supabase
       .from('org_branding')
-      .select('company_name, logo_url, color_primary, color_accent, color_secondary, color_background, color_text, font_heading, font_body')
+      .select('company_name, logo_url, color_primary, color_accent, color_secondary, color_background, color_text, font_heading, font_body, content_width, density')
       .eq('id', 'org')
       .maybeSingle();
     if (error || !data) return DEFAULT_BRANDING;
@@ -38,6 +38,8 @@ export const getBranding = cache(async function getBranding(): Promise<Branding>
       colorText: data.color_text || DEFAULT_BRANDING.colorText,
       fontHeading: (data.font_heading as FontKey) || DEFAULT_BRANDING.fontHeading,
       fontBody: (data.font_body as FontKey) || DEFAULT_BRANDING.fontBody,
+      contentWidth: ((data as any).content_width as ContentWidth) || DEFAULT_BRANDING.contentWidth,
+      density: ((data as any).density as Density) || DEFAULT_BRANDING.density,
     };
   } catch {
     return DEFAULT_BRANDING;

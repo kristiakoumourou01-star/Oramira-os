@@ -16,8 +16,8 @@ export default async function BrandingSettingsPage() {
     <div className="space-y-5">
       <WorkspaceHeader
         eyebrow="Admin"
-        title="Branding & εμφάνιση"
-        description="Λογότυπο, χρώματα και γραμματοσειρές. Οι αλλαγές ισχύουν σε όλο το CRM και τα portals."
+        title="Appearance & Layout"
+        description="Λογότυπο, χρώματα, γραμματοσειρές, πλάτος και πυκνότητα. Οι αλλαγές ισχύουν σε όλο το CRM και τα portals."
       />
       <BrandingForm initial={branding} />
     </div>

@@ -45,6 +45,8 @@ export function BrandingForm({ initial }: { initial: Branding }) {
         colorText: b.colorText,
         fontHeading: b.fontHeading,
         fontBody: b.fontBody,
+        contentWidth: b.contentWidth,
+        density: b.density,
       });
       if (res.ok) {
         setMsg({ ok: true, text: 'Αποθηκεύτηκε. Οι αλλαγές ισχύουν σε όλο το CRM.' });
@@ -117,6 +119,27 @@ export function BrandingForm({ initial }: { initial: Branding }) {
               {BODY_FONTS.map((k) => <option key={k} value={k}>{FONT_CATALOG[k].label}</option>)}
             </select>
           </label>
+        </div>
+
+        <div className="panel space-y-4 p-5">
+          <h4>Διάταξη</h4>
+          <div>
+            <span className="eyebrow mb-1.5 block">Πλάτος περιεχομένου</span>
+            <div className="flex rounded-lg border border-stone-line p-0.5">
+              {([['standard', 'Κανονικό'], ['wide', 'Πλατύ'], ['full', 'Πλήρες']] as const).map(([v, label]) => (
+                <button key={v} onClick={() => set('contentWidth', v)} className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium ${b.contentWidth === v ? 'bg-forest text-stone-100' : 'text-charcoal-600 hover:text-forest'}`}>{label}</button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <span className="eyebrow mb-1.5 block">Πυκνότητα</span>
+            <div className="flex rounded-lg border border-stone-line p-0.5">
+              {([['comfortable', 'Άνετη'], ['compact', 'Συμπαγής']] as const).map(([v, label]) => (
+                <button key={v} onClick={() => set('density', v)} className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium ${b.density === v ? 'bg-forest text-stone-100' : 'text-charcoal-600 hover:text-forest'}`}>{label}</button>
+              ))}
+            </div>
+            <p className="mt-1.5 text-xs text-charcoal-600/60">Η συμπαγής μειώνει τα κενά σε κάρτες, πίνακες και κουμπιά σε όλο το CRM.</p>
+          </div>
         </div>
 
         <div className="flex items-center gap-3">

@@ -16,7 +16,12 @@ export interface SaveBrandingInput {
   colorText: string;
   fontHeading: string;
   fontBody: string;
+  contentWidth: string;
+  density: string;
 }
+
+const CONTENT_WIDTHS = ['standard', 'wide', 'full'];
+const DENSITIES = ['comfortable', 'compact'];
 
 export type SaveBrandingResult = { ok: true } | { ok: false; error: string };
 
@@ -62,6 +67,8 @@ export async function saveBranding(input: SaveBrandingInput): Promise<SaveBrandi
       color_text: cleanColor(input.colorText, 'Κείμενο'),
       font_heading: cleanFont(input.fontHeading, 'Γραμματοσειρά τίτλων'),
       font_body: cleanFont(input.fontBody, 'Γραμματοσειρά κειμένου'),
+      content_width: CONTENT_WIDTHS.includes(input.contentWidth) ? input.contentWidth : 'standard',
+      density: DENSITIES.includes(input.density) ? input.density : 'comfortable',
       updated_at: new Date().toISOString(),
       updated_by: profile.id,
     };

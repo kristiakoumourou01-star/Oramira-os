@@ -12,6 +12,9 @@
  * DERIVED here from the chosen colors, so a rebrand stays coherent.
  */
 
+export type ContentWidth = 'standard' | 'wide' | 'full';
+export type Density = 'comfortable' | 'compact';
+
 export interface Branding {
   companyName: string;
   logoUrl: string | null;
@@ -22,6 +25,8 @@ export interface Branding {
   colorText: string;
   fontHeading: FontKey;
   fontBody: FontKey;
+  contentWidth: ContentWidth;
+  density: Density;
 }
 
 export const DEFAULT_BRANDING: Branding = {
@@ -34,6 +39,15 @@ export const DEFAULT_BRANDING: Branding = {
   colorText: '#2B2A27',
   fontHeading: 'source-serif',
   fontBody: 'ibm-plex',
+  contentWidth: 'standard',
+  density: 'comfortable',
+};
+
+/** Tailwind max-width class for the main content column per content-width pref. */
+export const CONTENT_WIDTH_CLASS: Record<ContentWidth, string> = {
+  standard: 'max-w-[1600px]',
+  wide: 'max-w-[1920px]',
+  full: 'max-w-none',
 };
 
 /* ------------------------------------------------------------------ fonts -- */

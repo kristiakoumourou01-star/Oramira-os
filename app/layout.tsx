@@ -42,7 +42,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const branding = await getBranding();
   return (
-    <html lang="en" className={FONT_VARS}>
+    <html lang="en" className={FONT_VARS} data-density={branding.density}>
       <body>
         {/* Unlayered :root override from org_branding — wins over globals.css
             @layer base defaults regardless of source order. */}

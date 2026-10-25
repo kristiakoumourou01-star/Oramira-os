@@ -1,6 +1,7 @@
 import { requireProfile, homeRouteForRole } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { effectiveCan, isInternalRole, type Module } from '@/lib/permissions';
+import { getBranding, CONTENT_WIDTH_CLASS } from '@/lib/branding';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { TopBar } from '@/components/layout/TopBar';
 import { ImpersonationBanner } from '@/components/layout/ImpersonationBanner';
@@ -8,6 +9,7 @@ import { CommandPalette } from '@/components/search/CommandPalette';
 import { logout } from '@/app/actions/auth';
 import {
   LayoutDashboard,
+  CalendarDays,
   Users,
   Megaphone,
   Workflow,
@@ -43,6 +45,7 @@ const NAV: NavDef[] = [
   {
     items: [
       { href: '/dashboard', label: 'My Workspace', icon: LayoutDashboard },
+      { href: '/calendar', label: 'Calendar', icon: CalendarDays },
       { href: '/crm/leads', label: 'Sales', icon: Users, module: 'leads' },
       { href: '/crm/customers', label: 'Customers', icon: Contact, module: 'leads' },
       { href: '/acquisitions', label: 'Acquisitions', icon: Map, module: 'acquisitions' },
@@ -58,7 +61,7 @@ const NAV: NavDef[] = [
     label: 'Admin',
     items: [
       { href: '/settings/users', label: 'Users', icon: Users, module: 'users' },
-      { href: '/settings/branding', label: 'Branding', icon: Palette, module: 'users' },
+      { href: '/settings/branding', label: 'Appearance', icon: Palette, module: 'users' },
       { href: '/settings/audit', label: 'Audit log', icon: ScrollText, module: 'users' },
       { href: '/settings/templates', label: 'Templates', icon: MessageSquare, module: 'automation' },
       { href: '/automation', label: 'Automations', icon: Workflow, module: 'automation' },
@@ -70,6 +73,7 @@ const NAV: NavDef[] = [
 export default async function InternalLayout({ children }: { children: React.ReactNode }) {
   const profile = await requireProfile();
   if (!isInternalRole(profile.role)) redirect(homeRouteForRole(profile.role));
+  const { contentWidth } = await getBranding();
   const can = (m?: Module) => !m || effectiveCan(profile.role, profile.moduleAccess, m, 'view');
 
   const sections = NAV.map((section) => ({
@@ -95,7 +99,7 @@ export default async function InternalLayout({ children }: { children: React.Rea
       <div className="flex-1">
         {profile.impersonator && <ImpersonationBanner name={profile.fullName} role={profile.role} />}
         <TopBar profile={profile} showSearch />
-        <main className="mx-auto max-w-[1600px] px-6 py-5">{children}</main>
+        <main className={`mx-auto px-6 py-5 ${CONTENT_WIDTH_CLASS[contentWidth]}`}>{children}</main>
       </div>
       <CommandPalette />
     </div>

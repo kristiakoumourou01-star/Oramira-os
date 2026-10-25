@@ -203,11 +203,18 @@ export interface Database {
           color_text: string;
           font_heading: string;
           font_body: string;
+          content_width: string;
+          density: string;
           updated_at: string;
           updated_by: string | null;
         };
         Insert: Partial<Database['public']['Tables']['org_branding']['Row']> & { id: string };
         Update: Partial<Database['public']['Tables']['org_branding']['Row']>;
+      };
+      org_settings: {
+        Row: { id: string; data: Json; updated_at: string; updated_by: string | null };
+        Insert: Partial<Database['public']['Tables']['org_settings']['Row']> & { id: string };
+        Update: Partial<Database['public']['Tables']['org_settings']['Row']>;
       };
       contacts: {
         Row: {

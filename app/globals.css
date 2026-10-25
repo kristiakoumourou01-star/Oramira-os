@@ -2,6 +2,13 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Density preference (Settings → Appearance). Compact scales the root font-size
+   so every rem-based spacing and type step tightens proportionally across the
+   whole app — a true global density lever. Unlayered so it always applies. */
+:root[data-density='compact'] {
+  font-size: 15px;
+}
+
 @layer base {
   /* Brand token defaults (space-separated RGB channels) — the built-in Oramira
      identity. Overridden at runtime by an UNLAYERED :root{} block injected in

@@ -19,6 +19,9 @@ create table if not exists public.org_branding (
   -- Curated font keys resolved against the catalog in lib/branding.ts.
   font_heading  text not null default 'source-serif',
   font_body     text not null default 'ibm-plex',
+  -- Layout preferences, applied at the root layout (dynamic, no deploy).
+  content_width text not null default 'standard',    -- standard | wide | full
+  density       text not null default 'comfortable', -- comfortable | compact
   updated_at    timestamptz not null default now(),
   updated_by    uuid references auth.users(id)
 );

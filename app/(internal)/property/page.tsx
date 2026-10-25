@@ -20,11 +20,11 @@ const Empty = ({ text }: { text: string }) => <p className="text-sm text-charcoa
  * Ownership History as in-page tabs. A development selector keeps it scalable
  * across multiple developments.
  */
-export default async function PropertyManagementPage({ searchParams }: { searchParams: { dev?: string; tab?: string } }) {
+export default async function PropertyManagementPage({ searchParams }: { searchParams: { dev?: string; tab?: string; city?: string } }) {
   await requirePermission('property');
   const supabase = await createSupabaseServerClient();
 
-  const { data: projects } = await supabase.from('projects').select('id, name').order('name');
+  const { data: projects } = await supabase.from('projects').select('id, name, location').order('name');
   if (!projects || projects.length === 0) {
     return (
       <div className="space-y-5">
@@ -34,7 +34,14 @@ export default async function PropertyManagementPage({ searchParams }: { searchP
     );
   }
 
-  const selected = projects.find((p) => p.id === searchParams.dev) ?? projects[0];
+  // City filter — developments are grouped by their location (city). Selecting a
+  // city narrows the development selector to that city.
+  const cities = Array.from(new Set(projects.map((p) => p.location).filter((l): l is string => !!l))).sort();
+  const activeCity = searchParams.city && cities.includes(searchParams.city) ? searchParams.city : null;
+  const visibleProjects = activeCity ? projects.filter((p) => p.location === activeCity) : projects;
+  const cityQuery = activeCity ? `&city=${encodeURIComponent(activeCity)}` : '';
+
+  const selected = visibleProjects.find((p) => p.id === searchParams.dev) ?? visibleProjects[0] ?? projects[0];
 
   const [mapData, media, { data: units }, { data: documents }] = await Promise.all([
     loadDevelopmentMapData(selected.id),
@@ -156,10 +163,22 @@ export default async function PropertyManagementPage({ searchParams }: { searchP
         action={<Link href={`/projects/${selected.id}/map`} className="btn-secondary text-sm"><MapIcon size={14} strokeWidth={1.75} /> Edit map & plans</Link>}
       />
 
-      {projects.length > 1 && (
+      {/* City filter */}
+      {cities.length > 1 && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="mr-1 text-xs font-medium text-charcoal-600/60">Πόλη:</span>
+          <Link href="/property" className={`badge ${!activeCity ? 'badge-forest' : 'badge-neutral'}`}>Όλες</Link>
+          {cities.map((c) => (
+            <Link key={c} href={`/property?city=${encodeURIComponent(c)}`} className={`badge ${activeCity === c ? 'badge-forest' : 'badge-neutral'}`}>{c}</Link>
+          ))}
+        </div>
+      )}
+
+      {/* Development selector (within the chosen city) */}
+      {visibleProjects.length > 1 && (
         <div className="flex flex-wrap gap-1.5">
-          {projects.map((p) => (
-            <Link key={p.id} href={`/property?dev=${p.id}`} className={`badge ${p.id === selected.id ? 'badge-forest' : 'badge-neutral'}`}>{p.name}</Link>
+          {visibleProjects.map((p) => (
+            <Link key={p.id} href={`/property?dev=${p.id}${cityQuery}`} className={`badge ${p.id === selected.id ? 'badge-forest' : 'badge-neutral'}`}>{p.name}</Link>
           ))}
         </div>
       )}

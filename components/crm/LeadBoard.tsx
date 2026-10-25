@@ -23,6 +23,29 @@ const NBA_TONE: Record<NbaTone, string> = {
 
 export interface Agent { id: string; full_name: string | null }
 
+// Per-stage colour accents — a calm, distinct hue per pipeline stage so the
+// board reads at a glance (dot + count badge + left rule), the way the
+// dashboard uses colour. Kept muted to stay on-brand.
+interface Accent { dot: string; badge: string; bar: string }
+const DEFAULT_ACCENT: Accent = { dot: 'bg-stone-400', badge: 'badge-neutral', bar: 'border-l-stone-line' };
+const STAGE_ACCENT: Record<string, Accent> = {
+  overdue: { dot: 'bg-rose-500', badge: 'border-rose-200 bg-rose-50 text-rose-700', bar: 'border-l-rose-400' },
+  today: { dot: 'bg-amber-500', badge: 'border-amber-200 bg-amber-50 text-amber-700', bar: 'border-l-amber-400' },
+  tomorrow: { dot: 'bg-sky-500', badge: 'border-sky-200 bg-sky-50 text-sky-700', bar: 'border-l-sky-400' },
+  unassigned: { dot: 'bg-stone-400', badge: 'badge-neutral', bar: 'border-l-stone-line' },
+  new: { dot: 'bg-sky-500', badge: 'border-sky-200 bg-sky-50 text-sky-700', bar: 'border-l-sky-400' },
+  contacted: { dot: 'bg-indigo-500', badge: 'border-indigo-200 bg-indigo-50 text-indigo-700', bar: 'border-l-indigo-400' },
+  engaged: { dot: 'bg-violet-500', badge: 'border-violet-200 bg-violet-50 text-violet-700', bar: 'border-l-violet-400' },
+  qualified: { dot: 'bg-emerald-500', badge: 'border-emerald-200 bg-emerald-50 text-emerald-700', bar: 'border-l-emerald-400' },
+  waiting: { dot: 'bg-amber-500', badge: 'border-amber-200 bg-amber-50 text-amber-700', bar: 'border-l-amber-400' },
+  viewing: { dot: 'bg-teal-500', badge: 'border-teal-200 bg-teal-50 text-teal-700', bar: 'border-l-teal-400' },
+  offer: { dot: 'bg-orange-500', badge: 'border-orange-200 bg-orange-50 text-orange-700', bar: 'border-l-orange-400' },
+  negotiating: { dot: 'bg-rose-500', badge: 'border-rose-200 bg-rose-50 text-rose-700', bar: 'border-l-rose-400' },
+  reserved: { dot: 'bg-forest', badge: 'badge-forest', bar: 'border-l-forest/50' },
+  no_response: { dot: 'bg-stone-400', badge: 'badge-neutral', bar: 'border-l-stone-line' },
+  retargeting: { dot: 'bg-fuchsia-500', badge: 'border-fuchsia-200 bg-fuchsia-50 text-fuchsia-700', bar: 'border-l-fuchsia-400' },
+};
+
 const URGENCY = [
   { key: 'overdue', label: 'Overdue', danger: true },
   { key: 'today', label: 'Today', danger: false },
@@ -118,15 +141,17 @@ function LeadCard({ lead, agents }: { lead: LeadListItem; agents: Agent[] }) {
   );
 }
 
-function Section({ label, danger, leads, agents }: { label: string; danger?: boolean; leads: LeadListItem[]; agents: Agent[] }) {
+function Section({ accentKey, label, danger, leads, agents }: { accentKey: string; label: string; danger?: boolean; leads: LeadListItem[]; agents: Agent[] }) {
   if (leads.length === 0) return null;
+  const acc = STAGE_ACCENT[accentKey] ?? DEFAULT_ACCENT;
   return (
-    <section>
+    <section className={`border-l-2 ${acc.bar} pl-3`}>
       <div className="mb-3 flex items-center gap-2">
+        <span className={`h-2.5 w-2.5 rounded-full ${acc.dot}`} />
         <h4 className={danger ? 'text-signal-danger' : 'text-charcoal'}>{label}</h4>
-        <span className={danger ? 'border-signal-danger/30 bg-champagne-50 text-signal-danger badge' : 'badge-neutral'}>{leads.length}</span>
+        <span className={`badge ${acc.badge}`}>{leads.length}</span>
       </div>
-      <div className={`grid grid-cols-3 gap-3 ${danger ? 'rounded-md border border-signal-danger/20 bg-champagne-50/30 p-3' : ''}`}>
+      <div className="grid grid-cols-3 gap-3">
         {leads.map((l) => <LeadCard key={l.id} lead={l} agents={agents} />)}
       </div>
     </section>
@@ -182,9 +207,9 @@ export function LeadBoard({ leads, agents, currentUserId }: { leads: LeadListIte
         ))}
       </div>
 
-      {grouped['unassigned'] && <Section label="Unassigned" leads={grouped['unassigned']} agents={agents} />}
-      {URGENCY.map((u) => <Section key={u.key} label={u.label} danger={u.danger} leads={grouped[u.key] ?? []} agents={agents} />)}
-      {STATUS_SECTIONS.map((s) => <Section key={s.key} label={s.label} leads={grouped[s.key] ?? []} agents={agents} />)}
+      {grouped['unassigned'] && <Section accentKey="unassigned" label="Unassigned" leads={grouped['unassigned']} agents={agents} />}
+      {URGENCY.map((u) => <Section key={u.key} accentKey={u.key} label={u.label} danger={u.danger} leads={grouped[u.key] ?? []} agents={agents} />)}
+      {STATUS_SECTIONS.map((s) => <Section key={s.key} accentKey={s.key} label={s.label} leads={grouped[s.key] ?? []} agents={agents} />)}
 
       {filtered.length === 0 && (
         <p className="py-12 text-center text-sm text-charcoal-600/70">No leads in this view.</p>
