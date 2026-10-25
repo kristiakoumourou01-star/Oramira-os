@@ -2,6 +2,7 @@ import { requireProfile } from '@/lib/auth';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { TopBar } from '@/components/layout/TopBar';
 import { ImpersonationBanner } from '@/components/layout/ImpersonationBanner';
+import { getOrgSettings } from '@/lib/org-settings';
 import { logout } from '@/app/actions/auth';
 import {
   Home,
@@ -80,16 +81,18 @@ export default async function PortalLayout({ children }: { children: React.React
 
   const sections = sectionsByRole[profile.role];
   if (!sections) redirect('/login');
+  const compact = (await getOrgSettings()).layout.sidebarCompact;
 
   return (
     <div className="flex">
       <Sidebar
         sections={sections}
+        compact={compact}
         footer={
           <form action={logout}>
-            <button type="submit" className="flex w-full items-center gap-3 rounded px-3 py-2 text-sm text-stone-100/65 hover:bg-white/5 hover:text-stone-100">
+            <button type="submit" title="Sign out" className={`flex w-full items-center rounded py-2 text-sm text-stone-100/65 hover:bg-white/5 hover:text-stone-100 ${compact ? 'justify-center px-0' : 'gap-3 px-3'}`}>
               <LogOut size={16} strokeWidth={1.75} />
-              Sign out
+              {!compact && 'Sign out'}
             </button>
           </form>
         }

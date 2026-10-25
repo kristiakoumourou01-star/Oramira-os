@@ -11,6 +11,7 @@ import {
 } from 'next/font/google';
 import './globals.css';
 import { getBranding, brandCssVars } from '@/lib/branding';
+import { getOrgSettings } from '@/lib/org-settings';
 
 // Tabular figures — the ledger signature: every price, sqm, % renders here.
 // Not re-skinnable; the brand's numeric voice is constant.
@@ -40,9 +41,9 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const branding = await getBranding();
+  const [branding, settings] = await Promise.all([getBranding(), getOrgSettings()]);
   return (
-    <html lang="en" className={FONT_VARS} data-density={branding.density}>
+    <html lang="en" className={FONT_VARS} data-density={branding.density} data-dense={settings.layout.denseLists ? 'on' : 'off'}>
       <body>
         {/* Unlayered :root override from org_branding — wins over globals.css
             @layer base defaults regardless of source order. */}

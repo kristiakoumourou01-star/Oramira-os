@@ -12,12 +12,30 @@ export function Logo({
   href = '/',
   companyName = 'Oramira',
   logoUrl = null,
+  compact = false,
 }: {
   tone?: 'light' | 'dark';
   href?: string;
   companyName?: string;
   logoUrl?: string | null;
+  compact?: boolean;
 }) {
+  // Compact: just the mark — the uploaded logo, or the company initial in a tile.
+  if (compact) {
+    return (
+      <Link href={href} className="inline-flex items-center justify-center" title={companyName}>
+        {logoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={logoUrl} alt={companyName} className="h-8 w-8 rounded-md object-contain" />
+        ) : (
+          <span className={`flex h-8 w-8 items-center justify-center rounded-md font-display text-base ${tone === 'light' ? 'bg-white/10 text-stone-100' : 'bg-forest/10 text-forest'}`}>
+            {(companyName.trim()[0] ?? 'O').toUpperCase()}
+          </span>
+        )}
+      </Link>
+    );
+  }
+
   return (
     <Link
       href={href}

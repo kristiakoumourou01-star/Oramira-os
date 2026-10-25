@@ -17,33 +17,36 @@ export interface SidebarSection {
 export function Sidebar({
   sections,
   footer,
+  compact = false,
 }: {
   sections: SidebarSection[];
   footer?: React.ReactNode;
+  compact?: boolean;
 }) {
   return (
-    <aside className="sticky top-0 flex h-screen w-56 shrink-0 flex-col self-start bg-gradient-to-b from-[#0C271C] via-[#113124] to-[#153A2B] px-3 py-4 shadow-[inset_-1px_0_0_rgba(255,255,255,0.04)]">
-      <div className="px-2 pb-5">
-        <BrandMark tone="light" />
+    <aside className={`sticky top-0 flex h-screen shrink-0 flex-col self-start bg-gradient-to-b from-[#0C271C] via-[#113124] to-[#153A2B] py-4 shadow-[inset_-1px_0_0_rgba(255,255,255,0.04)] ${compact ? 'w-[72px] px-2' : 'w-56 px-3'}`}>
+      <div className={`pb-5 ${compact ? 'flex justify-center' : 'px-2'}`}>
+        <BrandMark tone="light" compact={compact} />
       </div>
       <nav className="flex-1 space-y-4 overflow-y-auto pr-0.5 [scrollbar-width:thin]">
         {sections.map((section, i) => (
           <div key={i}>
-            {section.label && (
+            {section.label && !compact && (
               <p className="mb-1 flex items-center gap-2 px-3 text-[10px] font-medium uppercase tracking-eyebrow text-stone-100/30">
                 {section.label}
                 <span className="h-px flex-1 bg-white/[0.06]" />
               </p>
             )}
+            {section.label && compact && i > 0 && <div className="mx-auto mb-2 h-px w-6 bg-white/[0.08]" />}
             <div className="space-y-px">
               {section.items.map((item) =>
                 // Render the icon to an element here (server side) so only a
                 // serializable ReactNode — not the component function — crosses
                 // into the client NavItem / NavGroup.
                 item.children && item.children.length > 0 ? (
-                  <NavGroup key={item.href} href={item.href} label={item.label} icon={<item.icon size={15} strokeWidth={1.75} />} children={item.children} />
+                  <NavGroup key={item.href} href={item.href} label={item.label} icon={<item.icon size={15} strokeWidth={1.75} />} children={item.children} compact={compact} />
                 ) : (
-                  <NavItem key={item.href} href={item.href} label={item.label} icon={<item.icon size={15} strokeWidth={1.75} />} />
+                  <NavItem key={item.href} href={item.href} label={item.label} icon={<item.icon size={15} strokeWidth={1.75} />} compact={compact} />
                 )
               )}
             </div>

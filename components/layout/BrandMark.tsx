@@ -6,7 +6,7 @@ import { Logo } from './Logo';
  * Use on server surfaces (sidebar, login) so the uploaded logo + company name
  * render; the underlying getBranding read is request-deduped.
  */
-export async function BrandMark({ tone = 'light', href = '/' }: { tone?: 'light' | 'dark'; href?: string }) {
+export async function BrandMark({ tone = 'light', href = '/', compact = false }: { tone?: 'light' | 'dark'; href?: string; compact?: boolean }) {
   const { companyName, logoUrl } = await getBranding();
-  return <Logo tone={tone} href={href} companyName={companyName} logoUrl={logoUrl} />;
+  return <Logo tone={tone} href={href} companyName={companyName} logoUrl={logoUrl} compact={compact} />;
 }

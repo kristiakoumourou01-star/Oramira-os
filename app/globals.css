@@ -9,6 +9,14 @@
   font-size: 15px;
 }
 
+/* Dense lists (Settings → Layout). Tightens shared table rows across the app.
+   Unlayered so it overrides the @layer components padding. */
+:root[data-dense='on'] .table-base th,
+:root[data-dense='on'] .table-base td {
+  padding-top: 0.3rem;
+  padding-bottom: 0.3rem;
+}
+
 @layer base {
   /* Brand token defaults (space-separated RGB channels) — the built-in Oramira
      identity. Overridden at runtime by an UNLAYERED :root{} block injected in

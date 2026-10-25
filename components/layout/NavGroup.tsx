@@ -13,7 +13,7 @@ export interface NavSubItem { href: string; label: string }
  * to in-page tabs via ?tab=…). Auto-expands when its route is active. Client-only
  * (usePathname) — receives the icon as a pre-rendered element from the server.
  */
-export function NavGroup({ href, label, icon, children }: { href: string; label: string; icon: ReactNode; children: NavSubItem[] }) {
+export function NavGroup({ href, label, icon, children, compact = false }: { href: string; label: string; icon: ReactNode; children: NavSubItem[]; compact?: boolean }) {
   const pathname = usePathname();
   const bases = children.map((c) => c.href.split('?')[0]);
   const active = pathname === href || pathname.startsWith(href + '/') || bases.some((b) => pathname === b || pathname.startsWith(b + '/'));
@@ -29,6 +29,16 @@ export function NavGroup({ href, label, icon, children }: { href: string; label:
   }, []);
   useEffect(() => { if (active) setOpen(true); }, [active]);
   const toggle = () => setOpen((o) => { const n = !o; try { window.localStorage.setItem(key, n ? '1' : '0'); } catch {} return n; });
+
+  // Compact rail: the group collapses to a single icon link to its primary page.
+  if (compact) {
+    return (
+      <Link href={href} title={label} className={`group relative flex items-center justify-center rounded-lg py-1.5 ${active ? 'bg-white/[0.06] text-champagne' : 'text-stone-100/60 hover:bg-white/[0.07] hover:text-stone-100'}`}>
+        {active && <span className="absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-r bg-champagne" />}
+        <span className={active ? 'text-champagne' : 'text-stone-100/60 group-hover:text-stone-100'}>{icon}</span>
+      </Link>
+    );
+  }
 
   return (
     <div>

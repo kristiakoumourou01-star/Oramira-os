@@ -2,6 +2,7 @@ import { requireProfile, homeRouteForRole } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { effectiveCan, isInternalRole, type Module } from '@/lib/permissions';
 import { getBranding, CONTENT_WIDTH_CLASS } from '@/lib/branding';
+import { getOrgSettings } from '@/lib/org-settings';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { TopBar } from '@/components/layout/TopBar';
 import { ImpersonationBanner } from '@/components/layout/ImpersonationBanner';
@@ -73,7 +74,8 @@ const NAV: NavDef[] = [
 export default async function InternalLayout({ children }: { children: React.ReactNode }) {
   const profile = await requireProfile();
   if (!isInternalRole(profile.role)) redirect(homeRouteForRole(profile.role));
-  const { contentWidth } = await getBranding();
+  const [{ contentWidth }, { layout: layoutPrefs }] = await Promise.all([getBranding(), getOrgSettings()]);
+  const compact = layoutPrefs.sidebarCompact;
   const can = (m?: Module) => !m || effectiveCan(profile.role, profile.moduleAccess, m, 'view');
 
   const sections = NAV.map((section) => ({
@@ -87,11 +89,12 @@ export default async function InternalLayout({ children }: { children: React.Rea
     <div className="flex">
       <Sidebar
         sections={sections}
+        compact={compact}
         footer={
           <form action={logout}>
-            <button type="submit" className="flex w-full items-center gap-3 rounded px-3 py-2 text-sm text-stone-100/65 hover:bg-white/5 hover:text-stone-100">
+            <button type="submit" title="Sign out" className={`flex w-full items-center rounded py-2 text-sm text-stone-100/65 hover:bg-white/5 hover:text-stone-100 ${compact ? 'justify-center px-0' : 'gap-3 px-3'}`}>
               <LogOut size={16} strokeWidth={1.75} />
-              Sign out
+              {!compact && 'Sign out'}
             </button>
           </form>
         }
