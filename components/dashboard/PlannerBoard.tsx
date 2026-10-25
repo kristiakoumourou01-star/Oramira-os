@@ -466,40 +466,6 @@ export function PlannerBoard({ events: propEvents, leads = [], projects = [], te
 
       {/* RIGHT RAIL (~35%) — mini-month + quick actions stacked */}
       <div className="space-y-4 lg:col-span-4">
-      {/* mini-month navigator */}
-      <Card>
-        <div className="mb-3 flex items-center gap-1.5">
-          <select value={month.getMonth()} onChange={(ev) => setMonth(new Date(month.getFullYear(), Number(ev.target.value), 1))} className="rounded-md border border-[#E8E0D2] bg-white px-1.5 py-1 text-xs text-charcoal">
-            {MONTHS.map((m, i) => <option key={m} value={i}>{m}</option>)}
-          </select>
-          <select value={month.getFullYear()} onChange={(ev) => setMonth(new Date(Number(ev.target.value), month.getMonth(), 1))} className="rounded-md border border-[#E8E0D2] bg-white px-1.5 py-1 text-xs text-charcoal">
-            {years.map((y) => <option key={y} value={y}>{y}</option>)}
-          </select>
-          <div className="ml-auto flex items-center gap-0.5">
-            <button onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))} className="rounded-md p-1 text-charcoal-600 hover:bg-[#F5F1E8]"><ChevronLeft size={14} /></button>
-            <button onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))} className="rounded-md p-1 text-charcoal-600 hover:bg-[#F5F1E8]"><ChevronRight size={14} /></button>
-          </div>
-        </div>
-        <div className="grid grid-cols-7 gap-0.5 text-center">
-          {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => <span key={i} className="py-1 text-[10px] text-[#A59C8E]">{d}</span>)}
-          {monthCells.map((d) => {
-            const isSel = sameDay(d, selected);
-            const isToday = sameDay(d, today);
-            const inMonth = d.getMonth() === month.getMonth();
-            const has = eventDays.has(d.toDateString());
-            return (
-              <button key={d.toISOString()} onClick={() => setSelected(d)} className={`relative flex h-6 items-center justify-center rounded-md text-[11px] transition-colors ${isSel ? 'bg-forest text-white' : isToday ? 'bg-forest/10 text-forest' : inMonth ? 'text-charcoal hover:bg-[#F5F1E8]' : 'text-[#A59C8E]'}`}>
-                {d.getDate()}
-                {has && !isSel && <span className="absolute bottom-1 h-1 w-1 rounded-full bg-champagne-600" />}
-              </button>
-            );
-          })}
-        </div>
-        <label className="mt-3 block border-t border-[#F0EADF] pt-3 text-[10px] text-[#A59C8E]">Jump to date
-          <input type="date" onChange={(ev) => { if (ev.target.value) { const d = new Date(ev.target.value); setSelected(d); setMonth(new Date(d.getFullYear(), d.getMonth(), 1)); } }} className="mt-1 w-full rounded-md border border-[#E8E0D2] bg-white px-2 py-1 text-xs text-charcoal" />
-        </label>
-      </Card>
-
       {/* quick actions */}
       <Card>
         <p className="mb-2.5 text-sm font-semibold text-charcoal">Quick actions</p>
