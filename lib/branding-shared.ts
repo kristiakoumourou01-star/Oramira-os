@@ -52,7 +52,9 @@ export const CONTENT_WIDTH_CLASS: Record<ContentWidth, string> = {
 
 /* ------------------------------------------------------------------ fonts -- */
 
-export type FontKey = 'source-serif' | 'cormorant' | 'playfair' | 'montserrat' | 'ibm-plex' | 'inter' | 'work-sans';
+export type FontKey =
+  | 'source-serif' | 'cormorant' | 'playfair' | 'montserrat' | 'ibm-plex' | 'inter' | 'work-sans'
+  | 'noto-sans' | 'noto-serif' | 'open-sans' | 'manrope' | 'commissioner' | 'literata';
 
 interface FontDef {
   label: string;
@@ -62,16 +64,24 @@ interface FontDef {
   role: 'heading' | 'body' | 'both';
   /** Fallback stack appended after the variable. */
   stack: string;
+  /** Has Greek letters (otherwise Greek text falls back to a system font). */
+  greek: boolean;
 }
 
 export const FONT_CATALOG: Record<FontKey, FontDef> = {
-  'source-serif': { label: 'Source Serif', cssVar: '--font-source-serif', role: 'heading', stack: 'Georgia, serif' },
-  cormorant: { label: 'Cormorant Garamond', cssVar: '--font-cormorant', role: 'heading', stack: 'Georgia, serif' },
-  playfair: { label: 'Playfair Display', cssVar: '--font-playfair', role: 'heading', stack: 'Georgia, serif' },
-  montserrat: { label: 'Montserrat', cssVar: '--font-montserrat', role: 'both', stack: 'system-ui, sans-serif' },
-  'ibm-plex': { label: 'IBM Plex Sans', cssVar: '--font-ibm-plex', role: 'body', stack: 'system-ui, sans-serif' },
-  inter: { label: 'Inter', cssVar: '--font-inter', role: 'body', stack: 'system-ui, sans-serif' },
-  'work-sans': { label: 'Work Sans', cssVar: '--font-work-sans', role: 'body', stack: 'system-ui, sans-serif' },
+  'source-serif': { label: 'Source Serif', cssVar: '--font-source-serif', role: 'heading', stack: 'Georgia, serif', greek: true },
+  'noto-serif': { label: 'Noto Serif', cssVar: '--font-noto-serif', role: 'heading', stack: 'Georgia, serif', greek: true },
+  literata: { label: 'Literata', cssVar: '--font-literata', role: 'heading', stack: 'Georgia, serif', greek: true },
+  commissioner: { label: 'Commissioner', cssVar: '--font-commissioner', role: 'both', stack: 'system-ui, sans-serif', greek: true },
+  manrope: { label: 'Manrope', cssVar: '--font-manrope', role: 'both', stack: 'system-ui, sans-serif', greek: true },
+  'ibm-plex': { label: 'IBM Plex Sans', cssVar: '--font-ibm-plex', role: 'body', stack: 'system-ui, sans-serif', greek: true },
+  inter: { label: 'Inter', cssVar: '--font-inter', role: 'body', stack: 'system-ui, sans-serif', greek: true },
+  'noto-sans': { label: 'Noto Sans', cssVar: '--font-noto-sans', role: 'body', stack: 'system-ui, sans-serif', greek: true },
+  'open-sans': { label: 'Open Sans', cssVar: '--font-open-sans', role: 'body', stack: 'system-ui, sans-serif', greek: true },
+  cormorant: { label: 'Cormorant Garamond', cssVar: '--font-cormorant', role: 'heading', stack: 'Georgia, serif', greek: false },
+  playfair: { label: 'Playfair Display', cssVar: '--font-playfair', role: 'heading', stack: 'Georgia, serif', greek: false },
+  montserrat: { label: 'Montserrat', cssVar: '--font-montserrat', role: 'both', stack: 'system-ui, sans-serif', greek: false },
+  'work-sans': { label: 'Work Sans', cssVar: '--font-work-sans', role: 'body', stack: 'system-ui, sans-serif', greek: false },
 };
 
 export const HEADING_FONTS: FontKey[] = (Object.keys(FONT_CATALOG) as FontKey[]).filter(
@@ -164,4 +174,39 @@ export function brandStyleObject(b: Branding): Record<string, string> {
     obj[decl.slice(0, idx)] = decl.slice(idx + 1);
   }
   return obj;
+}
+
+/* ------------------------------------------------------- menu background -- */
+
+/** Relative luminance 0..1 of a hex colour (WCAG). */
+export function luminance(hex: string): number {
+  const rgb = parseHex(hex);
+  if (!rgb) return 0;
+  const [r, g, b] = rgb.map((c) => {
+    const x = c / 255;
+    return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4);
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+/**
+ * The menu (sidebar / top bar) background. The menu text is light, so the
+ * background is always kept dark enough to read: a too-light custom colour is
+ * darkened automatically.
+ *  - brand:    a deep gradient derived from the primary colour (default look)
+ *  - charcoal: neutral near-black
+ *  - custom:   any colour the admin picks
+ */
+export function sidebarBackground(style: string, primary: string, custom: string): string {
+  const hex = (ch: string) => '#' + ch.split(' ').map((n) => Number(n).toString(16).padStart(2, '0')).join('');
+  const grad = (base: string) => {
+    let c = parseHex(base) ? base : DEFAULT_BRANDING.colorPrimary;
+    // Keep the menu dark enough for its light text.
+    for (let i = 0; i < 8 && luminance(c) > 0.06; i++) c = hex(darken(c, 0.2, c));
+    return `linear-gradient(to bottom, rgb(${darken(c, 0.25, c)}), rgb(${channels(c, c)}), rgb(${lighten(c, 0.07, c)}))`;
+  };
+  if (style === 'charcoal') return 'linear-gradient(to bottom, #15171A, #1B1E22, #22262B)';
+  if (style === 'custom') return grad(custom);
+  // brand: a deep version of the primary colour (the original Oramira look)
+  return grad(hex(darken(primary, 0.35, DEFAULT_BRANDING.colorPrimary)));
 }

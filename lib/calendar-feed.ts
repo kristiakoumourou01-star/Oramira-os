@@ -1,5 +1,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { getGoogleEventsForUser } from '@/lib/calendar-sync';
+import type { CalendarSource, CalendarItem } from '@/lib/calendar-feed-shared';
+export type { CalendarSource, CalendarItem } from '@/lib/calendar-feed-shared';
 
 /**
  * Unified calendar feed for the Calendar page.
@@ -14,22 +16,7 @@ import { getGoogleEventsForUser } from '@/lib/calendar-sync';
  * failing degrades to the others rather than blanking the calendar.
  */
 
-export type CalendarSource = 'internal' | 'viewing' | 'google';
 
-export interface CalendarItem {
-  id: string;
-  source: CalendarSource;
-  type: string; // meeting | viewing | followup | task | reminder | google
-  title: string;
-  start: string; // ISO
-  durationMin: number;
-  status: string | null;
-  color: string | null;
-  location: string | null;
-  meetingLink: string | null;
-  leadId: string | null;
-  editable: boolean; // internal rows can be edited/cancelled in-app
-}
 
 export async function getCalendarFeed(profileId: string, fromISO: string, toISO: string): Promise<CalendarItem[]> {
   const supabase = await createSupabaseServerClient();

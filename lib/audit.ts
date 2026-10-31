@@ -1,4 +1,6 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server';
+import type { AuditRow } from '@/lib/audit-shared';
+export type { AuditRow } from '@/lib/audit-shared';
 
 /**
  * Global audit / access log.
@@ -10,18 +12,6 @@ import { createSupabaseServerClient } from '@/lib/supabase/server';
  * any read error degrades to an empty log rather than breaking the page.
  */
 
-export interface AuditRow {
-  id: string;
-  createdAt: string;
-  action: string;
-  entityType: string;
-  entityId: string;
-  actorId: string | null;
-  actorName: string | null;
-  actorRole: string | null;
-  ip: string | null;
-  ua: string | null;
-}
 
 export async function getAuditLog(limit = 500): Promise<AuditRow[]> {
   try {

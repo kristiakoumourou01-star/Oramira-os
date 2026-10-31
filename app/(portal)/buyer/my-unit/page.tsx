@@ -6,7 +6,10 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { UnitStatusBadge } from '@/components/units/UnitStatusBadge';
 import { DocumentList } from '@/components/ui/DocumentList';
 import { getDocumentUrl } from '@/app/actions/storage';
-import { formatCurrency } from '@/lib/format';
+import { formatCurrency, formatNumber } from '@/lib/format';
+import { getOrgSettings } from '@/lib/org-settings';
+import { currentLocale } from '@/lib/locale-shared';
+import { UNIT_SECTIONS, cleanValues, fieldsFor, label, showValue, typeKeyOf } from '@/lib/unit-forms-shared';
 
 export default async function MyUnitPage() {
   const profile = await requireRole(['buyer', 'admin', 'sales', 'management']);
@@ -32,6 +35,14 @@ export default async function MyUnitPage() {
     : { data: null };
 
   const finishes = Object.entries(unit.internal_specs ?? {});
+
+  // Your own unit fields that the company marked «visible to the buyer» (Settings → Φόρμες μονάδων).
+  const { unitForms } = await getOrgSettings();
+  const lang = currentLocale().lang;
+  const { data: cfRow } = await (supabase as any).from('units').select('custom_fields').eq('id', unit.id).maybeSingle();
+  const clientFields = fieldsFor(unitForms, typeKeyOf(unit.type, unitForms.types)).filter((f) => f.visibleToClient);
+  const cfValues = cleanValues(cfRow?.custom_fields, clientFields);
+  const shownFields = clientFields.filter((f) => cfValues[f.key] !== undefined);
 
   const facts: { label: string; value: string; icon?: typeof Layers }[] = [
     ...(unit.type ? [{ label: 'Type', value: unit.type }] : []),
@@ -71,6 +82,29 @@ export default async function MyUnitPage() {
               ))}
             </div>
           </div>
+
+          {shownFields.length > 0 && (
+            <div className="panel space-y-4 p-6">
+              <h4>{lang === 'el' ? 'Χαρακτηριστικά' : lang === 'ru' ? 'Характеристики' : 'Features'}</h4>
+              {UNIT_SECTIONS.map((s) => {
+                const fs = shownFields.filter((f) => f.section === s.key);
+                if (!fs.length) return null;
+                return (
+                  <div key={s.key}>
+                    <p className="eyebrow mb-2">{label(s, lang)}</p>
+                    <dl className="grid grid-cols-2 gap-x-8 gap-y-3 text-sm">
+                      {fs.map((f) => (
+                        <div key={f.key} className="flex justify-between border-b border-stone-line pb-2">
+                          <dt className="text-charcoal-600/70">{label(f, lang)}</dt>
+                          <dd className="text-right text-charcoal">{showValue(f, cfValues[f.key], lang, formatNumber)}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  </div>
+                );
+              })}
+            </div>
+          )}
 
           <div className="panel p-6">
             <h4 className="mb-4">Internal finishes & specifications</h4>

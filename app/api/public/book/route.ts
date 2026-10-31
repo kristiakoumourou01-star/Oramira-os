@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import { intakeInboundLead } from '@/lib/intake';
+import { readConsent, recordConsent } from '@/lib/gdpr';
+import { missingPublicFields } from '@/lib/public-form';
 import { overlaps } from '@/lib/scheduling';
 import { isOnLeave } from '@/lib/leave-availability';
 
@@ -32,6 +34,11 @@ export async function POST(request: NextRequest) {
   if (!agentId || Number.isNaN(startMs)) return NextResponse.json({ error: 'agentId and a valid slotISO are required' }, { status: 400, headers: CORS });
   if (!email && !phone) return NextResponse.json({ error: 'email or phone is required' }, { status: 400, headers: CORS });
   if (startMs < Date.now()) return NextResponse.json({ error: 'That time is in the past' }, { status: 400, headers: CORS });
+
+  const missing = await missingPublicFields(body);
+  if (missing) return NextResponse.json({ error: missing }, { status: 400, headers: CORS });
+  const consent = await readConsent(body);
+  if (!consent.ok) return NextResponse.json({ error: consent.error }, { status: 400, headers: CORS });
 
   const supabase = createSupabaseServiceRoleClient();
 
@@ -70,6 +77,7 @@ export async function POST(request: NextRequest) {
     message: message ? `Viewing request: ${message}` : 'Requested a viewing via the booking page',
     projectInterestId: projectId || undefined,
   });
+  await recordConsent(contactId, { ...consent, source: 'Σελίδα κράτησης προβολής' });
 
   const { data: viewing, error } = await supabase
     .from('viewings')

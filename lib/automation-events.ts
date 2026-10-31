@@ -2,6 +2,7 @@ import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import { sendTemplate } from '@/lib/communications';
 import { notifyUser } from '@/lib/notifications';
 import { templateAudience } from '@/lib/sales-doctrine';
+import { audienceFor, mergeLeadAutomation } from '@/lib/lead-automation-shared';
 
 /**
  * Event-driven automation. Domain server actions call these on key events; each
@@ -37,18 +38,26 @@ async function leadContext(leadId: string) {
 }
 
 /**
- * New lead → SPEED-TO-LEAD: immediate WhatsApp + email (audience-aware) and an
- * urgent notification to the assigned owner to respond within 5 minutes.
+ * New lead → καλωσόρισμα στη γλώσσα του πελάτη (WhatsApp/email, όπως ορίζουν οι
+ * Ρυθμίσεις → Leads & αυτοματισμοί) και ειδοποίηση στον υπεύθυνο.
  */
 export async function onNewLead(leadId: string) {
   try {
+    const s = svc();
+    const { data: org } = await s.from('org_settings').select('data').eq('id', 'org').maybeSingle();
+    const cfg = mergeLeadAutomation((org as any)?.data?.leadAutomation);
+    const { data: lang } = await s.from('leads').select('contacts(preferred_language, buyer_type)').eq('id', leadId).maybeSingle();
     const ctx = await leadContext(leadId);
     if (!ctx) return;
+    const c = (lang as any)?.contacts;
+    const audience = audienceFor(c?.preferred_language, c?.buyer_type);
     const vars = { name: ctx.name, project: ctx.project, agent: ctx.agent };
-    await sendTemplate({ contactId: ctx.contactId, leadId, channel: 'whatsapp', templateKey: 'first_contact', to: ctx.phone, vars, audience: ctx.audience });
-    await sendTemplate({ contactId: ctx.contactId, leadId, channel: 'email', templateKey: 'first_contact', to: ctx.email, vars, audience: ctx.audience });
+    if (cfg.welcome.enabled) {
+      if (cfg.welcome.whatsapp && ctx.phone) await sendTemplate({ contactId: ctx.contactId, leadId, channel: 'whatsapp', templateKey: 'first_contact', to: ctx.phone, vars, audience });
+      if (cfg.welcome.email && ctx.email) await sendTemplate({ contactId: ctx.contactId, leadId, channel: 'email', templateKey: 'first_contact', to: ctx.email, vars, audience });
+    }
     if (ctx.ownerId) {
-      await notifyUser({ userId: ctx.ownerId, title: '🔥 New lead — respond now', body: `${ctx.name} just came in. First response within 5 minutes wins.`, link: `/crm/leads/${leadId}` });
+      await notifyUser({ userId: ctx.ownerId, title: '🔥 Νέο lead — απαντήστε τώρα', body: `${ctx.name} μόλις ήρθε. Στόχος: απάντηση μέσα σε ${cfg.unanswered.minutes} λεπτά.`, link: `/crm/leads/${leadId}`, event: 'new_lead' });
     }
   } catch { /* automation is best-effort */ }
 }
@@ -56,7 +65,7 @@ export async function onNewLead(leadId: string) {
 /** Lead (re)assigned → notify the new owner in-app. */
 export async function onLeadAssigned(leadId: string, ownerId: string) {
   try {
-    await notifyUser({ userId: ownerId, title: 'A lead was assigned to you', body: 'Open your sales board to review it.', link: `/crm/leads/${leadId}` });
+    await notifyUser({ userId: ownerId, title: 'A lead was assigned to you', body: 'Open your sales board to review it.', link: `/crm/leads/${leadId}`, event: 'lead_assigned' });
   } catch { /* */ }
 }
 

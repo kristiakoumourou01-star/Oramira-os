@@ -1,5 +1,7 @@
 'use server';
 
+import { onLeadWon } from '@/lib/pipeline';
+
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { requireRole } from '@/lib/auth';
 import { logActivity } from '@/lib/activity';
@@ -10,6 +12,9 @@ import { buyerProfile } from '@/lib/sales-doctrine';
 import { ensureFirstFollowUp } from '@/lib/lead-followup';
 import { pushEventToGoogle } from '@/lib/calendar-sync';
 import { revalidatePath } from 'next/cache';
+import { getOrgSettings } from '@/lib/org-settings';
+import { STAFF_FIELD_OPTIONS } from '@/lib/org-settings-shared';
+import { cleanAreas } from '@/lib/areas';
 
 /**
  * Creates a lead from the internal CRM. Goes through the SAME
@@ -31,8 +36,22 @@ export async function createLead(params: {
   language?: string;
   communicationPreference?: string;
   assignedTo?: string;
+  /** Areas the buyer wants (location matching). */
+  areas?: string[];
+  /** Settings → Pipelines key (empty = the default pipeline). */
+  pipeline?: string;
 }) {
   await requireRole(['admin', 'sales', 'management']);
+  // Settings → Tags, ομάδες & πεδία → Υποχρεωτικά πεδία
+  const { fields } = await getOrgSettings();
+  const has: Record<string, boolean> = {
+    phone: !!params.phone?.trim(), budget: !!(params.budgetMin || params.budgetMax), project: !!params.preferredProjectId,
+    buyerType: !!params.buyerType, language: !!params.language, timeline: !!params.timelineToBuy,
+    assignedTo: !!params.assignedTo, message: !!params.message?.trim(),
+  };
+  const missing = fields.staff.filter((k) => !has[k]).map((k) => STAFF_FIELD_OPTIONS.find((o) => o.key === k)?.label ?? k);
+  // Returned, not thrown: production builds hide thrown messages from the browser.
+  if (missing.length) return { error: `Συμπληρώστε τα υποχρεωτικά πεδία: ${missing.join(', ')}.` };
   const supabase = await createSupabaseServerClient();
 
   const { data: contactId, error: contactError } = await supabase.rpc('find_or_create_contact', {
@@ -62,17 +81,24 @@ export async function createLead(params: {
       preferred_project_id: params.preferredProjectId ?? null,
       timeline_to_buy: params.timelineToBuy ?? null,
       message: params.message ?? null,
-      // Leads start UNASSIGNED — assigned manually later (no auto-assign).
+      // Χωρίς υπεύθυνο → η βάση τον ορίζει από την πηγή / round robin
+      // (Ρυθμίσεις → Leads & αυτοματισμοί, trigger 0069), αν είναι ενεργό.
       assigned_to: params.assignedTo ?? null,
     })
     .select()
     .single();
 
   if (error) throw error;
+  if (lead?.id && params.pipeline && /^[a-z0-9_]{1,30}$/.test(params.pipeline)) {
+    await (supabase as any).from('leads').update({ pipeline: params.pipeline }).eq('id', lead.id);
+  }
+  if (lead?.id && params.areas?.length) {
+    await supabase.from('leads').update({ preferred_areas: cleanAreas(params.areas) } as any).eq('id', lead.id);
+  }
   // Postgres trigger (on_lead_created) logs the activity + a default follow-up.
   // Turn that into a clear, assigned, urgent first to-do (see migration 0006).
   await onNewLead(lead.id); // welcome automation (best-effort)
-  await ensureFirstFollowUp(supabase, { leadId: lead.id, contactId, assignedTo: params.assignedTo ?? null, source: params.source });
+  await ensureFirstFollowUp(supabase, { leadId: lead.id, contactId, assignedTo: params.assignedTo ?? (lead as any).assigned_to ?? null, source: params.source });
 
   revalidatePath('/crm/leads');
   return lead;
@@ -84,13 +110,18 @@ export async function createLead(params: {
  * visible timeline note, so lost-reason intelligence is captured without a
  * schema change (queryable later from activity_log / notes).
  */
-export async function updateLeadStatus(leadId: string, status: string, reason?: string) {
+export async function updateLeadStatus(leadId: string, status: string, reason?: string, lostKey?: string) {
   const profile = await requireRole(['admin', 'sales', 'management']);
   const supabase = await createSupabaseServerClient();
 
   const { data: current } = await supabase.from('leads').select('status, contact_id').eq('id', leadId).single();
 
-  await supabase.from('leads').update({ status }).eq('id', leadId);
+  // Why it closed (Settings → Pipelines → λόγοι απώλειας) — kept on the lead for the reports.
+  const closing = ['lost', 'nurture', 'no_response'].includes(status);
+  const patch: Record<string, unknown> = { status };
+  if (closing && lostKey) { patch.lost_reason = lostKey.slice(0, 40); patch.lost_note = (reason ?? '').slice(0, 500) || null; }
+  const { error: upErr } = await (supabase as any).from('leads').update(patch).eq('id', leadId);
+  if (upErr && 'lost_reason' in patch) await supabase.from('leads').update({ status } as any).eq('id', leadId);
   await logActivity({
     entityType: 'lead',
     entityId: leadId,
@@ -122,6 +153,10 @@ export async function updateLeadStatus(leadId: string, status: string, reason?: 
   }
 
   if (status === 'viewing') await onViewingScheduled(leadId);
+  // Won → commission invoice (Settings → Pipelines → Προμήθεια). Never blocks the status change.
+  if (status === 'won' && current?.status !== 'won') {
+    try { await onLeadWon(leadId, profile.id); } catch { /* non-fatal */ }
+  }
 
   revalidatePath(`/crm/${leadId}`);
   revalidatePath(`/crm/leads/${leadId}`);
@@ -334,4 +369,15 @@ export async function runAIAnalysis(leadId: string) {
   await logActivity({ entityType: 'lead', entityId: leadId, action: 'ai_analysis_refreshed' });
   revalidatePath(`/crm/${leadId}`);
   return analysis;
+}
+
+/** Move a lead to another pipeline (Settings → Pipelines). */
+export async function setLeadPipeline(leadId: string, key: string | null) {
+  await requireRole(['admin', 'sales', 'management']);
+  const supabase = await createSupabaseServerClient();
+  const k = key && /^[a-z0-9_]{1,30}$/.test(key) ? key : null;
+  await (supabase as any).from('leads').update({ pipeline: k }).eq('id', leadId);
+  await logActivity({ entityType: 'lead', entityId: leadId, action: 'pipeline_changed', metadata: { pipeline: k } });
+  revalidatePath(`/crm/leads/${leadId}`);
+  revalidatePath('/crm/leads');
 }

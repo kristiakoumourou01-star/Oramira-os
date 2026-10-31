@@ -1,33 +1,52 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { Home, Brush, LayoutGrid, Grid3x3, Euro, Bell, Lock, Tag, Workflow, Plug, Database, Lock as LockIcon, Check } from 'lucide-react';
-import { SETTINGS_SECTIONS, SETTINGS_GROUPS, type SettingsKey, type SettingsSection } from '@/lib/settings-sections';
+import { Lock as LockIcon, Check } from 'lucide-react';
+import { SETTINGS_SECTIONS, type SettingsKey, type SettingsSection } from '@/lib/settings-sections';
 import { BrandingForm } from '@/components/admin/BrandingForm';
 import { BusinessSection } from '@/components/admin/BusinessSection';
 import {
-  InvoicesSection, NotificationsSection, SecuritySection, TagsSection,
-  PipelinesSection, GdprSection, LayoutSection, DashboardSection,
+  NotificationsSection, SecuritySection, TagsSection,
 } from '@/components/admin/SettingsSections';
+import { InvoicesSettings } from '@/components/admin/InvoicesSettings';
+import { GdprSettings } from '@/components/admin/GdprSettings';
+import { RequiredFieldsSettings } from '@/components/admin/RequiredFieldsSettings';
+import { PortalSettingsSection } from '@/components/admin/PortalSettingsSection';
+import type { CompanyInfo } from '@/components/admin/ReceiptPreview';
+import { GettingStarted, type StartStep } from '@/components/admin/GettingStarted';
+import { CompanyLocaleDefault } from '@/components/admin/CompanyLocaleDefault';
+import { UnitFormsEditor } from '@/components/admin/UnitFormsEditor';
+import { WatermarkSettings } from '@/components/admin/WatermarkSettings';
+import { ReservationSettingsForm } from '@/components/admin/ReservationSettingsForm';
+import { AmlSettingsForm } from '@/components/admin/AmlSettingsForm';
+import { PipelineSettingsEditor } from '@/components/admin/PipelineSettingsEditor';
+import { LeadAutomationForm } from '@/components/admin/LeadAutomationForm';
+import type { TeamMember } from '@/lib/lead-automation-shared';
+import type { DocSeries } from '@/lib/invoices-shared';
+import { MenuEditor } from '@/components/admin/MenuEditor';
+import { DashboardEditor } from '@/components/admin/DashboardEditor';
+import { AppearanceExtras } from '@/components/admin/AppearanceExtras';
 import { GoogleCalendarConnect } from '@/components/dashboard/GoogleCalendarConnect';
 import type { Branding } from '@/lib/branding-shared';
 import type { OrgSettings } from '@/lib/org-settings-shared';
 
-const ICON: Record<SettingsKey, any> = {
-  business: Home, appearance: Brush, layout: LayoutGrid, dashboard: Grid3x3, invoices: Euro,
-  notifications: Bell, security: Lock, tags: Tag, pipelines: Workflow, integrations: Plug, gdpr: Database,
-};
 
 export function SettingsScreen({
   initialSection,
   branding,
   settings,
   agencyName,
-  plan,
+  plan: _plan,
   canEdit,
   googleConnected,
   googleConfigured,
+  currentIp = null,
+  series = [],
+  seriesMissing = false,
+  erasures = [],
+  gdprMissing = false,
+  company,
+  startSteps = [],
+  team = [],
 }: {
   initialSection: SettingsKey;
   branding: Branding;
@@ -37,66 +56,30 @@ export function SettingsScreen({
   canEdit: boolean;
   googleConnected: boolean;
   googleConfigured: boolean;
+  currentIp?: string | null;
+  series?: DocSeries[];
+  seriesMissing?: boolean;
+  erasures?: { id: string; mode: string; reason: string | null; erased_at: string; by: string | null }[];
+  gdprMissing?: boolean;
+  team?: TeamMember[];
+  company?: CompanyInfo;
+  startSteps?: StartStep[];
 }) {
-  const [sec, setSec] = useState<SettingsKey>(initialSection);
-  const router = useRouter();
-  const section = SETTINGS_SECTIONS.find((s) => s.key === sec) ?? SETTINGS_SECTIONS[0];
-
-  const pick = (k: SettingsKey) => {
-    setSec(k);
-    router.replace(`/settings?section=${k}`, { scroll: false });
-  };
+  // The section comes from the URL (?section=…) — the page is keyed by it, so
+  // switching in the Settings menu re-renders with the new section.
+  const section = SETTINGS_SECTIONS.find((s) => s.key === initialSection) ?? SETTINGS_SECTIONS[0];
 
   return (
     <div className="space-y-5">
-      {/* Header */}
-      <div className="panel flex flex-wrap items-center gap-3 p-5">
-        <div>
-          <p className="eyebrow mb-1">Admin</p>
-          <h1 className="text-3xl">Settings</h1>
-          <p className="text-sm text-charcoal-600/70">Company details, display, rules and connections for the whole agency.</p>
-        </div>
-        <div className="ml-auto flex items-center gap-3 text-xs text-charcoal-600/70">
-          <span>Agency <strong className="text-charcoal">{agencyName}</strong></span>
-          <span>Plan <strong className="text-charcoal">{plan}</strong></span>
-          {!canEdit && <span className="flex items-center gap-1 text-champagne-600"><LockIcon size={12} /> Read-only</span>}
-        </div>
-      </div>
-
       {!canEdit && (
-        <p className="rounded-md bg-champagne-50 px-4 py-2 text-sm text-champagne-600">Only owners and admins can change settings. You see them read-only.</p>
+        <p className="flex items-center gap-2 rounded-md bg-champagne-50 px-4 py-2 text-sm text-champagne-600">
+          <LockIcon size={12} /> Μόνο ο admin αλλάζει τις ρυθμίσεις. Τις βλέπετε μόνο για ανάγνωση.
+        </p>
       )}
 
-      <div className="grid gap-6 md:grid-cols-[230px_minmax(0,1fr)]">
-        {/* Sub-nav */}
-        <aside className="md:sticky md:top-5 md:self-start">
-          <div className="panel space-y-4 p-3">
-            {SETTINGS_GROUPS.map((g) => {
-              const items = SETTINGS_SECTIONS.filter((s) => s.group === g);
-              return (
-                <div key={g}>
-                  <p className="eyebrow mb-1.5 px-2">{g}</p>
-                  <div className="space-y-0.5">
-                    {items.map((s) => {
-                      const Icon = ICON[s.key];
-                      const active = s.key === sec;
-                      return (
-                        <button
-                          key={s.key}
-                          onClick={() => pick(s.key)}
-                          className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm transition-colors ${active ? 'bg-forest/[0.07] font-medium text-forest' : 'text-charcoal-600 hover:bg-forest/5 hover:text-forest'}`}
-                        >
-                          <Icon size={15} strokeWidth={1.75} /> {s.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </aside>
+      {canEdit && startSteps.length > 0 && <GettingStarted steps={startSteps} />}
 
+      <div>
         {/* Content */}
         <div className="space-y-4">
           <div>
@@ -105,25 +88,47 @@ export function SettingsScreen({
           </div>
 
           {section.key === 'appearance' ? (
-            <BrandingForm initial={branding} />
+            <div className="space-y-5">
+              <AppearanceExtras logoUrl={branding.logoUrl} primary={branding.colorPrimary} initial={settings.appearance} canEdit={canEdit} />
+              <CompanyLocaleDefault initial={settings.locale} canEdit={canEdit} />
+              <BrandingForm initial={branding} />
+            </div>
           ) : section.key === 'business' ? (
             <BusinessSection initial={settings.business} companyName={agencyName} canEdit={canEdit} />
           ) : section.key === 'invoices' ? (
-            <InvoicesSection initial={settings.invoices} canEdit={canEdit} />
+            <InvoicesSettings initial={settings.invoices} series={series} seriesMissing={seriesMissing} canEdit={canEdit} company={company} />
           ) : section.key === 'notifications' ? (
             <NotificationsSection initial={settings.notifications} canEdit={canEdit} />
           ) : section.key === 'security' ? (
-            <SecuritySection initial={settings.security} canEdit={canEdit} />
+            <SecuritySection initial={settings.security} canEdit={canEdit} currentIp={currentIp} />
           ) : section.key === 'tags' ? (
-            <TagsSection initial={settings.tags} canEdit={canEdit} />
+            <div className="space-y-4">
+              <TagsSection initial={settings.tags} canEdit={canEdit} />
+              <RequiredFieldsSettings initial={settings.fields} canEdit={canEdit} />
+            </div>
+          ) : section.key === 'unitforms' ? (
+            <div className="space-y-4">
+              <UnitFormsEditor initial={settings.unitForms} canEdit={canEdit} />
+              <WatermarkSettings initial={settings.watermark} canEdit={canEdit} companyName={company?.name ?? agencyName} companyLogo={company?.logo ?? branding.logoUrl ?? null} />
+            </div>
+          ) : section.key === 'portals' ? (
+            <PortalSettingsSection initial={settings.portal} canEdit={canEdit} />
           ) : section.key === 'pipelines' ? (
-            <PipelinesSection initial={settings.pipelines} canEdit={canEdit} />
+            <div className="space-y-4">
+              <PipelineSettingsEditor initial={settings.pipelines} canEdit={canEdit} vatRates={settings.invoices.vatRates.map((r) => r.rate)} />
+              <ReservationSettingsForm initial={settings.reservations} canEdit={canEdit} />
+            </div>
+          ) : section.key === 'leads' ? (
+            <LeadAutomationForm initial={settings.leadAutomation} canEdit={canEdit} team={team} />
           ) : section.key === 'gdpr' ? (
-            <GdprSection initial={settings.gdpr} canEdit={canEdit} />
+            <div className="space-y-4">
+              <GdprSettings initial={settings.gdpr} canEdit={canEdit} erasures={erasures} missing={gdprMissing} />
+              <AmlSettingsForm initial={settings.aml} canEdit={canEdit} />
+            </div>
           ) : section.key === 'layout' ? (
-            <LayoutSection initial={settings.layout} canEdit={canEdit} />
+            <MenuEditor layout={settings.layout} menu={settings.menu} canEdit={canEdit} />
           ) : section.key === 'dashboard' ? (
-            <DashboardSection initial={settings.dashboard} canEdit={canEdit} />
+            <DashboardEditor initial={settings.dashboard} roles={settings.roles} canEdit={canEdit} />
           ) : section.key === 'integrations' ? (
             <IntegrationsSection googleConnected={googleConnected} googleConfigured={googleConfigured} />
           ) : (

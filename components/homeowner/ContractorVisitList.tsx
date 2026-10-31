@@ -26,7 +26,7 @@ const STATUS_CLASS: Record<string, string> = {
  */
 export function ContractorVisitList({ visits }: { visits: VisitRow[] }) {
   if (visits.length === 0) {
-    return <p className="text-sm text-charcoal-600/70">No contractor visits scheduled. We'll let you know when one is arranged.</p>;
+    return <p className="text-sm text-charcoal-600/70">No contractor visits scheduled. We&apos;ll let you know when one is arranged.</p>;
   }
 
   const upcoming = visits.filter((v) => v.status !== 'completed' && v.status !== 'cancelled');

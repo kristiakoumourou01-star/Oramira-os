@@ -6,19 +6,22 @@ import type { DaySlots } from '@/lib/availability';
 import { formatTime, formatWeekdayDate } from '@/lib/format';
 
 interface Agent { id: string; name: string | null; avatarUrl: string | null }
+export interface ConsentWording { consent: string; marketing: string; required: boolean; marketingDefault: boolean }
 
 /**
  * Public booking widget — the customer-facing surface. Two taps: pick a slot,
  * enter contact details, done. Premium Oramira identity (forest/champagne/ivory),
  * fully self-contained so it renders on the auth-free /book route.
  */
-export function BookingWidget({ agent, days, totalSlots, project }: { agent: Agent; days: DaySlots[]; totalSlots: number; project: { id: string; name: string } | null }) {
+export function BookingWidget({ agent, days, totalSlots, project, consentWording }: { agent: Agent; days: DaySlots[]; totalSlots: number; project: { id: string; name: string } | null; consentWording?: ConsentWording }) {
   const [activeDay, setActiveDay] = useState(0);
   const [slot, setSlot] = useState<string | null>(null);
   const [meetingType, setMeetingType] = useState<'in_person' | 'video'>('in_person');
   const [form, setForm] = useState({ name: '', phone: '', email: '', message: '' });
   const [status, setStatus] = useState<'idle' | 'saving' | 'done' | 'error'>('idle');
   const [error, setError] = useState<string | null>(null);
+  const [consent, setConsent] = useState(false);
+  const [marketing, setMarketing] = useState(!!consentWording?.marketingDefault);
   const soonest = days[0]?.slots[0] ?? null;
 
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setForm({ ...form, [k]: e.target.value });
@@ -26,11 +29,12 @@ export function BookingWidget({ agent, days, totalSlots, project }: { agent: Age
 
   async function confirm() {
     if (!slot || (!form.phone && !form.email)) { setError('Add a phone or email so we can confirm.'); return; }
+    if (consentWording?.required && !consent) { setError('Please tick the consent box to continue.'); return; }
     setStatus('saving'); setError(null);
     try {
       const res = await fetch('/api/public/book', {
         method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ agentId: agent.id, slotISO: slot, durationMin: 45, projectId: project?.id, meetingType, ...form }),
+        body: JSON.stringify({ agentId: agent.id, slotISO: slot, durationMin: 45, projectId: project?.id, meetingType, ...form, consent, marketing, lang: 'en' }),
       });
       const out = await res.json();
       if (!res.ok) { setError(out?.error ?? 'Could not book that slot.'); setStatus('error'); return; }
@@ -43,7 +47,7 @@ export function BookingWidget({ agent, days, totalSlots, project }: { agent: Age
       <Shell agent={agent} initials={initials}>
         <div className="flex flex-col items-center py-6 text-center">
           <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-forest text-white"><Check size={26} strokeWidth={2.2} /></div>
-          <h2 className="font-display text-2xl text-forest">You're booked</h2>
+          <h2 className="font-display text-2xl text-forest">You&apos;re booked</h2>
           <p className="mt-2 max-w-xs text-sm text-charcoal-600/80">Viewing with {agent.name ?? 'your agent'}{project ? ` at ${project.name}` : ''} on <span className="font-medium text-charcoal">{formatWeekdayDate(slot)}, {formatTime(slot)}</span>. A confirmation is on its way.</p>
         </div>
       </Shell>
@@ -118,11 +122,17 @@ export function BookingWidget({ agent, days, totalSlots, project }: { agent: Age
               <input value={form.email} onChange={set('email')} type="email" placeholder="Email" className="input" />
             </div>
             <textarea value={form.message} onChange={set('message')} placeholder="Anything we should know? (optional)" className="input min-h-[64px]" />
+            {consentWording && (
+              <div className="space-y-1.5 text-[12px] leading-snug text-charcoal-600/80">
+                <label className="flex items-start gap-2"><input type="checkbox" className="mt-0.5" checked={consent} onChange={(e) => setConsent(e.target.checked)} /><span>{consentWording.consent}{consentWording.required ? ' *' : ''}</span></label>
+                <label className="flex items-start gap-2"><input type="checkbox" className="mt-0.5" checked={marketing} onChange={(e) => setMarketing(e.target.checked)} /><span>{consentWording.marketing}</span></label>
+              </div>
+            )}
             {error && <p className="text-sm text-signal-danger">{error}</p>}
             <button onClick={confirm} disabled={status === 'saving'} className="btn-primary w-full">
               {status === 'saving' ? 'Booking…' : 'Confirm viewing'}
             </button>
-            <p className="text-center text-[11px] text-charcoal-600/45">You'll get a WhatsApp & email confirmation.</p>
+            <p className="text-center text-[11px] text-charcoal-600/45">You&apos;ll get a WhatsApp & email confirmation.</p>
           </div>
         </>
       )}

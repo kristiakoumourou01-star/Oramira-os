@@ -39,6 +39,7 @@ export function ReservationPanel({
   reservation,
   contacts,
   contractStatus,
+  defaultHoldDays = 14,
 }: {
   unitId: string;
   projectId: string;
@@ -46,6 +47,7 @@ export function ReservationPanel({
   reservation: ReservationView | null;
   contacts: ContactOption[];
   contractStatus: string | null;
+  defaultHoldDays?: number;
 }) {
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
@@ -103,7 +105,7 @@ export function ReservationPanel({
             </div>
             <div>
               <label className="eyebrow">Hold (days)</label>
-              <input name="holdDays" type="number" className="input mt-1" placeholder="14" />
+              <input name="holdDays" type="number" className="input mt-1" placeholder={String(defaultHoldDays)} />
             </div>
           </div>
           <button type="submit" disabled={isPending} className="btn-primary w-full">

@@ -1,6 +1,7 @@
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import { onNewLead } from '@/lib/automation-events';
 import { ensureFirstFollowUp } from '@/lib/lead-followup';
+import { cleanAreas } from '@/lib/areas';
 import { detectBuyerType, detectLanguage, languageForBuyerType, detectProjectInterest } from '@/lib/lead-detect';
 
 /**
@@ -37,6 +38,7 @@ export interface ContactFormPayload {
   budgetMin?: number;
   budgetMax?: number;
   timeline?: string; // timeline_to_buy — carried from bot/ad qualification
+  areas?: string[];  // where they want to buy (location matching)
 }
 
 /**
@@ -103,6 +105,9 @@ export async function resolveContactFormLead(
       .select('id')
       .single();
     leadId = lead?.id ?? null;
+    if (leadId && p.areas?.length) {
+      await supabase.from('leads').update({ preferred_areas: cleanAreas(p.areas) } as any).eq('id', leadId);
+    }
     if (leadId) {
       await onNewLead(leadId); // welcome automation for inbound leads
       // Same first-touch to-do every inbound lead gets — clear, urgent, and

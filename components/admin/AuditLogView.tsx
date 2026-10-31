@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import { Search } from 'lucide-react';
 import { formatDateTime } from '@/lib/format';
-import type { AuditRow } from '@/lib/audit';
+import type { AuditRow } from '@/lib/audit-shared';
 
 const ACTION_LABEL: Record<string, string> = {
   login: 'Σύνδεση',

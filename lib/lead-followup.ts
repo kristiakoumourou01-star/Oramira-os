@@ -32,6 +32,11 @@ export async function ensureFirstFollowUp(
     // leave it for triage.
     let owner = opts.assignedTo ?? null;
     if (!owner) {
+      // Η ανάθεση από πηγή / round robin γίνεται στη βάση κατά το insert (0069).
+      const { data: l } = await supabase.from('leads').select('assigned_to').eq('id', opts.leadId).maybeSingle();
+      owner = (l as any)?.assigned_to ?? null;
+    }
+    if (!owner) {
       const { data, error } = await supabase.from('organizations').select('default_lead_owner_id').limit(1).maybeSingle();
       owner = !error && data?.default_lead_owner_id ? data.default_lead_owner_id : null;
     }

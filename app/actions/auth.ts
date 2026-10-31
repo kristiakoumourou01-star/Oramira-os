@@ -2,12 +2,17 @@
 
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
+import { cookies } from 'next/headers';
 import { homeRouteForRole } from '@/lib/auth';
 import { isInternalRole } from '@/lib/permissions';
 import { clearImpersonationCookie } from '@/lib/impersonation';
 import { logActivity } from '@/lib/activity';
 import { getOrgSettings } from '@/lib/org-settings';
 import { START_SCREENS } from '@/lib/org-settings-shared';
+import { isTrustedDevice } from '@/lib/mfa';
+import { t } from '@/lib/i18n';
+import '@/lib/locale-server';
+import { LOCALE_COOKIE, parseLocale, serializeLocale } from '@/lib/locale-shared';
 
 export interface LoginState { error?: string }
 
@@ -20,7 +25,7 @@ export async function login(_prevState: LoginState | undefined, formData: FormDa
   const email = String(formData.get('email') ?? '').trim();
   const password = String(formData.get('password') ?? '');
 
-  if (!email || !password) return { error: 'Enter your email and password.' };
+  if (!email || !password) return { error: t('enterEmailPassword') };
 
   const supabase = await createSupabaseServerClient();
   const { error, data } = await supabase.auth.signInWithPassword({ email, password });
@@ -35,6 +40,19 @@ export async function login(_prevState: LoginState | undefined, formData: FormDa
     .eq('id', data.user.id)
     .single();
 
+  // Admin decisions on the account (best-effort columns, see migration 0053):
+  // a deactivated user is signed straight back out; a temporary password must
+  // be changed before anything else.
+  const { data: state } = await supabase
+    .from('profiles')
+    .select('is_active, must_change_password')
+    .eq('id', data.user.id)
+    .maybeSingle();
+  if (state && (state as any).is_active === false) {
+    await supabase.auth.signOut();
+    return { error: 'Ο λογαριασμός σας έχει απενεργοποιηθεί. Επικοινωνήστε με τον διαχειριστή.' };
+  }
+
   console.error('[login] success, role:', profile?.role ?? '(no profile)');
   // Access event for the global audit log (captures IP + device via logActivity).
   await logActivity({ entityType: 'auth', entityId: data.user.id, action: 'login', metadata: { role: profile?.role ?? null } });
@@ -47,6 +65,22 @@ export async function login(_prevState: LoginState | undefined, formData: FormDa
     const { layout } = await getOrgSettings();
     if (START_SCREENS.some((s) => s.value === layout.startScreen)) target = layout.startScreen;
   }
+  if (state && (state as any).must_change_password === true) target = '/account/password';
+  // Step 2 (Settings → Ασφάλεια): anyone with an authenticator types the code,
+  // unless this browser is one of their trusted devices.
+  const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+  if (aal?.nextLevel === 'aal2' && aal.currentLevel !== 'aal2') {
+    const { security } = await getOrgSettings();
+    if (!(security.trustedDevices && (await isTrustedDevice(data.user.id)))) target = `/login/2fa?next=${encodeURIComponent(target)}`;
+  }
+  // Language + number format: the user's own choice, else the company default.
+  {
+    const { locale: companyLocale } = await getOrgSettings();
+    const mine = (data.user.user_metadata as any)?.locale;
+    (await cookies()).set(LOCALE_COOKIE, serializeLocale(parseLocale(mine, companyLocale)), { sameSite: 'lax', secure: process.env.NODE_ENV === 'production', path: '/', maxAge: 60 * 60 * 24 * 365 });
+  }
+  // Fresh session → fresh activity clock (an old value must not time it out).
+  (await cookies()).set('oramira_seen', String(Date.now()), { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', path: '/', maxAge: 60 * 60 * 24 * 30 });
   redirect(target);
 }
 

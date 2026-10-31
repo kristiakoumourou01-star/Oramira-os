@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Home, ArrowUpRight } from 'lucide-react';
+import { Home, ArrowUpRight, Map } from 'lucide-react';
 import type { MatchResult } from '@/lib/matching';
 import { formatCurrency } from '@/lib/format';
 
@@ -24,11 +24,14 @@ const TIER: Record<MatchResult['tier'], string> = {
  * agent never has to hand-search which units to show. Rendered only when there
  * are real matches (no empty widget).
  */
-export function RecommendedProperties({ matches }: { matches: RecommendedUnit[] }) {
-  if (matches.length === 0) return null;
+export function RecommendedProperties({ matches, mapHref }: { matches: RecommendedUnit[]; mapHref?: string }) {
+  if (matches.length === 0) return mapHref ? <Link href={mapHref} className="panel flex items-center gap-2 p-4 text-sm text-forest hover:bg-forest/[0.03]"><Map size={15} /> Ταίριασμα στον χάρτη</Link> : null;
   return (
     <div className="panel p-6">
-      <h4 className="mb-3 flex items-center gap-2"><Home size={15} className="text-forest" strokeWidth={1.85} /> Recommended properties</h4>
+      <div className="mb-3 flex items-center justify-between">
+        <h4 className="flex items-center gap-2"><Home size={15} className="text-forest" strokeWidth={1.85} /> Προτεινόμενα ακίνητα</h4>
+        {mapHref && <Link href={mapHref} className="flex items-center gap-1 text-xs text-forest hover:underline"><Map size={13} /> Στον χάρτη</Link>}
+      </div>
       <ul className="space-y-2">
         {matches.map((m) => (
           <li key={m.id}>
@@ -36,6 +39,7 @@ export function RecommendedProperties({ matches }: { matches: RecommendedUnit[] 
               <div className="min-w-0">
                 <p className="truncate text-sm text-charcoal">{m.projectName ?? 'Unit'}{m.unit_number ? ` · ${m.unit_number}` : ''}</p>
                 <p className="truncate text-[11px] text-charcoal-600/60">{m.price != null ? formatCurrency(m.price) : '—'} · {m.match.reasons.slice(0, 2).join(', ')}</p>
+                {m.match.misses?.length > 0 && <p className="truncate text-[11px] text-signal-danger">Λείπει: {m.match.misses.join(', ')}</p>}
               </div>
               <span className="flex shrink-0 items-center gap-1.5">
                 <span className={`figure rounded px-1.5 py-0.5 text-[11px] font-medium ${TIER[m.match.tier]}`}>{m.match.score}</span>

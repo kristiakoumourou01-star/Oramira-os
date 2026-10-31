@@ -1,9 +1,18 @@
 import { requirePermission } from '@/lib/auth';
+import { loadContactDuplicates } from '@/lib/duplicates';
+import { DuplicateBanner } from '@/components/crm/DuplicateBanner';
+import { ContactMetaPanel } from '@/components/crm/ContactMetaPanel';
+import { getContactMeta } from '@/lib/contact-meta';
+import { getOrgSettings } from '@/lib/org-settings';
+import { effectiveCan } from '@/lib/permissions';
+
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Phone, Mail, User } from 'lucide-react';
 import { StatusPipeline } from '@/components/crm/StatusPipeline';
+import { LeadPipelinePicker } from '@/components/crm/LeadPipelinePicker';
+import { pipelineOf, STATUS_EL } from '@/lib/pipeline-shared';
 import { AIInsightPanel } from '@/components/crm/AIInsightPanel';
 import { ContactTimeline, type TimelineEntry } from '@/components/crm/ContactTimeline';
 import { LeadQuickActions } from '@/components/crm/LeadQuickActions';
@@ -12,6 +21,9 @@ import { PriorityBadge } from '@/components/crm/PriorityBadge';
 import { LeadAssistant } from '@/components/crm/LeadAssistant';
 import { LeadNextAction } from '@/components/crm/LeadNextAction';
 import { RecommendedProperties } from '@/components/crm/RecommendedProperties';
+import { LeadAreasEditor } from '@/components/crm/LeadAreasEditor';
+import { LeadRequirementsEditor } from '@/components/crm/LeadRequirementsEditor';
+import { cleanRequirements, cleanValues } from '@/lib/unit-forms-shared';
 import { rankPropertiesForLead } from '@/lib/matching';
 import { SalesCoach } from '@/components/crm/SalesCoach';
 import { ViewingScheduler, type ViewingRow, type UnitOption, type AgentOption } from '@/components/crm/ViewingScheduler';
@@ -30,7 +42,7 @@ const SOURCE_LABEL: Record<string, string> = {
 };
 
 export default async function LeadDetailPage({ params }: { params: { id: string } }) {
-  await requirePermission('leads');
+  const profile = await requirePermission('leads');
   const supabase = await createSupabaseServerClient();
 
   // Resilient select: prefer the full record, but degrade to guaranteed columns
@@ -53,6 +65,12 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
   }
   const lead: any = leadRes.data;
   if (!lead) notFound();
+  const [contactMeta, { tags: tagDefs, pipelines: pipeCfg }, { data: pl }] = await Promise.all([
+    getContactMeta(lead.contact_id), getOrgSettings(),
+    // Pipeline fields (migration 0068) read separately so the page works before it runs.
+    (supabase as any).from('leads').select('pipeline, stage_entered_at, lost_reason, lost_note, is_returning, commission_invoice_id').eq('id', params.id).maybeSingle(),
+  ]);
+  const pipeline = pipelineOf(pipeCfg, pl?.pipeline ?? null);
 
   const contact = (lead as any).contacts;
   const ownerName = (lead as any).owner?.full_name ?? null;
@@ -118,10 +136,26 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
 
   // Matching engine → recommended inventory for this buyer (renders only when
   // there are real matches; empty until inventory exists).
+  // Location matching (migration 0060): the buyer's areas vs each project's place.
+  const [{ data: areaRow }, { data: projGeo }, { data: reqRow }, { data: unitFeat }, orgCfg] = await Promise.all([
+    supabase.from('leads').select('preferred_areas').eq('id', lead.id).maybeSingle(),
+    supabase.from('projects').select('id, name, location, latitude, longitude'),
+    (supabase as any).from('leads').select('unit_requirements').eq('id', lead.id).maybeSingle(),
+    (supabase as any).from('units').select('id, custom_fields').eq('status', 'available'),
+    getOrgSettings(),
+  ]);
+  const unitFields = orgCfg.unitForms.fields;
+  const leadReq = cleanRequirements(reqRow?.unit_requirements, unitFields);
+  const featById = new Map<string, any>(((unitFeat ?? []) as any[]).map((u) => [u.id, cleanValues(u.custom_fields, unitFields)]));
+  const leadAreas: string[] = Array.isArray((areaRow as any)?.preferred_areas) ? (areaRow as any).preferred_areas : [];
+  const geoById = new Map(((projGeo ?? []) as any[]).map((p) => [p.id, p]));
   const propertyMatches = rankPropertiesForLead(
-    { budgetMin: lead.budget_min, budgetMax: lead.budget_max, preferredProjectId: (lead as any).preferred_project_id ?? null },
-    (units ?? []).map((u: any) => ({ id: u.id, price: u.price, bedrooms: u.bedrooms, projectId: u.project_id, status: 'available' })),
-    { limit: 4 },
+    { budgetMin: lead.budget_min, budgetMax: lead.budget_max, preferredProjectId: (lead as any).preferred_project_id ?? null, areas: leadAreas, requirements: leadReq },
+    (units ?? []).map((u: any) => {
+      const g: any = geoById.get(u.project_id) ?? {};
+      return { id: u.id, price: u.price, bedrooms: u.bedrooms, projectId: u.project_id, status: 'available', locationText: [g.location, g.name].filter(Boolean).join(', '), lat: g.latitude != null ? Number(g.latitude) : null, lng: g.longitude != null ? Number(g.longitude) : null, features: featById.get(u.id) ?? {} };
+    }),
+    { limit: 4, fields: unitFields },
   ).map((u: any) => {
     const raw: any = (units ?? []).find((x: any) => x.id === u.id);
     return { id: u.id, unit_number: raw?.unit_number, projectName: raw?.projects?.name, projectId: u.projectId, price: u.price, match: u.match };
@@ -147,6 +181,7 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
   const quickLead = { id: lead.id, contact_id: lead.contact_id, full_name: contact?.full_name ?? null, email: contact?.email ?? null, phone: contact?.phone ?? null };
   const budget = lead.budget_min || lead.budget_max ? `${formatCurrency(Number(lead.budget_min ?? 0))}–${formatNumber(Number(lead.budget_max ?? 0))}` : '—';
 
+  const dupes = await loadContactDuplicates(lead.contact_id);
   return (
     <div className="space-y-6">
       <Link href="/crm/leads" className="inline-flex items-center gap-1 text-sm text-charcoal-600/70 hover:text-forest">
@@ -157,7 +192,8 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
         <div>
           <div className="mb-1 flex items-center gap-2">
             <PriorityBadge score={score} />
-            <span className="badge-neutral capitalize">{lead.status}</span>
+            <span className="badge-neutral">{STATUS_EL[lead.status] ?? lead.status}</span>
+            {pl?.is_returning && <span className="badge-champagne" title="Έχει ξαναγοράσει από εσάς">Επιστρέφων πελάτης</span>}
           </div>
           <h1 className="text-3xl">{contact?.full_name ?? 'Unnamed lead'}</h1>
           <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-charcoal-600/80">
@@ -179,13 +215,16 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
 
       {/* The one authoritative "what to do now" — always-fresh deterministic
           recommendation, one click from execution. */}
+      <DuplicateBanner contactId={lead.contact_id} matches={dupes} canMerge={['admin', 'management', 'sales'].includes(profile.role)} />
+
       <LeadNextAction nba={leadScore.nba} source="heuristic" phone={contact?.phone ?? null} />
 
       <div className="grid grid-cols-3 gap-6">
         <div className="col-span-2 space-y-6">
           <div className="panel p-6">
-            <h4 className="mb-4">Sales pipeline</h4>
-            <StatusPipeline leadId={lead.id} currentStatus={lead.status} />
+            <div className="mb-4 flex items-center justify-between gap-2"><h4>Πορεία πώλησης</h4><LeadPipelinePicker leadId={lead.id} value={pl?.pipeline ?? null} pipelines={pipeCfg.pipelines} defaultKey={pipeCfg.defaultKey} /></div>
+            <StatusPipeline leadId={lead.id} currentStatus={lead.status} pipeline={pipeline} lostReasons={pipeCfg.lostReasons} stageEnteredAt={pl?.stage_entered_at ?? null}
+              lostReason={pl?.lost_reason ?? null} lostNote={pl?.lost_note ?? null} commissionInvoiceId={pl?.commission_invoice_id ?? null} />
             <div className="mt-5 grid grid-cols-3 gap-4 text-sm">
               <div><p className="eyebrow">Budget</p><p className="figure text-charcoal">{budget}</p></div>
               <div><p className="eyebrow">Source</p><p className="text-charcoal">{SOURCE_LABEL[lead.source] ?? lead.source}</p></div>
@@ -205,6 +244,12 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
         </div>
 
         <div className="space-y-6">
+          <ContactMetaPanel
+            contactId={lead.contact_id}
+            initial={contactMeta}
+            defs={tagDefs}
+            canEdit={effectiveCan(profile.role, profile.moduleAccess, 'leads', 'edit', profile.permissions)}
+          />
           <AIInsightPanel
             leadId={lead.id}
             score={lead.ai_score}
@@ -216,7 +261,11 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
 
           <PredictiveScore score={leadScore} />
 
-          <RecommendedProperties matches={propertyMatches} />
+          <LeadAreasEditor leadId={lead.id} initial={leadAreas} canEdit={effectiveCan(profile.role, profile.moduleAccess, 'leads', 'edit', profile.permissions)} />
+
+          <LeadRequirementsEditor leadId={lead.id} fields={unitFields} initial={leadReq} canEdit={effectiveCan(profile.role, profile.moduleAccess, 'leads', 'edit', profile.permissions)} />
+
+          <RecommendedProperties matches={propertyMatches} mapHref={`/map?lead=${lead.id}`} />
 
           <SalesCoach
             signals={{

@@ -16,7 +16,7 @@ export function PayrollAdmin({ employees }: { employees: Employee[] }) {
     <div className="grid grid-cols-2 gap-6">
       <div className="panel p-6">
         <h4 className="mb-1">Generate payslip</h4>
-        <p className="mb-4 text-xs text-charcoal-600/60">Grosses up the employee's agreed salary and computes Cyprus deductions automatically.</p>
+        <p className="mb-4 text-xs text-charcoal-600/60">Grosses up the employee&apos;s agreed salary and computes Cyprus deductions automatically.</p>
         <form
           action={(fd) => {
             const profileId = String(fd.get('employee'));

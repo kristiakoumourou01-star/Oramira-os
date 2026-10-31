@@ -5,6 +5,7 @@ import { Building2, MapPin } from 'lucide-react';
 import { NewProjectForm } from '@/components/projects/NewProjectForm';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { WorkspaceHeader } from '@/components/ui/WorkspaceHeader';
+import { BOARD_STATUSES, STATUS_STYLE, statusOf, type BoardStatus } from '@/lib/unit-board-shared';
 
 /**
  * Projects index — the operational inventory layer's front door. Each card
@@ -22,10 +23,12 @@ export default async function ProjectsPage() {
 
   const { data: units } = await supabase.from('units').select('id, project_id, status');
 
-  const statsByProject = (units ?? []).reduce<Record<string, { total: number; available: number }>>((acc, u) => {
-    const bucket = (acc[u.project_id] ??= { total: 0, available: 0 });
+  const statsByProject = (units ?? []).reduce<Record<string, { total: number; available: number; by: Partial<Record<BoardStatus, number>> }>>((acc, u) => {
+    const bucket = (acc[u.project_id] ??= { total: 0, available: 0, by: {} });
     bucket.total += 1;
     if (u.status === 'available') bucket.available += 1;
+    const st = statusOf(u.status);
+    bucket.by[st] = (bucket.by[st] ?? 0) + 1;
     return acc;
   }, {});
 
@@ -43,7 +46,7 @@ export default async function ProjectsPage() {
       ) : (
         <div className="grid grid-cols-3 gap-6">
           {projects.map((p) => {
-            const stats = statsByProject[p.id] ?? { total: 0, available: 0 };
+            const stats = statsByProject[p.id] ?? { total: 0, available: 0, by: {} };
             return (
               <Link key={p.id} href={`/projects/${p.id}`} className="panel p-6 transition-shadow hover:shadow-overlay">
                 <div className="mb-3 flex items-start justify-between">
@@ -62,6 +65,13 @@ export default async function ProjectsPage() {
                     {stats.available}<span className="text-charcoal-600/50"> / {stats.total} available</span>
                   </span>
                 </div>
+                {stats.total > 0 && (
+                  <div className="mt-2 flex h-2 overflow-hidden rounded-full bg-stone" title={BOARD_STATUSES.filter((st) => stats.by[st]).map((st) => `${STATUS_STYLE[st].label}: ${stats.by[st]}`).join(' · ')}>
+                    {BOARD_STATUSES.filter((st) => stats.by[st]).map((st) => (
+                      <span key={st} style={{ width: `${((stats.by[st] ?? 0) / stats.total) * 100}%`, background: STATUS_STYLE[st].border }} />
+                    ))}
+                  </div>
+                )}
               </Link>
             );
           })}

@@ -8,7 +8,7 @@ import { CreateEventModal, type LeadOption, type ProjectOption, type TeamOption,
 import { GoogleCalendarConnect } from '@/components/dashboard/GoogleCalendarConnect';
 import { cancelCalendarEvent, setEventStatus } from '@/app/actions/calendar';
 import { formatWeekdayLongDate, formatMonthYear, formatTime } from '@/lib/format';
-import type { CalendarItem } from '@/lib/calendar-feed';
+import type { CalendarItem } from '@/lib/calendar-feed-shared';
 
 type View = 'day' | 'week' | 'month';
 

@@ -1,12 +1,17 @@
+import { deliverNotification } from '@/lib/notifications';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import { resolveContactFormLead, resolveNewsletter } from '@/lib/intake';
 import { sendTemplate } from '@/lib/communications';
 import { pushEventToGoogle } from '@/lib/calendar-sync';
-import { FOLLOW_UP_CADENCE, templateAudience } from '@/lib/sales-doctrine';
+import { templateAudience } from '@/lib/sales-doctrine';
 import { persistLearningInsights } from '@/lib/learning-loop';
 import { captureMemory } from '@/lib/executive-memory';
 import { summarizeDD } from '@/lib/due-diligence';
 import { formatDate, formatDateTime, formatTime, formatCurrency } from '@/lib/format';
+import { getGdprSettingsPublic, runRetention } from '@/lib/gdpr';
+import { mergeReservations, type ReservationSettings } from '@/lib/pricing-shared';
+import { lateBy, mergePipelines, pipelineOf, stageIndex } from '@/lib/pipeline-shared';
+import { audienceFor, digestText, dueSteps, localParts, mergeLeadAutomation, type DigestCounts, type LeadAutomationSettings } from '@/lib/lead-automation-shared';
 
 /**
  * Oramira OS — Automation Center engine.
@@ -52,7 +57,7 @@ async function profileForContact(svc: Svc, contactId: string | null): Promise<st
 }
 
 /** Insert a notification only if the same user hasn't had one with this link in the last 3 days. */
-async function notifyOnce(svc: Svc, userId: string, link: string, title: string, body?: string): Promise<boolean> {
+async function notifyOnce(svc: Svc, userId: string, link: string, title: string, body?: string, event?: string): Promise<boolean> {
   const since = new Date(Date.now() - 3 * DAY).toISOString();
   const { data: existing } = await svc
     .from('notifications')
@@ -63,19 +68,36 @@ async function notifyOnce(svc: Svc, userId: string, link: string, title: string,
     .limit(1)
     .maybeSingle();
   if (existing) return false;
-  await svc.from('notifications').insert({ user_id: userId, channel: 'in_app', title, body: body ?? null, link });
+  await deliverNotification(svc as any, { userId, title, body: body ?? null, link, event });
   return true;
 }
 
-async function notifyStaffOnce(svc: Svc, staff: string[], link: string, title: string, body?: string): Promise<number> {
+async function notifyStaffOnce(svc: Svc, staff: string[], link: string, title: string, body?: string, event?: string): Promise<number> {
   let n = 0;
-  for (const id of staff) if (await notifyOnce(svc, id, link, title, body)) n += 1;
+  for (const id of staff) if (await notifyOnce(svc, id, link, title, body, event)) n += 1;
   return n;
 }
 
 // ── 1. Reservation expiry ───────────────────────────────────────────────────
 
+/** Settings → Pipelines → Κρατήσεις (read with the service client; cron has no user). */
+async function reservationSettings(svc: Svc): Promise<ReservationSettings> {
+  const { data } = await svc.from('org_settings').select('data').eq('id', 'org').maybeSingle();
+  return mergeReservations((data as any)?.data?.reservations);
+}
+
 async function runReservationExpiry(svc: Svc): Promise<RunResult> {
+  const rs = await reservationSettings(svc);
+  if (!rs.autoRelease) {
+    // Company chose to release by hand: only tell staff what has lapsed.
+    const { data: lapsed } = await svc.from('reservations').select('id').eq('status', 'active').eq('deposit_paid', false).not('expires_at', 'is', null).lt('expires_at', new Date().toISOString());
+    const n = (lapsed ?? []).length;
+    if (n > 0) {
+      const staff = await staffUserIds(svc);
+      await notifyStaffOnce(svc, staff, '/projects', 'Κρατήσεις έληξαν', `${n} κράτηση/εις έληξαν χωρίς προκαταβολή. Η αυτόματη αποδέσμευση είναι κλειστή — παρατείνετε ή ακυρώστε τις.`, 'reservation_expired');
+    }
+    return { processed: 0, summary: n > 0 ? `${n} lapsed reservation(s) left on hold (auto-release off)` : 'No reservations to expire' };
+  }
   // The DB function flips lapsed holds to 'expired' and releases their units.
   const { data: released, error } = await svc.rpc('expire_stale_reservations');
   if (error) throw error;
@@ -88,8 +110,7 @@ async function runReservationExpiry(svc: Svc): Promise<RunResult> {
       staff,
       '/projects',
       'Reservations expired',
-      `${count} reservation${count === 1 ? '' : 's'} lapsed without a deposit and the unit${count === 1 ? ' was' : 's were'} released back to inventory.`
-    );
+      `${count} reservation${count === 1 ? '' : 's'} lapsed without a deposit and the unit${count === 1 ? ' was' : 's were'} released back to inventory.`, 'reservation_expired');
   }
   return { processed: count, summary: count > 0 ? `${count} unit(s) released from expired reservations` : 'No reservations to expire' };
 }
@@ -114,7 +135,7 @@ async function runWarrantyExpiry(svc: Svc): Promise<RunResult> {
     const link = `/homeowner/warranty`;
     const when = formatDate(w.ends_on);
     if (ownerProfile && (await notifyOnce(svc, ownerProfile, link, 'Warranty expiring soon', `Your ${w.category} warranty expires on ${when}.`))) processed += 1;
-    await notifyStaffOnce(svc, staff, `/projects`, 'Warranty expiring', `A ${w.category} warranty expires on ${when} — confirm any outstanding obligations.`);
+    await notifyStaffOnce(svc, staff, `/projects`, 'Warranty expiring', `A ${w.category} warranty expires on ${when} — confirm any outstanding obligations.`, 'warranty_expiring');
   }
   return { processed, summary: `${(warranties ?? []).length} warranty(ies) within 60 days; ${processed} homeowner reminder(s) sent`, details: { count: (warranties ?? []).length } };
 }
@@ -148,7 +169,7 @@ async function runPaymentReminders(svc: Svc): Promise<RunResult> {
     const amount = `${formatCurrency(Number(s.amount))}`;
     if (isOverdue) {
       if (buyerProfile && (await notifyOnce(svc, buyerProfile, link, 'Payment overdue', `Installment ${s.installment_number} of ${amount} was due on ${formatDate(due)}.`))) overdue += 1;
-      await notifyStaffOnce(svc, staff, '/financials', 'Overdue payment', `Installment ${s.installment_number} (${amount}) is overdue.`);
+      await notifyStaffOnce(svc, staff, '/financials', 'Overdue payment', `Installment ${s.installment_number} (${amount}) is overdue.`, 'payment_overdue');
     } else {
       if (buyerProfile && (await notifyOnce(svc, buyerProfile, link, 'Upcoming payment', `Installment ${s.installment_number} of ${amount} is due on ${formatDate(due)}.`))) upcoming += 1;
     }
@@ -229,9 +250,9 @@ async function runMaintenance(svc: Svc): Promise<RunResult> {
     const ageDays = (now - new Date(t.created_at).getTime()) / DAY;
     const urgent = t.priority === 'high' || t.priority === 'emergency';
     if (ageDays >= 14 || (urgent && ageDays >= 2)) {
-      if (await notifyStaffOnce(svc, staff, `/financials`, 'Ticket escalation', `"${t.title}" has been open ${Math.floor(ageDays)} days (${t.priority}). Escalate.`)) escalated += 1;
+      if (await notifyStaffOnce(svc, staff, `/financials`, 'Ticket escalation', `"${t.title}" has been open ${Math.floor(ageDays)} days (${t.priority}). Escalate.`, 'maintenance_escalation')) escalated += 1;
     } else if (ageDays >= 7) {
-      if (await notifyStaffOnce(svc, staff, `/financials`, 'Maintenance overdue', `"${t.title}" has been open ${Math.floor(ageDays)} days with no resolution.`)) overdue += 1;
+      if (await notifyStaffOnce(svc, staff, `/financials`, 'Maintenance overdue', `"${t.title}" has been open ${Math.floor(ageDays)} days with no resolution.`, 'maintenance_escalation')) overdue += 1;
     }
   }
   return {
@@ -285,77 +306,176 @@ async function runCrm(svc: Svc): Promise<RunResult> {
       if (sent) highValue += 1;
     }
   }
-  return { processed: inactive + aging + highValue, summary: `${inactive} inactive, ${aging} aging, ${highValue} high-value lead alert(s)`, details: { inactive, aging, highValue } };
+  // Stage delays (Settings → Pipelines → μέγιστες μέρες ανά στάδιο).
+  let delayed = 0;
+  const { data: cfgRow } = await svc.from('org_settings').select('data').eq('id', 'org').maybeSingle();
+  const pipes = mergePipelines((cfgRow as any)?.data?.pipelines);
+  const { data: staged } = await (svc as any).from('leads').select('id, status, pipeline, stage_entered_at, assigned_to, contacts(full_name)').not('status', 'in', '("won","lost","nurture","no_response","retargeting","reactivation")');
+  for (const l of (staged ?? []) as any[]) {
+    const p = pipelineOf(pipes, l.pipeline);
+    const late = lateBy(p, l.status, l.stage_entered_at);
+    if (!late) continue;
+    const st = p.stages[stageIndex(p, l.status)];
+    const recipients = l.assigned_to ? [l.assigned_to] : staff;
+    let sent = false;
+    for (const r of recipients) sent = (await notifyOnce(svc, r, `/crm/leads/${l.id}#stage`, `Καθυστέρηση: ${l.contacts?.full_name ?? 'lead'}`, `Στο στάδιο «${st?.label}» ${late} μέρες πάνω από το όριο των ${st?.maxDays}.`)) || sent;
+    if (sent) delayed += 1;
+  }
+  return { processed: inactive + aging + highValue + delayed, summary: `${inactive} inactive, ${aging} aging, ${highValue} high-value, ${delayed} stage-delay alert(s)`, details: { inactive, aging, highValue, delayed } };
 }
 
-// ── Speed-to-lead escalation ─────────────────────────────────────────────────
+// ── Αναπάντητο lead (speed-to-lead) ─────────────────────────────────────────
 
+async function leadAutomation(svc: Svc): Promise<LeadAutomationSettings> {
+  const { data } = await svc.from('org_settings').select('data').eq('id', 'org').maybeSingle();
+  return mergeLeadAutomation((data as any)?.data?.leadAutomation);
+}
+
+/**
+ * Νέο lead χωρίς πρώτη απάντηση μετά από Χ λεπτά → ειδοποίηση στον υπεύθυνο
+ * (και στους managers). Προαιρετικά, μετά από Υ λεπτά, πάει αυτόματα στον
+ * επόμενο της ομάδας (round robin) — μία φορά ανά lead.
+ */
 async function runSpeedToLead(svc: Svc): Promise<RunResult> {
-  const tenMinAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+  const cfg = (await leadAutomation(svc)).unanswered;
+  const now = Date.now();
+  const since = new Date(now - cfg.minutes * 60 * 1000).toISOString();
   const { data: stale } = await svc
     .from('leads')
-    .select('id, assigned_to, contacts(full_name)')
+    .select('id, assigned_to, created_at, auto_reassigned_at, contacts(full_name)')
     .eq('status', 'new')
     .is('first_response_at', null)
-    .lte('created_at', tenMinAgo);
+    .lte('created_at', since)
+    .gte('created_at', new Date(now - 7 * DAY).toISOString());
 
-  const staff = await staffUserIds(svc);
-  let escalated = 0;
-  for (const l of stale ?? []) {
-    const name = (l as any).contacts?.full_name ?? 'A new lead';
+  const managers = cfg.notifyManagers ? await adminUserIds(svc) : [];
+  let escalated = 0; let reassigned = 0;
+  for (const l of (stale ?? []) as any[]) {
+    const name = l.contacts?.full_name ?? 'Νέο lead';
     const link = `/crm/leads/${l.id}`;
-    if (l.assigned_to) await notifyOnce(svc, l.assigned_to, link, '⏱ Speed-to-lead at risk', `${name} still has no response — respond now.`);
-    if (await notifyStaffOnce(svc, staff, link, 'Speed-to-lead escalation', `${name} has had no first response past the 5-minute window.`)) escalated += 1;
+    const mins = Math.floor((now - new Date(l.created_at).getTime()) / 60000);
+    let owner: string | null = l.assigned_to;
+
+    if (cfg.reassignAfterMinutes && mins >= cfg.reassignAfterMinutes && !l.auto_reassigned_at) {
+      const { data: next } = await (svc as any).rpc('pick_round_robin_agent', { p_exclude: owner });
+      if (next && next !== owner) {
+        await svc.from('leads').update({ assigned_to: next, assigned_at: new Date().toISOString(), auto_reassigned_at: new Date().toISOString() } as any).eq('id', l.id);
+        await svc.from('lead_assignments').insert({ lead_id: l.id, assigned_to: next, assigned_by: null, note: `Αυτόματη επαναδιανομή — αναπάντητο ${mins}′` } as any);
+        await svc.from('follow_up_tasks').update({ assigned_to: next }).eq('lead_id', l.id).eq('is_done', false);
+        await deliverNotification(svc as any, { userId: next, title: `Σας δόθηκε αναπάντητο lead: ${name}`, body: `Δεν απαντήθηκε για ${mins} λεπτά — απαντήστε τώρα.`, link, event: 'lead_assigned' });
+        if (owner) await deliverNotification(svc as any, { userId: owner, title: `Το lead ${name} πήγε σε άλλον`, body: `Έμεινε αναπάντητο ${mins} λεπτά.`, link, event: 'lead_unanswered' });
+        owner = next; reassigned += 1;
+        continue;
+      }
+    }
+
+    let sent = false;
+    if (owner && cfg.notifyOwner) sent = (await notifyOnce(svc, owner, link, `⏱ Αναπάντητο: ${name}`, `Χωρίς απάντηση εδώ και ${mins} λεπτά — απαντήστε τώρα.`, 'lead_unanswered')) || sent;
+    const extra = owner ? managers.filter((m) => m !== owner) : (managers.length ? managers : await staffUserIds(svc));
+    if (extra.length && (await notifyStaffOnce(svc, extra, link, `Αναπάντητο lead: ${name}`, owner ? `${mins} λεπτά χωρίς πρώτη απάντηση.` : `${mins} λεπτά χωρίς απάντηση και χωρίς υπεύθυνο.`, 'lead_unanswered'))) sent = true;
+    if (sent) escalated += 1;
   }
-  return { processed: escalated, summary: escalated > 0 ? `${escalated} lead(s) escalated for slow response` : 'All new leads responded to in time' };
+  return { processed: escalated + reassigned, summary: escalated + reassigned ? `${escalated} ειδοποίηση(εις), ${reassigned} επαναδιανομή(ές)` : 'Όλα τα νέα leads απαντήθηκαν εγκαίρως', details: { escalated, reassigned } };
 }
 
-// ── Sales cadence: follow-up + nurture + retargeting ──────────────────────────
+// ── Follow-up sequence ──────────────────────────────────────────────────────
 
+/**
+ * Τα βήματα των Ρυθμίσεων (WhatsApp / email / εργασία τηλεφωνήματος) μετά από
+ * Χ ώρες, στη γλώσσα του πελάτη. Σταματά όταν ο πελάτης απαντήσει ή όταν το
+ * lead προχωρήσει πέρα από το «Νέο/Επικοινωνία». Δεν αλλάζει ποτέ στάδιο.
+ */
 async function runSalesCadence(svc: Svc): Promise<RunResult> {
+  const cfg = (await leadAutomation(svc)).sequence;
+  if (!cfg.enabled || !cfg.steps.length) return { processed: 0, summary: 'Η σειρά follow-up είναι απενεργοποιημένη' };
   const now = Date.now();
-  const fourteenDaysAgo = new Date(now - 14 * DAY).toISOString();
-  // In-flight leads only (avoid blasting the historical backlog).
+  const horizon = Math.max(...cfg.steps.map((s) => s.afterHours)) + 48;
   const { data: leads } = await svc
     .from('leads')
-    .select('id, status, created_at, assigned_to, contact_id, contacts(full_name, email, phone, buyer_type, preferred_language)')
-    .not('status', 'in', '("won","lost","reserved","retargeting","nurture")')
-    .gte('created_at', fourteenDaysAgo);
+    .select('id, status, created_at, assigned_to, contact_id, first_response_at, contacts(full_name, email, phone, buyer_type, preferred_language, marketing_opt_in), owner:assigned_to(full_name), projects:preferred_project_id(name)')
+    .in('status', ['new', 'contacted'])
+    .gte('created_at', new Date(now - horizon * 60 * 60 * 1000).toISOString());
 
-  let processed = 0;
-  for (const l of leads ?? []) {
+  let processed = 0; let stopped = 0;
+  for (const l of (leads ?? []) as any[]) {
     const ageH = (now - new Date(l.created_at).getTime()) / (60 * 60 * 1000);
-    const c = (l as any).contacts;
-    const audience = templateAudience(c?.buyer_type, c?.preferred_language);
-    const vars = { name: c?.full_name ?? 'there', project: 'Oramira', agent: 'the Oramira team' };
-
+    const c = l.contacts;
+    const { count: replies } = await svc.from('contact_communications').select('id', { count: 'exact', head: true })
+      .eq('contact_id', l.contact_id).eq('direction', 'inbound').gte('occurred_at', l.created_at);
+    const replied = (replies ?? 0) > 0;
     const { data: sent } = await svc.from('contact_communications').select('template_key').eq('lead_id', l.id).not('template_key', 'is', null);
-    const sentKeys = new Set((sent ?? []).map((x: any) => x.template_key));
-
-    for (const step of FOLLOW_UP_CADENCE) {
-      if (ageH < step.afterHours) continue;
-      if ((step.action === 'whatsapp' || step.action === 'email') && step.templateKey && !sentKeys.has(step.templateKey)) {
-        await sendTemplate({ contactId: l.contact_id, leadId: l.id, channel: step.action, templateKey: step.templateKey, to: step.action === 'email' ? c?.email : c?.phone, vars, audience });
-        sentKeys.add(step.templateKey);
+    const { data: tasks } = await svc.from('follow_up_tasks').select('note').eq('lead_id', l.id).like('note', '%follow-up%');
+    const done = new Set<string>((sent ?? []).map((x: any) => x.template_key));
+    for (const t of (tasks ?? []) as any[]) {
+      const m = /@(\d+)h/.exec(t.note ?? ''); if (m) done.add(`call@${m[1]}`);
+      if (t.note === 'Cadence: phone follow-up') done.add('call@48');
+    }
+    const due = dueSteps(cfg.steps, ageH, done, replied, cfg.stopOnReply);
+    if (replied && cfg.stopOnReply) { stopped += 1; continue; }
+    const audience = audienceFor(c?.preferred_language, c?.buyer_type);
+    const vars = { name: c?.full_name ?? 'there', project: l.projects?.name ?? 'Oramira', agent: l.owner?.full_name ?? 'the Oramira team' };
+    for (const step of due) {
+      if (step.action === 'call_task') {
+        await svc.from('follow_up_tasks').insert({ lead_id: l.id, contact_id: l.contact_id, assigned_to: l.assigned_to, due_at: new Date().toISOString(), note: `Τηλεφωνικό follow-up @${step.afterHours}h` });
         processed += 1;
-      } else if (step.action === 'call_task') {
-        const { data: existing } = await svc.from('follow_up_tasks').select('id').eq('lead_id', l.id).eq('note', 'Cadence: phone follow-up').maybeSingle();
-        if (!existing) {
-          await svc.from('follow_up_tasks').insert({ lead_id: l.id, contact_id: l.contact_id, assigned_to: l.assigned_to, due_at: new Date().toISOString(), note: 'Cadence: phone follow-up' });
-          processed += 1;
-        }
-      } else if (step.action === 'retarget') {
-        // Cadence creates reminders/messages only — it never moves the lead's
-        // stage. The pipeline status is changed manually (or by the dedicated
-        // reactivation job), keeping the pipeline the single source of truth.
-        if (!sentKeys.has('nurture_objections')) {
-          await sendTemplate({ contactId: l.contact_id, leadId: l.id, channel: 'email', templateKey: 'nurture_objections', to: c?.email, vars, audience });
-          processed += 1;
-        }
+      } else {
+        const to = step.action === 'email' ? c?.email : c?.phone;
+        if (!to) continue;
+        await sendTemplate({ contactId: l.contact_id, leadId: l.id, channel: step.action, templateKey: step.templateKey, to, vars, audience });
+        processed += 1;
       }
     }
   }
-  return { processed, summary: processed > 0 ? `${processed} cadence action(s) executed` : 'No cadence actions due' };
+  return { processed, summary: processed ? `${processed} βήμα(τα) follow-up${stopped ? ` · ${stopped} σταμάτησαν (απάντησε ο πελάτης)` : ''}` : `Κανένα βήμα δεν οφείλεται${stopped ? ` · ${stopped} σταμάτησαν (απάντησε ο πελάτης)` : ''}`, details: { processed, stopped } };
+}
+
+// ── Ημερήσια σύνοψη leads ───────────────────────────────────────────────────
+
+/**
+ * Τρέχει κάθε ώρα· στέλνει μόνο στην ώρα Κύπρου που ορίσατε, μία φορά τη μέρα.
+ * Κάθε πωλητής παίρνει τα δικά του, οι managers όλο το γραφείο + τα χωρίς υπεύθυνο.
+ */
+async function runLeadDigest(svc: Svc): Promise<RunResult> {
+  const cfg = (await leadAutomation(svc)).digest;
+  if (!cfg.enabled) return { processed: 0, summary: 'Η ημερήσια σύνοψη είναι απενεργοποιημένη' };
+  const now = new Date();
+  const local = localParts(now);
+  if (local.hour !== cfg.hour) return { processed: 0, summary: `Στέλνεται στις ${String(cfg.hour).padStart(2, '0')}:00 (ώρα Κύπρου)` };
+
+  const dayStart = new Date(now.getTime() - (local.hour * 60 + now.getUTCMinutes()) * 60 * 1000);
+  dayStart.setUTCSeconds(0, 0);
+  const dayEnd = new Date(dayStart.getTime() + DAY);
+  const { data: orgRow } = await svc.from('org_settings').select('data').eq('id', 'org').maybeSingle();
+  const pipes = mergePipelines((orgRow as any)?.data?.pipelines);
+
+  const { data: open } = await svc.from('leads').select('id, status, assigned_to, created_at, first_response_at, pipeline, stage_entered_at')
+    .not('status', 'in', '("won","lost","nurture","no_response","retargeting","reactivation")');
+  const { data: tasks } = await svc.from('follow_up_tasks').select('assigned_to').eq('is_done', false).lt('due_at', dayEnd.toISOString());
+  const { data: views } = await svc.from('viewings').select('agent_id').gte('scheduled_at', dayStart.toISOString()).lt('scheduled_at', dayEnd.toISOString()).not('status', 'in', '("cancelled","canceled")');
+
+  const day = now.getTime() - DAY;
+  const count = (rows: any[], f: (r: any) => boolean) => rows.filter(f).length;
+  const L = (open ?? []) as any[];
+  const countsFor = (who: ((id: string | null) => boolean)): DigestCounts => ({
+    newLeads: count(L, (l) => who(l.assigned_to) && new Date(l.created_at).getTime() >= day),
+    unanswered: count(L, (l) => who(l.assigned_to) && l.status === 'new' && !l.first_response_at),
+    late: count(L, (l) => who(l.assigned_to) && (lateBy(pipelineOf(pipes, l.pipeline), l.status, l.stage_entered_at) ?? 0) > 0),
+    followUps: count((tasks ?? []) as any[], (t) => who(t.assigned_to)),
+    viewings: count((views ?? []) as any[], (v) => who(v.agent_id)),
+  });
+
+  const { data: people } = await svc.from('profiles').select('id, role, is_active').in('role', ['admin', 'management', 'sales']);
+  const link = `/crm/leads?digest=${local.date}`;
+  let sent = 0;
+  for (const p of (people ?? []) as any[]) {
+    if (p.is_active === false) continue;
+    const manager = cfg.managers && (p.role === 'admin' || p.role === 'management');
+    const c = manager ? { ...countsFor(() => true), unassigned: count(L, (l) => !l.assigned_to) } : countsFor((id) => id === p.id);
+    const msg = digestText(c);
+    if (!msg) continue;
+    if (await notifyOnce(svc, p.id, link, msg.title, msg.body, 'lead_digest')) sent += 1;
+  }
+  return { processed: sent, summary: sent ? `Σύνοψη σε ${sent} άτομα` : 'Τίποτα για σύνοψη σήμερα' };
 }
 
 // ── Contract reminders ──────────────────────────────────────────────────────
@@ -393,9 +513,9 @@ async function runContractReminders(svc: Svc): Promise<RunResult> {
 
     if (c.expiry_date) {
       const d = daysUntil(c.expiry_date);
-      if (d >= 54 && d <= 60) processed += await notifyStaffOnce(svc, admins, `${link}#expiry60-${c.id}`, 'Contract expiring in ~60 days', `${name}'s contract "${c.title}" expires on ${c.expiry_date}.`);
+      if (d >= 54 && d <= 60) processed += await notifyStaffOnce(svc, admins, `${link}#expiry60-${c.id}`, 'Contract expiring in ~60 days', `${name}'s contract "${c.title}" expires on ${c.expiry_date}.`, 'contract_expiring');
       if (d >= 24 && d <= 30) {
-        processed += await notifyStaffOnce(svc, admins, `${link}#expiry30-${c.id}`, 'Contract expiring in ~30 days', `${name}'s contract "${c.title}" expires on ${c.expiry_date}.`);
+        processed += await notifyStaffOnce(svc, admins, `${link}#expiry30-${c.id}`, 'Contract expiring in ~30 days', `${name}'s contract "${c.title}" expires on ${c.expiry_date}.`, 'contract_expiring');
         if (await notifyOnce(svc, c.profile_id, `/dashboard#expiry30-${c.id}`, 'Your contract is expiring soon', `Your contract "${c.title}" expires on ${c.expiry_date}. HR will be in touch about renewal.`)) processed += 1;
       }
     }
@@ -403,14 +523,14 @@ async function runContractReminders(svc: Svc): Promise<RunResult> {
     if (c.probation_end_date) {
       const d = daysUntil(c.probation_end_date);
       if (d >= 8 && d <= 14) {
-        processed += await notifyStaffOnce(svc, admins, `${link}#probation-${c.id}`, 'Probation ending soon', `${name}'s probation ends on ${c.probation_end_date}. Confirm or extend.`);
+        processed += await notifyStaffOnce(svc, admins, `${link}#probation-${c.id}`, 'Probation ending soon', `${name}'s probation ends on ${c.probation_end_date}. Confirm or extend.`, 'probation_ending');
         if (await notifyOnce(svc, c.profile_id, `/dashboard#probation-${c.id}`, 'Your probation is ending', `Your probation period ends on ${c.probation_end_date}.`)) processed += 1;
       }
     }
 
     if (c.renewal_date) {
       const d = daysUntil(c.renewal_date);
-      if (d >= 24 && d <= 30) processed += await notifyStaffOnce(svc, admins, `${link}#renewal-${c.id}`, 'Contract renewal due', `${name}'s contract "${c.title}" is due for renewal on ${c.renewal_date}.`);
+      if (d >= 24 && d <= 30) processed += await notifyStaffOnce(svc, admins, `${link}#renewal-${c.id}`, 'Contract renewal due', `${name}'s contract "${c.title}" is due for renewal on ${c.renewal_date}.`, 'contract_expiring');
     }
   }
   return { processed, summary: processed > 0 ? `${processed} contract reminder(s) sent` : 'No contract reminders due' };
@@ -559,10 +679,10 @@ async function runAutoCalendarEvents(svc: Svc): Promise<RunResult> {
   for (const c of contracts ?? []) {
     const name = (c as any).profiles?.full_name ?? 'Employee';
     if (c.profile_id && c.expiry_date && c.expiry_date >= todayISO && c.expiry_date <= in60) {
-      if (await ensureSystemEvent(svc, { profileId: c.profile_id, title: `Contract expiry — ${name}`, startAt: at9(c.expiry_date), source: 'contract_expiry', sourceKey: `contract_expiry:${c.id}`, priority: 'high' })) { created += 1; await notifyStaffOnce(svc, admins, '/hr', 'Contract expiring', `${name}'s contract expires on ${c.expiry_date}.`); }
+      if (await ensureSystemEvent(svc, { profileId: c.profile_id, title: `Contract expiry — ${name}`, startAt: at9(c.expiry_date), source: 'contract_expiry', sourceKey: `contract_expiry:${c.id}`, priority: 'high' })) { created += 1; await notifyStaffOnce(svc, admins, '/hr', 'Contract expiring', `${name}'s contract expires on ${c.expiry_date}.`, 'contract_expiring'); }
     }
     if (c.profile_id && c.renewal_date && c.renewal_date >= todayISO && c.renewal_date <= in60) {
-      if (await ensureSystemEvent(svc, { profileId: c.profile_id, title: `Contract renewal — ${name}`, startAt: at9(c.renewal_date), source: 'contract_renewal', sourceKey: `contract_renewal:${c.id}` })) { created += 1; await notifyStaffOnce(svc, admins, '/hr', 'Contract renewal due', `${name}'s contract renews on ${c.renewal_date}.`); }
+      if (await ensureSystemEvent(svc, { profileId: c.profile_id, title: `Contract renewal — ${name}`, startAt: at9(c.renewal_date), source: 'contract_renewal', sourceKey: `contract_renewal:${c.id}` })) { created += 1; await notifyStaffOnce(svc, admins, '/hr', 'Contract renewal due', `${name}'s contract renews on ${c.renewal_date}.`, 'contract_expiring'); }
     }
   }
 
@@ -570,7 +690,7 @@ async function runAutoCalendarEvents(svc: Svc): Promise<RunResult> {
   if (admins[0]) {
     const { data: warranties } = await svc.from('warranties').select('id, name, ends_on').gte('ends_on', todayISO).lte('ends_on', in60);
     for (const w of warranties ?? []) {
-      if (await ensureSystemEvent(svc, { profileId: admins[0], title: `Warranty expiry — ${w.name}`, startAt: at9(w.ends_on), source: 'warranty_expiry', sourceKey: `warranty_expiry:${w.id}` })) { created += 1; await notifyStaffOnce(svc, admins, '/property', 'Warranty expiring', `${w.name} warranty ends on ${w.ends_on}.`); }
+      if (await ensureSystemEvent(svc, { profileId: admins[0], title: `Warranty expiry — ${w.name}`, startAt: at9(w.ends_on), source: 'warranty_expiry', sourceKey: `warranty_expiry:${w.id}` })) { created += 1; await notifyStaffOnce(svc, admins, '/property', 'Warranty expiring', `${w.name} warranty ends on ${w.ends_on}.`, 'warranty_expiring'); }
     }
   }
 
@@ -588,7 +708,7 @@ async function runAutoCalendarEvents(svc: Svc): Promise<RunResult> {
   for (const c of contracts ?? []) {
     const name = (c as any).profiles?.full_name ?? 'Employee';
     if (c.profile_id && c.probation_end_date && c.probation_end_date >= todayISO && c.probation_end_date <= in60) {
-      if (await ensureSystemEvent(svc, { profileId: c.profile_id, title: `Probation ends — ${name}`, startAt: at9(c.probation_end_date), source: 'probation_deadline', sourceKey: `probation_deadline:${c.id}`, priority: 'high' })) { created += 1; await notifyStaffOnce(svc, admins, '/hr', 'Probation ending', `${name}'s probation ends on ${c.probation_end_date}.`); }
+      if (await ensureSystemEvent(svc, { profileId: c.profile_id, title: `Probation ends — ${name}`, startAt: at9(c.probation_end_date), source: 'probation_deadline', sourceKey: `probation_deadline:${c.id}`, priority: 'high' })) { created += 1; await notifyStaffOnce(svc, admins, '/hr', 'Probation ending', `${name}'s probation ends on ${c.probation_end_date}.`, 'probation_ending'); }
     }
   }
 
@@ -614,7 +734,7 @@ async function runAutoCalendarEvents(svc: Svc): Promise<RunResult> {
       const dueISO = due.toISOString().slice(0, 10);
       if (dueISO < todayISO || dueISO > in60) continue;
       const co = (iv as any).contractors?.company_name ?? 'contractor';
-      if (await ensureSystemEvent(svc, { profileId: finance[0], title: `Contractor payment — ${co}`, startAt: at9(dueISO), source: 'contractor_payment', sourceKey: `contractor_payment:${iv.id}`, priority: 'normal' })) { created += 1; await notifyStaffOnce(svc, finance, '/financials', 'Contractor payment due', `${formatCurrency(Number(iv.amount ?? 0))} to ${co} due ${dueISO}.`); }
+      if (await ensureSystemEvent(svc, { profileId: finance[0], title: `Contractor payment — ${co}`, startAt: at9(dueISO), source: 'contractor_payment', sourceKey: `contractor_payment:${iv.id}`, priority: 'normal' })) { created += 1; await notifyStaffOnce(svc, finance, '/financials', 'Contractor payment due', `${formatCurrency(Number(iv.amount ?? 0))} to ${co} due ${dueISO}.`, 'contractor_payment'); }
     }
   }
 
@@ -627,7 +747,7 @@ async function runAutoCalendarEvents(svc: Svc): Promise<RunResult> {
       const vatISO = vat.toISOString().slice(0, 10);
       if (vatISO < todayISO || vatISO > in60) continue;
       const key = `vat_deadline:${vat.getFullYear()}-Q${((q % 4) + 1)}`;
-      if (await ensureSystemEvent(svc, { profileId: finance[0], title: 'VAT return deadline', startAt: at9(vatISO), source: 'vat_deadline', sourceKey: key, priority: 'high' })) { created += 1; await notifyStaffOnce(svc, finance, '/financials', 'VAT deadline', `Quarterly VAT return is due ${vatISO}.`); }
+      if (await ensureSystemEvent(svc, { profileId: finance[0], title: 'VAT return deadline', startAt: at9(vatISO), source: 'vat_deadline', sourceKey: key, priority: 'high' })) { created += 1; await notifyStaffOnce(svc, finance, '/financials', 'VAT deadline', `Quarterly VAT return is due ${vatISO}.`, 'vat_deadline'); }
     }
   }
 
@@ -637,7 +757,7 @@ async function runAutoCalendarEvents(svc: Svc): Promise<RunResult> {
     const payroll = new Date(y, m, 25);
     if (payroll.getTime() >= now - 5 * DAY) {
       const key = `payroll_deadline:${y}-${String(m + 1).padStart(2, '0')}`;
-      if (await ensureSystemEvent(svc, { profileId: admins[0], title: 'Payroll run deadline', startAt: at9(payroll.toISOString().slice(0, 10)), source: 'payroll_deadline', sourceKey: key, priority: 'high' })) { created += 1; await notifyStaffOnce(svc, admins, '/hr', 'Payroll deadline', `Monthly payroll run is due ${payroll.toDateString()}.`); }
+      if (await ensureSystemEvent(svc, { profileId: admins[0], title: 'Payroll run deadline', startAt: at9(payroll.toISOString().slice(0, 10)), source: 'payroll_deadline', sourceKey: key, priority: 'high' })) { created += 1; await notifyStaffOnce(svc, admins, '/hr', 'Payroll deadline', `Monthly payroll run is due ${payroll.toDateString()}.`, 'payroll_deadline'); }
     }
   }
 
@@ -682,8 +802,9 @@ async function runChurnDetection(svc: Svc): Promise<RunResult> {
     for (const r of recipients) if (await notifyOnce(svc, r, `/crm/leads/${n.lead_id}#negotiation`, '💬 Negotiation stalling', `The negotiation with ${name} has been quiet for ${days} days — send a counter or confirm terms.`)) alerts += 1;
   }
 
-  // Delayed reservations — active, near expiry, deposit still unpaid.
-  const soon = new Date(now + 5 * DAY).toISOString();
+  // Delayed reservations — active, near expiry (Settings → Κρατήσεις → προειδοποίηση), deposit still unpaid.
+  const warnDays = (await reservationSettings(svc)).warnDays;
+  const soon = new Date(now + Math.max(warnDays, 0) * DAY).toISOString();
   const { data: resv } = await svc.from('reservations').select('id, created_by, expires_at, deposit_paid, contacts:buyer_contact_id(full_name)').eq('status', 'active').eq('deposit_paid', false).not('expires_at', 'is', null).lte('expires_at', soon);
   for (const r of resv ?? []) {
     if (!r.created_by) continue;
@@ -701,7 +822,7 @@ async function runChurnDetection(svc: Svc): Promise<RunResult> {
     for (const o of owners ?? []) {
       if (withTickets.has(o.id)) continue;
       const name = (o as any).contacts?.full_name ?? 'Owner';
-      if (await notifyStaffOnce(svc, propStaff, `/property#owner-${o.id}`, '🏡 Owner check-in due', `${name} moved in over 6 months ago with no maintenance contact — a proactive check-in is overdue.`)) alerts += 1;
+      if (await notifyStaffOnce(svc, propStaff, `/property#owner-${o.id}`, '🏡 Owner check-in due', `${name} moved in over 6 months ago with no maintenance contact — a proactive check-in is overdue.`, 'owner_checkin')) alerts += 1;
     }
   }
 
@@ -756,7 +877,7 @@ async function runOwnerLifecycle(svc: Svc): Promise<RunResult> {
     if (ann.days >= 0 && ann.days <= 30 && ann.years >= 1) {
       if (await ensureSystemEvent(svc, { profileId: owner, title: `Annual inspection — ${name}`, startAt: at9(ann.date.toISOString().slice(0, 10)), source: 'annual_inspection', sourceKey: `annual_inspection:${o.id}:${ann.date.getFullYear()}`, priority: 'normal' })) {
         created += 1;
-        await notifyStaffOnce(svc, propStaff, `/property#inspection-${o.id}`, 'Annual inspection due', `${name}'s year-${ann.years} inspection is due around ${ann.date.toISOString().slice(0, 10)}.`);
+        await notifyStaffOnce(svc, propStaff, `/property#inspection-${o.id}`, 'Annual inspection due', `${name}'s year-${ann.years} inspection is due around ${ann.date.toISOString().slice(0, 10)}.`, 'owner_checkin');
       }
     }
 
@@ -765,7 +886,7 @@ async function runOwnerLifecycle(svc: Svc): Promise<RunResult> {
       if (await ensureSystemEvent(svc, { profileId: owner, title: `Handover anniversary — ${name}`, startAt: at9(ann.date.toISOString().slice(0, 10)), source: 'handover_anniversary', sourceKey: `handover_anniversary:${o.id}:${ann.date.getFullYear()}`, priority: 'normal' })) {
         created += 1;
         if (ownerProfile) await notifyOnce(svc, ownerProfile, '/homeowner', `${ann.years} year${ann.years === 1 ? '' : 's'} in your home`, 'It has been a year since your handover — we would love to hear how you are settling in.');
-        await notifyStaffOnce(svc, propStaff, `/property#anniversary-${o.id}`, 'Handover anniversary', `${name} reaches ${ann.years} year(s) since handover on ${ann.date.toISOString().slice(0, 10)}.`);
+        await notifyStaffOnce(svc, propStaff, `/property#anniversary-${o.id}`, 'Handover anniversary', `${name} reaches ${ann.years} year(s) since handover on ${ann.date.toISOString().slice(0, 10)}.`, 'owner_checkin');
       }
     }
   }
@@ -841,7 +962,7 @@ async function runTaskOrchestration(svc: Svc): Promise<RunResult> {
   const { data: tickets } = await svc.from('maintenance_tickets').select('id, title, priority, created_at').in('status', ['open', 'acknowledged', 'in_progress', 'awaiting_parts', 'reopened']).in('priority', ['high', 'emergency']);
   for (const t of tickets ?? []) {
     if ((now - new Date(t.created_at).getTime()) / DAY < 3) continue;
-    if (await ensureTask(svc, { assignedTo: propStaff[0] ?? null, title: `Escalate maintenance — ${t.title}`, dueAt: inHours(2), sourceKey: `orch:maintenance:${t.id}:${wk}`, relatedType: 'ticket', relatedId: t.id, description: `Auto-created: ${t.priority} ticket unresolved 3+ days.` })) { created += 1; await notifyStaffOnce(svc, propStaff, '/property', '🔧 Maintenance escalation', `${t.priority} ticket "${t.title}" is unresolved.`); }
+    if (await ensureTask(svc, { assignedTo: propStaff[0] ?? null, title: `Escalate maintenance — ${t.title}`, dueAt: inHours(2), sourceKey: `orch:maintenance:${t.id}:${wk}`, relatedType: 'ticket', relatedId: t.id, description: `Auto-created: ${t.priority} ticket unresolved 3+ days.` })) { created += 1; await notifyStaffOnce(svc, propStaff, '/property', '🔧 Maintenance escalation', `${t.priority} ticket "${t.title}" is unresolved.`, 'maintenance_escalation'); }
   }
 
   return { processed: created, summary: created > 0 ? `${created} task(s) auto-orchestrated` : 'No new tasks to orchestrate' };
@@ -911,7 +1032,7 @@ async function runSelfHealing(svc: Svc): Promise<RunResult> {
     const period = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
     const { count } = await svc.from('payslips').select('id', { count: 'exact', head: true }).eq('period', period);
     if ((count ?? 0) === 0) {
-      if (await ensureTask(svc, { assignedTo: admins[0], title: `Run payroll — ${period}`, dueAt: inHours(24), sourceKey: `heal:payroll:${period}`, description: 'Auto-created: no payslips issued for the current period.' })) { healed += 1; await notifyStaffOnce(svc, admins, '/hr', '⚠ Payroll not run', `No payslips issued for ${period}.`); }
+      if (await ensureTask(svc, { assignedTo: admins[0], title: `Run payroll — ${period}`, dueAt: inHours(24), sourceKey: `heal:payroll:${period}`, description: 'Auto-created: no payslips issued for the current period.' })) { healed += 1; await notifyStaffOnce(svc, admins, '/hr', '⚠ Payroll not run', `No payslips issued for ${period}.`, 'payroll_deadline'); }
     }
   }
 
@@ -1027,6 +1148,16 @@ async function runAcquisitionOps(svc: Svc): Promise<RunResult> {
   return { processed: n, summary: n > 0 ? `${n} acquisition task(s)/alert(s) raised` : 'No acquisition ops due' };
 }
 
+// ── GDPR retention ──────────────────────────────────────────────────────────
+
+/** Settings → GDPR: anonymize leads with no activity past the retention period (only when switched on). */
+async function runGdprRetention(_svc: Svc): Promise<RunResult> {
+  const g = await getGdprSettingsPublic();
+  if (!g.autoRetention) return { processed: 0, summary: 'Off (Settings → GDPR & δεδομένα).' };
+  const r = await runRetention(null, g);
+  return { processed: r.processed, summary: `${r.processed} expired leads anonymized${r.failed ? `, ${r.failed} skipped` : ''}.`, details: { ...r, months: g.retentionLeadsMonths } };
+}
+
 // ── Registry + dispatcher ───────────────────────────────────────────────────
 
 export interface JobDef {
@@ -1043,9 +1174,10 @@ export const JOBS: JobDef[] = [
   { key: 'payment_reminders', label: 'Payment reminders', description: 'Upcoming-payment reminders and overdue alerts.', schedule: 'Daily', run: runPaymentReminders },
   { key: 'website_sync', label: 'Website lead sync', description: 'Reconcile any unprocessed website/newsletter submissions into the CRM.', schedule: 'Every 15 min', run: runWebsiteSync },
   { key: 'maintenance', label: 'Maintenance', description: 'Visit reminders, overdue alerts, and unresolved-ticket escalation.', schedule: 'Every 6 hours', run: runMaintenance },
-  { key: 'crm', label: 'CRM follow-ups', description: 'Inactive-lead reminders, status aging, and high-value lead priority.', schedule: 'Daily', run: runCrm },
-  { key: 'speed_to_lead', label: 'Speed-to-lead', description: 'Escalate new leads with no response past the 5-minute window.', schedule: 'Every 5 min', run: runSpeedToLead },
-  { key: 'sales_cadence', label: 'Sales cadence', description: 'Follow-up cadence, email nurture, and retargeting for unanswered leads.', schedule: 'Every 6 hours', run: runSalesCadence },
+  { key: 'crm', label: 'CRM follow-ups', description: 'Inactive-lead reminders, status aging, high-value priority and pipeline stage delays.', schedule: 'Daily', run: runCrm },
+  { key: 'speed_to_lead', label: 'Αναπάντητα leads', description: 'Ειδοποίηση (και προαιρετική επαναδιανομή) για νέα leads χωρίς απάντηση — Ρυθμίσεις → Leads & αυτοματισμοί.', schedule: 'Every 5 min', run: runSpeedToLead },
+  { key: 'sales_cadence', label: 'Follow-up sequence', description: 'Τα βήματα WhatsApp / email / τηλεφωνήματος των Ρυθμίσεων· σταματά όταν απαντήσει ο πελάτης.', schedule: 'Hourly', run: runSalesCadence },
+  { key: 'lead_digest', label: 'Ημερήσια σύνοψη leads', description: 'Κάθε πρωί: νέα, αναπάντητα, καθυστερήσεις, follow-ups και ξεναγήσεις της μέρας.', schedule: 'Hourly (στέλνει στην ώρα που ορίσατε)', run: runLeadDigest },
   { key: 'contract_reminders', label: 'Contract reminders', description: 'Alert admins and employees ahead of contract expiry, probation end, and renewals.', schedule: 'Daily', run: runContractReminders },
   { key: 'viewing_reminders', label: 'Viewing reminders', description: 'Send WhatsApp reminders for viewings scheduled within the next 24 hours.', schedule: 'Hourly', run: runViewingReminders },
   { key: 'meeting_reminders', label: 'Meeting reminders', description: 'Send WhatsApp reminders for planner meetings linked to a lead within the next 2 hours.', schedule: 'Hourly', run: runMeetingReminders },
@@ -1058,6 +1190,7 @@ export const JOBS: JobDef[] = [
   { key: 'learning_loop', label: 'Learning loop', description: 'Mine won/lost history into empirical insights for scoring, cadence, and negotiation.', schedule: 'Daily', run: runLearningLoop },
   { key: 'executive_memory', label: 'Executive memory', description: 'Auto-capture won/lost deals, closed negotiations, and resolved emergencies into institutional memory.', schedule: 'Daily', run: runExecutiveMemory },
   { key: 'acquisition_cadence', label: 'Acquisition cadence', description: 'Nudge quiet landowners in the sourcing pipeline via WhatsApp/email and flag a call.', schedule: 'Daily', run: runAcquisitionCadence },
+  { key: 'gdpr_retention', label: 'GDPR retention', description: 'Anonymize leads with no activity past the retention period (Settings → GDPR).', schedule: 'Daily', run: runGdprRetention },
   { key: 'acquisition_ops', label: 'Acquisition ops', description: 'Follow-up tasks, no-contact alerts, stalled-negotiation escalation, DD deadlines and document-request tasks.', schedule: 'Daily', run: runAcquisitionOps },
 ];
 

@@ -1,186 +1,114 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { Check, X, RotateCcw, Trophy } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { X, RotateCcw, Trophy, Clock, AlertTriangle, FileText } from 'lucide-react';
 import { updateLeadStatus } from '@/app/actions/leads';
-
-/** Five core stages an employee actually works a lead through. The granular
- *  legacy statuses (engaged, waiting, negotiating…) still map into these
- *  buckets for display, but there are now far fewer decisions per lead. */
-const STAGES = [
-  { key: 'new', label: 'New', meaning: 'Not contacted yet.', next: 'Call or message within the hour.' },
-  { key: 'contacted', label: 'Contacted', meaning: "You've reached out and a conversation has started.", next: 'Confirm their budget, timeline & what they want.' },
-  { key: 'qualified', label: 'Qualified', meaning: 'Budget, timeline & requirements confirmed.', next: 'Book a property viewing.' },
-  { key: 'viewing', label: 'Viewing', meaning: 'A viewing is booked or completed.', next: 'Gauge interest, then put an offer together.' },
-  { key: 'offer', label: 'Offer', meaning: 'A proposal / price is on the table.', next: 'Agree terms, then reserve the unit.' },
-] as const;
-
-/** Legacy/granular DB status → which of the 5 core stages it displays as. */
-const BUCKET: Record<string, number> = {
-  new: 0, contacted: 1, engaged: 1, qualified: 2, viewing: 3, waiting: 3, offer: 4, negotiating: 4,
-};
-
-/** Positive end-states (past the working pipeline). */
-const WON_STATES: Record<string, { label: string; note: string }> = {
-  reserved: { label: 'Reserved', note: 'Deposit taken — the unit is held for this buyer.' },
-  won: { label: 'Won 🎉', note: 'This deal is closed.' },
-};
-
-/** Plain-language outcomes for closing a lead, each mapped to the underlying
- *  status. This is what makes "not interested" a first-class, obvious action. */
-const OUTCOMES: { key: string; label: string; status: string; tone: 'dead' | 'park' }[] = [
-  { key: 'not_interested', label: 'Not interested', status: 'lost', tone: 'dead' },
-  { key: 'bought_elsewhere', label: 'Bought elsewhere', status: 'lost', tone: 'dead' },
-  { key: 'price_too_high', label: 'Budget / price too high', status: 'lost', tone: 'dead' },
-  { key: 'no_match', label: 'No suitable property', status: 'lost', tone: 'dead' },
-  { key: 'bad_timing', label: 'Not now — revisit later', status: 'nurture', tone: 'park' },
-  { key: 'no_response', label: "Can't reach — no response", status: 'no_response', tone: 'park' },
-];
-
-const CLOSED_LABEL: Record<string, string> = { lost: 'Lost', nurture: 'Nurture', no_response: 'No response', retargeting: 'Retargeting' };
+import {
+  DEFAULT_PIPELINE_SETTINGS, STATUS_EL, daysSince, lateBy, stageIndex,
+  type LostReason, type PipelineDef,
+} from '@/lib/pipeline-shared';
 
 /**
- * The lead status pipeline — five clear stages an employee works through, each
- * captioned with what it means and the next step, so structuring a lead is
- * self-evident. Closing a lead is one plain-language action that captures WHY
- * (saved to the timeline) and clears the lead's open tasks.
+ * Πορεία ενός lead στο pipeline του: τα στάδια με τα δικά σας ονόματα, πόσες
+ * μέρες είναι στο τρέχον (κόκκινο όταν περάσει το όριο), «Κλείσιμο (Won)» και
+ * κλείσιμο με λόγο απώλειας από τις Ρυθμίσεις.
  */
-export function StatusPipeline({ leadId, currentStatus }: { leadId: string; currentStatus: string }) {
-  const [isPending, startTransition] = useTransition();
+export function StatusPipeline({ leadId, currentStatus, pipeline = DEFAULT_PIPELINE_SETTINGS.pipelines[0], lostReasons = DEFAULT_PIPELINE_SETTINGS.lostReasons, stageEnteredAt = null, lostReason = null, lostNote = null, commissionInvoiceId = null }: {
+  leadId: string; currentStatus: string; pipeline?: PipelineDef; lostReasons?: LostReason[]; stageEnteredAt?: string | null;
+  lostReason?: string | null; lostNote?: string | null; commissionInvoiceId?: string | null;
+}) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
   const [closing, setClosing] = useState(false);
-  const [reason, setReason] = useState('');
+  const [detail, setDetail] = useState('');
+  const set = (status: string, why?: string, key?: string) => start(async () => { await updateLeadStatus(leadId, status, why, key); router.refresh(); });
 
-  function setStatus(status: string, why?: string) {
-    startTransition(() => updateLeadStatus(leadId, status, why));
-  }
-  function confirmOutcome(status: string, label: string) {
-    setStatus(status, reason.trim() ? `${label} — ${reason.trim()}` : label);
-    setClosing(false);
-    setReason('');
-  }
+  const working = pipeline.stages.filter((s) => s.status !== 'won');
+  const idx = stageIndex(pipeline, currentStatus);
+  const stage = idx >= 0 ? pipeline.stages[idx] : null;
+  const days = daysSince(stageEnteredAt);
+  const late = lateBy(pipeline, currentStatus, stageEnteredAt);
 
-  // ── Won / Reserved: a positive end-state banner ──
-  const wonState = WON_STATES[currentStatus];
-  if (wonState) {
+  if (currentStatus === 'won') {
     return (
-      <div className="flex items-center gap-3 rounded-lg border border-forest/20 bg-forest/[0.05] px-4 py-3">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-forest text-white"><Trophy size={16} strokeWidth={1.9} /></span>
-        <div>
-          <p className="text-sm font-semibold text-charcoal">{wonState.label}</p>
-          <p className="text-xs text-charcoal-600/70">{wonState.note}</p>
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-forest/20 bg-forest/[0.05] px-4 py-3">
+        <div className="flex items-center gap-3">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-forest text-white"><Trophy size={16} /></span>
+          <div>
+            <p className="text-sm font-semibold text-charcoal">{pipeline.stages.find((s) => s.status === 'won')?.label ?? 'Κλείσιμο'} 🎉</p>
+            <p className="text-xs text-charcoal-600/70">{days !== null ? `Έκλεισε πριν από ${days} μέρες.` : 'Η πώληση έκλεισε.'}</p>
+          </div>
         </div>
+        {commissionInvoiceId
+          ? <Link href={`/financials/invoices/${commissionInvoiceId}`} className="inline-flex items-center gap-1 text-xs text-forest hover:underline"><FileText size={13} /> Τιμολόγιο προμήθειας</Link>
+          : <Link href={`/financials/invoices/new?lead=${leadId}`} className="btn-secondary px-3 py-1.5 text-xs"><FileText size={13} /> Έκδοση τιμολογίου προμήθειας</Link>}
       </div>
     );
   }
 
-  // ── Closed / parked: show the outcome + a way back in ──
-  const closedLabel = CLOSED_LABEL[currentStatus];
-  if (closedLabel) {
+  if (idx < 0) {
+    const reason = lostReasons.find((r) => r.key === lostReason)?.label;
     return (
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-stone-line bg-sand-50 px-4 py-3">
         <div>
-          <p className="text-sm font-medium text-charcoal">This lead is closed — <span className="text-charcoal-600">{closedLabel}</span></p>
-          <p className="text-xs text-charcoal-600/60">The reason is recorded in the timeline below. Reopen it if they come back.</p>
+          <p className="text-sm font-medium text-charcoal">Το lead έκλεισε — <span className="text-charcoal-600">{STATUS_EL[currentStatus] ?? currentStatus}</span></p>
+          <p className="text-xs text-charcoal-600/60">{reason ? `Λόγος: ${reason}${lostNote ? ` — ${lostNote}` : ''}` : 'Ο λόγος είναι στο ιστορικό.'}</p>
         </div>
-        <button disabled={isPending} onClick={() => setStatus('contacted')} className="btn-ghost inline-flex items-center gap-1.5 text-xs">
-          <RotateCcw size={13} strokeWidth={1.9} /> Reopen lead
-        </button>
+        <button type="button" disabled={pending} onClick={() => set(working[1]?.status ?? 'contacted')} className="btn-ghost inline-flex items-center gap-1.5 text-xs"><RotateCcw size={13} /> Επαναφορά</button>
       </div>
     );
   }
 
-  // ── Active pipeline ──
-  const currentIndex = BUCKET[currentStatus] ?? 0;
-  const meta = STAGES[currentIndex];
-  const atOffer = currentIndex >= 4;
-
   return (
     <div className="space-y-3">
-      {/* Five-stage stepper */}
       <div className="flex items-center gap-1">
-        {STAGES.map((stage, i) => {
-          const reached = i <= currentIndex;
-          return (
-            <button
-              key={stage.key}
-              disabled={isPending}
-              onClick={() => setStatus(stage.key)}
-              title={`${stage.meaning} → ${stage.next}`}
-              className={`flex-1 rounded px-2 py-2 text-center text-xs font-medium transition-colors ${
-                reached ? 'bg-forest text-stone-100' : 'bg-sand-100 text-charcoal-600 hover:bg-sand'
-              }`}
-            >
-              {stage.label}
-            </button>
-          );
-        })}
+        {working.map((s, i) => (
+          <button key={s.status} type="button" disabled={pending} onClick={() => set(s.status)}
+            title={`${s.label} · πιθανότητα ${s.probability}%${s.maxDays ? ` · έως ${s.maxDays} μέρες` : ''}`}
+            className={`flex-1 truncate rounded px-1.5 py-2 text-center text-xs font-medium transition-colors ${i <= idx ? 'bg-forest text-stone-100' : 'bg-sand-100 text-charcoal-600 hover:bg-sand'} ${i === idx && late ? 'ring-2 ring-signal-danger ring-offset-1' : ''}`}>
+            {s.label}
+          </button>
+        ))}
       </div>
 
-      {/* Current-stage caption — what it means + the next step to advance */}
-      {meta && (
-        <p className="text-xs text-charcoal-600/75">
-          <span className="font-medium text-charcoal">{meta.label}:</span> {meta.meaning}
-          {meta.next && <span className="text-charcoal-600/60"> Next: {meta.next}</span>}
+      {stage && (
+        <p className={`flex flex-wrap items-center gap-1.5 text-xs ${late ? 'text-signal-danger' : 'text-charcoal-600/75'}`}>
+          {late ? <AlertTriangle size={12} /> : <Clock size={12} />}
+          <span className="font-medium">{stage.label}</span>
+          {days !== null && <>· {days === 0 ? 'από σήμερα' : `${days} ${days === 1 ? 'μέρα' : 'μέρες'}`}</>}
+          {stage.maxDays && <>· όριο {stage.maxDays}</>}
+          {late ? <>· καθυστέρηση {late} {late === 1 ? 'μέρα' : 'μέρες'}</> : null}
+          <span className="text-charcoal-600/50">· πιθανότητα {stage.probability}% · {pipeline.name}</span>
         </p>
       )}
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-        {/* Mark won — available once an offer is on the table */}
-        {atOffer && (
-          <button
-            disabled={isPending}
-            onClick={() => setStatus('won')}
-            className="inline-flex items-center gap-1.5 rounded-md bg-forest px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-forest-deep"
-          >
-            <Trophy size={12} strokeWidth={2.1} /> Mark as won
-          </button>
-        )}
-
-        {/* Close lead — plain-language, always available */}
-        {!closing && (
-          <button
-            disabled={isPending}
-            onClick={() => setClosing(true)}
-            className="text-xs font-medium text-charcoal-600/70 underline-offset-2 hover:text-signal-danger hover:underline"
-          >
-            Lead not interested? Close lead
-          </button>
-        )}
+        <button type="button" disabled={pending} onClick={() => { if (window.confirm('Κλείσιμο της πώλησης (Won);')) set('won'); }} className="inline-flex items-center gap-1.5 rounded-md bg-forest px-3 py-1.5 text-xs font-medium text-white hover:bg-forest-deep">
+          <Trophy size={12} /> Κλείσιμο (Won)
+        </button>
+        {!closing && <button type="button" disabled={pending} onClick={() => setClosing(true)} className="text-xs font-medium text-charcoal-600/70 underline-offset-2 hover:text-signal-danger hover:underline">Δεν προχωρά; Κλείσιμο με λόγο</button>}
       </div>
 
-      {/* Close-lead outcome picker */}
       {closing && (
         <div className="space-y-3 rounded-lg border border-stone-line bg-white p-3">
           <div className="flex items-center justify-between">
-            <p className="text-sm font-medium text-charcoal">Why is this lead closing?</p>
-            <button onClick={() => { setClosing(false); setReason(''); }} className="text-charcoal-600/50 hover:text-charcoal"><X size={15} /></button>
+            <p className="text-sm font-medium text-charcoal">Γιατί κλείνει;</p>
+            <button type="button" onClick={() => { setClosing(false); setDetail(''); }} className="text-charcoal-600/50 hover:text-charcoal"><X size={15} /></button>
           </div>
-          <div className="grid grid-cols-2 gap-2">
-            {OUTCOMES.map((o) => (
-              <button
-                key={o.key}
-                disabled={isPending}
-                onClick={() => confirmOutcome(o.status, o.label)}
-                className={`flex items-center gap-1.5 rounded-md border px-3 py-2 text-left text-xs font-medium transition-colors ${
-                  o.tone === 'dead'
-                    ? 'border-stone-line text-charcoal hover:border-signal-danger/40 hover:bg-signal-danger/[0.04] hover:text-signal-danger'
-                    : 'border-stone-line text-charcoal hover:border-champagne/60 hover:bg-champagne-50/60'
-                }`}
-              >
-                <Check size={12} strokeWidth={2.2} className="shrink-0 opacity-0" /> {o.label}
+          <input type="text" value={detail} onChange={(e) => setDetail(e.target.value)} maxLength={500}
+            placeholder="Λεπτομέρεια (προαιρετικό) — π.χ. ήθελε 3 υπνοδωμάτια, είχαμε μόνο 2"
+            className="w-full rounded-md border border-stone-line bg-sand-50 px-3 py-2 text-xs focus:border-forest focus:outline-none" />
+          <div className="grid gap-2 sm:grid-cols-2">
+            {lostReasons.map((r) => (
+              <button key={r.key} type="button" disabled={pending} onClick={() => { set(r.status, detail.trim() ? `${r.label} — ${detail.trim()}` : r.label, r.key); setClosing(false); setDetail(''); }}
+                className={`rounded-md border px-3 py-2 text-left text-xs font-medium transition-colors ${r.status === 'lost' ? 'border-stone-line hover:border-signal-danger/40 hover:bg-signal-danger/[0.04] hover:text-signal-danger' : 'border-stone-line hover:border-champagne/60 hover:bg-champagne-50/60'}`}>
+                {r.label}<span className="block text-[10px] font-normal text-charcoal-600/60">{STATUS_EL[r.status]}</span>
               </button>
             ))}
           </div>
-          <div>
-            <input
-              type="text"
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              placeholder="Add a detail (optional) — e.g. wanted 3-bed, we only had 2"
-              className="w-full rounded-md border border-stone-line bg-sand-50 px-3 py-2 text-xs text-charcoal placeholder:text-charcoal-600/40 focus:border-forest focus:outline-none"
-            />
-            <p className="mt-1 text-[11px] text-charcoal-600/50">Pick a reason above — your detail is saved to the lead's timeline, and open tasks are cleared.</p>
-          </div>
+          <p className="text-[11px] text-charcoal-600/50">Ο λόγος μετρά στα στατιστικά απωλειών και κλείνουν οι ανοιχτές εργασίες του lead.</p>
         </div>
       )}
     </div>

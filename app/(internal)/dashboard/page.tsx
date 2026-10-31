@@ -1,4 +1,6 @@
 import { requireProfile } from '@/lib/auth';
+import { effectiveCan } from '@/lib/permissions';
+import { layoutFor, SIZE_CLASS } from '@/lib/dashboard-shared';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { ROLE_LABEL, INTERNAL_ROLES, type AppRole } from '@/lib/permissions';
 import Link from 'next/link';
@@ -63,10 +65,8 @@ export default async function DashboardPage() {
       supabase.from('profiles').select('id, full_name, avatar_url, contacts(email)').in('role', INTERNAL_ROLES).order('full_name'),
     ]);
   const routePlan = await buildRoutePlan(supabase, profile.id);
-  // Dashboard block visibility + order (Settings → Dashboard).
-  const dashBlocks = (await getOrgSettings()).dashboard.blocks;
-  const vis = (k: string) => dashBlocks.find((b) => b.key === k)?.visible !== false;
-  const ord = (k: string) => { const i = dashBlocks.findIndex((b) => b.key === k); return i < 0 ? 99 : i; };
+  // Which boxes, in which order and width (Settings → Dashboard, per role).
+  const blocks = layoutFor((await getOrgSettings()).dashboard, profile.role, profile.customRoleId).filter((b) => b.visible);
   // Executive Command Center — CEO-level cross-module board, admins/management only.
   const isExec = ['admin', 'management'].includes(me?.role ?? profile.role);
   const commandCenter = isExec ? await buildCommandCenter(supabase) : null;
@@ -155,31 +155,24 @@ export default async function DashboardPage() {
     { key: 'deals', label: 'Active deals', value: String(pipelineLeads.length), tone: 'neutral', icon: Target },
   ];
 
-  const bothInsights = vis('pipeline') && vis('tasks');
+  const canHr = effectiveCan(profile.role, profile.moduleAccess, 'hr', 'view', profile.permissions);
+  const pendingApprovals = canHr ? (approvals ?? []) : [];
+  const leaveLines = leaveSummary;
 
-  return (
-    <div className="-mx-6 -my-5 flex min-h-screen flex-col gap-4 bg-[#F7F4EE] px-6 py-5 text-charcoal">
-      {/* A · Greeting — the dashboard header (no separate profile header) */}
-      {vis('briefing') && (
-        <div style={{ order: ord('briefing') }}>
-          <MorningBrief supabase={supabase} profileId={profile.id} name={me?.full_name ?? profile.fullName ?? 'there'} action={<GoogleCalendarConnect connected={calConn.connected} configured={calConn.configured} />} />
-          {/* Executive command bar (leadership) → full board at /command-center */}
-          {commandCenter && <div className="mt-4"><ExecutiveCommandCenter data={commandCenter} /></div>}
-        </div>
-      )}
-
-      {/* B · Calendar + quick actions (main operational surface) */}
-      {vis('planner') && (
-        <div style={{ order: ord('planner') }}>
-          <PlannerBoard events={events} leads={leadOptions} projects={projectOptions} team={teamOptions} routePlan={routePlan} />
-        </div>
-      )}
-
-      {/* C · Today's Pipeline + Today's Tasks side by side */}
-      {(vis('pipeline') || vis('tasks')) && (
-      <div className={`grid gap-4 ${bothInsights ? 'lg:grid-cols-2' : 'grid-cols-1'}`} style={{ order: Math.min(ord('pipeline'), ord('tasks')) }}>
-      {vis('pipeline') && (
-      <Card>
+  // Each box by key; null = nothing to show for this user (e.g. leadership-only).
+  const render = (key: string): React.ReactNode => {
+    switch (key) {
+      case 'briefing':
+        return <MorningBrief supabase={supabase} profileId={profile.id} name={me?.full_name ?? profile.fullName ?? 'there'} action={<GoogleCalendarConnect connected={calConn.connected} configured={calConn.configured} />} />;
+      case 'kpis':
+        return <KpiStrip segments={kpiSegments} />;
+      case 'command':
+        return commandCenter ? <ExecutiveCommandCenter data={commandCenter} /> : null;
+      case 'planner':
+        return <PlannerBoard events={events} leads={leadOptions} projects={projectOptions} team={teamOptions} routePlan={routePlan} />;
+      case 'pipeline':
+        return (
+      <Card className="h-full">
         <PanelTitle icon={Target}>Today Pipeline</PanelTitle>
         <div className="grid gap-x-6 gap-y-5 divide-y divide-[#F0EADF] md:grid-cols-3 md:divide-x md:divide-y-0">
           {/* Meetings */}
@@ -233,15 +226,101 @@ export default async function DashboardPage() {
           </div>
         </div>
       </Card>
-      )}
-      {/* Today's Tasks — the unified task feed (tasks + follow-ups + planner tasks) */}
-      {vis('tasks') && (
-      <Card>
-        <PanelTitle icon={CheckSquare}>Today&apos;s Tasks</PanelTitle>
-        <CompactTaskList tasks={compactTasks} />
-      </Card>
-      )}
-      </div>
+        );
+      case 'tasks':
+        return (
+          <Card className="h-full">
+            <PanelTitle icon={CheckSquare}>Εργασίες σήμερα</PanelTitle>
+            <CompactTaskList tasks={compactTasks} />
+          </Card>
+        );
+      case 'notifications':
+        return (
+          <Card className="h-full">
+            <PanelTitle icon={Bell}>Ειδοποιήσεις</PanelTitle>
+            <NotificationsPanel notifications={(notifications ?? []) as any} />
+          </Card>
+        );
+      case 'approvals':
+        if (!canHr) return null;
+        return (
+          <Card className="h-full">
+            <PanelTitle icon={Plane} action={<Link href="/hr?tab=leave" className="text-xs text-forest hover:underline">Όλες</Link>}>Εγκρίσεις αδειών</PanelTitle>
+            {pendingApprovals.length === 0 ? <p className="text-[13px] text-charcoal-600/60">Δεν περιμένει κανένα αίτημα.</p> : (
+              <ul className="space-y-2">
+                {pendingApprovals.slice(0, 6).map((r: any) => (
+                  <li key={r.id} className="flex items-center justify-between gap-2 text-[13px]">
+                    <span className="truncate text-charcoal">{r.profiles?.full_name ?? 'Υπάλληλος'} · {r.days} μέρ.</span>
+                    <span className="figure shrink-0 text-[11px] text-charcoal-600/60">{formatDayMonth(new Date(r.start_date))}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
+        );
+      case 'commissions':
+        return (
+          <Card className="h-full">
+            <PanelTitle icon={BadgePercent}>Οι προμήθειές μου</PanelTitle>
+            <div className="mb-3 flex gap-6">
+              <div><p className="text-[11px] text-charcoal-600/60">Σύνολο</p><p className="figure text-lg text-charcoal">{formatCurrency(commTotal)}</p></div>
+              <div><p className="text-[11px] text-charcoal-600/60">Πληρωμένες</p><p className="figure text-lg text-forest">{formatCurrency(commPaid)}</p></div>
+            </div>
+            {commissionRows.length === 0 ? <p className="text-[13px] text-charcoal-600/60">Καμία προμήθεια ακόμα.</p> : (
+              <ul className="space-y-1.5">
+                {commissionRows.slice(0, 5).map((c: any) => (
+                  <li key={c.id} className="flex justify-between text-[13px]"><span className="text-charcoal-600">{c.commission_pct}% · {c.status}</span><span className="figure text-charcoal">{formatCurrency(Number(c.amount ?? 0))}</span></li>
+                ))}
+              </ul>
+            )}
+          </Card>
+        );
+      case 'leave':
+        return (
+          <Card className="h-full">
+            <PanelTitle icon={Plane} action={<Link href="/hr?tab=leave" className="text-xs text-forest hover:underline">Αίτημα</Link>}>Οι άδειές μου</PanelTitle>
+            {leaveLines.length === 0 ? <p className="text-[13px] text-charcoal-600/60">Δεν υπάρχουν στοιχεία αδειών.</p> : (
+              <ul className="space-y-1.5">
+                {leaveLines.map((l) => (
+                  <li key={l.type} className="flex justify-between text-[13px]">
+                    <span className="text-charcoal-600">{l.label}</span>
+                    <span className="figure text-charcoal">{l.remaining === null ? `${l.used} χρησ.` : `${l.remaining} από ${l.entitled}`}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
+        );
+      case 'payslips':
+        return (
+          <Card className="h-full">
+            <PanelTitle icon={Wallet}>Τα payslips μου</PanelTitle>
+            {(payslips ?? []).length === 0 ? <p className="text-[13px] text-charcoal-600/60">Κανένα payslip ακόμα.</p> : (
+              <ul className="space-y-1.5">
+                {(payslips ?? []).map((p: any) => (
+                  <li key={p.id} className="flex items-center justify-between gap-2 text-[13px]">
+                    <span className="flex items-center gap-1.5 text-charcoal"><FileText size={12} className="text-olive" /> {p.period}</span>
+                    <span className="flex items-center gap-2"><span className="figure text-charcoal-600">{formatCurrency(Number(p.net_amount ?? 0))}</span><DownloadPayslipButton payslipId={p.id} /></span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
+        );
+      default:
+        return null;
+    }
+  };
+
+  const shown = blocks.map((b) => ({ ...b, node: render(b.key) })).filter((b) => b.node);
+
+  return (
+    <div className="-mx-6 -my-5 grid min-h-screen grid-cols-6 content-start gap-4 bg-[#F7F4EE] px-6 py-5 text-charcoal">
+      {shown.map((b) => (
+        <div key={b.key} className={SIZE_CLASS[b.size]}>{b.node}</div>
+      ))}
+      {shown.length === 0 && (
+        <p className="col-span-6 text-sm text-charcoal-600/70">Δεν έχει επιλεγεί κανένα κουτί για το dashboard σας. Ο admin τα ρυθμίζει στο Settings → Dashboard.</p>
       )}
     </div>
   );

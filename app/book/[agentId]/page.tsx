@@ -3,6 +3,7 @@ import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import { computeAvailability, countSlots } from '@/lib/availability';
 import { getApprovedLeaveBlocks } from '@/lib/leave-availability';
 import { BookingWidget } from '@/components/booking/BookingWidget';
+import { consentWording, getGdprSettingsPublic } from '@/lib/gdpr';
 
 export const dynamic = 'force-dynamic';
 
@@ -47,5 +48,6 @@ export default async function BookingPage({ params, searchParams }: { params: { 
     project = data ?? null;
   }
 
-  return <BookingWidget agent={{ id: agent.id, name: agent.full_name, avatarUrl: agent.avatar_url }} days={days} totalSlots={countSlots(days)} project={project} />;
+  const wording = consentWording(await getGdprSettingsPublic(), 'en');
+  return <BookingWidget agent={{ id: agent.id, name: agent.full_name, avatarUrl: agent.avatar_url }} days={days} totalSlots={countSlots(days)} project={project} consentWording={wording} />;
 }

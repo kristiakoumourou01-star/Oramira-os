@@ -1,3 +1,4 @@
+import { getCurrentProfile } from '@/lib/auth';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { computePriority } from '@/lib/priority';
 import { selectResilient } from '@/lib/db-resilient';
@@ -34,12 +35,19 @@ export async function getEnrichedLeads(): Promise<LeadListItem[]> {
   // philosophy as the AI layer: try the ideal, fall back to what works.
   const BASE = `id, contact_id, status, source, budget_min, budget_max, ai_score, last_contacted_at, created_at,
          assigned_to, contacts(full_name, email, phone), owner:assigned_to(full_name)`;
-  const FULL = `${BASE}, assigned_at, next_action_date, next_action_type`;
+  const FULL = `${BASE}, assigned_at, next_action_date, next_action_type, pipeline, stage_entered_at, is_returning`;
+
+  // "View as" fidelity: a real Sales Agent only ever gets their own leads (RLS,
+  // migration 0022). While an admin views as one, the query runs on the admin's
+  // session, so apply the same rule here — the admin sees exactly what they see.
+  const viewer = await getCurrentProfile();
+  const ownOnly = viewer?.impersonator && viewer.role === 'sales' ? viewer.id : null;
+  const scoped = (q: any) => (ownOnly ? q.eq('assigned_to', ownOnly) : q);
 
   const [leads, { data: followUps }] = await Promise.all([
     selectResilient(
-      supabase.from('leads').select(FULL).order('created_at', { ascending: false }),
-      () => supabase.from('leads').select(BASE).order('created_at', { ascending: false }),
+      scoped(supabase.from('leads').select(FULL)).order('created_at', { ascending: false }),
+      () => scoped(supabase.from('leads').select(BASE)).order('created_at', { ascending: false }),
       'getEnrichedLeads',
     ),
     supabase.from('follow_up_tasks').select('lead_id, due_at').eq('is_done', false),
@@ -84,6 +92,9 @@ export async function getEnrichedLeads(): Promise<LeadListItem[]> {
       next_follow_up: nextFollowUp,
       priority: score,
       priority_reasons: reasons,
+      pipeline: (l as any).pipeline ?? null,
+      stage_entered_at: (l as any).stage_entered_at ?? null,
+      is_returning: !!(l as any).is_returning,
       needs_action: deriveNeedsAction(l.status, l.last_contacted_at, l.created_at, (l as any).next_action_date ?? nextFollowUp),
     };
   });

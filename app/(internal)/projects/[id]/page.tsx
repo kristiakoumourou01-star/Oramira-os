@@ -2,7 +2,7 @@ import { requirePermission } from '@/lib/auth';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, MapPin, Map } from 'lucide-react';
+import { ArrowLeft, MapPin, Map, Tags } from 'lucide-react';
 import { ProjectStatusControl } from '@/components/projects/ProjectStatusControl';
 import { EditProjectForm } from '@/components/projects/EditProjectForm';
 import { ProjectInfoForm } from '@/components/property/ProjectInfoForm';
@@ -11,12 +11,21 @@ import { ProjectTimeline } from '@/components/projects/ProjectTimeline';
 import { ContractorAssignment } from '@/components/projects/ContractorAssignment';
 import { ProjectGallery } from '@/components/projects/ProjectGallery';
 import { NewUnitForm } from '@/components/units/NewUnitForm';
+import { UnitImport } from '@/components/units/UnitImport';
+import { AvailabilityBoard } from '@/components/units/AvailabilityBoard';
+import { ConstructionUpdates } from '@/components/construction/ConstructionUpdates';
+import { loadUpdates } from '@/lib/construction';
+import { getBranding } from '@/lib/branding';
+import { watermarkPlan } from '@/lib/watermark-shared';
+import type { BoardUnit } from '@/lib/unit-board-shared';
+import { getOrgSettings } from '@/lib/org-settings';
+import { effectiveCan } from '@/lib/permissions';
 import { UnitInventoryTable } from '@/components/units/UnitInventoryTable';
 import { DocumentList } from '@/components/ui/DocumentList';
 import { getDocumentUrl } from '@/app/actions/storage';
 
 export default async function ProjectDetailPage({ params }: { params: { id: string } }) {
-  await requirePermission('projects');
+  const profile = await requirePermission('projects');
   const supabase = await createSupabaseServerClient();
 
   const { data: project } = await supabase
@@ -87,6 +96,22 @@ export default async function ProjectDetailPage({ params }: { params: { id: stri
     .map((d) => ({ id: d.id, storage_path: d.storage_path, title: d.title }));
   const fileDocs = (documents ?? []).filter((d) => d.bucket !== 'project-media');
 
+  // Πίνακας διαθεσιμότητας: active reservations' expiry per unit.
+  const unitIds = (units ?? []).map((u) => u.id);
+  const { data: resv } = unitIds.length
+    ? await supabase.from('reservations').select('unit_id, expires_at, status').in('unit_id', unitIds).eq('status', 'active')
+    : { data: [] as { unit_id: string; expires_at: string | null; status: string }[] };
+  const expiry = new globalThis.Map(((resv ?? []) as any[]).map((r) => [r.unit_id as string, (r.expires_at ?? null) as string | null]));
+  const boardUnits: BoardUnit[] = (units ?? []).map((u) => ({
+    id: u.id, unit_number: u.unit_number, floor: u.floor, type: u.type, sqm: u.sqm, bedrooms: u.bedrooms, price: u.price,
+    status: u.status, building_id: u.building_id, building_name: (u as any).buildings?.name ?? null, reserved_until: expiry.get(u.id) ?? null,
+  }));
+  const orgSettings = await getOrgSettings();
+  const { unitForms } = orgSettings;
+  const [updates, branding] = await Promise.all([loadUpdates({ projectId: project.id, limit: 30 }), getBranding()]);
+  const wm = watermarkPlan(orgSettings.watermark, branding.companyName, orgSettings.appearance.logoOnLight ?? branding.logoUrl);
+  const watermark = { ...wm, logoUrl: wm.mode === 'logo' ? wm.logoUrl : null, logo: null };
+  const canImport = effectiveCan(profile.role, profile.moduleAccess, 'projects', 'edit', profile.permissions);
   const buildingOpts = (buildings ?? []).map((b) => ({ id: b.id, name: b.name }));
   const phaseOpts = (phases ?? []).map((p) => ({ id: p.id, name: p.name }));
 
@@ -119,9 +144,14 @@ export default async function ProjectDetailPage({ params }: { params: { id: stri
             <p className="eyebrow mb-1">Status</p>
             <ProjectStatusControl projectId={project.id} status={project.status} />
           </div>
-          <Link href={`/projects/${project.id}/map`} className="btn-secondary text-sm">
-            <Map size={14} strokeWidth={1.75} /> Interactive Map
-          </Link>
+          <div className="flex gap-2">
+            <Link href={`/projects/${project.id}/prices`} className="btn-secondary text-sm">
+              <Tags size={14} strokeWidth={1.75} /> Τιμοκατάλογος
+            </Link>
+            <Link href={`/projects/${project.id}/map`} className="btn-secondary text-sm">
+              <Map size={14} strokeWidth={1.75} /> Interactive Map
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -129,9 +159,16 @@ export default async function ProjectDetailPage({ params }: { params: { id: stri
         <div className="col-span-2 space-y-6">
           <div className="flex items-center justify-between">
             <h4>Houses <span className="text-charcoal-600/50">· {inventoryUnits.length}</span></h4>
-            <NewUnitForm projectId={project.id} buildings={buildingOpts} phases={phaseOpts} />
+            <div className="flex items-center gap-2">
+              {canImport && <UnitImport projectId={project.id} projectName={project.name} cfg={unitForms} existingNumbers={inventoryUnits.map((u) => u.unit_number)} />}
+              <NewUnitForm projectId={project.id} buildings={buildingOpts} phases={phaseOpts} />
+            </div>
           </div>
+          <AvailabilityBoard projectId={project.id} projectName={project.name} units={boardUnits} />
           <UnitInventoryTable projectId={project.id} units={inventoryUnits} />
+
+          <ConstructionUpdates projectId={project.id} buildings={buildingOpts} units={(units ?? []).map((u) => ({ id: u.id, unit_number: u.unit_number, building_id: u.building_id }))}
+            items={updates.items} missing={updates.missing} canEdit={canImport} watermark={watermark} />
 
           <StructureManager projectId={project.id} buildings={buildingNodes} phases={phases ?? []} />
 

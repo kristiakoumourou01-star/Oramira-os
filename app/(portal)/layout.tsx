@@ -20,8 +20,10 @@ import {
   History,
   CalendarClock,
   LogOut,
+  HelpCircle,
 } from 'lucide-react';
 import { redirect } from 'next/navigation';
+import { navLabel, t } from '@/lib/i18n';
 
 /**
  * One shared shell for all four external roles — buyer, homeowner,
@@ -43,6 +45,7 @@ export default async function PortalLayout({ children }: { children: React.React
           { href: '/buyer/documents', label: 'Documents', icon: FileText },
           { href: '/buyer/messages', label: 'Messages', icon: MessageSquare },
           { href: '/buyer/handover', label: 'Handover', icon: KeyRound },
+          { href: '/help', label: 'Help', icon: HelpCircle },
         ],
       },
     ],
@@ -57,6 +60,7 @@ export default async function PortalLayout({ children }: { children: React.React
           { href: '/homeowner/documents', label: 'Home Documents', icon: FileText },
           { href: '/homeowner/history', label: 'Property History', icon: History },
           { href: '/homeowner/notifications', label: 'Notifications', icon: Bell },
+          { href: '/help', label: 'Help', icon: HelpCircle },
         ],
       },
     ],
@@ -64,6 +68,7 @@ export default async function PortalLayout({ children }: { children: React.React
       {
         items: [
           { href: '/investor', label: 'Overview', icon: Home },
+          { href: '/help', label: 'Help', icon: HelpCircle },
         ],
       },
     ],
@@ -74,13 +79,15 @@ export default async function PortalLayout({ children }: { children: React.React
           { href: '/contractor/schedule', label: 'Schedule', icon: CalendarClock },
           { href: '/contractor/invoices', label: 'Invoices', icon: Receipt },
           { href: '/contractor/performance', label: 'Performance', icon: TrendingUp },
+          { href: '/help', label: 'Help', icon: HelpCircle },
         ],
       },
     ],
   };
 
-  const sections = sectionsByRole[profile.role];
-  if (!sections) redirect('/login');
+  const raw = sectionsByRole[profile.role];
+  if (!raw) redirect('/login');
+  const sections = raw.map((sct: any) => ({ ...sct, items: sct.items.map((it: any) => ({ ...it, label: navLabel(it.href, it.label) })) }));
   const compact = (await getOrgSettings()).layout.sidebarCompact;
 
   return (
@@ -90,9 +97,9 @@ export default async function PortalLayout({ children }: { children: React.React
         compact={compact}
         footer={
           <form action={logout}>
-            <button type="submit" title="Sign out" className={`flex w-full items-center rounded py-2 text-sm text-stone-100/65 hover:bg-white/5 hover:text-stone-100 ${compact ? 'justify-center px-0' : 'gap-3 px-3'}`}>
+            <button type="submit" title={t('signOut')} className={`flex w-full items-center rounded py-2 text-sm text-stone-100/65 hover:bg-white/5 hover:text-stone-100 ${compact ? 'justify-center px-0' : 'gap-3 px-3'}`}>
               <LogOut size={16} strokeWidth={1.75} />
-              {!compact && 'Sign out'}
+              {!compact && t('signOut')}
             </button>
           </form>
         }

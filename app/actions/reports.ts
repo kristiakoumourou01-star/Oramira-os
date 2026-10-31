@@ -1,6 +1,6 @@
 'use server';
 
-import { requirePermission } from '@/lib/auth';
+import { requirePermission, hasRight } from '@/lib/auth';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { buildBoardReport } from '@/lib/board-report';
 import { buildInvestorReport } from '@/lib/investor-report';
@@ -8,7 +8,8 @@ import { renderReportPdf } from '@/lib/report-pdf';
 
 /** Renders the board pack to a PDF and returns it base64-encoded for download. */
 export async function boardReportPdf(period: 'weekly' | 'monthly'): Promise<{ filename: string; base64: string }> {
-  await requirePermission('financials');
+  const profile = await requirePermission('financials');
+  if (!hasRight(profile, 'export_data')) throw new Error('Δεν έχετε δικαίωμα export.');
   const supabase = await createSupabaseServerClient();
   const report = await buildBoardReport(supabase, period);
   const bytes = await renderReportPdf(report);
@@ -20,7 +21,8 @@ export async function boardReportPdfMonthly() { return boardReportPdf('monthly')
 
 /** Renders the investor report to a PDF and returns it base64-encoded. */
 export async function investorReportPdf(): Promise<{ filename: string; base64: string }> {
-  await requirePermission('financials');
+  const profile = await requirePermission('financials');
+  if (!hasRight(profile, 'export_data')) throw new Error('Δεν έχετε δικαίωμα export.');
   const supabase = await createSupabaseServerClient();
   const report = await buildInvestorReport(supabase);
   const bytes = await renderReportPdf(report);

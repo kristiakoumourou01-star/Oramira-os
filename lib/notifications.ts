@@ -1,4 +1,61 @@
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
+import { mergeNotifications, type NotificationSettings } from '@/lib/org-settings-shared';
+
+type Svc = ReturnType<typeof createSupabaseServiceRoleClient>;
+
+/* ─── Channel choices (Settings → Ειδοποιήσεις) ───────────────────────────────
+   Read with the service client (notifications are also sent from webhooks and
+   cron, where there is no signed-in user) and cached briefly per server. */
+let prefsCache: { at: number; value: NotificationSettings } | null = null;
+async function notificationPrefs(svc: Svc): Promise<NotificationSettings> {
+  if (prefsCache && Date.now() - prefsCache.at < 60_000) return prefsCache.value;
+  let value = mergeNotifications(null);
+  try {
+    const { data } = await svc.from('org_settings').select('data').eq('id', 'org').maybeSingle();
+    value = mergeNotifications((data as any)?.data?.notifications);
+  } catch { /* defaults */ }
+  prefsCache = { at: Date.now(), value };
+  return value;
+}
+
+/**
+ * Deliver one notification for an event, on the channels the admin chose:
+ * in-app (the bell) and/or email to the user's login address. Without an
+ * event key it behaves as before (in-app only). Push/SMS are stored choices
+ * that take effect once a provider is connected (Settings → Integrations).
+ * Returns whether an in-app notification was written.
+ */
+export async function deliverNotification(
+  svc: Svc,
+  p: { userId: string; title: string; body?: string | null; link?: string | null; event?: string },
+): Promise<boolean> {
+  const prefs = p.event ? await notificationPrefs(svc) : null;
+  const row = prefs?.rows.find((r) => r.key === p.event);
+  const inApp = row ? row.inApp : true;
+  if (inApp) {
+    await svc.from('notifications').insert({ user_id: p.userId, channel: 'in_app', title: p.title, body: p.body ?? null, link: p.link ?? null });
+  }
+  if (row?.email) {
+    try {
+      const { data } = await svc.auth.admin.getUserById(p.userId);
+      const email = data?.user?.email;
+      if (email) {
+        const url = p.link && process.env.NEXT_PUBLIC_APP_URL ? `${process.env.NEXT_PUBLIC_APP_URL}${p.link}` : null;
+        await queueNotificationEmail({
+          triggerType: p.event ?? 'notification',
+          recipientEmail: email,
+          subject: p.title,
+          body: `<p>${escapeHtml(p.body ?? p.title)}</p>${url ? `<p><a href="${url}">Άνοιγμα στο Oramira OS</a></p>` : ''}`,
+        });
+      }
+    } catch { /* email is best-effort; the in-app copy is the record */ }
+  }
+  return inApp;
+}
+
+function escapeHtml(s: string) {
+  return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
+}
 
 /**
  * Writes an in-app notification for a specific user. Uses the service-role
@@ -14,15 +71,10 @@ export async function notifyUser(params: {
   title: string;
   body?: string;
   link?: string;
+  /** Event key (lib/notification-events) → the admin's channel choices apply. */
+  event?: string;
 }) {
-  const supabase = createSupabaseServiceRoleClient();
-  await supabase.from('notifications').insert({
-    user_id: params.userId,
-    channel: 'in_app',
-    title: params.title,
-    body: params.body ?? null,
-    link: params.link ?? null,
-  });
+  await deliverNotification(createSupabaseServiceRoleClient(), params);
 }
 
 /**
