@@ -30,7 +30,7 @@ export function NewDealButton() {
         <form action={handleSubmit} className="flex min-h-0 flex-1 flex-col">
           <ModalBody className="space-y-3">
             <input name="name" required placeholder="Deal name (e.g. Larnaca seafront plot)" className="input" autoFocus />
-            <p className="text-xs text-charcoal-600/60">Starts from Oramira's default Cyprus assumptions — tune everything in the workbench.</p>
+            <p className="text-xs text-charcoal-600/60">Starts from Oramira&apos;s default Cyprus assumptions — tune everything in the workbench.</p>
           </ModalBody>
           <ModalFooter>
             <button type="button" onClick={() => setOpen(false)} className="btn-secondary">Cancel</button>

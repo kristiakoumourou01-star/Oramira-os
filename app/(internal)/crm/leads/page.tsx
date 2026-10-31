@@ -1,3 +1,4 @@
+import { getOrgSettings } from '@/lib/org-settings';
 import { requirePermission } from '@/lib/auth';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { getEnrichedLeads } from '@/lib/leads';
@@ -7,6 +8,8 @@ import { buildSalesCommand } from '@/lib/sales-command';
 import Link from 'next/link';
 import { SalesCommandCenter } from '@/components/crm/SalesCommandCenter';
 import { LeadBoard, type Agent } from '@/components/crm/LeadBoard';
+import { PipelineInsights } from '@/components/crm/PipelineInsights';
+import { loadPipelineInsights } from '@/lib/pipeline-insights';
 import { NewLeadForm } from '@/components/crm/NewLeadForm';
 import { SpeedToLeadWidget, type PendingLead } from '@/components/crm/SpeedToLeadWidget';
 import { UnassignedTriage, type TriageLead } from '@/components/crm/UnassignedTriage';
@@ -33,7 +36,10 @@ export default async function SalesPage({ searchParams }: { searchParams: { tab?
     supabase.from('projects').select('id, name'),
     supabase.from('profiles').select('id, full_name').in('role', ['admin', 'sales', 'management']),
     supabase.from('leads').select('id, created_at, contacts(full_name)').eq('status', 'new').is('first_response_at', null),
-    supabase.from('leads').select('id, created_at, source, status, contacts(full_name)').is('assigned_to', null).order('created_at', { ascending: true }).limit(80),
+    // A Sales Agent can't see unassigned leads (RLS); mirror that while an admin views as one.
+    profile.impersonator && profile.role === 'sales'
+      ? Promise.resolve({ data: [] as any[], error: null })
+      : supabase.from('leads').select('id, created_at, source, status, contacts(full_name)').is('assigned_to', null).order('created_at', { ascending: true }).limit(80),
     supabase.from('follow_up_tasks').select('id, note, due_at, lead_id, contacts(full_name)').eq('is_done', false).order('due_at', { ascending: true }).limit(100),
     supabase.from('viewings').select('id, scheduled_at, status, lead_id, contacts(full_name), projects(name), agent:agent_id(full_name)').order('scheduled_at', { ascending: false }).limit(100),
     supabase.from('reservations').select('id, status, deposit_amount, deposit_paid, reserved_at, contacts(full_name), units(unit_number, projects(name))').order('reserved_at', { ascending: false }).limit(60),
@@ -43,6 +49,8 @@ export default async function SalesPage({ searchParams }: { searchParams: { tab?
   ]);
 
   const command = await buildSalesCommand(supabase);
+  const { pipelines: pipeCfg } = await getOrgSettings();
+  const insights = await loadPipelineInsights(pipeCfg);
 
   const pendingLeads: PendingLead[] = (pending ?? [])
     .map((l: any) => ({ id: l.id, name: l.contacts?.full_name ?? 'Unnamed lead', minutesWaiting: Math.max(0, Math.floor((now - new Date(l.created_at).getTime()) / 60000)) }))
@@ -66,13 +74,21 @@ export default async function SalesPage({ searchParams }: { searchParams: { tab?
   ];
 
   const tabs: TabDef[] = [
-    { id: 'command', label: 'Command Center', content: <SalesCommandCenter data={command} /> },
     {
-      id: 'pipeline', label: 'Pipeline', content: (
+      // Every new lead lands here first (Meta, website, WhatsApp, phone…):
+      // assign it, answer it, then it moves on into the Pipeline.
+      id: 'inbox', label: 'Lead Management', content: (
         <div className="space-y-6">
           <UnassignedTriage leads={unassignedLeads} agents={(agents ?? []) as Agent[]} currentUserId={profile.id} />
           <SpeedToLeadWidget leads={pendingLeads} />
-          <LeadBoard leads={leads} agents={(agents ?? []) as Agent[]} currentUserId={profile.id} />
+        </div>
+      ),
+    },
+    {
+      id: 'pipeline', label: 'Pipeline', content: (
+        <div className="space-y-6">
+          <PipelineInsights cfg={pipeCfg} data={insights} />
+          <LeadBoard leads={leads} agents={(agents ?? []) as Agent[]} currentUserId={profile.id} pipelines={pipeCfg} />
         </div>
       ),
     },
@@ -184,11 +200,12 @@ export default async function SalesPage({ searchParams }: { searchParams: { tab?
         </div>
       ),
     },
+    { id: 'command', label: 'Command Center', content: <SalesCommandCenter data={command} /> },
   ];
 
   return (
     <div className="space-y-5">
-      <WorkspaceHeader eyebrow="Workspace" title="Sales" action={<NewLeadForm projects={projects ?? []} agents={(agents ?? []) as Agent[]} />} />
+      <WorkspaceHeader eyebrow="Workspace" title="Sales" action={<div className="flex items-center gap-3"><Link href="/crm/duplicates" className="text-sm text-charcoal-600 hover:text-forest hover:underline">Διπλές επαφές</Link><NewLeadForm projects={projects ?? []} agents={(agents ?? []) as Agent[]} required={(await getOrgSettings()).fields.staff} pipelines={[pipeCfg.pipelines.find((p) => p.key === pipeCfg.defaultKey) ?? pipeCfg.pipelines[0], ...pipeCfg.pipelines.filter((p) => p.key !== pipeCfg.defaultKey)].map((p) => ({ key: p.key, name: p.name }))} /></div>} />
       <Tabs tabs={tabs} initial={searchParams?.tab} />
     </div>
   );

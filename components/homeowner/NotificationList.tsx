@@ -44,7 +44,7 @@ export function NotificationList({ initial }: { initial: NotificationRow[] }) {
   const unread = items.filter((n) => !n.read_at).length;
 
   if (items.length === 0) {
-    return <p className="text-sm text-charcoal-600/70">You're all caught up — no notifications right now.</p>;
+    return <p className="text-sm text-charcoal-600/70">You&apos;re all caught up — no notifications right now.</p>;
   }
 
   return (

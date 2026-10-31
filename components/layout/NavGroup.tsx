@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { useEffect, useState, type ReactNode } from 'react';
 import { ChevronDown } from 'lucide-react';
 
@@ -13,8 +13,10 @@ export interface NavSubItem { href: string; label: string }
  * to in-page tabs via ?tab=…). Auto-expands when its route is active. Client-only
  * (usePathname) — receives the icon as a pre-rendered element from the server.
  */
-export function NavGroup({ href, label, icon, children, compact = false }: { href: string; label: string; icon: ReactNode; children: NavSubItem[]; compact?: boolean }) {
+export function NavGroup({ href, label, icon, items: children, compact = false }: { href: string; label: string; icon: ReactNode; items: NavSubItem[]; compact?: boolean }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const currentTab = searchParams?.get('tab') ?? null;
   const bases = children.map((c) => c.href.split('?')[0]);
   const active = pathname === href || pathname.startsWith(href + '/') || bases.some((b) => pathname === b || pathname.startsWith(b + '/'));
   const [open, setOpen] = useState(active); // SSR-safe default (matches server render)
@@ -54,8 +56,16 @@ export function NavGroup({ href, label, icon, children, compact = false }: { hre
 
       {open && (
         <div className="mb-1 mt-0.5 space-y-px border-l border-white/[0.08] pl-3.5 ml-4">
-          {children.map((c) => {
-            const on = pathname === c.href; // exact match (cross-page sub-items)
+          {children.map((c, i) => {
+            // A sub-item is active when its page matches and, for tab links,
+            // its ?tab= matches — or, with no tab in the URL, it is the page's
+            // first tab (the one the page opens on).
+            const [base, query] = c.href.split('?');
+            const tab = query ? new URLSearchParams(query).get('tab') : null;
+            const firstForBase = children.findIndex((x) => x.href.split('?')[0] === base) === i;
+            // Deeper pages (e.g. /financials/invoices/123) light up their own sub-item.
+            const deeper = !tab && pathname.startsWith(base + '/') && !children.some((x) => x.href !== c.href && pathname.startsWith(x.href.split('?')[0]) && x.href.split('?')[0].length > base.length);
+            const on = (pathname === base && (tab ? currentTab === tab || (!currentTab && firstForBase) : !currentTab)) || deeper;
             return (
               <Link key={c.href} href={c.href} className={`block rounded-md px-2.5 py-1 text-[12.5px] transition-colors ${on ? 'font-medium text-champagne' : 'text-stone-100/55 hover:bg-white/[0.05] hover:text-stone-100/90'}`}>
                 {c.label}

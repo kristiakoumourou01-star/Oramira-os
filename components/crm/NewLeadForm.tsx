@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus, ChevronDown } from 'lucide-react';
 import { createLead } from '@/app/actions/leads';
+import { AREAS } from '@/lib/areas';
 import { Modal, ModalBody, ModalFooter } from '@/components/ui/Modal';
 import { useAutoOpen } from '@/lib/use-auto-open';
 import { formatCurrency } from '@/lib/format';
@@ -62,15 +63,19 @@ const LANGUAGES = [
 ];
 const COMM_PREFS = ['whatsapp', 'call', 'email'];
 
-export function NewLeadForm({ projects, agents = [] }: { projects: { id: string; name: string }[]; agents?: { id: string; full_name: string | null }[] }) {
+export function NewLeadForm({ projects, agents = [], required = [], pipelines = [] }: { projects: { id: string; name: string }[]; agents?: { id: string; full_name: string | null }[]; required?: string[]; pipelines?: { key: string; name: string }[] }) {
   const [open, setOpen] = useAutoOpen('lead');
-  const [showMore, setShowMore] = useState(false);
+  const req = (k: string) => required.includes(k);
+  const [showMore, setShowMore] = useState(['buyerType', 'language', 'assignedTo', 'timeline', 'message'].some((k) => required.includes(k)));
+  const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
   function handleSubmit(formData: FormData) {
+    setError(null);
     startTransition(async () => {
-      await createLead({
+      try {
+      const res: any = await createLead({
         fullName: String(formData.get('fullName')),
         email: String(formData.get('email')),
         phone: String(formData.get('phone') || '') || undefined,
@@ -84,7 +89,14 @@ export function NewLeadForm({ projects, agents = [] }: { projects: { id: string;
         language: String(formData.get('language') || '') || undefined,
         communicationPreference: String(formData.get('commPref') || '') || undefined,
         assignedTo: String(formData.get('assignedTo') || '') || undefined,
+        areas: String(formData.get('areas') || '').split(',').map((x) => x.trim()).filter(Boolean),
+        pipeline: String(formData.get('pipeline') || '') || undefined,
       });
+      if (res && typeof res === 'object' && 'error' in res && typeof res.error === 'string') { setError(res.error); return; }
+      } catch (e) {
+        setError(e instanceof Error ? e.message.replace(/^Error:\s*/, '') : 'Δεν αποθηκεύτηκε.');
+        return;
+      }
       setOpen(false);
       router.refresh();
     });
@@ -103,13 +115,15 @@ export function NewLeadForm({ projects, agents = [] }: { projects: { id: string;
           <div className="grid grid-cols-2 gap-3">
             <input name="fullName" required placeholder="Full name" className="input col-span-2" autoFocus />
             <input name="email" type="email" required placeholder="Email" className="input col-span-2" />
-            <input name="phone" placeholder="Phone" className="input" />
+            <input name="phone" required={req('phone')} placeholder={req('phone') ? 'Phone *' : 'Phone'} className="input" />
             <select name="source" required className="input capitalize">
               {SOURCES.map((s) => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
             </select>
             <BudgetRange />
-            <select name="projectId" className="input col-span-2">
-              <option value="">No specific project</option>
+            <input name="areas" list="nl-areas" placeholder="Περιοχές (π.χ. Λεμεσός, Γερμασόγεια)" className="input col-span-2" />
+            <datalist id="nl-areas">{AREAS.map((a) => <option key={a.key} value={a.el}>{a.en}</option>)}</datalist>
+            <select name="projectId" required={req('project')} className="input col-span-2">
+              <option value="">{req('project') ? 'Project… *' : 'No specific project'}</option>
               {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
           </div>
@@ -120,28 +134,35 @@ export function NewLeadForm({ projects, agents = [] }: { projects: { id: string;
             <ChevronDown size={15} className={`ml-auto text-charcoal-600/40 transition-transform ${showMore ? 'rotate-180' : ''}`} />
           </button>
           <div className={`mt-3 grid grid-cols-2 gap-3 ${showMore ? '' : 'hidden'}`}>
-            <select name="buyerType" className="input" defaultValue="">
-              <option value="">Buyer type…</option>
+            <select name="buyerType" required={req('buyerType')} className="input" defaultValue="">
+              <option value="">Buyer type…{req('buyerType') ? ' *' : ''}</option>
               {BUYER_TYPES.map((b) => <option key={b.value} value={b.value}>{b.label}</option>)}
             </select>
-            <select name="language" className="input" defaultValue="">
-              <option value="">Language…</option>
+            <select name="language" required={req('language')} className="input" defaultValue="">
+              <option value="">Language…{req('language') ? ' *' : ''}</option>
               {LANGUAGES.map((l) => <option key={l.value} value={l.value}>{l.label}</option>)}
             </select>
             <select name="commPref" className="input col-span-2 capitalize" defaultValue="">
               <option value="">Communication preference…</option>
               {COMM_PREFS.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
-            <select name="assignedTo" className="input col-span-2" defaultValue="">
+            {pipelines.length > 1 && (
+              <select name="pipeline" className="input col-span-2" defaultValue="">
+                <option value="">Pipeline: {pipelines[0].name}</option>
+                {pipelines.slice(1).map((p) => <option key={p.key} value={p.key}>Pipeline: {p.name}</option>)}
+              </select>
+            )}
+            <select name="assignedTo" required={req('assignedTo')} className="input col-span-2" defaultValue="">
               <option value="">Assigned agent — unassigned (optional)</option>
               {agents.map((a) => <option key={a.id} value={a.id}>{a.full_name ?? 'Agent'}</option>)}
             </select>
-            <select name="timeline" defaultValue="" className="input col-span-2">
-              <option value="">Timeline to buy…</option>
+            <select name="timeline" required={req('timeline')} defaultValue="" className="input col-span-2">
+              <option value="">Timeline to buy…{req('timeline') ? ' *' : ''}</option>
               {TIMELINES.map((t) => <option key={t} value={t}>{t}</option>)}
             </select>
-            <textarea name="message" placeholder="Notes / inquiry message" className="input col-span-2 min-h-[64px]" />
+            <textarea name="message" required={req('message')} placeholder={req('message') ? 'Notes / inquiry message *' : 'Notes / inquiry message'} className="input col-span-2 min-h-[64px]" />
           </div>
+          {error && <p className="mt-3 rounded-md bg-signal-danger/10 px-3 py-2 text-sm text-signal-danger">{error}</p>}
         </ModalBody>
 
         <ModalFooter>

@@ -82,13 +82,90 @@ export function can(role: string, module: Module, action: Action = 'view'): bool
   return ROLE_PERMISSIONS[role][module]?.includes(action) ?? false;
 }
 
+/** Greek labels for the per-user permission matrix (Settings → Users). */
+export const MODULE_LABEL: Record<Module, string> = {
+  leads: 'Πωλήσεις / Leads',
+  marketing: 'Marketing',
+  projects: 'Έργα & μονάδες',
+  deals: 'Deal Analyzer',
+  financials: 'Οικονομικά',
+  maintenance: 'Συντήρηση',
+  automation: 'Αυτοματισμοί',
+  operations: 'Operations',
+  documents: 'Έγγραφα',
+  users: 'Χρήστες & ρυθμίσεις',
+  hr: 'HR',
+  property: 'Property Management',
+  acquisitions: 'Αγορές γης',
+};
+
+export const ACTION_LABEL: Record<Action, string> = {
+  view: 'Βλέπει',
+  edit: 'Δημιουργεί & αλλάζει',
+  delete: 'Διαγράφει',
+  assign: 'Αναθέτει',
+};
+
+export const ALL_ACTIONS: Action[] = ['view', 'edit', 'delete', 'assign'];
+
 /**
- * Effective access = role capability OR a manual module grant from HR
- * verification. Manual grants confer operational access (view + edit); elevated
- * actions (assign/delete) remain role-driven. This is the "Role + manual access"
- * model the Employee Verification flow configures per employee.
+ * Modules an admin can grant per user. "users" (user management, settings) is
+ * deliberately excluded: it stays admin-only so access can never be widened by
+ * anyone but an admin.
  */
-export function effectiveCan(role: string, moduleAccess: string[] | null | undefined, module: Module, action: Action = 'view'): boolean {
+export const CONFIGURABLE_MODULES: Module[] = [
+  'leads', 'marketing', 'projects', 'deals', 'financials', 'maintenance',
+  'automation', 'operations', 'documents', 'hr', 'property', 'acquisitions',
+];
+
+/** Per-user matrix stored on profiles.permissions. Null = follow the role. */
+export type UserPermissions = Partial<Record<Module, Action[]>>;
+
+/** Keep only known modules/actions; never lets "users" in. */
+export function sanitizePermissions(input: unknown): UserPermissions {
+  const out: UserPermissions = {};
+  if (!input || typeof input !== 'object') return out;
+  for (const m of CONFIGURABLE_MODULES) {
+    const acts = (input as Record<string, unknown>)[m];
+    if (!Array.isArray(acts)) continue;
+    const clean = ALL_ACTIONS.filter((a) => acts.includes(a));
+    // Any other action implies the user can at least see the module.
+    if (clean.length && !clean.includes('view')) clean.unshift('view');
+    if (clean.length) out[m] = clean;
+  }
+  return out;
+}
+
+/** The role's default matrix (plus legacy HR module grants), as a starting point for the editor. */
+export function defaultPermissionsFor(role: string, moduleAccess: string[] = []): UserPermissions {
+  const out: UserPermissions = {};
+  for (const m of CONFIGURABLE_MODULES) {
+    const acts = ALL_ACTIONS.filter((a) => effectiveCan(role, moduleAccess, m, a));
+    if (acts.length) out[m] = acts;
+  }
+  return out;
+}
+
+/**
+ * Effective access.
+ * - Admin: everything, always.
+ * - User with a per-user matrix (profiles.permissions): exactly that matrix.
+ * - Otherwise: role capability OR a manual module grant from HR verification
+ *   (manual grants confer view + edit; assign/delete stay role-driven).
+ */
+export function effectiveCan(
+  role: string,
+  moduleAccess: string[] | null | undefined,
+  module: Module,
+  action: Action = 'view',
+  permissions?: UserPermissions | null,
+): boolean {
+  if (!isInternalRole(role)) return false;
+  if (role === 'admin') return can(role, module, action);
+  if (permissions) {
+    if (module === 'users') return false;
+    return permissions[module]?.includes(action) ?? false;
+  }
   if (can(role, module, action)) return true;
   if ((action === 'view' || action === 'edit') && (moduleAccess ?? []).includes(module)) return true;
   return false;

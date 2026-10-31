@@ -10,6 +10,7 @@ import { LeadQuickActions } from './LeadQuickActions';
 import { reassignLead } from '@/app/actions/leads';
 import { formatNumber, formatCurrency } from '@/lib/format';
 import { nextBestAction, type NbaKey, type NbaTone } from '@/lib/next-best-action';
+import { DEFAULT_PIPELINE_SETTINGS, lateBy, pipelineOf, stageIndex, type PipelineSettings } from '@/lib/pipeline-shared';
 
 const NBA_ICON: Record<NbaKey, any> = {
   respond: Zap, reply: MessageCircle, follow_up_overdue: AlertTriangle, confirm_viewing: CalendarCheck, book_viewing: CalendarClock,
@@ -47,23 +48,16 @@ const STAGE_ACCENT: Record<string, Accent> = {
 };
 
 const URGENCY = [
-  { key: 'overdue', label: 'Overdue', danger: true },
-  { key: 'today', label: 'Today', danger: false },
-  { key: 'tomorrow', label: 'Tomorrow', danger: false },
+  { key: 'overdue', label: 'Εκπρόθεσμη ενέργεια', danger: true },
+  { key: 'today', label: 'Σήμερα', danger: false },
+  { key: 'tomorrow', label: 'Αύριο', danger: false },
 ] as const;
 
-const STATUS_SECTIONS = [
-  { key: 'new', label: 'New Leads' },
-  { key: 'contacted', label: 'Contacted' },
-  { key: 'engaged', label: 'Engaged' },
-  { key: 'qualified', label: 'Qualified' },
-  { key: 'waiting', label: 'Waiting' },
-  { key: 'viewing', label: 'Viewing Scheduled' },
-  { key: 'offer', label: 'Offer Stage' },
-  { key: 'negotiating', label: 'Negotiation' },
-  { key: 'reserved', label: 'Reservation / Deposit' },
-  { key: 'no_response', label: 'No Response' },
-  { key: 'retargeting', label: 'Retargeting Pool' },
+/** Parked leads that are not part of any pipeline's stages. */
+const CLOSED_SECTIONS = [
+  { key: 'no_response', label: 'Χωρίς απάντηση' },
+  { key: 'retargeting', label: 'Retargeting' },
+  { key: 'reactivation', label: 'Επανενεργοποίηση' },
 ] as const;
 
 function localDate(offsetDays: number): string {
@@ -101,7 +95,7 @@ function AssignSelect({ leadId, ownerId, agents }: { leadId: string; ownerId: st
   );
 }
 
-function LeadCard({ lead, agents }: { lead: LeadListItem; agents: Agent[] }) {
+function LeadCard({ lead, agents, late }: { lead: LeadListItem; agents: Agent[]; late?: number | null }) {
   const router = useRouter();
   const budget = budgetLabel(lead.budget_min, lead.budget_max);
   return (
@@ -128,6 +122,8 @@ function LeadCard({ lead, agents }: { lead: LeadListItem; agents: Agent[] }) {
           );
         })()}
         {budget && <span className="figure text-charcoal-600/70">{budget}</span>}
+        {late ? <span className="inline-flex items-center gap-0.5 rounded-md border border-signal-danger/30 bg-red-50 px-1.5 py-0.5 text-[11px] font-medium text-signal-danger" title="Πέρασε το όριο ημερών του σταδίου"><AlertTriangle size={10} /> +{late} μέρ.</span> : null}
+        {lead.is_returning && <span className="badge-champagne text-[10px]" title="Έχει ξαναγοράσει από εσάς">Επιστρέφων</span>}
       </div>
 
       <div className="flex items-center justify-between border-t border-stone-line pt-2">
@@ -141,7 +137,7 @@ function LeadCard({ lead, agents }: { lead: LeadListItem; agents: Agent[] }) {
   );
 }
 
-function Section({ accentKey, label, danger, leads, agents }: { accentKey: string; label: string; danger?: boolean; leads: LeadListItem[]; agents: Agent[] }) {
+function Section({ accentKey, label, danger, leads, agents, lateOf }: { accentKey: string; label: string; danger?: boolean; leads: LeadListItem[]; agents: Agent[]; lateOf?: (l: LeadListItem) => number | null }) {
   if (leads.length === 0) return null;
   const acc = STAGE_ACCENT[accentKey] ?? DEFAULT_ACCENT;
   return (
@@ -152,7 +148,7 @@ function Section({ accentKey, label, danger, leads, agents }: { accentKey: strin
         <span className={`badge ${acc.badge}`}>{leads.length}</span>
       </div>
       <div className="grid grid-cols-3 gap-3">
-        {leads.map((l) => <LeadCard key={l.id} lead={l} agents={agents} />)}
+        {leads.map((l) => <LeadCard key={l.id} lead={l} agents={agents} late={lateOf?.(l) ?? null} />)}
       </div>
     </section>
   );
@@ -163,7 +159,11 @@ function Section({ accentKey, label, danger, leads, agents }: { accentKey: strin
  * Tomorrow, driven by next_action_date) sit above the status pipeline sections.
  * An owner filter narrows to a single agent ("My leads") for personal focus.
  */
-export function LeadBoard({ leads, agents, currentUserId }: { leads: LeadListItem[]; agents: Agent[]; currentUserId: string }) {
+export function LeadBoard({ leads, agents, currentUserId, pipelines = DEFAULT_PIPELINE_SETTINGS }: { leads: LeadListItem[]; agents: Agent[]; currentUserId: string; pipelines?: PipelineSettings }) {
+  const [pipeKey, setPipeKey] = useState<string>(pipelines.defaultKey);
+  const [onlyLate, setOnlyLate] = useState(false);
+  const pipe = pipelineOf(pipelines, pipeKey);
+  const lateOf = (l: LeadListItem) => lateBy(pipelineOf(pipelines, l.pipeline ?? null), l.status, l.stage_entered_at ?? null);
   // Default to a personal view, but fall back to "All" when none are assigned to
   // me — so a freshly created lead is never hidden behind an empty "My leads".
   const hasMine = leads.some((l) => l.owner_id === currentUserId);
@@ -171,11 +171,15 @@ export function LeadBoard({ leads, agents, currentUserId }: { leads: LeadListIte
   const today = localDate(0);
   const tomorrow = localDate(1);
 
+  const inPipe = useMemo(() => leads.filter((l) => pipelineOf(pipelines, l.pipeline ?? null).key === pipe.key), [leads, pipelines, pipe.key]);
+  const lateCount = inPipe.filter((l) => (lateOf(l) ?? 0) > 0).length;
   const filtered = useMemo(() => {
-    if (owner === 'all') return leads;
-    if (owner === 'mine') return leads.filter((l) => l.owner_id === currentUserId);
-    return leads.filter((l) => l.owner_id === owner);
-  }, [leads, owner, currentUserId]);
+    const base = onlyLate ? inPipe.filter((l) => (lateOf(l) ?? 0) > 0) : inPipe;
+    if (owner === 'all') return base;
+    if (owner === 'mine') return base.filter((l) => l.owner_id === currentUserId);
+    return base.filter((l) => l.owner_id === owner);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inPipe, owner, currentUserId, onlyLate]);
 
   function bucketOf(l: LeadListItem): string {
     if (!l.owner_id) return 'unassigned';
@@ -185,7 +189,9 @@ export function LeadBoard({ leads, agents, currentUserId }: { leads: LeadListIte
       if (l.next_action_date === today) return 'today';
       if (l.next_action_date === tomorrow) return 'tomorrow';
     }
-    return l.status;
+    // Statuses the pipeline doesn't use show under the stage they belong to.
+    const i = stageIndex(pipe, l.status);
+    return i >= 0 ? pipe.stages[i].status : l.status;
   }
 
   const grouped = useMemo(() => {
@@ -197,9 +203,18 @@ export function LeadBoard({ leads, agents, currentUserId }: { leads: LeadListIte
 
   return (
     <div className="space-y-6">
+      {pipelines.pipelines.length > 1 && (
+        <div className="flex flex-wrap items-center gap-2">
+          {pipelines.pipelines.map((p) => {
+            const n = leads.filter((l) => pipelineOf(pipelines, l.pipeline ?? null).key === p.key && !['won', 'lost'].includes(l.status)).length;
+            return <button key={p.key} type="button" onClick={() => setPipeKey(p.key)} className={`rounded-md border px-3 py-1.5 text-sm ${pipe.key === p.key ? 'border-forest bg-forest text-white' : 'border-stone-line bg-white text-charcoal hover:border-forest/40'}`}>{p.name} <span className="opacity-70">{n}</span></button>;
+          })}
+        </div>
+      )}
       <div className="flex flex-wrap items-center gap-2">
-        <button onClick={() => setOwner('mine')} className={`badge ${owner === 'mine' ? 'badge-forest' : 'badge-neutral'}`}>My leads</button>
-        <button onClick={() => setOwner('all')} className={`badge ${owner === 'all' ? 'badge-forest' : 'badge-neutral'}`}>All</button>
+        {lateCount > 0 && <button type="button" onClick={() => setOnlyLate((x) => !x)} className={`badge ${onlyLate ? 'border-signal-danger bg-signal-danger text-white' : 'border-signal-danger/30 bg-red-50 text-signal-danger'}`}><AlertTriangle size={11} className="mr-1 inline" />Καθυστερούν {lateCount}</button>}
+        <button onClick={() => setOwner('mine')} className={`badge ${owner === 'mine' ? 'badge-forest' : 'badge-neutral'}`}>Τα δικά μου</button>
+        <button onClick={() => setOwner('all')} className={`badge ${owner === 'all' ? 'badge-forest' : 'badge-neutral'}`}>Όλα</button>
         {agents.map((a) => (
           <button key={a.id} onClick={() => setOwner(a.id)} className={`badge ${owner === a.id ? 'badge-forest' : 'badge-neutral'}`}>
             {a.full_name ?? 'Agent'}
@@ -207,12 +222,13 @@ export function LeadBoard({ leads, agents, currentUserId }: { leads: LeadListIte
         ))}
       </div>
 
-      {grouped['unassigned'] && <Section accentKey="unassigned" label="Unassigned" leads={grouped['unassigned']} agents={agents} />}
-      {URGENCY.map((u) => <Section key={u.key} accentKey={u.key} label={u.label} danger={u.danger} leads={grouped[u.key] ?? []} agents={agents} />)}
-      {STATUS_SECTIONS.map((s) => <Section key={s.key} accentKey={s.key} label={s.label} leads={grouped[s.key] ?? []} agents={agents} />)}
+      {grouped['unassigned'] && <Section accentKey="unassigned" label="Χωρίς υπεύθυνο" leads={grouped['unassigned']} agents={agents} lateOf={lateOf} />}
+      {URGENCY.map((u) => <Section key={u.key} accentKey={u.key} label={u.label} danger={u.danger} leads={grouped[u.key] ?? []} agents={agents} lateOf={lateOf} />)}
+      {pipe.stages.filter((st) => st.status !== 'won').map((st) => <Section key={st.status} accentKey={st.status} label={`${st.label}${st.maxDays ? ` · έως ${st.maxDays} μέρ.` : ''}`} leads={grouped[st.status] ?? []} agents={agents} lateOf={lateOf} />)}
+      {CLOSED_SECTIONS.map((s) => <Section key={s.key} accentKey={s.key} label={s.label} leads={grouped[s.key] ?? []} agents={agents} />)}
 
       {filtered.length === 0 && (
-        <p className="py-12 text-center text-sm text-charcoal-600/70">No leads in this view.</p>
+        <p className="py-12 text-center text-sm text-charcoal-600/70">Κανένα lead εδώ.</p>
       )}
     </div>
   );

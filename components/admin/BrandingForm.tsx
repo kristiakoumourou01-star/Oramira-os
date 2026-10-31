@@ -37,7 +37,6 @@ export function BrandingForm({ initial }: { initial: Branding }) {
     startTransition(async () => {
       const res = await saveBranding({
         companyName: b.companyName,
-        logoUrl: b.logoUrl ?? '',
         colorPrimary: b.colorPrimary,
         colorAccent: b.colorAccent,
         colorSecondary: b.colorSecondary,
@@ -69,16 +68,7 @@ export function BrandingForm({ initial }: { initial: Branding }) {
             <span className="eyebrow mb-1 block">Όνομα εταιρείας</span>
             <input className="input" value={b.companyName} onChange={(e) => set('companyName', e.target.value)} />
           </label>
-          <label className="block">
-            <span className="eyebrow mb-1 block">Logo URL (προαιρετικό)</span>
-            <input
-              className="input"
-              placeholder="https://…/logo.png"
-              value={b.logoUrl ?? ''}
-              onChange={(e) => set('logoUrl', e.target.value || null)}
-            />
-            <span className="mt-1 block text-xs text-charcoal-600/60">Αν κενό, εμφανίζεται το όνομα ως wordmark. Διαφανές PNG/SVG συνιστάται.</span>
-          </label>
+          <p className="text-xs text-charcoal-600/60">Το logo και το favicon ανεβαίνουν πιο κάτω, στο «Logo & favicon».</p>
         </div>
 
         <div className="panel space-y-3 p-5">
@@ -110,13 +100,13 @@ export function BrandingForm({ initial }: { initial: Branding }) {
           <label className="block">
             <span className="eyebrow mb-1 block">Γραμματοσειρά τίτλων</span>
             <select className="input" value={b.fontHeading} onChange={(e) => set('fontHeading', e.target.value as FontKey)}>
-              {HEADING_FONTS.map((k) => <option key={k} value={k}>{FONT_CATALOG[k].label}</option>)}
+              {HEADING_FONTS.map((k) => <option key={k} value={k}>{FONT_CATALOG[k].label}{FONT_CATALOG[k].greek ? ' · Αα' : ' · χωρίς ελληνικά'}</option>)}
             </select>
           </label>
           <label className="block">
             <span className="eyebrow mb-1 block">Γραμματοσειρά κειμένου</span>
             <select className="input" value={b.fontBody} onChange={(e) => set('fontBody', e.target.value as FontKey)}>
-              {BODY_FONTS.map((k) => <option key={k} value={k}>{FONT_CATALOG[k].label}</option>)}
+              {BODY_FONTS.map((k) => <option key={k} value={k}>{FONT_CATALOG[k].label}{FONT_CATALOG[k].greek ? ' · Αα' : ' · χωρίς ελληνικά'}</option>)}
             </select>
           </label>
         </div>

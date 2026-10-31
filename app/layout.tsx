@@ -8,10 +8,17 @@ import {
   Montserrat,
   Inter,
   Work_Sans,
+  Noto_Sans,
+  Noto_Serif,
+  Open_Sans,
+  Manrope,
+  Commissioner,
+  Literata,
 } from 'next/font/google';
 import './globals.css';
-import { getBranding, brandCssVars } from '@/lib/branding';
-import { getOrgSettings } from '@/lib/org-settings';
+import { getBranding, brandCssVars, sidebarBackground } from '@/lib/branding';
+import { getOrgSettings, getPublicAppearance } from '@/lib/org-settings';
+import { requestLocale } from '@/lib/locale-server';
 
 // Tabular figures — the ledger signature: every price, sqm, % renders here.
 // Not re-skinnable; the brand's numeric voice is constant.
@@ -20,34 +27,62 @@ const mono = IBM_Plex_Mono({ subsets: ['latin'], weight: ['400', '500'], variabl
 // Curated, re-skinnable typefaces. Each is exposed under its own CSS variable;
 // branding (lib/branding.ts) aliases --font-display / --font-sans to the chosen
 // pair at the root, so headings and body can be changed from Settings.
-const sourceSerif = Source_Serif_4({ subsets: ['latin'], weight: ['400', '500', '600'], variable: '--font-source-serif' });
+const sourceSerif = Source_Serif_4({ subsets: ['latin', 'greek'], weight: ['400', '500', '600'], variable: '--font-source-serif' });
 const cormorant = Cormorant_Garamond({ subsets: ['latin'], weight: ['400', '500', '600'], variable: '--font-cormorant' });
 const playfair = Playfair_Display({ subsets: ['latin'], weight: ['400', '500', '600'], variable: '--font-playfair' });
 const montserrat = Montserrat({ subsets: ['latin'], weight: ['400', '500', '600'], variable: '--font-montserrat' });
-const ibmPlex = IBM_Plex_Sans({ subsets: ['latin'], weight: ['400', '500', '600'], variable: '--font-ibm-plex' });
-const inter = Inter({ subsets: ['latin'], weight: ['400', '500', '600'], variable: '--font-inter' });
+const ibmPlex = IBM_Plex_Sans({ subsets: ['latin', 'greek'], weight: ['400', '500', '600'], variable: '--font-ibm-plex' });
+const inter = Inter({ subsets: ['latin', 'greek'], weight: ['400', '500', '600'], variable: '--font-inter' });
 const workSans = Work_Sans({ subsets: ['latin'], weight: ['400', '500', '600'], variable: '--font-work-sans' });
+// Greek-ready faces (the company works in Greek): body and heading options.
+const notoSans = Noto_Sans({ subsets: ['latin', 'greek'], weight: ['400', '500', '600'], variable: '--font-noto-sans', display: 'swap' });
+const notoSerif = Noto_Serif({ subsets: ['latin', 'greek'], weight: ['400', '500', '600'], variable: '--font-noto-serif', display: 'swap' });
+const openSans = Open_Sans({ subsets: ['latin', 'greek'], weight: ['400', '500', '600'], variable: '--font-open-sans', display: 'swap' });
+const manrope = Manrope({ subsets: ['latin', 'greek'], weight: ['400', '500', '600'], variable: '--font-manrope', display: 'swap' });
+const commissioner = Commissioner({ subsets: ['latin', 'greek'], weight: ['400', '500', '600'], variable: '--font-commissioner', display: 'swap' });
+const literata = Literata({ subsets: ['latin', 'greek'], weight: ['400', '500', '600'], variable: '--font-literata', display: 'swap' });
 
-const FONT_VARS = [sourceSerif, cormorant, playfair, montserrat, ibmPlex, inter, workSans, mono]
+const FONT_VARS = [sourceSerif, cormorant, playfair, montserrat, ibmPlex, inter, workSans, notoSans, notoSerif, openSans, manrope, commissioner, literata, mono]
   .map((f) => f.variable)
   .join(' ');
 
 export async function generateMetadata(): Promise<Metadata> {
-  const { companyName } = await getBranding();
+  const [{ companyName }, appearance] = await Promise.all([getBranding(), getPublicAppearance()]);
   return {
     title: `${companyName} OS`,
     description: `The ${companyName} operating system — CRM, deal analysis, and client portals.`,
+    ...(appearance.favicon ? { icons: { icon: appearance.favicon } } : {}),
   };
 }
 
+// Personal display (Settings → Εμφάνιση → "Η δική μου προβολή"): stored per
+// device in localStorage and applied before first paint, so there is no flash.
+const DISPLAY_PREFS_SCRIPT = `try{var p=JSON.parse(localStorage.getItem('oramira:display')||'{}');var d=document.documentElement;var t=p.theme||'light';if(t==='system'){t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'}d.dataset.theme=t;if(p.scale)d.style.setProperty('--ui-zoom',String(p.scale/100));if(p.reduceMotion)d.dataset.motion='reduce'}catch(e){}`;
+
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const [branding, settings] = await Promise.all([getBranding(), getOrgSettings()]);
+  const [branding, settings, appearance] = await Promise.all([getBranding(), getOrgSettings(), getPublicAppearance()]);
+  const sidebarBg = sidebarBackground(appearance.sidebarStyle, branding.colorPrimary, appearance.sidebarColor);
+  // The user's language + number format (cookie) — read by lib/format in the browser.
+  const loc = requestLocale();
   return (
-    <html lang="en" className={FONT_VARS} data-density={branding.density} data-dense={settings.layout.denseLists ? 'on' : 'off'}>
+    <html
+      lang={loc.lang}
+      data-lang={loc.lang}
+      data-num={loc.num}
+      className={FONT_VARS}
+      data-density={branding.density}
+      data-dense={settings.layout.denseLists ? 'on' : 'off'}
+      data-corners={appearance.corners}
+      data-box={appearance.boxStyle}
+      suppressHydrationWarning
+    >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: DISPLAY_PREFS_SCRIPT }} />
+      </head>
       <body>
         {/* Unlayered :root override from org_branding — wins over globals.css
             @layer base defaults regardless of source order. */}
-        <style dangerouslySetInnerHTML={{ __html: brandCssVars(branding) }} />
+        <style dangerouslySetInnerHTML={{ __html: brandCssVars(branding) + `:root{--sidebar-bg:${sidebarBg};}` }} />
         {children}
       </body>
     </html>

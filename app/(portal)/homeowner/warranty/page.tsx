@@ -79,7 +79,7 @@ export default async function WarrantyCenterPage() {
       <div className="panel p-6">
         <h4 className="mb-4">Warranty claims</h4>
         {(claims ?? []).length === 0 ? (
-          <p className="text-sm text-charcoal-600/70">No warranty claims filed. If a covered item fails, file a claim above and we'll handle it.</p>
+          <p className="text-sm text-charcoal-600/70">No warranty claims filed. If a covered item fails, file a claim above and we&apos;ll handle it.</p>
         ) : (
           <ul className="divide-y divide-stone-line">
             {(claims ?? []).map((c) => (

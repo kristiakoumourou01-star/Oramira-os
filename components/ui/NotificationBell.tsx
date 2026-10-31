@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Bell } from 'lucide-react';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 import Link from 'next/link';
+import { t } from '@/lib/i18n';
 
 interface NotificationRow {
   id: string;
@@ -21,9 +22,55 @@ interface NotificationRow {
  * inserts so new alerts (defect reported, milestone complete, lead
  * assigned…) appear without a page refresh.
  */
+/* Per-person, per-device preferences (kept in this browser only). */
+const PREFS_KEY = 'oramira_notif_prefs';
+interface Prefs { sound: boolean; desktop: boolean }
+function readPrefs(): Prefs {
+  try { const p = JSON.parse(localStorage.getItem(PREFS_KEY) ?? '{}'); return { sound: p.sound === true, desktop: p.desktop === true }; } catch { return { sound: false, desktop: false }; }
+}
+function writePrefs(p: Prefs) { try { localStorage.setItem(PREFS_KEY, JSON.stringify(p)); } catch { /* private mode */ } }
+
+/** A short two-note chime, generated (no audio file to load). */
+function chime() {
+  try {
+    const Ctx = (window as any).AudioContext || (window as any).webkitAudioContext;
+    if (!Ctx) return;
+    const ctx = new Ctx();
+    [880, 1320].forEach((f, i) => {
+      const o = ctx.createOscillator(); const g = ctx.createGain();
+      o.type = 'sine'; o.frequency.value = f;
+      const t = ctx.currentTime + i * 0.12;
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.15, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.25);
+      o.connect(g).connect(ctx.destination); o.start(t); o.stop(t + 0.3);
+    });
+    setTimeout(() => ctx.close?.(), 800);
+  } catch { /* audio blocked */ }
+}
+
 export function NotificationBell({ userId }: { userId: string }) {
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<NotificationRow[]>([]);
+  const [prefs, setPrefs] = useState<Prefs>({ sound: false, desktop: false });
+  const prefsRef = useRef(prefs);
+  useEffect(() => { const p = readPrefs(); setPrefs(p); prefsRef.current = p; }, []);
+  const updatePrefs = async (p: Prefs) => {
+    if (p.desktop && typeof Notification !== 'undefined' && Notification.permission !== 'granted') {
+      const r = await Notification.requestPermission().catch(() => 'denied');
+      if (r !== 'granted') p = { ...p, desktop: false };
+    }
+    setPrefs(p); prefsRef.current = p; writePrefs(p);
+    if (p.sound) chime();
+  };
+  const announce = (n: NotificationRow) => {
+    const p = prefsRef.current;
+    if (p.sound) chime();
+    if (p.desktop && typeof Notification !== 'undefined' && Notification.permission === 'granted' && document.visibilityState !== 'visible') {
+      try {
+        const d = new Notification(n.title, { body: n.body ?? undefined, tag: n.id });
+        d.onclick = () => { window.focus(); if (n.link) window.location.href = n.link; };
+      } catch { /* not supported */ }
+    }
+  };
 
   useEffect(() => {
     const supabase = createSupabaseBrowserClient();
@@ -40,7 +87,7 @@ export function NotificationBell({ userId }: { userId: string }) {
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` },
-        (payload) => setItems((prev) => [payload.new as NotificationRow, ...prev].slice(0, 10))
+        (payload) => { setItems((prev) => [payload.new as NotificationRow, ...prev].slice(0, 10)); announce(payload.new as NotificationRow); }
       )
       .subscribe();
 
@@ -56,7 +103,7 @@ export function NotificationBell({ userId }: { userId: string }) {
       <button
         onClick={() => setOpen((v) => !v)}
         className="relative rounded p-2 text-charcoal-600 transition-colors hover:bg-sand-100"
-        aria-label="Notifications"
+        aria-label={t('notifications')}
       >
         <Bell size={18} strokeWidth={1.75} />
         {unreadCount > 0 && (
@@ -68,9 +115,15 @@ export function NotificationBell({ userId }: { userId: string }) {
 
       {open && (
         <div className="absolute right-0 top-12 z-20 w-80 panel p-2">
-          <p className="px-2 py-1.5 text-xs uppercase tracking-eyebrow text-olive">Notifications</p>
+          <div className="flex items-center justify-between px-2 py-1.5">
+            <p className="text-xs uppercase tracking-eyebrow text-olive">{t('notifications')}</p>
+            <div className="flex gap-3 text-[11px] text-charcoal-600">
+              <label className="flex items-center gap-1" title="Ήχος σε κάθε νέα ειδοποίηση (σε αυτή τη συσκευή)"><input type="checkbox" checked={prefs.sound} onChange={(e) => updatePrefs({ ...prefs, sound: e.target.checked })} /> {t('sound')}</label>
+              <label className="flex items-center gap-1" title="Ειδοποίηση του υπολογιστή όταν η καρτέλα δεν είναι μπροστά"><input type="checkbox" checked={prefs.desktop} onChange={(e) => updatePrefs({ ...prefs, desktop: e.target.checked })} /> {t('desktop')}</label>
+            </div>
+          </div>
           {items.length === 0 ? (
-            <p className="px-2 py-6 text-center text-sm text-charcoal-600/70">Nothing yet.</p>
+            <p className="px-2 py-6 text-center text-sm text-charcoal-600/70">{t('nothingYet')}</p>
           ) : (
             <ul className="max-h-80 overflow-y-auto">
               {items.map((n) => (

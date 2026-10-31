@@ -1,4 +1,6 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server';
+import type { CustomerType, CustomerRow, CustomerLedger } from '@/lib/customers-shared';
+export type { CustomerType, CustomerRow, CustomerLedger } from '@/lib/customers-shared';
 
 /**
  * Unified customer ledger.
@@ -12,29 +14,8 @@ import { createSupabaseServerClient } from '@/lib/supabase/server';
  * the list still renders the people).
  */
 
-export type CustomerType = 'buyer' | 'investor' | 'homeowner';
 
-export interface CustomerRow {
-  contactId: string;
-  name: string;
-  email: string | null;
-  phone: string | null;
-  types: CustomerType[];
-  buyerType: string | null;
-  language: string | null;
-  source: string | null;
-  createdAt: string;
-  contractValue: number; // sum of non-cancelled contract totals
-  paid: number;          // sum of recorded payments
-  balance: number;       // contractValue - paid (never negative)
-  units: number;         // distinct units under contract
-  reservations: number;  // active reservations
-}
 
-export interface CustomerLedger {
-  rows: CustomerRow[];
-  totals: { count: number; contractValue: number; paid: number; balance: number };
-}
 
 export async function getCustomers(): Promise<CustomerLedger> {
   const empty: CustomerLedger = { rows: [], totals: { count: 0, contractValue: 0, paid: 0, balance: 0 } };
@@ -51,6 +32,12 @@ export async function getCustomers(): Promise<CustomerLedger> {
     ]);
 
     if (!contacts) return empty;
+
+    // Tags and groups (migration 0055) — separate best-effort read so a missing
+    // column never empties the customer list.
+    const meta = new Map<string, { tags: string[]; groups: string[] }>();
+    const { data: metaRows } = await supabase.from('contacts').select('id, tags, groups' as any);
+    for (const m of (metaRows ?? []) as any[]) meta.set(m.id, { tags: Array.isArray(m.tags) ? m.tags : [], groups: Array.isArray(m.groups) ? m.groups : [] });
 
     // contract_id → contact, for attributing payments.
     const contractToContact = new Map<string, string>();
@@ -107,6 +94,8 @@ export async function getCustomers(): Promise<CustomerLedger> {
         balance: Math.max(0, value - paid),
         units: a?.units.size ?? 0,
         reservations: a?.reservations ?? 0,
+        tags: meta.get(c.id)?.tags ?? [],
+        groups: meta.get(c.id)?.groups ?? [],
       });
     }
 

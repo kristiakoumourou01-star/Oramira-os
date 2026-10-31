@@ -54,6 +54,7 @@ export async function sendMessage(
           userId: contractorProfile.id,
           title: 'New message on your ticket',
           link: `/contractor/tickets/${entityId}`,
+          event: 'message_received',
         });
       }
     }

@@ -144,3 +144,22 @@ export async function updateTemplate(id: string, patch: { subject?: string | nul
   await supabase.from('message_templates').update(update).eq('id', id);
   revalidatePath('/settings/templates');
 }
+
+/** Νέα μετάφραση ενός προτύπου (π.χ. first_contact στα γερμανικά), ξεκινώντας από το αγγλικό κείμενο. */
+export async function addTemplateLanguage(sourceId: string, language: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  await requireRole(['admin']);
+  const lang = (language || '').toLowerCase().trim();
+  if (!/^[a-z]{2}$/.test(lang)) return { ok: false, error: 'Μη έγκυρη γλώσσα.' };
+  const supabase = await createSupabaseServerClient();
+  const { data: src } = await supabase.from('message_templates').select('channel, key, name, subject, body').eq('id', sourceId).maybeSingle();
+  if (!src) return { ok: false, error: 'Το πρότυπο δεν βρέθηκε.' };
+  const { data: exists } = await supabase.from('message_templates').select('id').eq('channel', src.channel).eq('key', src.key).eq('audience', lang).maybeSingle();
+  if (exists) return { ok: false, error: 'Υπάρχει ήδη μετάφραση σε αυτή τη γλώσσα.' };
+  const { error } = await supabase.from('message_templates').insert({
+    channel: src.channel, key: src.key, name: `${String(src.name).replace(/\s*\([A-Z]{2}\)$/, '')} (${lang.toUpperCase()})`,
+    subject: src.subject, body: src.body, is_active: false, audience: lang,
+  } as any);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath('/settings/templates');
+  return { ok: true };
+}

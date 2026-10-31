@@ -18,7 +18,7 @@ const PORTAL_PREFIX_TO_ROLE: Record<string, string> = {
   '/contractor': 'contractor',
 };
 
-const PUBLIC_PATHS = ['/login', '/invite', '/reset-password', '/book'];
+const PUBLIC_PATHS = ['/login', '/invite', '/reset-password', '/book', '/auth/signout', '/selection/'];
 
 export async function middleware(request: NextRequest) {
   const { response, user } = await updateSession(request);
@@ -65,6 +65,7 @@ export async function middleware(request: NextRequest) {
     path.startsWith('/crm') ||
     path.startsWith('/deal-analyzer') ||
     path.startsWith('/projects') ||
+    path.startsWith('/map') ||
     path.startsWith('/property') ||
     path.startsWith('/financials') ||
     path.startsWith('/hr') ||
@@ -86,6 +87,13 @@ export async function middleware(request: NextRequest) {
     if (role !== 'admin') {
       return NextResponse.redirect(new URL('/dashboard', request.url));
     }
+  }
+
+  // Activity clock for "sign out after N hours idle" (Settings → Ασφάλεια).
+  // Pages compare against the PREVIOUS value; this response stores the new one.
+  // Background prefetches don't count as activity.
+  if (!request.headers.get('next-router-prefetch') && request.headers.get('purpose') !== 'prefetch') {
+    response.cookies.set('oramira_seen', String(Date.now()), { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', path: '/', maxAge: 60 * 60 * 24 * 30 });
   }
 
   return response;

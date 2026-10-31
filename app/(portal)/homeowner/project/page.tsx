@@ -99,7 +99,7 @@ export default async function HomeownerProjectPage() {
             </div>
           </div>
           <div className="panel p-6 text-sm text-charcoal-600/80">
-            Need something fixed? Raise it in <span className="font-medium text-forest">Maintenance</span> and we'll assign a contractor.
+            Need something fixed? Raise it in <span className="font-medium text-forest">Maintenance</span> and we&apos;ll assign a contractor.
           </div>
         </div>
       </div>

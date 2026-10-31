@@ -22,7 +22,16 @@ export function Tabs({ tabs, initial }: { tabs: TabDef[]; initial?: string }) {
         {tabs.map((t) => (
           <button
             key={t.id}
-            onClick={() => setActive(t.id)}
+            onClick={() => {
+              setActive(t.id);
+              // Keep ?tab= in the address so the sidebar highlights the right
+              // sub-item and the tab survives a refresh or a shared link.
+              try {
+                const url = new URL(window.location.href);
+                url.searchParams.set('tab', t.id);
+                window.history.replaceState(null, '', url.toString());
+              } catch { /* non-browser */ }
+            }}
             className={`-mb-px border-b-2 px-3.5 py-2 text-sm font-medium transition-colors ${active === t.id ? 'border-forest text-forest' : 'border-transparent text-charcoal-600/70 hover:text-forest'}`}
           >
             {t.label}

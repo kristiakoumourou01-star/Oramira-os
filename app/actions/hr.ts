@@ -57,6 +57,7 @@ export async function decideLeave(requestId: string, decision: 'approved' | 'rej
       title: `Leave request ${decision}`,
       body: `Your ${req.leave_type} leave request was ${decision}.`,
       link: '/dashboard',
+      event: 'leave_decision',
     });
   }
   revalidatePath('/hr');
@@ -154,7 +155,7 @@ export async function approvePayroll(payslipId: string) {
     .from('payslips')
     .update({ status: 'approved', approved_by: profile.id, approved_at: new Date().toISOString(), ...(pdfPath ? { pdf_path: pdfPath } : {}) })
     .eq('id', payslipId);
-  if (slip) await notifyUser({ userId: slip.profile_id, title: 'Payslip available', body: `Your payslip for ${slip.period} is ready to download.`, link: '/dashboard' });
+  if (slip) await notifyUser({ userId: slip.profile_id, title: 'Payslip available', body: `Your payslip for ${slip.period} is ready to download.`, link: '/dashboard', event: 'payslip_ready' });
   revalidatePath('/hr');
   revalidatePath('/dashboard');
 }
@@ -224,7 +225,7 @@ export async function setCommissionStatus(id: string, status: 'pending' | 'paid'
     .select('profile_id, amount')
     .maybeSingle();
   if (row && status === 'paid') {
-    await notifyUser({ userId: row.profile_id, title: 'Commission paid', body: `A commission of ${formatCurrency(Number(row.amount ?? 0))} has been marked paid.`, link: '/dashboard' });
+    await notifyUser({ userId: row.profile_id, title: 'Commission paid', body: `A commission of ${formatCurrency(Number(row.amount ?? 0))} has been marked paid.`, link: '/dashboard', event: 'commission_paid' });
   }
   revalidatePath('/hr');
   revalidatePath('/dashboard');

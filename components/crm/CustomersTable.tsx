@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Search, Users, Wallet, BadgeEuro } from 'lucide-react';
 import { formatCurrency, formatCurrencyCompact } from '@/lib/format';
-import type { CustomerRow, CustomerType } from '@/lib/customers';
+import type { CustomerRow, CustomerType } from '@/lib/customers-shared';
 
 const TYPE_LABEL: Record<CustomerType, string> = { buyer: 'Buyer', investor: 'Investor', homeowner: 'Homeowner' };
 type SortKey = 'value_desc' | 'value_asc' | 'paid_desc' | 'name' | 'recent';
@@ -15,6 +15,10 @@ export function CustomersTable({ rows }: { rows: CustomerRow[] }) {
   const [min, setMin] = useState('');
   const [max, setMax] = useState('');
   const [sort, setSort] = useState<SortKey>('value_desc');
+  const [tag, setTag] = useState('');
+  const [group, setGroup] = useState('');
+  const allTags = useMemo(() => Array.from(new Set(rows.flatMap((r) => r.tags ?? []))).sort(), [rows]);
+  const allGroups = useMemo(() => Array.from(new Set(rows.flatMap((r) => r.groups ?? []))).sort(), [rows]);
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
@@ -22,6 +26,8 @@ export function CustomersTable({ rows }: { rows: CustomerRow[] }) {
     const maxV = max ? Number(max) : null;
     let out = rows.filter((r) => {
       if (type !== 'all' && !r.types.includes(type)) return false;
+      if (tag && !(r.tags ?? []).includes(tag)) return false;
+      if (group && !(r.groups ?? []).includes(group)) return false;
       if (minV !== null && r.contractValue < minV) return false;
       if (maxV !== null && r.contractValue > maxV) return false;
       if (needle) {
@@ -40,7 +46,7 @@ export function CustomersTable({ rows }: { rows: CustomerRow[] }) {
       }
     });
     return out;
-  }, [rows, q, type, min, max, sort]);
+  }, [rows, q, type, min, max, sort, tag, group]);
 
   const totals = useMemo(
     () => filtered.reduce((t, r) => ({ count: t.count + 1, value: t.value + r.contractValue, paid: t.paid + r.paid, balance: t.balance + r.balance }), { count: 0, value: 0, paid: 0, balance: 0 }),
@@ -75,6 +81,24 @@ export function CustomersTable({ rows }: { rows: CustomerRow[] }) {
             <option value="homeowner">Homeowners</option>
           </select>
         </label>
+        {allTags.length > 0 && (
+          <label>
+            <span className="eyebrow mb-1 block">Tag</span>
+            <select className="input" value={tag} onChange={(e) => setTag(e.target.value)}>
+              <option value="">Όλα</option>
+              {allTags.map((t) => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </label>
+        )}
+        {allGroups.length > 0 && (
+          <label>
+            <span className="eyebrow mb-1 block">Ομάδα</span>
+            <select className="input" value={group} onChange={(e) => setGroup(e.target.value)}>
+              <option value="">Όλες</option>
+              {allGroups.map((g) => <option key={g} value={g}>{g}</option>)}
+            </select>
+          </label>
+        )}
         <label className="w-32">
           <span className="eyebrow mb-1 block">Ποσό από</span>
           <input className="input figure" type="number" inputMode="numeric" placeholder="0" value={min} onChange={(e) => setMin(e.target.value)} />
@@ -116,6 +140,11 @@ export function CustomersTable({ rows }: { rows: CustomerRow[] }) {
                   <td>
                     <Link href={`/crm/${r.contactId}`} className="font-medium text-forest hover:underline">{r.name}</Link>
                     <p className="text-xs text-charcoal-600/70">{r.email ?? r.phone ?? '—'}</p>
+                    {(r.tags ?? []).length > 0 && (
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {r.tags.map((t) => <span key={t} className="rounded-full bg-champagne-50 px-2 py-px text-[10px] text-champagne-600">{t}</span>)}
+                      </div>
+                    )}
                   </td>
                   <td>
                     <div className="flex flex-wrap gap-1">

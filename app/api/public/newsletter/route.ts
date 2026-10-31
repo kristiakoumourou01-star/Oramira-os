@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { intakeNewsletter } from '@/lib/intake';
+import { readConsent, recordConsent } from '@/lib/gdpr';
 
 /** Public newsletter signup — syncs into the same `contacts` identity table. */
 const CORS = {
@@ -28,6 +29,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Email is required' }, { status: 400, headers: CORS });
   }
 
+  const consent = await readConsent(body);
+  if (!consent.ok) return NextResponse.json({ error: consent.error }, { status: 400, headers: CORS });
+
   try {
     const result = await intakeNewsletter({
       email: String(body.email),
@@ -35,6 +39,8 @@ export async function POST(request: NextRequest) {
       source: body.source,
       tags: Array.isArray(body.tags) ? body.tags.map(String) : undefined,
     });
+    // Signing up for the newsletter is itself the marketing opt-in.
+    await recordConsent(result.contactId, { ...consent, marketing: true, source: 'Newsletter' });
     return NextResponse.json({ ok: true, ...result }, { headers: CORS });
   } catch (err: any) {
     return NextResponse.json({ error: err?.message ?? 'Intake failed' }, { status: 500, headers: CORS });

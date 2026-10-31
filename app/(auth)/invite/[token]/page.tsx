@@ -39,7 +39,7 @@ export default function InvitePage({ params }: { params: { token: string } }) {
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
           <Logo tone="dark" />
-          <p className="mt-2 text-sm text-charcoal-600/80">You've been invited — set up your access</p>
+          <p className="mt-2 text-sm text-charcoal-600/80">You&apos;ve been invited — set up your access</p>
         </div>
         <form onSubmit={handleSubmit} className="panel space-y-4 p-8">
           <div>

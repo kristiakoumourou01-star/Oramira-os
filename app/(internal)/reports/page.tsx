@@ -1,4 +1,4 @@
-import { requirePermission } from '@/lib/auth';
+import { requirePermission, hasRight } from '@/lib/auth';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { buildBoardReport } from '@/lib/board-report';
 import { buildInvestorReport } from '@/lib/investor-report';
@@ -17,7 +17,9 @@ import { boardReportPdfWeekly, boardReportPdfMonthly, investorReportPdf } from '
 /** Institutional reporting — board packs, investor reports, strategy, the
  *  knowledge graph, and executive memory. Gated to financials-level access. */
 export default async function ReportsPage({ searchParams }: { searchParams: { tab?: string } }) {
-  await requirePermission('financials');
+  const profile = await requirePermission('financials');
+  // Downloads follow the role's "Κάνει export" right (Settings → Ρόλοι).
+  const canExport = hasRight(profile, 'export_data');
   const supabase = await createSupabaseServerClient();
 
   const [board, investor, plan, knowledge, { data: contacts }, memory] = await Promise.all([
@@ -35,8 +37,8 @@ export default async function ReportsPage({ searchParams }: { searchParams: { ta
       id: 'board', label: 'Board pack', content: (
         <div className="space-y-4">
           <div className="flex flex-wrap justify-end gap-2">
-            <DownloadReportButton label="Weekly summary PDF" action={boardReportPdfWeekly} />
-            <DownloadReportButton label="Monthly pack PDF" action={boardReportPdfMonthly} />
+            {canExport && <DownloadReportButton label="Weekly summary PDF" action={boardReportPdfWeekly} />}
+            {canExport && <DownloadReportButton label="Monthly pack PDF" action={boardReportPdfMonthly} />}
           </div>
           <ReportView report={board} />
         </div>
@@ -45,7 +47,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: { ta
     {
       id: 'investor', label: 'Investor report', content: (
         <div className="space-y-4">
-          <div className="flex justify-end"><DownloadReportButton label="Investor report PDF" action={investorReportPdf} /></div>
+          {canExport && <div className="flex justify-end"><DownloadReportButton label="Investor report PDF" action={investorReportPdf} /></div>}
           <ReportView report={investor} />
         </div>
       ),

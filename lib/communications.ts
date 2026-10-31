@@ -77,10 +77,11 @@ export async function sendTemplate(args: {
   templateKey: string;
   to: string | null;
   vars: Record<string, string | null | undefined>;
-  audience?: 'en' | 'ru' | 'el';
+  /** Γλώσσα του πελάτη (en, el, ru, de…) — χωρίς μετάφραση πέφτει στα αγγλικά. */
+  audience?: string;
 }): Promise<{ status: string } | null> {
   const supabase = createSupabaseServiceRoleClient();
-  const aud = args.audience ?? 'en';
+  const aud = (args.audience || 'en').toLowerCase();
   let { data: tpl } = await supabase
     .from('message_templates')
     .select('subject, body, is_active')

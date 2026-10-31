@@ -21,4 +21,8 @@ export interface LeadListItem {
   priority: number;
   priority_reasons: string[];
   needs_action: boolean;
+  /** Pipeline fields (migration 0068). */
+  pipeline?: string | null;
+  stage_entered_at?: string | null;
+  is_returning?: boolean;
 }

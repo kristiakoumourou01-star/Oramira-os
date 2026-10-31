@@ -31,7 +31,7 @@ export function CommissionsAdmin({ commissions }: { commissions: CommissionRow[]
         <span className="text-sm text-charcoal-600/70">{formatCurrency(paid)} paid · {formatCurrency(total - paid)} pending</span>
       </div>
       {commissions.length === 0 ? (
-        <p className="text-sm text-charcoal-600/70">No commissions accrued yet. They are created automatically when an agent's lead converts to a reservation.</p>
+        <p className="text-sm text-charcoal-600/70">No commissions accrued yet. They are created automatically when an agent&apos;s lead converts to a reservation.</p>
       ) : (
         <ul className="divide-y divide-stone-line">
           {commissions.map((c) => (

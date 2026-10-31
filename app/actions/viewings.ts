@@ -59,7 +59,7 @@ export async function scheduleViewing(params: {
   await sendTemplate({ contactId: params.contactId, leadId: params.leadId, channel: 'email', templateKey: 'viewing_confirmation', to: contact?.email ?? null, vars, audience });
 
   if (params.agentId && params.agentId !== profile.id) {
-    await notifyUser({ userId: params.agentId, title: 'Viewing assigned to you', body: `${vars.name} · ${vars.date}`, link: params.leadId ? `/crm/leads/${params.leadId}` : '/crm/leads' });
+    await notifyUser({ userId: params.agentId, title: 'Viewing assigned to you', body: `${vars.name} · ${vars.date}`, link: params.leadId ? `/crm/leads/${params.leadId}` : '/crm/leads', event: 'viewing_assigned' });
   }
 
   // Auto-sync to the agent's Google Calendar with a Google Meet link (viewings

@@ -210,3 +210,86 @@
 .range-thumb::-webkit-slider-runnable-track {
   background: transparent;
 }
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Appearance options (Settings → Εμφάνιση). Unlayered so they win over the
+   component defaults above. Company-wide: data-corners / data-box on <html>.
+   Per device: data-theme, data-motion, --ui-zoom (set before first paint).
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* Corners */
+html[data-corners='square'] .panel,
+html[data-corners='square'] .ws-card,
+html[data-corners='square'] .ws-card-primary { border-radius: 6px; }
+html[data-corners='square'] .btn-primary,
+html[data-corners='square'] .btn-secondary,
+html[data-corners='square'] .input { border-radius: 4px; }
+html[data-corners='round'] .panel,
+html[data-corners='round'] .ws-card,
+html[data-corners='round'] .ws-card-primary { border-radius: 24px; }
+html[data-corners='round'] .btn-primary,
+html[data-corners='round'] .btn-secondary { border-radius: 9999px; }
+html[data-corners='round'] .input { border-radius: 12px; }
+
+/* Boxes */
+html[data-box='outline'] .panel,
+html[data-box='outline'] .ws-card,
+html[data-box='outline'] .ws-card-primary { box-shadow: inset 0 0 0 1px rgb(var(--c-stone-line)); }
+html[data-box='flat'] .panel,
+html[data-box='flat'] .ws-card,
+html[data-box='flat'] .ws-card-primary { box-shadow: none; }
+
+/* Text size (per device) — scales the whole interface, px sizes included */
+body { zoom: var(--ui-zoom, 1); }
+
+/* Reduce motion (per device) */
+html[data-motion='reduce'] *,
+html[data-motion='reduce'] *::before,
+html[data-motion='reduce'] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+/* Dark theme (per device, beta). Overrides the brand surface/text tokens; the
+   brand colours themselves stay. html[data-theme] beats the :root brand vars. */
+html[data-theme='dark'] {
+  color-scheme: dark;
+  --c-stone: 17 21 19;
+  --c-stone-200: 24 29 27;
+  --c-stone-line: 52 60 56;
+  --c-sand: 38 44 41;
+  --c-sand-100: 30 36 33;
+  --c-sand-300: 52 60 56;
+  --c-charcoal: 232 230 224;
+  --c-charcoal-600: 172 176 170;
+  --c-forest-50: 30 40 35;
+  --c-champagne-50: 44 40 30;
+}
+html[data-theme='dark'] body { background-color: rgb(var(--c-stone)); color: rgb(var(--c-charcoal)); }
+html[data-theme='dark'] .bg-white,
+html[data-theme='dark'] .panel,
+html[data-theme='dark'] .ws-card,
+html[data-theme='dark'] .ws-card-primary,
+html[data-theme='dark'] .input,
+html[data-theme='dark'] .btn-secondary { background-color: rgb(28 33 31); }
+html[data-theme='dark'] .bg-white\/80 { background-color: rgb(22 27 25 / 0.85); }
+html[data-theme='dark'] .panel,
+html[data-theme='dark'] .ws-card,
+html[data-theme='dark'] .ws-card-primary { box-shadow: inset 0 0 0 1px rgb(var(--c-stone-line)); }
+html[data-theme='dark'] .text-forest,
+html[data-theme='dark'] .hover\:text-forest:hover { color: rgb(150 196 172); }
+html[data-theme='dark'] h1,
+html[data-theme='dark'] h2,
+html[data-theme='dark'] h3,
+html[data-theme='dark'] h4 { color: rgb(var(--c-charcoal)); }
+html[data-theme='dark'] .btn-secondary { color: rgb(var(--c-charcoal)); border-color: rgb(var(--c-stone-line)); }
+
+/* Παραστατικά: η εκτύπωση / PDF κρατά μόνο το έγγραφο (.print-area). */
+@media print {
+  @page { margin: 14mm; }
+  body * { visibility: hidden; }
+  .print-area, .print-area * { visibility: visible; }
+  .print-area { position: absolute; left: 0; top: 0; width: 100%; box-shadow: none !important; border: 0 !important; background: #fff !important; color: #2b2a27 !important; }
+}

@@ -8,7 +8,7 @@ import { FONT_CATALOG, type FontKey } from '@/lib/branding';
 
 export interface SaveBrandingInput {
   companyName: string;
-  logoUrl: string;
+  logoUrl?: string;
   colorPrimary: string;
   colorAccent: string;
   colorSecondary: string;
@@ -26,6 +26,28 @@ const DENSITIES = ['comfortable', 'compact'];
 export type SaveBrandingResult = { ok: true } | { ok: false; error: string };
 
 const HEX = /^#[0-9a-fA-F]{6}$/;
+
+/** An http(s) link, or an uploaded image kept inline (data URL, ≤ ~400 KB). */
+function isImageSource(v: string): boolean {
+  if (/^https?:\/\//i.test(v)) return true;
+  return /^data:image\/(png|jpeg|webp|gif|svg\+xml);base64,/i.test(v) && v.length <= 560_000;
+}
+
+/** Upload/replace/remove the main logo (shown on the dark menu). */
+export async function saveLogo(dataUrl: string | null): Promise<SaveBrandingResult> {
+  try {
+    await requireRole(['admin']);
+    if (dataUrl && !isImageSource(dataUrl)) return { ok: false, error: 'Μη έγκυρη εικόνα ή πολύ μεγάλο αρχείο (έως 400 KB).' };
+    const supabase = await createSupabaseServerClient();
+    const { error } = await supabase.from('org_branding').update({ logo_url: dataUrl, updated_at: new Date().toISOString() }).eq('id', 'org');
+    if (error) return { ok: false, error: error.message };
+    await logActivity({ entityType: 'branding', entityId: 'org', action: dataUrl ? 'logo_updated' : 'logo_removed' });
+    revalidatePath('/', 'layout');
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Αποτυχία αποθήκευσης.' };
+  }
+}
 
 function cleanColor(value: string, label: string): string {
   const v = (value || '').trim();
@@ -51,15 +73,16 @@ export async function saveBranding(input: SaveBrandingInput): Promise<SaveBrandi
     const companyName = (input.companyName || '').trim();
     if (!companyName) return { ok: false, error: 'Το όνομα εταιρείας είναι υποχρεωτικό.' };
 
-    const logoUrl = (input.logoUrl || '').trim();
-    if (logoUrl && !/^https?:\/\//i.test(logoUrl)) {
-      return { ok: false, error: 'Το logo URL πρέπει να ξεκινά με http(s)://' };
+    // logoUrl undefined = leave the logo as it is (it has its own upload control).
+    const logoUrl = input.logoUrl === undefined ? undefined : (input.logoUrl || '').trim();
+    if (logoUrl && !isImageSource(logoUrl)) {
+      return { ok: false, error: 'Το logo πρέπει να είναι εικόνα (PNG, JPG, SVG, WebP) έως 400 KB, ή σύνδεσμος http(s)://' };
     }
 
     const row = {
       id: 'org',
       company_name: companyName,
-      logo_url: logoUrl || null,
+      ...(logoUrl === undefined ? {} : { logo_url: logoUrl || null }),
       color_primary: cleanColor(input.colorPrimary, 'Κύριο χρώμα'),
       color_accent: cleanColor(input.colorAccent, 'Accent'),
       color_secondary: cleanColor(input.colorSecondary, 'Δευτερεύον'),
