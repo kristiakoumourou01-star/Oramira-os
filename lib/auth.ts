@@ -59,45 +59,26 @@ async function loadProfile(
   supabase: ServerClient,
   userId: string,
 ): Promise<Omit<CurrentProfile, 'impersonator'> | null> {
-  // Select core fields only — guaranteed to exist regardless of which HR
-  // migrations have been applied, so sign-in never breaks on a missing column.
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('id, role, full_name, contact_id, contractor_id')
-    .eq('id', userId)
-    .single();
-
+  // One read for everything (all columns exist since migrations 0035/0053/0054).
+  // If an older database lacks one, fall back to the core columns so sign-in
+  // never breaks on a missing column.
+  const [{ data: full, error }, { roles: rolesEarly }] = await Promise.all([
+    supabase.from('profiles').select('id, role, full_name, contact_id, contractor_id, module_access, permissions, must_change_password, is_active, custom_role').eq('id', userId).maybeSingle(),
+    getOrgSettings(),
+  ]);
+  let profile: any = full;
+  if (error) {
+    const { data: core } = await supabase.from('profiles').select('id, role, full_name, contact_id, contractor_id').eq('id', userId).maybeSingle();
+    profile = core;
+  }
   if (!profile) return null;
 
-  // module_access (migration 0035) is best-effort: if the column isn't there yet
-  // the query fails quietly and we fall back to role-only access.
-  let moduleAccess: string[] = [];
-  const { data: access } = await supabase.from('profiles').select('module_access').eq('id', userId).maybeSingle();
-  if (access && Array.isArray((access as any).module_access)) moduleAccess = (access as any).module_access as string[];
-
-  // permissions / must_change_password (migration 0053) and is_active are also
-  // best-effort, for the same reason: a missing column must never block sign-in.
-  let permissions: UserPermissions | null = null;
-  let mustChangePassword = false;
-  let isActive = true;
-  const { data: extra } = await supabase
-    .from('profiles')
-    .select('permissions, must_change_password, is_active')
-    .eq('id', userId)
-    .maybeSingle();
-  if (extra) {
-    const e = extra as any;
-    if (e.permissions && typeof e.permissions === 'object') permissions = sanitizePermissions(e.permissions);
-    mustChangePassword = e.must_change_password === true;
-    isActive = e.is_active !== false;
-  }
-
-  // Admin-defined role (migration 0054) — separate best-effort read, then the
-  // role definitions from org settings. Own matrix beats the role's.
-  let customRoleId: string | null = null;
-  const { data: cr } = await supabase.from('profiles').select('custom_role').eq('id', userId).maybeSingle();
-  if (cr && typeof (cr as any).custom_role === 'string') customRoleId = (cr as any).custom_role;
-  const { roles } = await getOrgSettings();
+  const moduleAccess: string[] = Array.isArray(profile.module_access) ? profile.module_access : [];
+  const permissions: UserPermissions | null = profile.permissions && typeof profile.permissions === 'object' ? sanitizePermissions(profile.permissions) : null;
+  const mustChangePassword = profile.must_change_password === true;
+  const isActive = profile.is_active !== false;
+  const customRoleId: string | null = typeof profile.custom_role === 'string' ? profile.custom_role : null;
+  const roles = rolesEarly;
   const resolved = resolveRole(profile.role, customRoleId, roles);
 
   return {

@@ -65,18 +65,17 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
   }
   const lead: any = leadRes.data;
   if (!lead) notFound();
-  const [contactMeta, { tags: tagDefs, pipelines: pipeCfg }, { data: pl }] = await Promise.all([
-    getContactMeta(lead.contact_id), getOrgSettings(),
-    // Pipeline fields (migration 0068) read separately so the page works before it runs.
-    (supabase as any).from('leads').select('pipeline, stage_entered_at, lost_reason, lost_note, is_returning, commission_invoice_id').eq('id', params.id).maybeSingle(),
+  // Everything below depends only on the lead row, so start it all at once
+  // instead of one wave after another.
+  const pMatch = Promise.all([
+    supabase.from('leads').select('preferred_areas').eq('id', lead.id).maybeSingle(),
+    supabase.from('projects').select('id, name, location, latitude, longitude'),
+    (supabase as any).from('leads').select('unit_requirements').eq('id', lead.id).maybeSingle(),
+    (supabase as any).from('units').select('id, custom_fields').eq('status', 'available'),
+    getOrgSettings(),
   ]);
-  const pipeline = pipelineOf(pipeCfg, pl?.pipeline ?? null);
-
-  const contact = (lead as any).contacts;
-  const ownerName = (lead as any).owner?.full_name ?? null;
-  const assignerName = (lead as any).assigner?.full_name ?? null;
-
-  const [{ data: followUps }, { data: notes }, { data: comms }, { data: units }, { data: history }, { data: viewings }, { data: negotiations }, { data: agents }] = await Promise.all([
+  const pConv = getSourceConversionMap(supabase);
+  const pMain = Promise.all([
     supabase.from('follow_up_tasks').select('id, due_at, note').eq('lead_id', lead.id).eq('is_done', false).order('due_at'),
     supabase
       .from('notes')
@@ -90,6 +89,19 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
     supabase.from('negotiations').select('id, offered_price, counter_offer, agreed_price, payment_terms, reservation_deposit, notes, created_at, profiles(full_name)').eq('lead_id', lead.id).order('created_at', { ascending: false }),
     supabase.from('profiles').select('id, full_name').in('role', ['admin', 'sales', 'management']).order('full_name'),
   ]);
+  const pDupes = loadContactDuplicates(lead.contact_id);
+  const [contactMeta, { tags: tagDefs, pipelines: pipeCfg }, { data: pl }] = await Promise.all([
+    getContactMeta(lead.contact_id), getOrgSettings(),
+    // Pipeline fields (migration 0068) read separately so the page works before it runs.
+    (supabase as any).from('leads').select('pipeline, stage_entered_at, lost_reason, lost_note, is_returning, commission_invoice_id').eq('id', params.id).maybeSingle(),
+  ]);
+  const pipeline = pipelineOf(pipeCfg, pl?.pipeline ?? null);
+
+  const contact = (lead as any).contacts;
+  const ownerName = (lead as any).owner?.full_name ?? null;
+  const assignerName = (lead as any).assigner?.full_name ?? null;
+
+  const [{ data: followUps }, { data: notes }, { data: comms }, { data: units }, { data: history }, { data: viewings }, { data: negotiations }, { data: agents }] = await pMain;
 
   const nextFollowUp = (followUps ?? [])[0]?.due_at ?? null;
   const { score, reasons } = computePriority({
@@ -101,7 +113,7 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
   // calibrated by the learning loop's per-source conversion rates.
   const inbound = (comms ?? []).filter((c: any) => c.direction === 'inbound');
   const activeNeg = (negotiations ?? []).find((n: any) => n.agreed_price == null);
-  const sourceConversion = await getSourceConversionMap(supabase);
+  const sourceConversion = await pConv;
   const leadScore = scoreLead({
     status: lead.status, budgetMin: lead.budget_min, budgetMax: lead.budget_max, aiScore: lead.ai_score,
     createdAt: lead.created_at, lastContactedAt: lead.last_contacted_at, firstResponseAt: lead.first_response_at,
@@ -137,13 +149,7 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
   // Matching engine → recommended inventory for this buyer (renders only when
   // there are real matches; empty until inventory exists).
   // Location matching (migration 0060): the buyer's areas vs each project's place.
-  const [{ data: areaRow }, { data: projGeo }, { data: reqRow }, { data: unitFeat }, orgCfg] = await Promise.all([
-    supabase.from('leads').select('preferred_areas').eq('id', lead.id).maybeSingle(),
-    supabase.from('projects').select('id, name, location, latitude, longitude'),
-    (supabase as any).from('leads').select('unit_requirements').eq('id', lead.id).maybeSingle(),
-    (supabase as any).from('units').select('id, custom_fields').eq('status', 'available'),
-    getOrgSettings(),
-  ]);
+  const [{ data: areaRow }, { data: projGeo }, { data: reqRow }, { data: unitFeat }, orgCfg] = await pMatch;
   const unitFields = orgCfg.unitForms.fields;
   const leadReq = cleanRequirements(reqRow?.unit_requirements, unitFields);
   const featById = new Map<string, any>(((unitFeat ?? []) as any[]).map((u) => [u.id, cleanValues(u.custom_fields, unitFields)]));
@@ -181,7 +187,7 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
   const quickLead = { id: lead.id, contact_id: lead.contact_id, full_name: contact?.full_name ?? null, email: contact?.email ?? null, phone: contact?.phone ?? null };
   const budget = lead.budget_min || lead.budget_max ? `${formatCurrency(Number(lead.budget_min ?? 0))}–${formatNumber(Number(lead.budget_max ?? 0))}` : '—';
 
-  const dupes = await loadContactDuplicates(lead.contact_id);
+  const dupes = await pDupes;
   return (
     <div className="space-y-6">
       <Link href="/crm/leads" className="inline-flex items-center gap-1 text-sm text-charcoal-600/70 hover:text-forest">
@@ -219,8 +225,8 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
 
       <LeadNextAction nba={leadScore.nba} source="heuristic" phone={contact?.phone ?? null} />
 
-      <div className="grid grid-cols-3 gap-6">
-        <div className="col-span-2 space-y-6">
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="space-y-6 lg:col-span-2">
           <div className="panel p-6">
             <div className="mb-4 flex items-center justify-between gap-2"><h4>Πορεία πώλησης</h4><LeadPipelinePicker leadId={lead.id} value={pl?.pipeline ?? null} pipelines={pipeCfg.pipelines} defaultKey={pipeCfg.defaultKey} /></div>
             <StatusPipeline leadId={lead.id} currentStatus={lead.status} pipeline={pipeline} lostReasons={pipeCfg.lostReasons} stageEnteredAt={pl?.stage_entered_at ?? null}
@@ -236,6 +242,13 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
             </div>
           </div>
 
+          <div className="grid gap-6 xl:grid-cols-2">
+            <LeadAreasEditor leadId={lead.id} initial={leadAreas} canEdit={effectiveCan(profile.role, profile.moduleAccess, 'leads', 'edit', profile.permissions)} />
+            <LeadRequirementsEditor leadId={lead.id} fields={unitFields} initial={leadReq} canEdit={effectiveCan(profile.role, profile.moduleAccess, 'leads', 'edit', profile.permissions)} />
+          </div>
+
+          <RecommendedProperties matches={propertyMatches} mapHref={`/map?lead=${lead.id}`} />
+
           <ViewingScheduler leadId={lead.id} contactId={lead.contact_id} units={unitOptions} agents={agentOptions} viewings={viewingRows} />
 
           <NegotiationTracker leadId={lead.id} entries={negotiationRows} />
@@ -250,51 +263,6 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
             defs={tagDefs}
             canEdit={effectiveCan(profile.role, profile.moduleAccess, 'leads', 'edit', profile.permissions)}
           />
-          <AIInsightPanel
-            leadId={lead.id}
-            score={lead.ai_score}
-            reasoning={lead.ai_score_reasoning}
-            summary={lead.ai_summary}
-            nextSteps={lead.ai_next_steps}
-            generatedAt={lead.ai_summary_generated_at}
-          />
-
-          <PredictiveScore score={leadScore} />
-
-          <LeadAreasEditor leadId={lead.id} initial={leadAreas} canEdit={effectiveCan(profile.role, profile.moduleAccess, 'leads', 'edit', profile.permissions)} />
-
-          <LeadRequirementsEditor leadId={lead.id} fields={unitFields} initial={leadReq} canEdit={effectiveCan(profile.role, profile.moduleAccess, 'leads', 'edit', profile.permissions)} />
-
-          <RecommendedProperties matches={propertyMatches} mapHref={`/map?lead=${lead.id}`} />
-
-          <SalesCoach
-            signals={{
-              status: lead.status,
-              buyerType: contact?.buyer_type,
-              language: contact?.preferred_language,
-              createdAt: lead.created_at,
-              lastContactedAt: lead.last_contacted_at,
-              firstResponseAt: lead.first_response_at,
-              aiScore: lead.ai_score,
-              priority: score,
-            }}
-          />
-
-          <AssistantStrategy strategy={strategy} />
-
-          <LeadAssistant leadId={lead.id} hasPhone={!!contact?.phone} hasEmail={!!contact?.email} />
-
-          <div className="panel p-6">
-            <h4 className="mb-3">Priority score</h4>
-            <p className="figure mb-3 text-3xl text-forest">{score}</p>
-            {reasons.length === 0 ? (
-              <p className="text-sm text-charcoal-600/70">Baseline priority — no boosting signals yet.</p>
-            ) : (
-              <ul className="space-y-1.5 text-sm text-charcoal-600/85">
-                {reasons.map((r) => <li key={r} className="flex items-center gap-2"><span className="h-1 w-1 rounded-full bg-champagne" /> {r}</li>)}
-              </ul>
-            )}
-          </div>
 
           <div className="panel p-6">
             <h4 className="mb-3">Assignment</h4>
@@ -333,6 +301,39 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
               </ul>
             )}
           </div>
+
+          {/* Έξυπνος βοηθός: κλειστό από προεπιλογή, για να μη γεμίζει η σελίδα. */}
+          <details className="panel group p-0">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-2 p-5 text-sm font-medium text-charcoal">
+              <span>Έξυπνος βοηθός <span className="font-normal text-charcoal-600/60">· AI, πιθανότητα, στρατηγική, μήνυμα</span></span>
+              <span className="text-charcoal-600/50 transition-transform group-open:rotate-180">⌄</span>
+            </summary>
+            <div className="space-y-5 border-t border-stone-line p-5">
+              <PredictiveScore score={leadScore} />
+              <AIInsightPanel
+                leadId={lead.id}
+                score={lead.ai_score}
+                reasoning={lead.ai_score_reasoning}
+                summary={lead.ai_summary}
+                nextSteps={lead.ai_next_steps}
+                generatedAt={lead.ai_summary_generated_at}
+              />
+              <SalesCoach
+                signals={{
+                  status: lead.status,
+                  buyerType: contact?.buyer_type,
+                  language: contact?.preferred_language,
+                  createdAt: lead.created_at,
+                  lastContactedAt: lead.last_contacted_at,
+                  firstResponseAt: lead.first_response_at,
+                  aiScore: lead.ai_score,
+                  priority: score,
+                }}
+              />
+              <AssistantStrategy strategy={strategy} />
+              <LeadAssistant leadId={lead.id} hasPhone={!!contact?.phone} hasEmail={!!contact?.email} />
+            </div>
+          </details>
         </div>
       </div>
     </div>
