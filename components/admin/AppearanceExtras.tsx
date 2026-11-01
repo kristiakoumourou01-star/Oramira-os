@@ -209,7 +209,15 @@ export function AppearanceExtras({
       if (res.ok) { setLogo(v); setMsg({ ok: true, text: v ? 'Το logo ανέβηκε.' : 'Το logo αφαιρέθηκε.' }); router.refresh(); }
       else setMsg({ ok: false, text: res.error });
     });
-  const patch = (p: Partial<AppearanceSettings>) => { setA((prev) => ({ ...prev, ...p })); setMsg(null); };
+  // Live preview: the whole app changes as you click; «Αποθήκευση» keeps it for everyone.
+  useEffect(() => {
+    const d = document.documentElement;
+    d.dataset.corners = a.corners;
+    d.dataset.box = a.boxStyle;
+    d.dataset.labels = a.labelStyle ?? 'soft';
+    d.style.setProperty('--sidebar-bg', menuBg);
+  }, [a.corners, a.boxStyle, a.labelStyle, menuBg]);
+  const patch = (p: Partial<AppearanceSettings>) => { setA((prev) => ({ ...prev, ...p })); setMsg({ ok: true, text: 'Προεπισκόπηση — πατήστε «Αποθήκευση» για να μείνει.' }); };
 
   return (
     <div className="space-y-5">
