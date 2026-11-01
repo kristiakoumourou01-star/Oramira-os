@@ -17,7 +17,7 @@ create table if not exists public.app_cron_config (
 alter table public.app_cron_config enable row level security;
 drop policy if exists app_cron_config_admin on public.app_cron_config;
 create policy app_cron_config_admin on public.app_cron_config for select using (current_app_role()::text = 'admin');
-insert into public.app_cron_config (id, app_url) values (1, 'https://oramira-os.vercel.app')
+insert into public.app_cron_config (id, app_url) values (1, 'https://app.oramiraltd.com')
 on conflict (id) do nothing;
 
 -- Καλεί μία εργασία της εφαρμογής. Χωρίς κλειδί στο Vault δεν καλεί τίποτα.
