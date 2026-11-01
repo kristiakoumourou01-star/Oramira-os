@@ -163,7 +163,11 @@ export interface GdprSettings {
 }
 
 /* ---- Layout ---- */
-export interface LayoutSettings { startScreen: string; sidebarCompact: boolean; denseLists: boolean }
+export interface LayoutSettings {
+  startScreen: string; sidebarCompact: boolean; denseLists: boolean;
+  /** Πλαϊνό μενού: ανοίγει μία ενότητα τη φορά (οι άλλες κλείνουν). */
+  sidebarAccordion: boolean;
+}
 /** Start screen options = every page the menu can open (Settings → Μενού & διάταξη). */
 export const START_SCREENS: { value: string; label: string }[] = allNavTargets();
 
@@ -267,6 +271,7 @@ export function menuOverridesFrom(items: ResolvedNavItem[], position: MenuPositi
 export type SidebarStyle = 'brand' | 'charcoal' | 'custom';
 export type Corners = 'square' | 'soft' | 'round';
 export type BoxStyle = 'shadow' | 'outline' | 'flat';
+export type LabelStyle = 'soft' | 'solid' | 'outline';
 export interface AppearanceSettings {
   /** Logo for LIGHT backgrounds (login, documents). The main logo is for the dark menu. */
   logoOnLight: string | null;
@@ -275,9 +280,11 @@ export interface AppearanceSettings {
   sidebarColor: string;
   corners: Corners;
   boxStyle: BoxStyle;
+  /** Ετικέτες κατάστασης (badges): απαλές, γεμάτες ή μόνο περίγραμμα. */
+  labelStyle: LabelStyle;
 }
 export const DEFAULT_APPEARANCE: AppearanceSettings = {
-  logoOnLight: null, favicon: null, sidebarStyle: 'brand', sidebarColor: '#113124', corners: 'soft', boxStyle: 'shadow',
+  logoOnLight: null, favicon: null, sidebarStyle: 'brand', sidebarColor: '#113124', corners: 'soft', boxStyle: 'shadow', labelStyle: 'soft',
 };
 
 export interface OrgSettings {
@@ -429,7 +436,7 @@ export function mergeGdpr(g: any): GdprSettings {
   };
 }
 
-export const DEFAULT_LAYOUT: LayoutSettings = { startScreen: '/dashboard', sidebarCompact: false, denseLists: false };
+export const DEFAULT_LAYOUT: LayoutSettings = { startScreen: '/dashboard', sidebarCompact: false, denseLists: false, sidebarAccordion: true };
 
 export const DEFAULT_ORG_SETTINGS: OrgSettings = {
   business: DEFAULT_BUSINESS, invoices: DEFAULT_INVOICES, notifications: DEFAULT_NOTIFICATIONS,
@@ -504,5 +511,6 @@ export function mergeAppearance(a: any): AppearanceSettings {
     sidebarColor: typeof v.sidebarColor === 'string' && HEX6.test(v.sidebarColor) ? v.sidebarColor.toUpperCase() : DEFAULT_APPEARANCE.sidebarColor,
     corners: ['square', 'soft', 'round'].includes(v.corners) ? v.corners : DEFAULT_APPEARANCE.corners,
     boxStyle: ['shadow', 'outline', 'flat'].includes(v.boxStyle) ? v.boxStyle : DEFAULT_APPEARANCE.boxStyle,
+    labelStyle: ['soft', 'solid', 'outline'].includes(v.labelStyle) ? v.labelStyle : DEFAULT_APPEARANCE.labelStyle,
   };
 }

@@ -13,7 +13,10 @@ export interface NavSubItem { href: string; label: string }
  * to in-page tabs via ?tab=…). Auto-expands when its route is active. Client-only
  * (usePathname) — receives the icon as a pre-rendered element from the server.
  */
-export function NavGroup({ href, label, icon, items: children, compact = false }: { href: string; label: string; icon: ReactNode; items: NavSubItem[]; compact?: boolean }) {
+const OPEN_EVENT = 'oramira:nav-open';
+const OPEN_KEY = 'nav:open';
+
+export function NavGroup({ href, label, icon, items: children, compact = false, accordion = true }: { href: string; label: string; icon: ReactNode; items: NavSubItem[]; compact?: boolean; accordion?: boolean }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const currentTab = searchParams?.get('tab') ?? null;
@@ -22,15 +25,39 @@ export function NavGroup({ href, label, icon, items: children, compact = false }
   const [open, setOpen] = useState(active); // SSR-safe default (matches server render)
   const key = `nav:${label}`;
 
-  // Restore persisted collapse state on mount; the active group always opens.
+  // «Μία ενότητα ανοιχτή τη φορά»: opening a group tells the others to close.
+  const announce = () => {
+    if (!accordion) return;
+    try { window.localStorage.setItem(OPEN_KEY, label); } catch {}
+    window.dispatchEvent(new CustomEvent(OPEN_EVENT, { detail: label }));
+  };
   useEffect(() => {
-    const stored = typeof window !== 'undefined' ? window.localStorage.getItem(key) : null;
-    if (stored !== null) setOpen(stored === '1');
-    else if (active) setOpen(true);
+    if (!accordion) return;
+    const onOpen = (e: Event) => { if ((e as CustomEvent).detail !== label) setOpen(false); };
+    window.addEventListener(OPEN_EVENT, onOpen);
+    return () => window.removeEventListener(OPEN_EVENT, onOpen);
+  }, [accordion, label]);
+
+  // Restore the last state on mount; the active group always opens.
+  useEffect(() => {
+    let stored: string | null = null;
+    try { stored = accordion ? window.localStorage.getItem(OPEN_KEY) : window.localStorage.getItem(key); } catch {}
+    if (active) setOpen(true);
+    else if (stored !== null) setOpen(accordion ? stored === label : stored === '1');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  useEffect(() => { if (active) setOpen(true); }, [active]);
-  const toggle = () => setOpen((o) => { const n = !o; try { window.localStorage.setItem(key, n ? '1' : '0'); } catch {} return n; });
+  useEffect(() => { if (active) { setOpen(true); announce(); } // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active]);
+  const toggle = () => {
+    const n = !open;
+    setOpen(n);
+    if (accordion) {
+      if (n) announce();
+      else { try { if (window.localStorage.getItem(OPEN_KEY) === label) window.localStorage.removeItem(OPEN_KEY); } catch {} }
+    } else {
+      try { window.localStorage.setItem(key, n ? '1' : '0'); } catch {}
+    }
+  };
 
   // Compact rail: the group collapses to a single icon link to its primary page.
   if (compact) {
@@ -45,7 +72,7 @@ export function NavGroup({ href, label, icon, items: children, compact = false }
   return (
     <div>
       <div className={`group flex items-center rounded-lg pr-1 transition-colors ${active ? 'bg-white/[0.06]' : 'hover:bg-white/[0.05]'}`}>
-        <Link href={href} className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-3 py-1.5 text-[13px] transition-colors ${active ? 'font-medium text-champagne' : 'text-stone-100/65 hover:text-stone-100'}`}>
+        <Link href={href} onClick={() => { if (!open) { setOpen(true); announce(); } }} className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-3 py-1.5 text-[13px] transition-colors ${active ? 'font-medium text-champagne' : 'text-stone-100/65 hover:text-stone-100'}`}>
           <span className={active ? 'text-champagne' : 'text-stone-100/60 group-hover:text-stone-100'}>{icon}</span>
           <span className="truncate">{label}</span>
         </Link>

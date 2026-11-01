@@ -3,8 +3,8 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { requireRole } from '@/lib/auth';
 import { logActivity } from '@/lib/activity';
-import { revalidatePath } from 'next/cache';
-import { FONT_CATALOG, type FontKey } from '@/lib/branding';
+import { revalidatePath, revalidateTag } from 'next/cache';
+import { BRANDING_TAG, FONT_CATALOG, type FontKey } from '@/lib/branding';
 
 export interface SaveBrandingInput {
   companyName: string;
@@ -42,6 +42,7 @@ export async function saveLogo(dataUrl: string | null): Promise<SaveBrandingResu
     const { error } = await supabase.from('org_branding').update({ logo_url: dataUrl, updated_at: new Date().toISOString() }).eq('id', 'org');
     if (error) return { ok: false, error: error.message };
     await logActivity({ entityType: 'branding', entityId: 'org', action: dataUrl ? 'logo_updated' : 'logo_removed' });
+    revalidateTag(BRANDING_TAG);
     revalidatePath('/', 'layout');
     return { ok: true };
   } catch (e) {
@@ -102,6 +103,7 @@ export async function saveBranding(input: SaveBrandingInput): Promise<SaveBrandi
     await logActivity({ entityType: 'branding', entityId: 'org', action: 'branding_updated', metadata: { companyName } });
 
     // Branding lives at the root layout, so re-theme the entire app.
+    revalidateTag(BRANDING_TAG);
     revalidatePath('/', 'layout');
     return { ok: true };
   } catch (e) {

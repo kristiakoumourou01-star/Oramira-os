@@ -68,6 +68,7 @@ export const SETTINGS_NAV: SettingsNavGroup[] = [
   { label: 'Χρήστες', items: [
     { label: 'Χρήστες & πρόσβαση', href: '/settings/users', icon: 'users' },
     { label: 'Ρόλοι & δικαιώματα', href: '/settings/roles', icon: 'roles' },
+    { label: 'Προβολή ως χρήστης', href: '/settings/view-as', icon: 'viewas' },
   ] },
   { label: 'Εργασία', items: [
     { label: 'Ειδοποιήσεις', href: '/settings?section=notifications', icon: 'notifications' },

@@ -9,7 +9,8 @@
  */
 
 import { cache } from 'react';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { unstable_cache } from 'next/cache';
+import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import { DEFAULT_BRANDING, type Branding, type FontKey, type ContentWidth, type Density } from '@/lib/branding-shared';
 
 export * from '@/lib/branding-shared';
@@ -19,15 +20,28 @@ export * from '@/lib/branding-shared';
  * RLS, schema drift) degrades to the built-in Oramira identity. Request-deduped
  * so the root layout, <BrandMark/>, and metadata share a single query.
  */
-export const getBranding = cache(async function getBranding(): Promise<Branding> {
-  try {
-    const supabase = await createSupabaseServerClient();
-    const { data, error } = await supabase
+export const BRANDING_TAG = 'org-branding';
+
+/** The branding row, shared across requests (2 min, or until a save clears it). */
+const readBrandingRow = unstable_cache(
+  async () => {
+    const service = createSupabaseServiceRoleClient();
+    const { data, error } = await service
       .from('org_branding')
       .select('company_name, logo_url, color_primary, color_accent, color_secondary, color_background, color_text, font_heading, font_body, content_width, density')
       .eq('id', 'org')
       .maybeSingle();
-    if (error || !data) return DEFAULT_BRANDING;
+    if (error) throw error;
+    return data ?? null;
+  },
+  ['org-branding-v1'],
+  { tags: [BRANDING_TAG], revalidate: 120 },
+);
+
+export const getBranding = cache(async function getBranding(): Promise<Branding> {
+  try {
+    const data = await readBrandingRow();
+    if (!data) return DEFAULT_BRANDING;
     return {
       companyName: data.company_name || DEFAULT_BRANDING.companyName,
       logoUrl: data.logo_url || null,

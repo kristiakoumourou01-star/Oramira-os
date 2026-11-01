@@ -3,6 +3,7 @@ import { CommandKButton } from '@/components/search/CommandKButton';
 import type { CurrentProfile } from '@/lib/auth';
 import { LocaleSwitcher } from '@/components/layout/LocaleSwitcher';
 import { t, type TKey } from '@/lib/i18n';
+import type { ReactNode } from 'react';
 
 const ROLE_LABEL: Record<string, string> = {
   admin: 'Administrator',
@@ -22,10 +23,10 @@ const ROLE_LABEL: Record<string, string> = {
  * and the notification bell, present for every role. Quiet by design —
  * no busy toolbar, just the two things every screen actually needs.
  */
-export function TopBar({ profile, showSearch = false }: { profile: CurrentProfile; showSearch?: boolean }) {
+export function TopBar({ profile, showSearch = false, start }: { profile: CurrentProfile; showSearch?: boolean; start?: ReactNode }) {
   return (
     <header className="sticky top-0 z-20 flex h-14 items-center justify-between bg-white/80 px-7 shadow-[0_1px_0_rgba(31,77,58,0.08)] backdrop-blur-xl">
-      {showSearch ? <CommandKButton /> : <div />}
+      <div className="flex items-center">{start}{showSearch ? <CommandKButton /> : null}</div>
       <div className="flex items-center gap-3">
         <LocaleSwitcher />
         <NotificationBell userId={profile.id} />

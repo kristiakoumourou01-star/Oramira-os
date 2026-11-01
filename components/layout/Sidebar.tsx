@@ -18,10 +18,12 @@ export function Sidebar({
   sections,
   footer,
   compact = false,
+  accordion = true,
 }: {
   sections: SidebarSection[];
   footer?: React.ReactNode;
   compact?: boolean;
+  accordion?: boolean;
 }) {
   return (
     <aside className={`sticky top-0 flex h-screen shrink-0 flex-col self-start [background:var(--sidebar-bg)] py-4 shadow-[inset_-1px_0_0_rgba(255,255,255,0.04)] ${compact ? 'w-[72px] px-2' : 'w-56 px-3'}`}>
@@ -44,7 +46,7 @@ export function Sidebar({
                 // serializable ReactNode — not the component function — crosses
                 // into the client NavItem / NavGroup.
                 item.children && item.children.length > 0 ? (
-                  <NavGroup key={item.href} href={item.href} label={item.label} icon={<item.icon size={15} strokeWidth={1.75} />} items={item.children} compact={compact} />
+                  <NavGroup key={item.href} href={item.href} label={item.label} icon={<item.icon size={15} strokeWidth={1.75} />} items={item.children} compact={compact} accordion={accordion} />
                 ) : (
                   <NavItem key={item.href} href={item.href} label={item.label} icon={<item.icon size={15} strokeWidth={1.75} />} compact={compact} />
                 )

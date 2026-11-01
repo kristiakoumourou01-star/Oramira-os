@@ -1,5 +1,6 @@
-import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { getAuthUser, createSupabaseServerClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
+import { cache } from 'react';
 import { effectiveCan, isInternalRole, sanitizePermissions, type Module, type Action, type UserPermissions } from '@/lib/permissions';
 import { readImpersonationTarget } from '@/lib/impersonation';
 import { getOrgSettings } from '@/lib/org-settings';
@@ -126,10 +127,11 @@ async function loadProfile(
  * (with `impersonator` set), so the whole app renders as them. Any other role
  * ignores the cookie — only admins can view-as.
  */
-export async function getCurrentProfile(): Promise<CurrentProfile | null> {
+export const getCurrentProfile = cache(async function getCurrentProfile(): Promise<CurrentProfile | null> {
   const supabase = await createSupabaseServerClient();
-  const { data: auth } = await supabase.auth.getUser();
-  if (!auth.user) return null;
+  const user = await getAuthUser();
+  if (!user) return null;
+  const auth = { user };
 
   const real = await loadProfile(supabase, auth.user.id);
   if (!real) return null;
@@ -152,7 +154,7 @@ export async function getCurrentProfile(): Promise<CurrentProfile | null> {
     if (Number.isFinite(changed)) passwordExpired = Date.now() - changed > PASSWORD_MAX_AGE_DAYS * 86_400_000;
   }
   return { ...real, passwordExpired, impersonator: null };
-}
+});
 
 /**
  * Redirects to login if not signed in; use at the top of protected Server Components.

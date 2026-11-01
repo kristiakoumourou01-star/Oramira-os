@@ -26,6 +26,7 @@ const COMMANDS: PaletteCmd[] = [
   { id: 'nav-auto', label: 'Automations', icon: Workflow, href: '/automation', keywords: 'jobs cron' },
   { id: 'nav-templates', label: 'Templates', icon: MessageSquare, href: '/settings/templates', keywords: 'messages' },
   { id: 'nav-users', label: 'Users', icon: Users, href: '/settings/users', keywords: 'team roles' },
+  { id: 'nav-viewas', label: 'Προβολή ως χρήστης', icon: Users, href: '/settings/view-as', keywords: 'view as impersonate προβολή ματάκι' },
   { id: 'nav-settings', label: 'Settings', icon: Settings, href: '/settings' },
   { id: 'act-lead', label: 'New lead', hint: 'Create', icon: UserPlus, href: '/crm/leads?new=lead', keywords: 'create add' },
   { id: 'act-parcel', label: 'Add parcel', hint: 'Create', icon: MapPin, href: '/acquisitions?new=parcel', keywords: 'create land acquisition' },

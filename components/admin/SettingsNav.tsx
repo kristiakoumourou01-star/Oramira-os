@@ -4,14 +4,14 @@ import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import {
   Home, Brush, LayoutGrid, Grid3x3, Euro, Bell, Lock, Tag, Workflow, Plug, Database,
-  Users, MessageSquare, Zap, ScrollText, ShieldCheck, LifeBuoy, LayoutList, Shuffle, type LucideIcon,
+  Users, MessageSquare, Zap, ScrollText, ShieldCheck, LifeBuoy, LayoutList, Shuffle, Eye, type LucideIcon,
 } from 'lucide-react';
 import type { SettingsNavGroup } from '@/lib/settings-sections';
 import { navLabel } from '@/lib/i18n';
 
 const ICONS: Record<string, LucideIcon> = {
   business: Home, appearance: Brush, layout: LayoutGrid, dashboard: Grid3x3, invoices: Euro,
-  notifications: Bell, security: Lock, tags: Tag, pipelines: Workflow, integrations: Plug, gdpr: Database, portals: LifeBuoy, unitforms: LayoutList, leads: Shuffle,
+  notifications: Bell, security: Lock, tags: Tag, pipelines: Workflow, integrations: Plug, gdpr: Database, portals: LifeBuoy, unitforms: LayoutList, leads: Shuffle, viewas: Eye,
   users: Users, roles: ShieldCheck, templates: MessageSquare, automation: Zap, audit: ScrollText,
 };
 

@@ -3,7 +3,8 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { requireRole } from '@/lib/auth';
 import { logActivity } from '@/lib/activity';
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
+import { ORG_SETTINGS_TAG } from '@/lib/org-settings';
 import { headers } from 'next/headers';
 import { ipAllowed } from '@/lib/security-shared';
 import { mergeWatermark } from '@/lib/watermark-shared';
@@ -62,6 +63,7 @@ async function saveSlice(slice: string, value: unknown): Promise<SaveResult> {
       .upsert({ id: 'org', data: next as any, updated_at: new Date().toISOString(), updated_by: profile.id }, { onConflict: 'id' });
     if (error) return { ok: false, error: error.message };
 
+    revalidateTag(ORG_SETTINGS_TAG);
     await logActivity({ entityType: 'org_settings', entityId: 'org', action: 'settings_updated', metadata: { slice } });
     revalidatePath('/settings');
     return { ok: true };
@@ -123,6 +125,7 @@ export async function undoOrgSlice(slice: string): Promise<SaveResult> {
       .from('org_settings')
       .upsert({ id: 'org', data: current as any, updated_at: new Date().toISOString(), updated_by: profile.id }, { onConflict: 'id' });
     if (error) return { ok: false, error: error.message };
+    revalidateTag(ORG_SETTINGS_TAG);
     await logActivity({ entityType: 'org_settings', entityId: 'org', action: 'settings_undone', metadata: { slice } });
     revalidatePath('/', 'layout');
     return { ok: true };

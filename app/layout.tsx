@@ -22,25 +22,27 @@ import { requestLocale } from '@/lib/locale-server';
 
 // Tabular figures — the ledger signature: every price, sqm, % renders here.
 // Not re-skinnable; the brand's numeric voice is constant.
-const mono = IBM_Plex_Mono({ subsets: ['latin'], weight: ['400', '500'], variable: '--font-mono' });
+const mono = IBM_Plex_Mono({ subsets: ['latin'], weight: ['400', '500'], variable: '--font-mono' , preload: false });
 
+// Curated, re-skinnable typefaces. None is preloaded: only the pair chosen in
+// Settings is ever used, so preloading all 14 slowed every first page load.
 // Curated, re-skinnable typefaces. Each is exposed under its own CSS variable;
 // branding (lib/branding.ts) aliases --font-display / --font-sans to the chosen
 // pair at the root, so headings and body can be changed from Settings.
-const sourceSerif = Source_Serif_4({ subsets: ['latin', 'greek'], weight: ['400', '500', '600'], variable: '--font-source-serif' });
-const cormorant = Cormorant_Garamond({ subsets: ['latin'], weight: ['400', '500', '600'], variable: '--font-cormorant' });
-const playfair = Playfair_Display({ subsets: ['latin'], weight: ['400', '500', '600'], variable: '--font-playfair' });
-const montserrat = Montserrat({ subsets: ['latin'], weight: ['400', '500', '600'], variable: '--font-montserrat' });
-const ibmPlex = IBM_Plex_Sans({ subsets: ['latin', 'greek'], weight: ['400', '500', '600'], variable: '--font-ibm-plex' });
-const inter = Inter({ subsets: ['latin', 'greek'], weight: ['400', '500', '600'], variable: '--font-inter' });
-const workSans = Work_Sans({ subsets: ['latin'], weight: ['400', '500', '600'], variable: '--font-work-sans' });
+const sourceSerif = Source_Serif_4({ subsets: ['latin', 'greek'], weight: ['400', '500', '600'], variable: '--font-source-serif' , preload: false });
+const cormorant = Cormorant_Garamond({ subsets: ['latin'], weight: ['400', '500', '600'], variable: '--font-cormorant' , preload: false });
+const playfair = Playfair_Display({ subsets: ['latin'], weight: ['400', '500', '600'], variable: '--font-playfair' , preload: false });
+const montserrat = Montserrat({ subsets: ['latin'], weight: ['400', '500', '600'], variable: '--font-montserrat' , preload: false });
+const ibmPlex = IBM_Plex_Sans({ subsets: ['latin', 'greek'], weight: ['400', '500', '600'], variable: '--font-ibm-plex' , preload: false });
+const inter = Inter({ subsets: ['latin', 'greek'], weight: ['400', '500', '600'], variable: '--font-inter' , preload: false });
+const workSans = Work_Sans({ subsets: ['latin'], weight: ['400', '500', '600'], variable: '--font-work-sans' , preload: false });
 // Greek-ready faces (the company works in Greek): body and heading options.
-const notoSans = Noto_Sans({ subsets: ['latin', 'greek'], weight: ['400', '500', '600'], variable: '--font-noto-sans', display: 'swap' });
-const notoSerif = Noto_Serif({ subsets: ['latin', 'greek'], weight: ['400', '500', '600'], variable: '--font-noto-serif', display: 'swap' });
-const openSans = Open_Sans({ subsets: ['latin', 'greek'], weight: ['400', '500', '600'], variable: '--font-open-sans', display: 'swap' });
-const manrope = Manrope({ subsets: ['latin', 'greek'], weight: ['400', '500', '600'], variable: '--font-manrope', display: 'swap' });
-const commissioner = Commissioner({ subsets: ['latin', 'greek'], weight: ['400', '500', '600'], variable: '--font-commissioner', display: 'swap' });
-const literata = Literata({ subsets: ['latin', 'greek'], weight: ['400', '500', '600'], variable: '--font-literata', display: 'swap' });
+const notoSans = Noto_Sans({ subsets: ['latin', 'greek'], weight: ['400', '500', '600'], variable: '--font-noto-sans', display: 'swap' , preload: false });
+const notoSerif = Noto_Serif({ subsets: ['latin', 'greek'], weight: ['400', '500', '600'], variable: '--font-noto-serif', display: 'swap' , preload: false });
+const openSans = Open_Sans({ subsets: ['latin', 'greek'], weight: ['400', '500', '600'], variable: '--font-open-sans', display: 'swap' , preload: false });
+const manrope = Manrope({ subsets: ['latin', 'greek'], weight: ['400', '500', '600'], variable: '--font-manrope', display: 'swap' , preload: false });
+const commissioner = Commissioner({ subsets: ['latin', 'greek'], weight: ['400', '500', '600'], variable: '--font-commissioner', display: 'swap' , preload: false });
+const literata = Literata({ subsets: ['latin', 'greek'], weight: ['400', '500', '600'], variable: '--font-literata', display: 'swap' , preload: false });
 
 const FONT_VARS = [sourceSerif, cormorant, playfair, montserrat, ibmPlex, inter, workSans, notoSans, notoSerif, openSans, manrope, commissioner, literata, mono]
   .map((f) => f.variable)
@@ -57,7 +59,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 // Personal display (Settings → Εμφάνιση → "Η δική μου προβολή"): stored per
 // device in localStorage and applied before first paint, so there is no flash.
-const DISPLAY_PREFS_SCRIPT = `try{var p=JSON.parse(localStorage.getItem('oramira:display')||'{}');var d=document.documentElement;var t=p.theme||'light';if(t==='system'){t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'}d.dataset.theme=t;if(p.scale)d.style.setProperty('--ui-zoom',String(p.scale/100));if(p.reduceMotion)d.dataset.motion='reduce'}catch(e){}`;
+const DISPLAY_PREFS_SCRIPT = `try{var p=JSON.parse(localStorage.getItem('oramira:display')||'{}');var d=document.documentElement;var t=p.theme||'light';if(t==='system'){t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'}d.dataset.theme=t;if(p.scale)d.style.setProperty('--ui-zoom',String(p.scale/100));if(p.reduceMotion)d.dataset.motion='reduce';if(p.highContrast)d.dataset.contrast='high'}catch(e){}`;
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const [branding, settings, appearance] = await Promise.all([getBranding(), getOrgSettings(), getPublicAppearance()]);
@@ -74,6 +76,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       data-dense={settings.layout.denseLists ? 'on' : 'off'}
       data-corners={appearance.corners}
       data-box={appearance.boxStyle}
+      data-labels={appearance.labelStyle}
       suppressHydrationWarning
     >
       <head>

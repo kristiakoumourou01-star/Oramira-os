@@ -101,6 +101,10 @@ export function MenuEditor({ layout, menu, canEdit }: { layout: LayoutSettings; 
               <input type="checkbox" checked={lay.denseLists} disabled={disabled} onChange={(e) => setLay({ ...lay, denseLists: e.target.checked })} />
               Πυκνές λίστες και πίνακες
             </label>
+            <label className="flex items-center gap-2">
+              <input type="checkbox" checked={lay.sidebarAccordion !== false} disabled={disabled || position === 'top'} onChange={(e) => setLay({ ...lay, sidebarAccordion: e.target.checked })} />
+              Μία ενότητα ανοιχτή τη φορά στο μενού
+            </label>
           </div>
         </div>
       </div>

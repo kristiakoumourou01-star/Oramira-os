@@ -15,6 +15,9 @@ import { navIcon } from '@/components/layout/nav-icons';
 import { TopMenu } from '@/components/layout/TopMenu';
 import { BrandMark } from '@/components/layout/BrandMark';
 import { navLabel, t } from '@/lib/i18n';
+import { cookies } from 'next/headers';
+import { SidebarToggle } from '@/components/layout/SidebarToggle';
+import { SIDEBAR_COOKIE, parseSidebarMode } from '@/lib/sidebar-mode-shared';
 
 /**
  * Shell for every internal (staff) route. Open to all internal roles
@@ -26,7 +29,10 @@ export default async function InternalLayout({ children }: { children: React.Rea
   const profile = await requireProfile();
   if (!isInternalRole(profile.role)) redirect(homeRouteForRole(profile.role));
   const [{ contentWidth }, { layout: layoutPrefs, menu }] = await Promise.all([getBranding(), getOrgSettings()]);
-  const compact = layoutPrefs.sidebarCompact;
+  // Company default (Settings → Μενού & διάταξη), overridden per device by the
+  // user's own choice (button in the top bar / Εμφάνιση → «Η δική μου προβολή»).
+  const sidebarMode = parseSidebarMode((await cookies()).get(SIDEBAR_COOKIE)?.value) ?? (layoutPrefs.sidebarCompact ? 'icons' : 'full');
+  const compact = sidebarMode === 'icons';
   const can = (m?: Module) => !m || effectiveCan(profile.role, profile.moduleAccess, m, 'view', profile.permissions);
 
   // The menu as the admin arranged it (Settings → Μενού & διάταξη): order,
@@ -63,7 +69,7 @@ export default async function InternalLayout({ children }: { children: React.Rea
   const content = (
     <div className="min-w-0 flex-1">
       {profile.impersonator && <ImpersonationBanner name={profile.fullName} role={profile.role} />}
-      <TopBar profile={profile} showSearch />
+      <TopBar profile={profile} showSearch start={menu.position === 'top' ? undefined : <SidebarToggle mode={sidebarMode} />} />
       <main className={`mx-auto px-6 py-5 ${CONTENT_WIDTH_CLASS[contentWidth]}`}>{children}</main>
     </div>
   );
@@ -87,7 +93,7 @@ export default async function InternalLayout({ children }: { children: React.Rea
 
   return (
     <div className={`flex ${menu.position === 'right' ? 'flex-row-reverse' : ''}`}>
-      <Sidebar sections={sections} compact={compact} footer={signOut} />
+      {sidebarMode !== 'hidden' && <Sidebar sections={sections} compact={compact} accordion={layoutPrefs.sidebarAccordion !== false} footer={signOut} />}
       {content}
       <CommandPalette />
     </div>

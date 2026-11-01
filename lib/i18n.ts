@@ -139,6 +139,7 @@ const NAV: Record<string, Tr> = {
   '/settings?section=dashboard': { el: 'Dashboard', en: 'Dashboard', ru: 'Панель' },
   '/settings/users': { el: 'Χρήστες & πρόσβαση', en: 'Users & access', ru: 'Пользователи и доступ' },
   '/settings/roles': { el: 'Ρόλοι & δικαιώματα', en: 'Roles & permissions', ru: 'Роли и права' },
+  '/settings/view-as': { el: 'Προβολή ως χρήστης', en: 'View as user', ru: 'Просмотр от имени' },
   '/settings?section=notifications': { el: 'Ειδοποιήσεις', en: 'Notifications', ru: 'Уведомления' },
   '/settings?section=tags': { el: 'Tags, ομάδες & πεδία', en: 'Tags, groups & fields', ru: 'Теги, группы и поля' },
   '/settings?section=pipelines': { el: 'Pipelines & φόρμες', en: 'Pipelines & forms', ru: 'Воронки и формы' },

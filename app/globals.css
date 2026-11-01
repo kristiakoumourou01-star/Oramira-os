@@ -239,6 +239,14 @@ html[data-box='flat'] .panel,
 html[data-box='flat'] .ws-card,
 html[data-box='flat'] .ws-card-primary { box-shadow: none; }
 
+/* Status labels (badges) */
+html[data-labels='solid'] .badge-forest { background-color: rgb(var(--c-forest)); color: #fff; border-color: transparent; }
+html[data-labels='solid'] .badge-champagne { background-color: rgb(var(--c-champagne)); color: #fff; border-color: transparent; }
+html[data-labels='solid'] .badge-neutral { background-color: rgb(var(--c-charcoal-600)); color: #fff; border-color: transparent; }
+html[data-labels='outline'] .badge-forest,
+html[data-labels='outline'] .badge-champagne,
+html[data-labels='outline'] .badge-neutral { background-color: transparent; }
+
 /* Text size (per device) — scales the whole interface, px sizes included */
 body { zoom: var(--ui-zoom, 1); }
 
@@ -251,6 +259,12 @@ html[data-motion='reduce'] *::after {
   transition-duration: 0.01ms !important;
   scroll-behavior: auto !important;
 }
+
+/* High contrast (per device): darker secondary text and lines. */
+html[data-contrast='high'] { --c-charcoal-600: 38 38 36; --c-stone-line: 160 152 140; }
+html[data-contrast='high'] [class*='text-charcoal-600/'] { color: rgb(var(--c-charcoal-600)) !important; }
+html[data-contrast='high'] [class*='text-stone-100/'] { color: rgb(245 243 238) !important; }
+html[data-contrast='high'][data-theme='dark'] { --c-charcoal-600: 225 225 220; --c-stone-line: 110 120 115; }
 
 /* Dark theme (per device, beta). Overrides the brand surface/text tokens; the
    brand colours themselves stay. html[data-theme] beats the :root brand vars. */
