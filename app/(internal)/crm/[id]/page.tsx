@@ -1,4 +1,7 @@
 import Link from 'next/link';
+import { ContactRolesPanel, ContactHistory } from '@/components/crm/ContactRolesPanel';
+import { loadContactEvents, loadStaff } from '@/lib/contacts-hub';
+import { rolesFromRow, type ContactStatus } from '@/lib/contacts-hub-shared';
 import { loadContactDuplicates } from '@/lib/duplicates';
 import { DuplicateBanner } from '@/components/crm/DuplicateBanner';
 import { notFound } from 'next/navigation';
@@ -130,6 +133,8 @@ export default async function ContactDetailPage({ params, searchParams }: { para
   /* ------------------------------------------------------------ tabs -- */
 
   async function Overview() {
+    const [{ events, names }, staff] = await Promise.all([loadContactEvents(contact!.id), loadStaff()]);
+    const hub = { events, names, staff };
     const canErase = effectiveCan(profile.role, profile.moduleAccess, 'leads', 'delete', profile.permissions);
     const gdprHold = canErase && !c.anonymized_at ? await legalHold(contact!.id) : { hold: null, missing: false };
     const { data: buyer } = await supabase.from('buyers').select('id, portal_eligible, portal_activated').eq('contact_id', contact!.id).maybeSingle();
@@ -170,6 +175,8 @@ export default async function ContactDetailPage({ params, searchParams }: { para
           </div>
         </div>
         <div className="space-y-6">
+          <ContactRolesPanel contactId={contact!.id} roles={rolesFromRow(c)} status={(c.status ?? 'active') as ContactStatus} ownerId={c.owner_id ?? null} staff={hub.staff} canEdit={canEdit} />
+          <ContactHistory events={hub.events} names={hub.names} />
           <ContactPreferences contactId={contact!.id} canEdit={canEdit && !migMissing} initial={{ language: c.preferred_language ?? null, channel: c.communication_preference ?? null, bestTime: c.best_time ?? null, bestTimeNote: c.best_time_note ?? null }} />
           <ContactMetaPanel contactId={contact!.id} initial={readMeta(contact)} defs={settings.tags} canEdit={canEdit} />
           <GdprPanel contactId={contact!.id}

@@ -1,26 +1,26 @@
 import { requirePermission } from '@/lib/auth';
-import { getCustomers } from '@/lib/customers';
+import { effectiveCan } from '@/lib/permissions';
+import { loadContactList } from '@/lib/contacts-hub';
 import { WorkspaceHeader } from '@/components/ui/WorkspaceHeader';
-import { CustomersTable } from '@/components/crm/CustomersTable';
+import { ContactsHub } from '@/components/crm/ContactsHub';
+import { ALL_ROLES, type ContactRole } from '@/lib/contacts-hub-shared';
+
+export const dynamic = 'force-dynamic';
 
 /**
- * Customers workspace — the whole book of business in one place: everyone who
- * is a buyer, investor or homeowner (or holds a contract/reservation), with
- * their committed value and collected total rolled up, filterable by value,
- * type and recency.
+ * Πελάτες → Όλες οι επαφές: leads, αγοραστές, επενδυτές, ιδιοκτήτες,
+ * συνεργάτες — με κατάσταση, υπεύθυνο, φίλτρα, μαζικές αλλαγές και εξαγωγή.
  */
-export default async function CustomersPage() {
-  await requirePermission('leads');
-  const { rows } = await getCustomers();
-
+export default async function ContactsPage({ searchParams }: { searchParams: { role?: string } }) {
+  const profile = await requirePermission('leads');
+  const { rows, staff, missing } = await loadContactList();
+  const role = (ALL_ROLES as string[]).includes(searchParams.role ?? '') ? (searchParams.role as ContactRole) : '';
+  const can = (a: 'edit') => effectiveCan(profile.role, profile.moduleAccess, 'leads', a, profile.permissions);
   return (
     <div className="space-y-5">
-      <WorkspaceHeader
-        eyebrow="CRM"
-        title="Customers"
-        description="Όλοι οι πελάτες σε μία λίστα — φίλτρο κατά ποσό, τύπο και προσφάτως."
-      />
-      <CustomersTable rows={rows} />
+      <WorkspaceHeader eyebrow="Πελάτες" title="Επαφές" description="Όλοι οι άνθρωποι σε μία λίστα. Προσθέστε, μετατρέψτε (π.χ. lead → αγοραστής), αναθέστε και φιλτράρετε." />
+      {missing && <p className="panel p-4 text-sm text-signal-danger">Λείπει το migration 0071 στη βάση.</p>}
+      <ContactsHub key={role} rows={rows} staff={staff} initialRole={role} canCreate={can('edit')} canEdit={can('edit')} />
     </div>
   );
 }
