@@ -90,10 +90,11 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
     supabase.from('profiles').select('id, full_name').in('role', ['admin', 'sales', 'management']).order('full_name'),
   ]);
   const pDupes = loadContactDuplicates(lead.contact_id);
-  const [contactMeta, { tags: tagDefs, pipelines: pipeCfg }, { data: pl }] = await Promise.all([
+  const [contactMeta, { tags: tagDefs, pipelines: pipeCfg }, { data: pl }, { data: stRow }] = await Promise.all([
     getContactMeta(lead.contact_id), getOrgSettings(),
     // Pipeline fields (migration 0068) read separately so the page works before it runs.
     (supabase as any).from('leads').select('pipeline, stage_entered_at, lost_reason, lost_note, is_returning, commission_invoice_id').eq('id', params.id).maybeSingle(),
+    (supabase as any).from('leads').select('stage').eq('id', params.id).maybeSingle(), // 0072 — χωρίς αυτό: null
   ]);
   const pipeline = pipelineOf(pipeCfg, pl?.pipeline ?? null);
 
@@ -229,7 +230,7 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
         <div className="space-y-6 lg:col-span-2">
           <div className="panel p-6">
             <div className="mb-4 flex items-center justify-between gap-2"><h4>Πορεία πώλησης</h4><LeadPipelinePicker leadId={lead.id} value={pl?.pipeline ?? null} pipelines={pipeCfg.pipelines} defaultKey={pipeCfg.defaultKey} /></div>
-            <StatusPipeline leadId={lead.id} currentStatus={lead.status} pipeline={pipeline} lostReasons={pipeCfg.lostReasons} stageEnteredAt={pl?.stage_entered_at ?? null}
+            <StatusPipeline leadId={lead.id} currentStatus={lead.status} currentStage={stRow?.stage ?? null} pipeline={pipeline} lostReasons={pipeCfg.lostReasons} stageEnteredAt={pl?.stage_entered_at ?? null}
               lostReason={pl?.lost_reason ?? null} lostNote={pl?.lost_note ?? null} commissionInvoiceId={pl?.commission_invoice_id ?? null} />
             <div className="mt-5 grid grid-cols-3 gap-4 text-sm">
               <div><p className="eyebrow">Budget</p><p className="figure text-charcoal">{budget}</p></div>

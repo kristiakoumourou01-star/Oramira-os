@@ -110,7 +110,8 @@ export async function createLead(params: {
  * visible timeline note, so lost-reason intelligence is captured without a
  * schema change (queryable later from activity_log / notes).
  */
-export async function updateLeadStatus(leadId: string, status: string, reason?: string, lostKey?: string) {
+/** `stageKey` = το δικό σας στάδιο (Ρυθμίσεις → Pipelines)· χωρίς αυτό το lead πάει στο πρώτο στάδιο της κατάστασης. */
+export async function updateLeadStatus(leadId: string, status: string, reason?: string, lostKey?: string, stageKey?: string | null) {
   const profile = await requireRole(['admin', 'sales', 'management']);
   const supabase = await createSupabaseServerClient();
 
@@ -118,9 +119,10 @@ export async function updateLeadStatus(leadId: string, status: string, reason?: 
 
   // Why it closed (Settings → Pipelines → λόγοι απώλειας) — kept on the lead for the reports.
   const closing = ['lost', 'nurture', 'no_response'].includes(status);
-  const patch: Record<string, unknown> = { status };
+  const patch: Record<string, unknown> = { status, stage: stageKey && /^[a-z0-9_]{1,30}$/.test(stageKey) ? stageKey : null };
   if (closing && lostKey) { patch.lost_reason = lostKey.slice(0, 40); patch.lost_note = (reason ?? '').slice(0, 500) || null; }
-  const { error: upErr } = await (supabase as any).from('leads').update(patch).eq('id', leadId);
+  let { error: upErr } = await (supabase as any).from('leads').update(patch).eq('id', leadId);
+  if (upErr) { delete patch.stage; ({ error: upErr } = await (supabase as any).from('leads').update(patch).eq('id', leadId)); } // πριν το 0072
   if (upErr && 'lost_reason' in patch) await supabase.from('leads').update({ status } as any).eq('id', leadId);
   await logActivity({
     entityType: 'lead',
@@ -152,7 +154,7 @@ export async function updateLeadStatus(leadId: string, status: string, reason?: 
     } catch { /* non-fatal */ }
   }
 
-  if (status === 'viewing') await onViewingScheduled(leadId);
+  if (status === 'viewing' && current?.status !== 'viewing') await onViewingScheduled(leadId);
   // Won → commission invoice (Settings → Pipelines → Προμήθεια). Never blocks the status change.
   if (status === 'won' && current?.status !== 'won') {
     try { await onLeadWon(leadId, profile.id); } catch { /* non-fatal */ }

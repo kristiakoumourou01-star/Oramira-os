@@ -20,7 +20,12 @@ export const STATUS_EL: Record<string, string> = {
   lost: 'Χάθηκε', nurture: 'Για αργότερα', no_response: 'Χωρίς απάντηση', retargeting: 'Retargeting', reactivation: 'Επανενεργοποίηση',
 };
 
-export interface StageDef { status: FlowStatus; label: string; probability: number; maxDays: number | null }
+/**
+ * Ένα στάδιο του pipeline. `key` = δικό του κλειδί (μπορείτε να έχετε όσα στάδια
+ * θέλετε)· `status` = τι «σημαίνει» για το σύστημα (αυτοματισμοί, αναφορές,
+ * προμήθειες). Πολλά στάδια μπορούν να σημαίνουν την ίδια κατάσταση.
+ */
+export interface StageDef { key: string; status: FlowStatus; label: string; probability: number; maxDays: number | null }
 export interface PipelineDef { key: string; name: string; stages: StageDef[] }
 export interface LostReason { key: string; label: string; status: 'lost' | 'nurture' | 'no_response' }
 export type CommissionMode = 'off' | 'prepare' | 'auto';
@@ -44,7 +49,7 @@ export interface PipelineSettings {
   commission: CommissionSettings;
 }
 
-const S = (status: FlowStatus, label: string, probability: number, maxDays: number | null): StageDef => ({ status, label, probability, maxDays });
+const S = (status: FlowStatus, label: string, probability: number, maxDays: number | null): StageDef => ({ key: status, status, label, probability, maxDays });
 export const DEFAULT_PIPELINE_SETTINGS: PipelineSettings = {
   pipelines: [
     { key: 'sales', name: 'Πωλήσεις νέων έργων', stages: [
@@ -96,14 +101,22 @@ export function mergePipelines(x: any): PipelineSettings {
     const key = typeof p?.key === 'string' && KEY_RE.test(p.key) && !pipelines.some((q) => q.key === p.key) ? p.key : slugKey(name, pipelines.map((q) => q.key));
     const stages: StageDef[] = [];
     for (const st of Array.isArray(p?.stages) ? p.stages : []) {
-      if (!(FLOW as readonly string[]).includes(st?.status) || stages.some((y) => y.status === st.status)) continue;
+      if (!(FLOW as readonly string[]).includes(st?.status)) continue;
+      if (st.status === 'won' && stages.some((y) => y.status === 'won')) continue; // ένα μόνο «κλείσιμο»
+      const label = s(st?.label, 40) || STATUS_EL[st.status];
+      const taken = stages.map((y) => y.key);
+      const sk = typeof st?.key === 'string' && KEY_RE.test(st.key) && !taken.includes(st.key) ? st.key
+        : !taken.includes(st.status) ? st.status : slugKey(label, taken);
       const md = st?.maxDays === null || st?.maxDays === '' || st?.maxDays === undefined ? null : num(st.maxDays, 1, 365, 7);
-      stages.push({ status: st.status, label: s(st?.label, 40) || STATUS_EL[st.status], probability: num(st?.probability, 0, 100, 0), maxDays: st.status === 'won' ? null : md });
+      stages.push({ key: sk, status: st.status, label, probability: num(st?.probability, 0, 100, 0), maxDays: st.status === 'won' ? null : md });
+      if (stages.length >= 20) break;
     }
-    // Keep the natural order of the system statuses, and always end at «won».
-    stages.sort((a, b) => FLOW.indexOf(a.status) - FLOW.indexOf(b.status));
-    if (!stages.some((y) => y.status === 'won')) stages.push({ status: 'won', label: STATUS_EL.won, probability: 100, maxDays: null });
-    if (!stages.some((y) => y.status === 'new')) stages.unshift({ status: 'new', label: STATUS_EL.new, probability: 5, maxDays: 1 });
+    // Η σειρά είναι αυτή που ορίσατε· το «κλείσιμο» πάντα τελευταίο, και ένα
+    // στάδιο «Νέο» πρέπει να υπάρχει για τα leads που μόλις ήρθαν.
+    const wonAt = stages.findIndex((y) => y.status === 'won');
+    const won = wonAt >= 0 ? stages.splice(wonAt, 1)[0] : { key: 'won', status: 'won' as const, label: STATUS_EL.won, probability: 100, maxDays: null };
+    stages.push(won);
+    if (!stages.some((y) => y.status === 'new')) stages.unshift({ key: stages.some((y) => y.key === 'new') ? slugKey('new', stages.map((y) => y.key)) : 'new', status: 'new', label: STATUS_EL.new, probability: 5, maxDays: 1 });
     pipelines.push({ key, name, stages });
     if (pipelines.length >= 12) break;
   }
@@ -141,7 +154,12 @@ export function pipelineOf(cfg: PipelineSettings, key: string | null | undefined
  * The pipeline stage a status shows as. A status the pipeline doesn't use
  * (e.g. «engaged» in a pipeline without it) shows as the last stage before it.
  */
-export function stageIndex(p: PipelineDef, status: string): number {
+export function stageIndex(p: PipelineDef, status: string, stageKey?: string | null): number {
+  // Το δικό του στάδιο, αν ταιριάζει με την κατάσταση του lead.
+  if (stageKey) {
+    const byKey = p.stages.findIndex((s) => s.key === stageKey);
+    if (byKey >= 0 && p.stages[byKey].status === status) return byKey;
+  }
   const exact = p.stages.findIndex((s) => s.status === status);
   if (exact >= 0) return exact;
   const pos = FLOW.indexOf(status as FlowStatus);
@@ -151,6 +169,12 @@ export function stageIndex(p: PipelineDef, status: string): number {
   return idx;
 }
 
+/** Το στάδιο ενός lead (ή null για κλειστά). */
+export function stageOf(p: PipelineDef, status: string, stageKey?: string | null): StageDef | null {
+  const i = stageIndex(p, status, stageKey);
+  return i >= 0 ? p.stages[i] : null;
+}
+
 export function daysSince(iso: string | null | undefined, now = Date.now()): number | null {
   if (!iso) return null;
   const t = Date.parse(iso);
@@ -158,8 +182,8 @@ export function daysSince(iso: string | null | undefined, now = Date.now()): num
 }
 
 /** Days over the stage's limit (0 = on time, null = no limit / not applicable). */
-export function lateBy(p: PipelineDef, status: string, enteredAt: string | null | undefined, now = Date.now()): number | null {
-  const i = stageIndex(p, status);
+export function lateBy(p: PipelineDef, status: string, enteredAt: string | null | undefined, now = Date.now(), stageKey?: string | null): number | null {
+  const i = stageIndex(p, status, stageKey);
   if (i < 0) return null;
   const st = p.stages[i];
   if (!st.maxDays || st.status === 'won') return null;
@@ -169,8 +193,8 @@ export function lateBy(p: PipelineDef, status: string, enteredAt: string | null 
 }
 
 /** Weighted value of a lead (budget × stage probability) for forecasts. */
-export function weightedValue(p: PipelineDef, status: string, budget: number | null): number {
-  const i = stageIndex(p, status);
+export function weightedValue(p: PipelineDef, status: string, budget: number | null, stageKey?: string | null): number {
+  const i = stageIndex(p, status, stageKey);
   if (i < 0 || !budget) return 0;
   return Math.round(budget * (p.stages[i].probability / 100));
 }

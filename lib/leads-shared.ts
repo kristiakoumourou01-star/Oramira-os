@@ -24,5 +24,7 @@ export interface LeadListItem {
   /** Pipeline fields (migration 0068). */
   pipeline?: string | null;
   stage_entered_at?: string | null;
+  /** Το δικό του στάδιο στο pipeline (migration 0072). */
+  stage?: string | null;
   is_returning?: boolean;
 }

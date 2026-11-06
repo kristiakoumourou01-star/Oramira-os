@@ -68,13 +68,15 @@ export default async function ContactDetailPage({ params, searchParams }: { para
   const here = `/crm/${contact.id}`;
   const dupes = await loadContactDuplicates(contact.id);
 
-  const [{ data: leads }, { data: kycRow, error: kycErr }, { count: relCount }, { count: docCount }, { count: viewCount }] = await Promise.all([
+  const [{ data: leads }, { data: kycRow, error: kycErr }, { count: relCount }, { count: docCount }, { count: viewCount }, { data: stageRows }] = await Promise.all([
     supabase.from('leads').select('id, status, source, budget_min, budget_max, timeline_to_buy, message, ai_score, ai_score_reasoning, ai_summary, ai_next_steps, ai_summary_generated_at, preferred_project_id, created_at, pipeline, stage_entered_at, lost_reason, lost_note, commission_invoice_id, projects:preferred_project_id(name)').eq('contact_id', contact.id).order('created_at', { ascending: false }),
     db.from('contact_kyc').select('*, verifier:verified_by(full_name)').eq('contact_id', contact.id).maybeSingle(),
     db.from('contact_relations').select('id', { count: 'exact', head: true }).or(`contact_id.eq.${contact.id},related_contact_id.eq.${contact.id}`),
     supabase.from('documents').select('id', { count: 'exact', head: true }).eq('entity_type', 'contact').eq('entity_id', contact.id),
     supabase.from('viewings').select('id', { count: 'exact', head: true }).eq('contact_id', contact.id),
+    db.from('leads').select('id, stage').eq('contact_id', contact.id), // 0072
   ]);
+  const stageById: Record<string, string | null> = Object.fromEntries(((stageRows ?? []) as any[]).map((r) => [r.id, r.stage]));
   const lead = (leads ?? [])[0] as any;
   const migMissing = !!kycErr && /does not exist|schema cache|Could not find/i.test(kycErr.message);
   const kyc = kycRow as any;
@@ -157,7 +159,7 @@ export default async function ContactDetailPage({ params, searchParams }: { para
           {lead && (
             <div className="panel p-6">
               <div className="mb-4 flex items-center justify-between"><h4>Πορεία πώλησης</h4><Link href={`/crm/leads/${lead.id}`} className="text-xs text-forest hover:underline">Άνοιγμα lead →</Link></div>
-              <StatusPipeline leadId={lead.id} currentStatus={lead.status} pipeline={pipelineOf(settings.pipelines, lead.pipeline ?? null)} lostReasons={settings.pipelines.lostReasons}
+              <StatusPipeline leadId={lead.id} currentStatus={lead.status} currentStage={stageById[lead.id] ?? null} pipeline={pipelineOf(settings.pipelines, lead.pipeline ?? null)} lostReasons={settings.pipelines.lostReasons}
                 stageEnteredAt={lead.stage_entered_at ?? null} lostReason={lead.lost_reason ?? null} lostNote={lead.lost_note ?? null} commissionInvoiceId={lead.commission_invoice_id ?? null} />
               <div className="mt-5 grid grid-cols-2 gap-4 text-sm">
                 <div><p className="eyebrow">Budget</p><p className="figure text-charcoal">{lead.budget_min || lead.budget_max ? `€${formatNumber(Number(lead.budget_min ?? 0))}–${formatNumber(Number(lead.budget_max ?? 0))}` : '—'}</p></div>

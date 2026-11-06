@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { User, Zap, AlertTriangle, CalendarCheck, CalendarClock, TrendingUp, FileText, RotateCw, Clock, Sparkles, MessageCircle } from 'lucide-react';
 import type { LeadListItem } from '@/lib/leads-shared';
 import { PriorityBadge } from './PriorityBadge';
+import { LeadDrawer } from './LeadDrawer';
 import { LeadQuickActions } from './LeadQuickActions';
 import { reassignLead } from '@/app/actions/leads';
 import { formatNumber, formatCurrency } from '@/lib/format';
@@ -95,12 +96,11 @@ function AssignSelect({ leadId, ownerId, agents }: { leadId: string; ownerId: st
   );
 }
 
-function LeadCard({ lead, agents, late }: { lead: LeadListItem; agents: Agent[]; late?: number | null }) {
-  const router = useRouter();
+function LeadCard({ lead, agents, late, onOpen }: { lead: LeadListItem; agents: Agent[]; late?: number | null; onOpen: (id: string) => void }) {
   const budget = budgetLabel(lead.budget_min, lead.budget_max);
   return (
     <div
-      onClick={() => router.push(`/crm/leads/${lead.id}`)}
+      onClick={() => onOpen(lead.id)}
       className="panel cursor-pointer p-4 transition-shadow hover:shadow-overlay"
     >
       <div className="mb-2 flex items-start justify-between gap-2">
@@ -137,7 +137,7 @@ function LeadCard({ lead, agents, late }: { lead: LeadListItem; agents: Agent[];
   );
 }
 
-function Section({ accentKey, label, danger, leads, agents, lateOf }: { accentKey: string; label: string; danger?: boolean; leads: LeadListItem[]; agents: Agent[]; lateOf?: (l: LeadListItem) => number | null }) {
+function Section({ accentKey, label, danger, leads, agents, lateOf, onOpen }: { accentKey: string; label: string; danger?: boolean; leads: LeadListItem[]; agents: Agent[]; lateOf?: (l: LeadListItem) => number | null; onOpen: (id: string) => void }) {
   if (leads.length === 0) return null;
   const acc = STAGE_ACCENT[accentKey] ?? DEFAULT_ACCENT;
   return (
@@ -148,7 +148,7 @@ function Section({ accentKey, label, danger, leads, agents, lateOf }: { accentKe
         <span className={`badge ${acc.badge}`}>{leads.length}</span>
       </div>
       <div className="grid grid-cols-3 gap-3">
-        {leads.map((l) => <LeadCard key={l.id} lead={l} agents={agents} late={lateOf?.(l) ?? null} />)}
+        {leads.map((l) => <LeadCard key={l.id} lead={l} agents={agents} late={lateOf?.(l) ?? null} onOpen={onOpen} />)}
       </div>
     </section>
   );
@@ -162,8 +162,9 @@ function Section({ accentKey, label, danger, leads, agents, lateOf }: { accentKe
 export function LeadBoard({ leads, agents, currentUserId, pipelines = DEFAULT_PIPELINE_SETTINGS }: { leads: LeadListItem[]; agents: Agent[]; currentUserId: string; pipelines?: PipelineSettings }) {
   const [pipeKey, setPipeKey] = useState<string>(pipelines.defaultKey);
   const [onlyLate, setOnlyLate] = useState(false);
+  const [openId, setOpenId] = useState<string | null>(null);
   const pipe = pipelineOf(pipelines, pipeKey);
-  const lateOf = (l: LeadListItem) => lateBy(pipelineOf(pipelines, l.pipeline ?? null), l.status, l.stage_entered_at ?? null);
+  const lateOf = (l: LeadListItem) => lateBy(pipelineOf(pipelines, l.pipeline ?? null), l.status, l.stage_entered_at ?? null, Date.now(), l.stage ?? null);
   // Default to a personal view, but fall back to "All" when none are assigned to
   // me — so a freshly created lead is never hidden behind an empty "My leads".
   const hasMine = leads.some((l) => l.owner_id === currentUserId);
@@ -190,8 +191,8 @@ export function LeadBoard({ leads, agents, currentUserId, pipelines = DEFAULT_PI
       if (l.next_action_date === tomorrow) return 'tomorrow';
     }
     // Statuses the pipeline doesn't use show under the stage they belong to.
-    const i = stageIndex(pipe, l.status);
-    return i >= 0 ? pipe.stages[i].status : l.status;
+    const i = stageIndex(pipe, l.status, l.stage ?? null);
+    return i >= 0 ? `stage:${pipe.stages[i].key}` : l.status;
   }
 
   const grouped = useMemo(() => {
@@ -222,14 +223,15 @@ export function LeadBoard({ leads, agents, currentUserId, pipelines = DEFAULT_PI
         ))}
       </div>
 
-      {grouped['unassigned'] && <Section accentKey="unassigned" label="Χωρίς υπεύθυνο" leads={grouped['unassigned']} agents={agents} lateOf={lateOf} />}
-      {URGENCY.map((u) => <Section key={u.key} accentKey={u.key} label={u.label} danger={u.danger} leads={grouped[u.key] ?? []} agents={agents} lateOf={lateOf} />)}
-      {pipe.stages.filter((st) => st.status !== 'won').map((st) => <Section key={st.status} accentKey={st.status} label={`${st.label}${st.maxDays ? ` · έως ${st.maxDays} μέρ.` : ''}`} leads={grouped[st.status] ?? []} agents={agents} lateOf={lateOf} />)}
-      {CLOSED_SECTIONS.map((s) => <Section key={s.key} accentKey={s.key} label={s.label} leads={grouped[s.key] ?? []} agents={agents} />)}
+      {grouped['unassigned'] && <Section accentKey="unassigned" label="Χωρίς υπεύθυνο" leads={grouped['unassigned']} agents={agents} onOpen={setOpenId} lateOf={lateOf} />}
+      {URGENCY.map((u) => <Section key={u.key} accentKey={u.key} label={u.label} danger={u.danger} leads={grouped[u.key] ?? []} agents={agents} onOpen={setOpenId} lateOf={lateOf} />)}
+      {pipe.stages.filter((st) => st.status !== 'won').map((st) => <Section key={st.key} accentKey={st.status} label={`${st.label}${st.maxDays ? ` · έως ${st.maxDays} μέρ.` : ''}`} leads={grouped[`stage:${st.key}`] ?? []} agents={agents} onOpen={setOpenId} lateOf={lateOf} />)}
+      {CLOSED_SECTIONS.map((s) => <Section key={s.key} accentKey={s.key} label={s.label} leads={grouped[s.key] ?? []} agents={agents} onOpen={setOpenId} />)}
 
       {filtered.length === 0 && (
         <p className="py-12 text-center text-sm text-charcoal-600/70">Κανένα lead εδώ.</p>
       )}
+      {openId && <LeadDrawer leadId={openId} agents={agents} onClose={() => setOpenId(null)} />}
     </div>
   );
 }

@@ -15,21 +15,21 @@ import {
  * μέρες είναι στο τρέχον (κόκκινο όταν περάσει το όριο), «Κλείσιμο (Won)» και
  * κλείσιμο με λόγο απώλειας από τις Ρυθμίσεις.
  */
-export function StatusPipeline({ leadId, currentStatus, pipeline = DEFAULT_PIPELINE_SETTINGS.pipelines[0], lostReasons = DEFAULT_PIPELINE_SETTINGS.lostReasons, stageEnteredAt = null, lostReason = null, lostNote = null, commissionInvoiceId = null }: {
-  leadId: string; currentStatus: string; pipeline?: PipelineDef; lostReasons?: LostReason[]; stageEnteredAt?: string | null;
+export function StatusPipeline({ leadId, currentStatus, currentStage = null, pipeline = DEFAULT_PIPELINE_SETTINGS.pipelines[0], lostReasons = DEFAULT_PIPELINE_SETTINGS.lostReasons, stageEnteredAt = null, lostReason = null, lostNote = null, commissionInvoiceId = null, onChange }: {
+  leadId: string; currentStatus: string; currentStage?: string | null; pipeline?: PipelineDef; onChange?: () => void; lostReasons?: LostReason[]; stageEnteredAt?: string | null;
   lostReason?: string | null; lostNote?: string | null; commissionInvoiceId?: string | null;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [closing, setClosing] = useState(false);
   const [detail, setDetail] = useState('');
-  const set = (status: string, why?: string, key?: string) => start(async () => { await updateLeadStatus(leadId, status, why, key); router.refresh(); });
+  const set = (status: string, why?: string, key?: string, stage?: string) => start(async () => { await updateLeadStatus(leadId, status, why, key, stage ?? null); router.refresh(); onChange?.(); });
 
   const working = pipeline.stages.filter((s) => s.status !== 'won');
-  const idx = stageIndex(pipeline, currentStatus);
+  const idx = stageIndex(pipeline, currentStatus, currentStage);
   const stage = idx >= 0 ? pipeline.stages[idx] : null;
   const days = daysSince(stageEnteredAt);
-  const late = lateBy(pipeline, currentStatus, stageEnteredAt);
+  const late = lateBy(pipeline, currentStatus, stageEnteredAt, Date.now(), currentStage);
 
   if (currentStatus === 'won') {
     return (
@@ -56,7 +56,7 @@ export function StatusPipeline({ leadId, currentStatus, pipeline = DEFAULT_PIPEL
           <p className="text-sm font-medium text-charcoal">Το lead έκλεισε — <span className="text-charcoal-600">{STATUS_EL[currentStatus] ?? currentStatus}</span></p>
           <p className="text-xs text-charcoal-600/60">{reason ? `Λόγος: ${reason}${lostNote ? ` — ${lostNote}` : ''}` : 'Ο λόγος είναι στο ιστορικό.'}</p>
         </div>
-        <button type="button" disabled={pending} onClick={() => set(working[1]?.status ?? 'contacted')} className="btn-ghost inline-flex items-center gap-1.5 text-xs"><RotateCcw size={13} /> Επαναφορά</button>
+        <button type="button" disabled={pending} onClick={() => set(working[1]?.status ?? 'contacted', undefined, undefined, working[1]?.key)} className="btn-ghost inline-flex items-center gap-1.5 text-xs"><RotateCcw size={13} /> Επαναφορά</button>
       </div>
     );
   }
@@ -65,7 +65,7 @@ export function StatusPipeline({ leadId, currentStatus, pipeline = DEFAULT_PIPEL
     <div className="space-y-3">
       <div className="flex items-center gap-1">
         {working.map((s, i) => (
-          <button key={s.status} type="button" disabled={pending} onClick={() => set(s.status)}
+          <button key={s.key} type="button" disabled={pending} onClick={() => set(s.status, undefined, undefined, s.key)}
             title={`${s.label} · πιθανότητα ${s.probability}%${s.maxDays ? ` · έως ${s.maxDays} μέρες` : ''}`}
             className={`flex-1 truncate rounded px-1.5 py-2 text-center text-xs font-medium transition-colors ${i <= idx ? 'bg-forest text-stone-100' : 'bg-sand-100 text-charcoal-600 hover:bg-sand'} ${i === idx && late ? 'ring-2 ring-signal-danger ring-offset-1' : ''}`}>
             {s.label}
@@ -85,7 +85,7 @@ export function StatusPipeline({ leadId, currentStatus, pipeline = DEFAULT_PIPEL
       )}
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-        <button type="button" disabled={pending} onClick={() => { if (window.confirm('Κλείσιμο της πώλησης (Won);')) set('won'); }} className="inline-flex items-center gap-1.5 rounded-md bg-forest px-3 py-1.5 text-xs font-medium text-white hover:bg-forest-deep">
+        <button type="button" disabled={pending} onClick={() => { if (window.confirm('Κλείσιμο της πώλησης (Won);')) set('won', undefined, undefined, pipeline.stages.find((x) => x.status === 'won')?.key); }} className="inline-flex items-center gap-1.5 rounded-md bg-forest px-3 py-1.5 text-xs font-medium text-white hover:bg-forest-deep">
           <Trophy size={12} /> Κλείσιμο (Won)
         </button>
         {!closing && <button type="button" disabled={pending} onClick={() => setClosing(true)} className="text-xs font-medium text-charcoal-600/70 underline-offset-2 hover:text-signal-danger hover:underline">Δεν προχωρά; Κλείσιμο με λόγο</button>}

@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { Check, Plus, Trash2, Star, ChevronDown, ChevronRight, FileText, X } from 'lucide-react';
+import { Check, Plus, Trash2, Star, ChevronDown, ChevronRight, ChevronUp, FileText, X } from 'lucide-react';
 import { saveOrgSlice } from '@/app/actions/org-settings';
 import { UndoButton } from '@/components/admin/UndoButton';
 import { FLOW, STATUS_EL, slugKey, type FlowStatus, type PipelineDef, type PipelineSettings, type StageDef } from '@/lib/pipeline-shared';
@@ -20,16 +20,27 @@ export function PipelineSettingsEditor({ initial, canEdit, vatRates }: { initial
   const dis = !canEdit;
   const patch = (p: Partial<PipelineSettings>) => { setV((x) => ({ ...x, ...p })); setMsg(null); };
   const setPipe = (key: string, p: Partial<PipelineDef>) => patch({ pipelines: v.pipelines.map((q) => (q.key === key ? { ...q, ...p } : q)) });
-  const setStage = (key: string, status: FlowStatus, p: Partial<StageDef>) => setPipe(key, { stages: v.pipelines.find((q) => q.key === key)!.stages.map((s) => (s.status === status ? { ...s, ...p } : s)) });
-  const toggleStage = (pipe: PipelineDef, status: FlowStatus, on: boolean) => {
-    if (status === 'new' || status === 'won') return;
-    const stages = on ? [...pipe.stages, { status, label: STATUS_EL[status], probability: 50, maxDays: 7 }] : pipe.stages.filter((s) => s.status !== status);
-    stages.sort((a, b) => FLOW.indexOf(a.status) - FLOW.indexOf(b.status));
-    setPipe(pipe.key, { stages });
+  const stagesOf = (key: string) => v.pipelines.find((q) => q.key === key)!.stages;
+  const setStage = (key: string, i: number, p: Partial<StageDef>) => setPipe(key, { stages: stagesOf(key).map((s, j) => (j === i ? { ...s, ...p } : s)) });
+  const moveStage = (key: string, i: number, d: -1 | 1) => {
+    const st = [...stagesOf(key)]; const j = i + d;
+    if (j < 0 || j >= st.length || st[i].status === 'won' || st[j].status === 'won') return;
+    [st[i], st[j]] = [st[j], st[i]]; setPipe(key, { stages: st });
+  };
+  const removeStage = (key: string, i: number) => {
+    const st = stagesOf(key);
+    if (st[i].status === 'won' || (st[i].status === 'new' && st.filter((x) => x.status === 'new').length === 1)) return;
+    setPipe(key, { stages: st.filter((_, j) => j !== i) });
+  };
+  const addStage = (key: string) => {
+    const st = stagesOf(key);
+    const label = 'Νέο στάδιο';
+    const s2: StageDef = { key: slugKey(label, st.map((x) => x.key)), status: 'qualified', label, probability: 50, maxDays: 7 };
+    setPipe(key, { stages: [...st.slice(0, -1), s2, st[st.length - 1]] }); // πριν το «κλείσιμο»
   };
   const addPipe = () => {
     const key = slugKey('pipeline', v.pipelines.map((p) => p.key));
-    patch({ pipelines: [...v.pipelines, { key, name: 'Νέο pipeline', stages: [{ status: 'new', label: 'Νέο', probability: 5, maxDays: 2 }, { status: 'contacted', label: 'Επικοινωνία', probability: 20, maxDays: 5 }, { status: 'offer', label: 'Προσφορά', probability: 60, maxDays: 10 }, { status: 'won', label: 'Κλείσιμο', probability: 100, maxDays: null }] }] });
+    patch({ pipelines: [...v.pipelines, { key, name: 'Νέο pipeline', stages: [{ key: 'new', status: 'new', label: 'Νέο', probability: 5, maxDays: 2 }, { key: 'contacted', status: 'contacted', label: 'Επικοινωνία', probability: 20, maxDays: 5 }, { key: 'offer', status: 'offer', label: 'Προσφορά', probability: 60, maxDays: 10 }, { key: 'won', status: 'won', label: 'Κλείσιμο', probability: 100, maxDays: null }] }] });
     setOpen(key);
   };
   const save = () => start(async () => { const r = await saveOrgSlice('pipelines', v); if (r.ok) { setMsg({ ok: true, text: 'Αποθηκεύτηκε.' }); router.refresh(); } else setMsg({ ok: false, text: r.error }); });
@@ -42,7 +53,7 @@ export function PipelineSettingsEditor({ initial, canEdit, vatRates }: { initial
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div>
             <h4>Pipelines</h4>
-            <p className="text-xs text-charcoal-600/60">Κάθε pipeline διαλέγει ποια στάδια χρησιμοποιεί, με δικά του ονόματα, πιθανότητα κλεισίματος (για τις προβλέψεις) και μέγιστες μέρες. Ένα lead που μένει περισσότερο φαίνεται «σε καθυστέρηση» και ο υπεύθυνος ειδοποιείται.</p>
+            <p className="text-xs text-charcoal-600/60">Φτιάξτε όσα στάδια θέλετε, με δικά σας ονόματα και σειρά. Το «Σημαίνει» λέει στο σύστημα τι είναι το στάδιο (για αυτοματισμούς, αναφορές και προμήθειες). Η πιθανότητα μετρά στις προβλέψεις· αν ένα lead μείνει περισσότερες μέρες από το όριο, φαίνεται «σε καθυστέρηση» και ο υπεύθυνος ειδοποιείται.</p>
           </div>
           {canEdit && v.pipelines.length < 12 && <button type="button" onClick={addPipe} className="btn-secondary px-3 py-1.5 text-xs"><Plus size={13} /> Pipeline</button>}
         </div>
@@ -59,25 +70,32 @@ export function PipelineSettingsEditor({ initial, canEdit, vatRates }: { initial
               </div>
               {isOpen && (
                 <div className="border-t border-stone-line p-3">
-                  <div className="grid grid-cols-[24px_1fr_1.3fr_90px_90px] items-center gap-2 text-[11px] text-charcoal-600/70">
-                    <span /><span>Κατάσταση συστήματος</span><span>Όνομα σταδίου</span><span>Πιθανότητα %</span><span>Έως μέρες</span>
+                  <div className="hidden grid-cols-[52px_1.4fr_1fr_80px_80px_28px] items-center gap-2 text-[11px] text-charcoal-600/70 sm:grid">
+                    <span /><span>Όνομα σταδίου</span><span>Σημαίνει</span><span>Πιθανότητα %</span><span>Έως μέρες</span><span />
                   </div>
-                  {FLOW.map((status) => {
-                    const st = p.stages.find((s) => s.status === status);
-                    const fixed = status === 'new' || status === 'won';
+                  {p.stages.map((st, i) => {
+                    const won = st.status === 'won';
+                    const lastNew = st.status === 'new' && p.stages.filter((x) => x.status === 'new').length === 1;
                     return (
-                      <div key={status} className={`mt-1 grid grid-cols-[24px_1fr_1.3fr_90px_90px] items-center gap-2 ${st ? '' : 'opacity-50'}`}>
-                        <input type="checkbox" disabled={dis || fixed} checked={!!st} onChange={(e) => toggleStage(p, status, e.target.checked)} />
-                        <span className="text-sm">{STATUS_EL[status]}</span>
-                        {st ? <>
-                          <input className="input py-1 text-sm" disabled={dis} value={st.label} maxLength={40} onChange={(e) => setStage(p.key, status, { label: e.target.value })} />
-                          <input className="input py-1 text-right text-sm" type="number" min={0} max={100} disabled={dis} value={st.probability} onChange={(e) => setStage(p.key, status, { probability: Number(e.target.value) })} />
-                          {status === 'won' ? <span className="text-center text-xs text-charcoal-600/50">—</span>
-                            : <input className="input py-1 text-right text-sm" type="number" min={1} max={365} placeholder="∞" disabled={dis} value={st.maxDays ?? ''} onChange={(e) => setStage(p.key, status, { maxDays: e.target.value === '' ? null : Number(e.target.value) })} />}
-                        </> : <span className="col-span-3 text-xs text-charcoal-600/50">δεν χρησιμοποιείται — leads σε αυτή την κατάσταση φαίνονται στο προηγούμενο στάδιο</span>}
+                      <div key={st.key} className="mt-1 grid grid-cols-[52px_1.4fr_1fr_80px_80px_28px] items-center gap-2">
+                        <span className="flex text-charcoal-600/50">
+                          <button type="button" disabled={dis || i === 0 || won} onClick={() => moveStage(p.key, i, -1)} aria-label="Πάνω" className="disabled:opacity-20 hover:text-forest"><ChevronUp size={15} /></button>
+                          <button type="button" disabled={dis || won || i >= p.stages.length - 2} onClick={() => moveStage(p.key, i, 1)} aria-label="Κάτω" className="disabled:opacity-20 hover:text-forest"><ChevronDown size={15} /></button>
+                        </span>
+                        <input className="input py-1 text-sm" disabled={dis} value={st.label} maxLength={40} onChange={(e) => setStage(p.key, i, { label: e.target.value })} />
+                        <select className="input py-1 text-sm" disabled={dis || won || lastNew} value={st.status} onChange={(e) => setStage(p.key, i, { status: e.target.value as FlowStatus })}>
+                          {FLOW.filter((f) => f !== 'won' || won).map((f) => <option key={f} value={f}>{STATUS_EL[f]}</option>)}
+                        </select>
+                        <input className="input py-1 text-right text-sm" type="number" min={0} max={100} disabled={dis} value={st.probability} onChange={(e) => setStage(p.key, i, { probability: Number(e.target.value) })} />
+                        {won ? <span className="text-center text-xs text-charcoal-600/50">—</span>
+                          : <input className="input py-1 text-right text-sm" type="number" min={1} max={365} placeholder="∞" disabled={dis} value={st.maxDays ?? ''} onChange={(e) => setStage(p.key, i, { maxDays: e.target.value === '' ? null : Number(e.target.value) })} />}
+                        {canEdit && !won && !lastNew
+                          ? <button type="button" onClick={() => { if (window.confirm(`Διαγραφή του σταδίου «${st.label}»; Τα leads του θα φαίνονται στο στάδιο με την ίδια σημασία ή στο προηγούμενο.`)) removeStage(p.key, i); }} className="text-charcoal-600/40 hover:text-signal-danger" aria-label="Διαγραφή σταδίου"><Trash2 size={14} /></button>
+                          : <span />}
                       </div>
                     );
                   })}
+                  {canEdit && p.stages.length < 20 && <button type="button" onClick={() => addStage(p.key)} className="btn-ghost mt-2 text-xs"><Plus size={13} /> Στάδιο</button>}
                 </div>
               )}
             </div>
