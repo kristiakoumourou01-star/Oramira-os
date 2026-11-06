@@ -1,3 +1,4 @@
+import { formatCurrency, formatCurrencyCompact } from '@/lib/format';
 /**
  * Oramira Deal Analyzer — pure calculation engine.
  *
@@ -304,15 +305,11 @@ export function analyzeDeal(inp: DealInputs): DealOutputs {
   };
 }
 
-/** Compact, currency-aware formatter for the figures across the module. */
+/** Convenience currency alias used across the deal-analyzer module — delegates
+ *  to the single formatter in lib/format so there is one currency implementation. */
 export function eur(n: number, opts: { compact?: boolean } = {}): string {
   if (!isFinite(n)) return '—';
-  if (opts.compact) {
-    const abs = Math.abs(n);
-    if (abs >= 1_000_000) return `€${(n / 1_000_000).toFixed(2)}M`;
-    if (abs >= 1_000) return `€${(n / 1_000).toFixed(0)}k`;
-  }
-  return `€${Math.round(n).toLocaleString()}`;
+  return opts.compact ? formatCurrencyCompact(n) : formatCurrency(Math.round(n));
 }
 
 export const pct = (n: number, digits = 1): string => `${(n * 100).toFixed(digits)}%`;

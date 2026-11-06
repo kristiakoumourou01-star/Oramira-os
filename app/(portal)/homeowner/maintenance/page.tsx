@@ -6,6 +6,7 @@ import { Wrench, ChevronRight } from 'lucide-react';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { NewTicketForm } from '@/components/homeowner/NewTicketForm';
 import { TicketStatusBadge, PriorityBadge } from '@/components/homeowner/TicketStatusBadge';
+import { formatDate } from '@/lib/format';
 
 export default async function MaintenanceCenterPage() {
   const profile = await requireRole(['homeowner', 'admin', 'sales', 'management']);
@@ -52,7 +53,7 @@ export default async function MaintenanceCenterPage() {
               <div>
                 <p className="text-sm font-medium text-charcoal">{t.title}</p>
                 <p className="mt-0.5 text-xs capitalize text-charcoal-600/60">
-                  {t.category ?? 'general'} · {new Date(t.created_at).toLocaleDateString()}
+                  {t.category ?? 'general'} · {formatDate(t.created_at)}
                 </p>
               </div>
               <div className="flex items-center gap-2">

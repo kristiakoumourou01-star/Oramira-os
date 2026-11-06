@@ -2,8 +2,9 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { KeyRound, X } from 'lucide-react';
+import { KeyRound } from 'lucide-react';
 import { convertLeadToReservation } from '@/app/actions/leads';
+import { Modal, ModalBody, ModalFooter } from '@/components/ui/Modal';
 
 export interface AvailableUnit {
   id: string;
@@ -59,47 +60,41 @@ export function ConvertToReservation({
     });
   }
 
-  if (!open) {
-    return (
+  return (
+    <>
       <button onClick={() => setOpen(true)} className="btn-primary">
         <KeyRound size={15} strokeWidth={1.75} /> Convert to reservation
       </button>
-    );
-  }
-
-  return (
-    <div className="fixed inset-0 z-30 flex items-center justify-center bg-forest-deep/40 p-4">
-      <div className="w-full max-w-md rounded-md bg-white p-6 shadow-overlay">
-        <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-xl">Convert to reservation</h3>
-          <button onClick={() => setOpen(false)} className="text-charcoal-600 hover:text-charcoal">
-            <X size={18} strokeWidth={1.75} />
-          </button>
-        </div>
+      <Modal open={open} onClose={() => setOpen(false)} title="Convert to reservation" size="md">
         {units.length === 0 ? (
-          <p className="text-sm text-charcoal-600/70">No available units to reserve. Add or free up a unit in Projects first.</p>
+          <ModalBody><p className="text-sm text-charcoal-600/70">No available units to reserve. Add or free up a unit in Projects first.</p></ModalBody>
         ) : (
-          <form action={submit} className="space-y-3">
-            <div>
-              <label className="eyebrow">Unit</label>
-              <select name="unitId" required className="input mt-1">
-                <option value="">Select an available unit…</option>
-                {units.map((u) => (
-                  <option key={u.id} value={u.id}>{u.label}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="eyebrow">Deposit (€)</label>
-              <input name="deposit" type="number" className="input mt-1" placeholder="e.g. 5000" />
-            </div>
-            {error && <p className="text-sm text-signal-danger">{error}</p>}
-            <button type="submit" disabled={isPending} className="btn-primary w-full">
-              {isPending ? 'Reserving…' : 'Reserve unit'}
-            </button>
+          <form action={submit} className="flex min-h-0 flex-1 flex-col">
+            <ModalBody className="space-y-3">
+              <div>
+                <label className="eyebrow">Unit</label>
+                <select name="unitId" required className="input mt-1">
+                  <option value="">Select an available unit…</option>
+                  {units.map((u) => (
+                    <option key={u.id} value={u.id}>{u.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="eyebrow">Deposit (€)</label>
+                <input name="deposit" type="number" className="input mt-1" placeholder="e.g. 5000" />
+              </div>
+              {error && <p className="text-sm text-signal-danger">{error}</p>}
+            </ModalBody>
+            <ModalFooter>
+              <button type="button" onClick={() => setOpen(false)} className="btn-secondary">Cancel</button>
+              <button type="submit" disabled={isPending} className="btn-primary flex-1">
+                {isPending ? 'Reserving…' : 'Reserve unit'}
+              </button>
+            </ModalFooter>
           </form>
         )}
-      </div>
-    </div>
+      </Modal>
+    </>
   );
 }

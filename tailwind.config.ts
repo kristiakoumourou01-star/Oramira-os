@@ -23,34 +23,38 @@ import type { Config } from 'tailwindcss';
  * fitting a developer who deals in precise numbers, kept understated.
  */
 const config: Config = {
-  content: ['./app/**/*.{ts,tsx}', './components/**/*.{ts,tsx}'],
+  content: ['./app/**/*.{ts,tsx}', './components/**/*.{ts,tsx}', './lib/**/*.{ts,tsx}'],
   theme: {
     extend: {
+      // Brand tokens are backed by CSS variables (see lib/branding.ts +
+      // :root in globals.css) so the whole palette can be re-skinned at
+      // runtime from Settings → Branding. Channels are space-separated RGB
+      // to support Tailwind's `/opacity` slash syntax.
       colors: {
         forest: {
-          DEFAULT: '#1F3A30',
-          deep: '#142922',
-          50: '#EAF0EC',
+          DEFAULT: 'rgb(var(--c-forest) / <alpha-value>)',
+          deep: 'rgb(var(--c-forest-deep) / <alpha-value>)',
+          50: 'rgb(var(--c-forest-50) / <alpha-value>)',
         },
         sand: {
-          DEFAULT: '#E6DCC8',
-          100: '#F0E9DA',
-          300: '#D9CBAA',
+          DEFAULT: 'rgb(var(--c-sand) / <alpha-value>)',
+          100: 'rgb(var(--c-sand-100) / <alpha-value>)',
+          300: 'rgb(var(--c-sand-300) / <alpha-value>)',
         },
         stone: {
-          DEFAULT: '#F7F3EC',
-          line: '#E3DAC9',
-          200: '#EFE9DD',
+          DEFAULT: 'rgb(var(--c-stone) / <alpha-value>)',
+          line: 'rgb(var(--c-stone-line) / <alpha-value>)',
+          200: 'rgb(var(--c-stone-200) / <alpha-value>)',
         },
         champagne: {
-          DEFAULT: '#C8A86B',
-          50: '#F8F0E1',
-          600: '#AD8C52',
+          DEFAULT: 'rgb(var(--c-champagne) / <alpha-value>)',
+          50: 'rgb(var(--c-champagne-50) / <alpha-value>)',
+          600: 'rgb(var(--c-champagne-600) / <alpha-value>)',
         },
-        olive: '#8A8560',
+        olive: 'rgb(var(--c-olive) / <alpha-value>)',
         charcoal: {
-          DEFAULT: '#2B2A27',
-          600: '#534F47',
+          DEFAULT: 'rgb(var(--c-charcoal) / <alpha-value>)',
+          600: 'rgb(var(--c-charcoal-600) / <alpha-value>)',
         },
         signal: {
           success: '#3F6B4E',

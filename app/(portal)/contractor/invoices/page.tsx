@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { Receipt, Download, ExternalLink } from 'lucide-react';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { openDocument } from '@/app/actions/storage';
+import { formatDate, formatNumber } from '@/lib/format';
 
 const STATUS_CLASS: Record<string, string> = {
   submitted: 'badge-champagne',
@@ -43,7 +44,7 @@ export default async function ContractorInvoicesPage() {
       ) : (
         <>
           <div className="grid grid-cols-3 gap-4">
-            <div className="panel p-5"><p className="eyebrow mb-1">Submitted total</p><p className="figure text-3xl text-forest">€{total.toLocaleString()}</p></div>
+            <div className="panel p-5"><p className="eyebrow mb-1">Submitted total</p><p className="figure text-3xl text-forest">€{formatNumber(total)}</p></div>
             <div className="panel p-5"><p className="eyebrow mb-1">Awaiting</p><p className="figure text-3xl text-forest">{all.filter((i) => i.status === 'submitted').length}</p></div>
             <div className="panel p-5"><p className="eyebrow mb-1">Approved</p><p className="figure text-3xl text-forest">{all.filter((i) => i.status === 'approved' || i.status === 'paid').length}</p></div>
           </div>
@@ -67,8 +68,8 @@ export default async function ContractorInvoicesPage() {
                           '—'
                         )}
                       </td>
-                      <td className="figure text-charcoal-600">{new Date(inv.submitted_at).toLocaleDateString()}</td>
-                      <td className="figure">€{Number(inv.amount).toLocaleString()}</td>
+                      <td className="figure text-charcoal-600">{formatDate(inv.submitted_at)}</td>
+                      <td className="figure">€{formatNumber(Number(inv.amount))}</td>
                       <td><span className={STATUS_CLASS[inv.status] ?? 'badge-neutral'}>{inv.status}</span></td>
                       <td className="text-right">
                         {doc?.storage_path && (

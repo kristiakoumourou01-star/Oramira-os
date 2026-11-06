@@ -1,0 +1,25 @@
+// docs/templates/feature-shared.ts.example → copy to  lib/feature-shared.ts
+//
+// SHARED module: types, constants, and PURE functions only.
+// ⛔ Never import @/lib/supabase/server, next/headers, next/server, or server-only here.
+// ✅ Safe to import from Client Components, Server Components, Server Actions, and server libs.
+
+export const FEATURE_STAGES = ['new', 'active', 'done'] as const;
+export type FeatureStage = typeof FEATURE_STAGES[number];
+
+export const STAGE_LABEL: Record<FeatureStage, string> = {
+  new: 'New',
+  active: 'Active',
+  done: 'Done',
+};
+
+export interface FeatureItem {
+  id: string;
+  title: string;
+  stage: FeatureStage;
+}
+
+/** Pure function — no I/O, safe on the client. */
+export function isTerminal(stage: FeatureStage): boolean {
+  return stage === 'done';
+}

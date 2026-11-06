@@ -3,7 +3,8 @@
 import { useState, useTransition } from 'react';
 import { Sparkles, CheckCircle2, AlertTriangle, Flag, Target, Tag } from 'lucide-react';
 import { runDealAI } from '@/app/actions/deals';
-import type { DealAdvisory } from '@/lib/ai';
+import type { DealAdvisory } from '@/lib/ai-shared';
+import { formatDateTime } from '@/lib/format';
 
 /**
  * AI advisory layer — the acquisitions analyst's read on the deal. Generated on
@@ -71,7 +72,7 @@ export function AIAdvisoryPanel({
             </div>
           </div>
 
-          {stamp && <p className="text-[11px] text-charcoal-600/45">Generated {new Date(stamp).toLocaleString()}</p>}
+          {stamp && <p className="text-[11px] text-charcoal-600/45">Generated {formatDateTime(stamp)}</p>}
         </div>
       )}
     </section>

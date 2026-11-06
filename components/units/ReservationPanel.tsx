@@ -10,6 +10,7 @@ import {
   cancelReservation,
   convertReservationToContract,
 } from '@/app/actions/reservations';
+import { formatDate, formatCurrency } from '@/lib/format';
 
 export interface ReservationView {
   id: string;
@@ -38,6 +39,7 @@ export function ReservationPanel({
   reservation,
   contacts,
   contractStatus,
+  defaultHoldDays = 14,
 }: {
   unitId: string;
   projectId: string;
@@ -45,6 +47,7 @@ export function ReservationPanel({
   reservation: ReservationView | null;
   contacts: ContactOption[];
   contractStatus: string | null;
+  defaultHoldDays?: number;
 }) {
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
@@ -102,7 +105,7 @@ export function ReservationPanel({
             </div>
             <div>
               <label className="eyebrow">Hold (days)</label>
-              <input name="holdDays" type="number" className="input mt-1" placeholder="14" />
+              <input name="holdDays" type="number" className="input mt-1" placeholder={String(defaultHoldDays)} />
             </div>
           </div>
           <button type="submit" disabled={isPending} className="btn-primary w-full">
@@ -149,13 +152,13 @@ export function ReservationPanel({
         <div className="flex justify-between">
           <span className="text-charcoal-600/70">Deposit</span>
           <span className="figure">
-            {reservation.deposit_amount != null ? `€${Number(reservation.deposit_amount).toLocaleString()}` : '—'}
+            {reservation.deposit_amount != null ? `${formatCurrency(Number(reservation.deposit_amount))}` : '—'}
           </span>
         </div>
         <div className="flex justify-between">
           <span className="text-charcoal-600/70">Hold expires</span>
           <span className={`figure ${lapsed ? 'text-signal-danger' : 'text-charcoal'}`}>
-            {expiresAt ? expiresAt.toLocaleDateString() : '—'}
+            {expiresAt ? formatDate(expiresAt) : '—'}
             {daysLeft != null && (lapsed ? ' · lapsed' : ` · ${daysLeft}d left`)}
           </span>
         </div>

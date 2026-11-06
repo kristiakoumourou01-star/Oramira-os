@@ -1,4 +1,8 @@
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
+import { onNewLead } from '@/lib/automation-events';
+import { ensureFirstFollowUp } from '@/lib/lead-followup';
+import { cleanAreas } from '@/lib/areas';
+import { detectBuyerType, detectLanguage, languageForBuyerType, detectProjectInterest } from '@/lib/lead-detect';
 
 /**
  * Website intake chokepoint. Public contact-form and newsletter submissions
@@ -17,7 +21,7 @@ export function coerceSource(s?: string | null): string {
   if (!s) return 'website';
   const v = s.toLowerCase().trim();
   if (VALID_SOURCES.includes(v)) return v;
-  if (['campaign', 'ads', 'paid', 'facebook', 'instagram'].includes(v)) return 'meta';
+  if (['campaign', 'ads', 'paid', 'facebook', 'instagram', 'manychat', 'messenger', 'fb', 'ig'].includes(v)) return 'meta';
   if (['adwords', 'ppc', 'search'].includes(v)) return 'google';
   if (v === 'newsletter') return 'website';
   return 'other';
@@ -33,6 +37,8 @@ export interface ContactFormPayload {
   budget?: string;
   budgetMin?: number;
   budgetMax?: number;
+  timeline?: string; // timeline_to_buy — carried from bot/ad qualification
+  areas?: string[];  // where they want to buy (location matching)
 }
 
 /**
@@ -58,6 +64,20 @@ export async function resolveContactFormLead(
   await supabase.from('contacts').update({ is_lead: true }).eq('id', contactId);
   await supabase.from('contacts').update({ first_touch_source: source }).eq('id', contactId).is('first_touch_source', null);
 
+  // Auto-detect buyer type + language from the phone country code and message
+  // script, only filling fields that aren't already set (never override a human).
+  const buyerType = detectBuyerType({ phone: p.phone, message: p.message });
+  const language = detectLanguage(p.message) ?? languageForBuyerType(buyerType);
+  await supabase.from('contacts').update({ buyer_type: buyerType }).eq('id', contactId).is('buyer_type', null);
+  await supabase.from('contacts').update({ preferred_language: language }).eq('id', contactId).is('preferred_language', null);
+
+  // Auto-detect project interest from the enquiry text when not provided.
+  let projectInterestId = p.projectInterestId ?? null;
+  if (!projectInterestId && p.message) {
+    const { data: projects } = await supabase.from('projects').select('id, name');
+    projectInterestId = detectProjectInterest(p.message, projects ?? []);
+  }
+
   // Reuse an open lead if one exists, else create (the on_lead_created trigger
   // auto-logs the activity and creates the 24h follow-up task).
   const { data: existing } = await supabase
@@ -77,13 +97,23 @@ export async function resolveContactFormLead(
         contact_id: contactId,
         source,
         message: p.message ?? null,
-        preferred_project_id: p.projectInterestId ?? null,
+        preferred_project_id: projectInterestId,
         budget_min: p.budgetMin ?? null,
         budget_max: p.budgetMax ?? null,
+        timeline_to_buy: p.timeline ?? null,
       })
       .select('id')
       .single();
     leadId = lead?.id ?? null;
+    if (leadId && p.areas?.length) {
+      await supabase.from('leads').update({ preferred_areas: cleanAreas(p.areas) } as any).eq('id', leadId);
+    }
+    if (leadId) {
+      await onNewLead(leadId); // welcome automation for inbound leads
+      // Same first-touch to-do every inbound lead gets — clear, urgent, and
+      // routed to the default owner so it's immediately manageable.
+      await ensureFirstFollowUp(supabase, { leadId, contactId, source });
+    }
   }
 
   return { contactId, leadId };
@@ -154,6 +184,50 @@ export async function resolveNewsletter(
     .upsert({ contact_id: contactId, email, source, tags: p.tags ?? [] }, { onConflict: 'email' });
 
   return { contactId };
+}
+
+/**
+ * Normalized inbound lead ingestion for any channel (Instagram, Facebook,
+ * website, WhatsApp, manual import). Captures the raw submission tagged with the
+ * channel, then resolves to one contact + lead through the same chokepoint.
+ * Provider APIs are NOT integrated — a channel webhook/import just POSTs here.
+ */
+export async function intakeInboundLead(p: {
+  channel: string; // instagram | facebook | website | whatsapp | manual
+  name?: string;
+  email?: string;
+  phone?: string;
+  message?: string;
+  source?: string;
+  externalId?: string;
+  // Qualification carried from the bot / ad form (ManyChat, Meta Lead Ads) so a
+  // qualified inbound lead lands pre-qualified instead of dropping to discovery.
+  budgetMin?: number;
+  budgetMax?: number;
+  projectInterestId?: string;
+  timeline?: string;
+}): Promise<{ contactId: string; leadId: string | null }> {
+  const supabase = createSupabaseServiceRoleClient();
+  const source = coerceSource(p.source ?? p.channel);
+  // A lead needs an email for the identity chokepoint; synthesize a placeholder
+  // for channels that only give a handle, so manual cleanup can merge later.
+  const email = (p.email ?? `${p.channel}-${p.externalId ?? Date.now()}@inbound.oramira`).toLowerCase().trim();
+
+  const { data: submission } = await supabase
+    .from('website_submissions')
+    .insert({ type: p.channel, name: p.name ?? null, email, phone: p.phone ?? null, message: p.message ?? null, source })
+    .select('id')
+    .single();
+
+  const { contactId, leadId } = await resolveContactFormLead(supabase, {
+    name: p.name, email, phone: p.phone, message: p.message, source,
+    budgetMin: p.budgetMin, budgetMax: p.budgetMax, projectInterestId: p.projectInterestId, timeline: p.timeline,
+  });
+
+  if (submission) {
+    await supabase.from('website_submissions').update({ contact_id: contactId, lead_id: leadId, processed_at: new Date().toISOString() }).eq('id', submission.id);
+  }
+  return { contactId, leadId };
 }
 
 export async function intakeNewsletter(p: NewsletterPayload): Promise<{ contactId: string }> {

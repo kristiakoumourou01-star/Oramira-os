@@ -4,6 +4,7 @@ import { getHomeownerUnit } from '@/lib/homeowner';
 import Link from 'next/link';
 import { Home, Wrench, ShieldCheck, FileText, History, HardHat, Bell, ArrowRight, Megaphone } from 'lucide-react';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { formatDate } from '@/lib/format';
 
 export default async function HomeownerOverviewPage() {
   const profile = await requireRole(['homeowner', 'admin', 'sales', 'management']);
@@ -54,7 +55,7 @@ export default async function HomeownerOverviewPage() {
         <h2 className="mt-1 font-display text-3xl text-stone-100">Unit {unit.unit_number}</h2>
         <p className="mt-2 text-sm text-stone-100/70">
           {[unit.building_name, unit.bedrooms != null ? `${unit.bedrooms} bed` : null, unit.sqm != null ? `${unit.sqm} m²` : null].filter(Boolean).join('  ·  ')}
-          {unit.moved_in_at ? `  ·  Since ${new Date(unit.moved_in_at).toLocaleDateString()}` : ''}
+          {unit.moved_in_at ? `  ·  Since ${formatDate(unit.moved_in_at)}` : ''}
         </p>
         <p className="mt-5 max-w-xl text-sm leading-relaxed text-stone-100/60">
           Welcome to your dedicated after-sales space. Anything your home needs — a repair, a warranty question,
@@ -95,7 +96,7 @@ export default async function HomeownerOverviewPage() {
               <li key={n.id} className="flex items-center justify-between py-2.5">
                 <div>
                   <p className="text-sm text-charcoal">{n.title}</p>
-                  <p className="text-xs text-charcoal-600/50">{new Date(n.created_at).toLocaleDateString()}</p>
+                  <p className="text-xs text-charcoal-600/50">{formatDate(n.created_at)}</p>
                 </div>
                 {!n.read_at && <span className="h-2 w-2 rounded-full bg-champagne" />}
               </li>

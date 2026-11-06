@@ -3,7 +3,10 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { requireRole } from '@/lib/auth';
 import { logActivity } from '@/lib/activity';
+import { onReservationCreated } from '@/lib/automation-events';
 import { revalidatePath } from 'next/cache';
+import { getOrgSettings } from '@/lib/org-settings';
+import { buildSchedule } from '@/lib/pricing';
 
 /**
  * Projects & Units module — reservation lifecycle. This is the seam between
@@ -16,7 +19,6 @@ import { revalidatePath } from 'next/cache';
  */
 
 const STAFF: ['admin', 'sales', 'management'] = ['admin', 'sales', 'management'];
-const DEFAULT_HOLD_DAYS = 14;
 
 /** Reserve a unit for an existing CRM contact and place it on hold. */
 export async function createReservation(params: {
@@ -38,8 +40,10 @@ export async function createReservation(params: {
     throw new Error('This unit is not available — it is already reserved, sold, or handed over.');
   }
 
+  // Default hold comes from Settings → Pipelines → Κρατήσεις.
+  const { reservations: rs } = await getOrgSettings();
   const expiresAt = new Date(
-    Date.now() + (params.holdDays ?? DEFAULT_HOLD_DAYS) * 24 * 60 * 60 * 1000
+    Date.now() + (params.holdDays ?? rs.holdDays) * 24 * 60 * 60 * 1000
   ).toISOString();
 
   const { data: reservation, error } = await supabase
@@ -76,6 +80,7 @@ export async function createReservation(params: {
 
   await logActivity({ entityType: 'unit', entityId: params.unitId, action: 'reserved', metadata: { reservationId: reservation.id } });
   await logActivity({ entityType: 'contact', entityId: params.buyerContactId, action: 'unit_reserved', metadata: { unitId: params.unitId } });
+  await onReservationCreated(params.buyerContactId, params.unitId);
 
   revalidatePath(`/projects/${unit.project_id}/units/${params.unitId}`);
   revalidatePath(`/crm/${params.buyerContactId}`);
@@ -107,9 +112,15 @@ export async function confirmDeposit(reservationId: string) {
 export async function extendReservation(reservationId: string, days: number) {
   await requireRole(STAFF);
   const supabase = await createSupabaseServerClient();
-  const expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+  const d = Math.min(180, Math.max(1, Math.round(Number(days) || 0)));
+  const { data: r } = await supabase.from('reservations').select('expires_at, unit_id, units(project_id)').eq('id', reservationId).maybeSingle();
+  // Extend from the current expiry (or from now, if it has already passed).
+  const base = Math.max(Date.now(), r?.expires_at ? Date.parse(r.expires_at) : 0);
+  const expiresAt = new Date(base + d * 24 * 60 * 60 * 1000).toISOString();
   await supabase.from('reservations').update({ expires_at: expiresAt }).eq('id', reservationId);
-  await logActivity({ entityType: 'reservation', entityId: reservationId, action: 'extended', metadata: { days } });
+  await logActivity({ entityType: 'reservation', entityId: reservationId, action: 'extended', metadata: { days: d, until: expiresAt } });
+  const pid = (r as any)?.units?.project_id;
+  if (pid) { revalidatePath(`/projects/${pid}/units/${r!.unit_id}`); revalidatePath(`/projects/${pid}/prices`); revalidatePath(`/projects/${pid}`); }
   revalidatePath('/projects');
 }
 
@@ -179,6 +190,9 @@ export async function convertReservationToContract(reservationId: string) {
     .from('reservations')
     .update({ status: 'converted', converted_contract_id: contract.id })
     .eq('id', reservationId);
+
+  // Installments from the unit's / project's payment plan (Τιμοκατάλογος → Πρόγραμμα πληρωμών).
+  await buildSchedule(supabase, contract.id).catch(() => null);
 
   await supabase
     .from('units')

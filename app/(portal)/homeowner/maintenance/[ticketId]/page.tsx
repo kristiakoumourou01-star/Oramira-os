@@ -8,6 +8,7 @@ import { TicketStatusBadge, PriorityBadge } from '@/components/homeowner/TicketS
 import { TicketOwnerActions } from '@/components/homeowner/TicketOwnerActions';
 import { ProjectGallery } from '@/components/projects/ProjectGallery';
 import { getDocumentUrl } from '@/app/actions/storage';
+import { formatDate, formatDateTime } from '@/lib/format';
 
 export default async function TicketDetailPage({ params }: { params: { ticketId: string } }) {
   const profile = await requireRole(['homeowner', 'admin', 'sales', 'management']);
@@ -86,7 +87,7 @@ export default async function TicketDetailPage({ params }: { params: { ticketId:
               <div>
                 <p className="text-sm font-medium text-charcoal">{(ticket as any).contractors?.company_name ?? 'Contractor'}</p>
                 {nextVisit?.scheduled_for ? (
-                  <p className="mt-1 text-xs text-charcoal-600/70">Next visit <span className="figure">{new Date(nextVisit.scheduled_for).toLocaleString()}</span></p>
+                  <p className="mt-1 text-xs text-charcoal-600/70">Next visit <span className="figure">{formatDateTime(nextVisit.scheduled_for)}</span></p>
                 ) : (
                   <p className="mt-1 text-xs text-charcoal-600/60">Visit time to be confirmed</p>
                 )}
@@ -108,7 +109,7 @@ export default async function TicketDetailPage({ params }: { params: { ticketId:
                     {u.status_change && <p className="text-sm font-medium capitalize text-charcoal">{u.status_change.replace(/_/g, ' ')}</p>}
                     <p className="text-sm text-charcoal-600/80">{u.note}</p>
                     <p className="mt-0.5 text-xs text-charcoal-600/50">
-                      {(u as any).profiles?.full_name ?? 'Oramira'} · {new Date(u.created_at).toLocaleDateString()}
+                      {(u as any).profiles?.full_name ?? 'Oramira'} · {formatDate(u.created_at)}
                     </p>
                   </li>
                 ))}

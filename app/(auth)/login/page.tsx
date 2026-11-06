@@ -1,5 +1,7 @@
-import { login } from '@/app/actions/auth';
-import { Logo } from '@/components/layout/Logo';
+import { LoginForm } from '@/components/auth/LoginForm';
+import { BrandMark } from '@/components/layout/BrandMark';
+import { t } from '@/lib/i18n';
+import '@/lib/locale-server';
 
 /**
  * Login screen — the brand's first impression for staff and, via the
@@ -7,33 +9,30 @@ import { Logo } from '@/components/layout/Logo';
  * panel on a warm stone field, no marketing copy, no imagery competing
  * with the wordmark.
  */
-export default function LoginPage({ searchParams }: { searchParams: { next?: string } }) {
+export default function LoginPage({ searchParams }: { searchParams: { next?: string; disabled?: string; expired?: string; ip?: string } }) {
   return (
     <div className="flex min-h-screen items-center justify-center bg-stone px-4">
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
-          <Logo tone="dark" />
-          <p className="mt-2 text-sm text-charcoal-600/80">Sign in to continue</p>
+          <BrandMark tone="dark" />
+          <p className="mt-2 text-sm text-charcoal-600/80">{t('signInToContinue')}</p>
         </div>
-        <form action={login} className="panel space-y-4 p-8">
-          {searchParams.next && (
-            <input type="hidden" name="next" value={searchParams.next} />
-          )}
-          <div>
-            <label className="eyebrow mb-1.5 block">Email</label>
-            <input name="email" type="email" required className="input" placeholder="you@oramira.com" />
-          </div>
-          <div>
-            <label className="eyebrow mb-1.5 block">Password</label>
-            <input name="password" type="password" required className="input" />
-          </div>
-          <button type="submit" className="btn-primary w-full">
-            Sign in
-          </button>
-          <a href="/reset-password" className="block text-center text-xs text-charcoal-600/70 hover:text-forest">
-            Forgot your password?
-          </a>
-        </form>
+        {searchParams.expired && (
+          <p className="mb-4 rounded-md bg-champagne-50 px-4 py-2 text-sm text-champagne-600">
+            {t('expired')}
+          </p>
+        )}
+        {searchParams.ip && (
+          <p className="mb-4 rounded-md bg-signal-danger/10 px-4 py-2 text-sm text-signal-danger">
+            {t('ipBlocked')}
+          </p>
+        )}
+        {searchParams.disabled && (
+          <p className="mb-4 rounded-md bg-signal-danger/10 px-4 py-2 text-sm text-signal-danger">
+            {t('disabled')}
+          </p>
+        )}
+        <LoginForm next={searchParams.next} />
       </div>
     </div>
   );

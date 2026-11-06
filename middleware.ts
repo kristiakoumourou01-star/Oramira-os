@@ -9,7 +9,7 @@ import { createServerClient } from '@supabase/ssr';
  * shell/navigation, and gets redirected to where they belong instead of a
  * confusing empty page.
  */
-const STAFF_ROLES = new Set(['admin', 'sales', 'management']);
+const STAFF_ROLES = new Set(['admin', 'sales', 'management', 'finance', 'construction', 'viewer']);
 
 const PORTAL_PREFIX_TO_ROLE: Record<string, string> = {
   '/buyer': 'buyer',
@@ -18,9 +18,18 @@ const PORTAL_PREFIX_TO_ROLE: Record<string, string> = {
   '/contractor': 'contractor',
 };
 
-const PUBLIC_PATHS = ['/login', '/invite', '/reset-password'];
+const PUBLIC_PATHS = ['/login', '/invite', '/reset-password', '/book', '/auth/signout', '/selection/'];
 
+/** Times the guard; slow runs (sign-in check + role lookup) show up in the logs as «[perf] middleware …». */
 export async function middleware(request: NextRequest) {
+  const t0 = Date.now();
+  const res = await guard(request);
+  const ms = Date.now() - t0;
+  if (ms > 250) console.log(`[perf] middleware ${request.nextUrl.pathname.replace(/[0-9a-f]{8}-[0-9a-f-]{27,}/gi, ':id')} ${ms}ms`);
+  return res;
+}
+
+async function guard(request: NextRequest) {
   const { response, user } = await updateSession(request);
   const path = request.nextUrl.pathname;
 
@@ -65,7 +74,10 @@ export async function middleware(request: NextRequest) {
     path.startsWith('/crm') ||
     path.startsWith('/deal-analyzer') ||
     path.startsWith('/projects') ||
+    path.startsWith('/map') ||
+    path.startsWith('/property') ||
     path.startsWith('/financials') ||
+    path.startsWith('/hr') ||
     path.startsWith('/automation') ||
     path.startsWith('/homeowner-requests') ||
     path.startsWith('/settings');
@@ -84,6 +96,13 @@ export async function middleware(request: NextRequest) {
     if (role !== 'admin') {
       return NextResponse.redirect(new URL('/dashboard', request.url));
     }
+  }
+
+  // Activity clock for "sign out after N hours idle" (Settings → Ασφάλεια).
+  // Pages compare against the PREVIOUS value; this response stores the new one.
+  // Background prefetches don't count as activity.
+  if (!request.headers.get('next-router-prefetch') && request.headers.get('purpose') !== 'prefetch') {
+    response.cookies.set('oramira_seen', String(Date.now()), { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', path: '/', maxAge: 60 * 60 * 24 * 30 });
   }
 
   return response;

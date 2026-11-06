@@ -1,4 +1,5 @@
 import { CalendarClock, CheckCircle2, Truck } from 'lucide-react';
+import { formatDateTime } from '@/lib/format';
 
 export interface VisitRow {
   id: string;
@@ -25,7 +26,7 @@ const STATUS_CLASS: Record<string, string> = {
  */
 export function ContractorVisitList({ visits }: { visits: VisitRow[] }) {
   if (visits.length === 0) {
-    return <p className="text-sm text-charcoal-600/70">No contractor visits scheduled. We'll let you know when one is arranged.</p>;
+    return <p className="text-sm text-charcoal-600/70">No contractor visits scheduled. We&apos;ll let you know when one is arranged.</p>;
   }
 
   const upcoming = visits.filter((v) => v.status !== 'completed' && v.status !== 'cancelled');
@@ -44,9 +45,9 @@ export function ContractorVisitList({ visits }: { visits: VisitRow[] }) {
         {v.ticket_title && <p className="text-xs text-charcoal-600/70">{v.ticket_title}</p>}
         <p className="mt-0.5 text-xs text-charcoal-600/60">
           {v.completed_at
-            ? `Visited ${new Date(v.completed_at).toLocaleString()}`
+            ? `Visited ${formatDateTime(v.completed_at)}`
             : v.scheduled_for
-            ? `Scheduled ${new Date(v.scheduled_for).toLocaleString()}`
+            ? `Scheduled ${formatDateTime(v.scheduled_for)}`
             : 'Time to be confirmed'}
         </p>
         {v.notes && <p className="mt-1 text-xs text-charcoal-600/80">{v.notes}</p>}

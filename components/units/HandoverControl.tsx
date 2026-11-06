@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { KeyRound, Home } from 'lucide-react';
 import { updateHandover } from '@/app/actions/units';
 import { activateHomeowner } from '@/app/actions/homeowners';
+import { formatDate } from '@/lib/format';
 
 const HANDOVER_STAGES = ['pending', 'scheduled', 'in_progress', 'completed'];
 
@@ -82,7 +83,7 @@ export function HandoverControl({
         </div>
         {warrantyEnd && (
           <p className="text-xs text-charcoal-600/70">
-            Warranty runs until <span className="figure">{warrantyEnd.toLocaleDateString()}</span>.
+            Warranty runs until <span className="figure">{formatDate(warrantyEnd)}</span>.
           </p>
         )}
         <button type="submit" disabled={isPending} className="btn-secondary w-full">

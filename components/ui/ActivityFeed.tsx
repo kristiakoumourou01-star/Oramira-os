@@ -1,4 +1,4 @@
-import { formatDistanceToNow } from 'date-fns';
+import { formatRelative } from '@/lib/format';
 
 export interface ActivityItem {
   id: string;
@@ -27,7 +27,7 @@ export function ActivityFeed({ items }: { items: ActivityItem[] }) {
             <span className="font-medium">{item.actor_name ?? 'System'}</span> {describeAction(item)}
           </p>
           <p className="text-xs text-charcoal-600/60">
-            {formatDistanceToNow(new Date(item.created_at), { addSuffix: true })}
+            {formatRelative(item.created_at)}
           </p>
         </li>
       ))}

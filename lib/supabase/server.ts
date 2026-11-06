@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr';
 import { createClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
+import { cache } from 'react';
 import type { Database } from '@/types/database.types';
 
 /**
@@ -52,3 +53,14 @@ export function createSupabaseServiceRoleClient() {
     { auth: { persistSession: false } }
   );
 }
+
+/**
+ * The signed-in user for THIS request, fetched once. `auth.getUser()` is a
+ * network call to Supabase Auth; layouts, pages and helpers each used to make
+ * their own. Request-scoped (React cache), so it is never shared between users.
+ */
+export const getAuthUser = cache(async () => {
+  const supabase = await createSupabaseServerClient();
+  const { data } = await supabase.auth.getUser();
+  return data.user ?? null;
+});

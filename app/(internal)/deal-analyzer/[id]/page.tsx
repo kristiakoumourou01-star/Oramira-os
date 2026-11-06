@@ -1,4 +1,4 @@
-import { requireRole } from '@/lib/auth';
+import { requirePermission } from '@/lib/auth';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
@@ -9,7 +9,7 @@ import { DEFAULT_DEAL_INPUTS, type DealInputs, type DealOutputs } from '@/lib/de
 import type { DealAdvisory } from '@/lib/ai';
 
 export default async function DealDetailPage({ params }: { params: { id: string } }) {
-  await requireRole(['admin', 'sales', 'management']);
+  await requirePermission('deals');
   const supabase = await createSupabaseServerClient();
 
   const { data: deal } = await supabase

@@ -1,7 +1,8 @@
 'use client';
 
 import { FileText, Download } from 'lucide-react';
-import type { BucketName } from '@/lib/storage';
+import type { BucketName } from '@/lib/storage-shared';
+import { formatDate } from '@/lib/format';
 
 export interface CenterDoc {
   id: string;
@@ -61,7 +62,7 @@ export function DocumentCenter({
                   <FileText size={16} className="text-olive" strokeWidth={1.75} />
                   <div>
                     <p className="text-sm font-medium text-charcoal">{doc.title ?? 'Document'}</p>
-                    <p className="text-xs text-charcoal-600/50">{new Date(doc.created_at).toLocaleDateString()}</p>
+                    <p className="text-xs text-charcoal-600/50">{formatDate(doc.created_at)}</p>
                   </div>
                 </div>
                 <button

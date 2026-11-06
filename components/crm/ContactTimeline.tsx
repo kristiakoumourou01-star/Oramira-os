@@ -2,8 +2,8 @@
 
 import { useState, useTransition } from 'react';
 import { Phone, Mail, MessageSquare, Users as MeetingIcon, StickyNote } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
 import { addNote, logCommunication } from '@/app/actions/leads';
+import { formatRelative } from '@/lib/format';
 
 export interface TimelineEntry {
   id: string;
@@ -11,6 +11,8 @@ export interface TimelineEntry {
   body: string;
   channel?: string;
   direction?: string;
+  status?: string;
+  ai_generated?: boolean;
   author?: string | null;
   occurred_at: string;
 }
@@ -36,7 +38,23 @@ export function ContactTimeline({
   const [tab, setTab] = useState<'note' | 'phone' | 'email'>('note');
   const [draft, setDraft] = useState('');
   const [direction, setDirection] = useState<'inbound' | 'outbound'>('outbound');
+  const [filter, setFilter] = useState<'all' | 'whatsapp' | 'email' | 'phone' | 'note' | 'ai'>('all');
   const [isPending, startTransition] = useTransition();
+
+  const FILTERS: { key: typeof filter; label: string }[] = [
+    { key: 'all', label: 'All' },
+    { key: 'whatsapp', label: 'WhatsApp' },
+    { key: 'email', label: 'Email' },
+    { key: 'phone', label: 'Calls' },
+    { key: 'note', label: 'Notes' },
+    { key: 'ai', label: 'AI drafts' },
+  ];
+  const visible = entries.filter((e) => {
+    if (filter === 'all') return true;
+    if (filter === 'ai') return !!e.ai_generated;
+    if (filter === 'note') return e.kind === 'note';
+    return e.kind === 'communication' && e.channel === filter;
+  });
 
   function submit() {
     if (!draft.trim()) return;
@@ -94,20 +112,33 @@ export function ContactTimeline({
         </button>
       </div>
 
+      <div className="mb-4 flex flex-wrap gap-1.5 border-t border-stone-line pt-4">
+        {FILTERS.map((f) => (
+          <button
+            key={f.key}
+            onClick={() => setFilter(f.key)}
+            className={`rounded px-2.5 py-1 text-[11px] font-medium transition-colors ${filter === f.key ? 'bg-forest text-stone-100' : 'bg-sand-100 text-charcoal-600 hover:bg-sand'}`}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+
       <ol className="space-y-4 border-l border-stone-line pl-4">
-        {entries.length === 0 && <p className="text-sm text-charcoal-600/70">No activity recorded yet.</p>}
-        {entries.map((entry) => {
+        {visible.length === 0 && <p className="text-sm text-charcoal-600/70">No activity recorded yet.</p>}
+        {visible.map((entry) => {
           const Icon = entry.kind === 'note' ? StickyNote : CHANNEL_ICON[entry.channel ?? ''] ?? MessageSquare;
           return (
             <li key={entry.id} className="relative">
               <span className="absolute -left-[21px] top-1 flex h-4 w-4 items-center justify-center rounded-full bg-champagne text-forest-deep">
                 <Icon size={10} strokeWidth={2} />
               </span>
-              <p className="text-sm text-charcoal">{entry.body}</p>
+              <p className="text-sm text-charcoal">{entry.body}{entry.ai_generated ? <span className="ml-1 text-[10px] text-champagne-600">· AI</span> : null}</p>
               <p className="text-xs text-charcoal-600/60">
                 {entry.author ? `${entry.author} · ` : ''}
-                {formatDistanceToNow(new Date(entry.occurred_at), { addSuffix: true })}
+                {formatRelative(entry.occurred_at)}
                 {entry.direction ? ` · ${entry.direction}` : ''}
+                {entry.status && entry.status !== 'logged' ? ` · ${entry.status}` : ''}
               </p>
             </li>
           );

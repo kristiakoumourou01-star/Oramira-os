@@ -21,25 +21,200 @@ export interface Database {
           name: string;
           notification_settings: Json;
           settings: Json;
+          default_lead_owner_id: string | null;
           created_at: string;
         };
         Insert: Partial<Database['public']['Tables']['organizations']['Row']>;
         Update: Partial<Database['public']['Tables']['organizations']['Row']>;
+      };
+      project_team_contacts: {
+        Row: {
+          id: string;
+          project_id: string;
+          role: string;
+          name: string;
+          email: string;
+          phone: string | null;
+          created_at: string;
+        };
+        Insert: Partial<Database['public']['Tables']['project_team_contacts']['Row']> & { project_id: string; role: string; name: string; email: string };
+        Update: Partial<Database['public']['Tables']['project_team_contacts']['Row']>;
+      };
+      unit_ownership_history: {
+        Row: {
+          id: string;
+          unit_id: string;
+          previous_contact_id: string | null;
+          new_contact_id: string | null;
+          transfer_date: string | null;
+          note: string | null;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: Partial<Database['public']['Tables']['unit_ownership_history']['Row']> & { unit_id: string };
+        Update: Partial<Database['public']['Tables']['unit_ownership_history']['Row']>;
+      };
+      leave_balances: {
+        Row: {
+          id: string;
+          profile_id: string;
+          leave_type: string;
+          year: number;
+          total_days: number;
+          used_days: number;
+        };
+        Insert: Partial<Database['public']['Tables']['leave_balances']['Row']> & { profile_id: string; year: number };
+        Update: Partial<Database['public']['Tables']['leave_balances']['Row']>;
+      };
+      leave_requests: {
+        Row: {
+          id: string;
+          profile_id: string;
+          leave_type: string;
+          start_date: string;
+          end_date: string;
+          days: number | null;
+          reason: string | null;
+          status: string;
+          decided_by: string | null;
+          decided_at: string | null;
+          created_at: string;
+        };
+        Insert: Partial<Database['public']['Tables']['leave_requests']['Row']> & { profile_id: string; start_date: string; end_date: string };
+        Update: Partial<Database['public']['Tables']['leave_requests']['Row']>;
+      };
+      employee_contracts: {
+        Row: {
+          id: string;
+          profile_id: string;
+          type: string;
+          title: string;
+          document_id: string | null;
+          status: string;
+          start_date: string | null;
+          expiry_date: string | null;
+          probation_end_date: string | null;
+          renewal_date: string | null;
+          storage_path: string | null;
+          bucket: string | null;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: Partial<Database['public']['Tables']['employee_contracts']['Row']> & { profile_id: string; title: string };
+        Update: Partial<Database['public']['Tables']['employee_contracts']['Row']>;
+      };
+      commissions: {
+        Row: {
+          id: string;
+          profile_id: string;
+          lead_id: string | null;
+          unit_id: string | null;
+          reservation_id: string | null;
+          base_value: number | null;
+          commission_pct: number | null;
+          amount: number | null;
+          status: string;
+          paid_at: string | null;
+          created_at: string;
+        };
+        Insert: Partial<Database['public']['Tables']['commissions']['Row']> & { profile_id: string };
+        Update: Partial<Database['public']['Tables']['commissions']['Row']>;
+      };
+      payslips: {
+        Row: {
+          id: string;
+          profile_id: string;
+          period: string;
+          gross_amount: number | null;
+          net_amount: number | null;
+          currency: string;
+          document_id: string | null;
+          status: string;
+          employer_cost: number | null;
+          total_deductions: number | null;
+          bonus: number | null;
+          commission: number | null;
+          advances: number | null;
+          payment_date: string | null;
+          breakdown: Json;
+          approved_by: string | null;
+          approved_at: string | null;
+          pdf_path: string | null;
+          issued_at: string;
+        };
+        Insert: Partial<Database['public']['Tables']['payslips']['Row']> & { profile_id: string; period: string };
+        Update: Partial<Database['public']['Tables']['payslips']['Row']>;
+      };
+      lead_assignments: {
+        Row: {
+          id: string;
+          lead_id: string;
+          assigned_to: string | null;
+          assigned_by: string | null;
+          note: string | null;
+          created_at: string;
+        };
+        Insert: Partial<Database['public']['Tables']['lead_assignments']['Row']> & { lead_id: string };
+        Update: Partial<Database['public']['Tables']['lead_assignments']['Row']>;
       };
       profiles: {
         Row: {
           id: string;
           contact_id: string | null;
           contractor_id: string | null;
-          role: 'admin' | 'sales' | 'management' | 'buyer' | 'homeowner' | 'investor' | 'contractor';
+          role: 'admin' | 'sales' | 'management' | 'finance' | 'construction' | 'viewer' | 'buyer' | 'homeowner' | 'investor' | 'contractor';
           full_name: string | null;
           avatar_url: string | null;
           is_active: boolean;
+          job_title: string | null;
+          department: string | null;
+          employment_start_date: string | null;
+          work_schedule: string | null;
+          agreed_salary: number | null;
+          salary_basis: string | null;
+          commission_pct: number | null;
+          annual_leave_days: number | null;
+          sick_leave_days: number | null;
+          special_leave_days: number | null;
+          unpaid_leave_days: number | null;
+          phone: string | null;
+          id_passport: string | null;
+          address: string | null;
+          emergency_contact: string | null;
+          salary_frequency: string | null;
+          bonus_structure: string | null;
+          module_access: Json;
+          benefits: Json;
           created_at: string;
           updated_at: string;
         };
         Insert: Partial<Database['public']['Tables']['profiles']['Row']> & { id: string; role: Database['public']['Tables']['profiles']['Row']['role'] };
         Update: Partial<Database['public']['Tables']['profiles']['Row']>;
+      };
+      org_branding: {
+        Row: {
+          id: string;
+          company_name: string;
+          logo_url: string | null;
+          color_primary: string;
+          color_accent: string;
+          color_secondary: string;
+          color_background: string;
+          color_text: string;
+          font_heading: string;
+          font_body: string;
+          content_width: string;
+          density: string;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: Partial<Database['public']['Tables']['org_branding']['Row']> & { id: string };
+        Update: Partial<Database['public']['Tables']['org_branding']['Row']>;
+      };
+      org_settings: {
+        Row: { id: string; data: Json; updated_at: string; updated_by: string | null };
+        Insert: Partial<Database['public']['Tables']['org_settings']['Row']> & { id: string };
+        Update: Partial<Database['public']['Tables']['org_settings']['Row']>;
       };
       contacts: {
         Row: {
@@ -48,6 +223,10 @@ export interface Database {
           full_name: string | null;
           phone: string | null;
           nationality: string | null;
+          preferred_language: string | null;
+          buyer_type: string | null;
+          communication_preference: string | null;
+          nurture_style: string | null;
           first_touch_source: string | null;
           is_lead: boolean;
           is_buyer: boolean;
@@ -104,6 +283,11 @@ export interface Database {
           timeline_to_buy: string | null;
           message: string | null;
           assigned_to: string | null;
+          assigned_by: string | null;
+          assigned_at: string | null;
+          next_action_date: string | null;
+          next_action_type: string | null;
+          first_response_at: string | null;
           ai_score: number | null;
           ai_score_reasoning: string | null;
           ai_summary: string | null;
@@ -115,13 +299,64 @@ export interface Database {
         Insert: Partial<Database['public']['Tables']['leads']['Row']> & { contact_id: string; source: string };
         Update: Partial<Database['public']['Tables']['leads']['Row']>;
       };
+      viewings: {
+        Row: {
+          id: string;
+          lead_id: string | null;
+          contact_id: string;
+          unit_id: string | null;
+          project_id: string | null;
+          agent_id: string | null;
+          scheduled_at: string;
+          status: string;
+          notes: string | null;
+          reminder_sent_at: string | null;
+          follow_up_sent_at: string | null;
+          meeting_link: string | null;
+          google_event_id: string | null;
+          calendar_synced_at: string | null;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: Partial<Database['public']['Tables']['viewings']['Row']> & { contact_id: string; scheduled_at: string };
+        Update: Partial<Database['public']['Tables']['viewings']['Row']>;
+      };
+      negotiations: {
+        Row: {
+          id: string;
+          lead_id: string;
+          unit_id: string | null;
+          offered_price: number | null;
+          counter_offer: number | null;
+          agreed_price: number | null;
+          payment_terms: string | null;
+          reservation_deposit: number | null;
+          notes: string | null;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: Partial<Database['public']['Tables']['negotiations']['Row']> & { lead_id: string };
+        Update: Partial<Database['public']['Tables']['negotiations']['Row']>;
+      };
       contact_communications: {
         Row: {
           id: string;
           contact_id: string;
+          lead_id: string | null;
           channel: string;
           direction: string;
           summary: string | null;
+          body: string | null;
+          status: string;
+          provider: string | null;
+          provider_message_id: string | null;
+          template_key: string | null;
+          ai_generated: boolean;
+          delivered_at: string | null;
+          read_at: string | null;
+          opened_at: string | null;
+          clicked_at: string | null;
+          error: string | null;
           occurred_at: string;
           logged_by: string | null;
         };
@@ -129,6 +364,33 @@ export interface Database {
           contact_id: string; channel: string; direction: string;
         };
         Update: Partial<Database['public']['Tables']['contact_communications']['Row']>;
+      };
+      message_templates: {
+        Row: {
+          id: string;
+          channel: string;
+          key: string;
+          audience: string;
+          name: string;
+          subject: string | null;
+          body: string;
+          is_active: boolean;
+          updated_at: string;
+        };
+        Insert: Partial<Database['public']['Tables']['message_templates']['Row']> & { channel: string; key: string; name: string; body: string };
+        Update: Partial<Database['public']['Tables']['message_templates']['Row']>;
+      };
+      integrations: {
+        Row: {
+          id: string;
+          channel: string;
+          provider: string;
+          config: Json;
+          is_active: boolean;
+          created_at: string;
+        };
+        Insert: Partial<Database['public']['Tables']['integrations']['Row']> & { channel: string; provider: string };
+        Update: Partial<Database['public']['Tables']['integrations']['Row']>;
       };
       follow_up_tasks: {
         Row: {
@@ -140,6 +402,9 @@ export interface Database {
           note: string | null;
           is_done: boolean;
           reminder_sent_at: string | null;
+          meeting_link: string | null;
+          google_event_id: string | null;
+          calendar_synced_at: string | null;
           created_at: string;
         };
         Insert: Partial<Database['public']['Tables']['follow_up_tasks']['Row']> & { due_at: string };
@@ -234,7 +499,14 @@ export interface Database {
           name: string;
           slug: string | null;
           location: string | null;
+          description: string | null;
           status: string;
+          development_type: string;
+          delivery_date: string | null;
+          common_areas: string | null;
+          maintenance_schedule: string | null;
+          management_contact: string | null;
+          emergency_contact: string | null;
           created_at: string;
         };
         Insert: Partial<Database['public']['Tables']['projects']['Row']> & { name: string };
@@ -256,6 +528,21 @@ export interface Database {
           internal_specs: Json;
           description: string | null;
           floorplan_document_id: string | null;
+          internal_sqm: number | null;
+          covered_veranda_sqm: number | null;
+          uncovered_veranda_sqm: number | null;
+          storage_sqm: number | null;
+          parking_spaces: number | null;
+          plot_size_sqm: number | null;
+          garden_sqm: number | null;
+          has_pool: boolean | null;
+          map_x: number | null;
+          map_y: number | null;
+          construction_progress: number | null;
+          utility_water: string | null;
+          utility_electricity: string | null;
+          utility_internet: string | null;
+          handover_checklist: Json;
           status: 'available' | 'reserved' | 'sold' | 'handed_over' | 'blocked';
           buyer_contact_id: string | null;
           handover_status: string;
@@ -263,6 +550,7 @@ export interface Database {
           warranty_start_date: string | null;
           warranty_period_months: number;
           title_deed_status: string;
+          occupancy_status: string;
           created_at: string;
           updated_at: string;
         };
@@ -310,6 +598,23 @@ export interface Database {
         };
         Insert: Partial<Database['public']['Tables']['handover_checklist_items']['Row']> & { unit_id: string; label: string };
         Update: Partial<Database['public']['Tables']['handover_checklist_items']['Row']>;
+      };
+      project_media: {
+        Row: {
+          id: string;
+          project_id: string;
+          building_id: string | null;
+          floor: number | null;
+          kind: string;
+          title: string | null;
+          bucket: string;
+          storage_path: string;
+          sort: number;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: Partial<Database['public']['Tables']['project_media']['Row']> & { project_id: string; kind: string; storage_path: string };
+        Update: Partial<Database['public']['Tables']['project_media']['Row']>;
       };
       buildings: {
         Row: {
@@ -626,14 +931,85 @@ export interface Database {
         Insert: Partial<Database['public']['Tables']['activity_log']['Row']> & { entity_type: string; entity_id: string; action: string };
         Update: Partial<Database['public']['Tables']['activity_log']['Row']>;
       };
+      calendar_events: {
+        Row: {
+          id: string;
+          profile_id: string;
+          title: string;
+          type: string;
+          start_at: string;
+          duration_min: number | null;
+          priority: string;
+          color: string | null;
+          related_lead_id: string | null;
+          related_property_id: string | null;
+          related_client_id: string | null;
+          recurring_rule: string | null;
+          reminder_minutes: number | null;
+          status: string;
+          location: string | null;
+          notes: string | null;
+          meeting_link: string | null;
+          google_event_id: string | null;
+          calendar_synced_at: string | null;
+          attendees: Json;
+          parent_event_id: string | null;
+          source: string | null;
+          source_key: string | null;
+          recurs_until: string | null;
+          excluded_dates: Json;
+          reminder_sent_at: string | null;
+          created_at: string;
+        };
+        Insert: Partial<Database['public']['Tables']['calendar_events']['Row']> & { profile_id: string; title: string; start_at: string };
+        Update: Partial<Database['public']['Tables']['calendar_events']['Row']>;
+      };
+      calendar_connections: {
+        Row: {
+          id: string; profile_id: string; provider: string;
+          access_token: string | null; refresh_token: string | null; token_expiry: string | null;
+          calendar_id: string | null; email: string | null; created_at: string; updated_at: string;
+        };
+        Insert: Partial<Database['public']['Tables']['calendar_connections']['Row']> & { profile_id: string };
+        Update: Partial<Database['public']['Tables']['calendar_connections']['Row']>;
+      };
       tasks: {
         Row: {
           id: string; title: string; description: string | null; assigned_to: string | null;
           related_entity_type: string | null; related_entity_id: string | null; due_at: string | null;
-          is_done: boolean; created_at: string;
+          is_done: boolean; meeting_link: string | null; google_event_id: string | null; calendar_synced_at: string | null; source_key: string | null; created_at: string;
         };
         Insert: Partial<Database['public']['Tables']['tasks']['Row']> & { title: string };
         Update: Partial<Database['public']['Tables']['tasks']['Row']>;
+      };
+      learning_insights: {
+        Row: { id: string; kind: string; payload: Json; sample_size: number; computed_at: string };
+        Insert: Partial<Database['public']['Tables']['learning_insights']['Row']> & { kind: string };
+        Update: Partial<Database['public']['Tables']['learning_insights']['Row']>;
+      };
+      institutional_memory: {
+        Row: { id: string; kind: string; title: string; body: string; entity_type: string | null; entity_id: string | null; tags: string[]; importance: string; source_key: string | null; created_by: string | null; created_at: string };
+        Insert: Partial<Database['public']['Tables']['institutional_memory']['Row']> & { kind: string; title: string };
+        Update: Partial<Database['public']['Tables']['institutional_memory']['Row']>;
+      };
+      land_parcels: {
+        Row: {
+          id: string; contact_id: string | null; reference: string; location: string | null; area_ref: string | null; plot_size_sqm: number | null;
+          stage: string;
+          location_quality: number | null; planning_uplift: number | null; frontage_m: number | null; access_quality: string | null; plot_shape: string | null; density_potential: number | null; zone: string | null; building_density: number | null;
+          seller_urgency: number | null; reason_for_selling: string | null; flexibility: number | null; financial_pressure: boolean; inheritance: boolean; family_split: boolean;
+          current_value: number | null; post_planning_value: number | null; asking_price: number | null; offer_amount: number | null;
+          assigned_to: string | null; next_action_date: string | null; last_contacted_at: string | null; notes: string | null; created_by: string | null; created_at: string;
+          latitude: number | null; longitude: number | null; due_diligence: Json; offer_inputs: Json | null;
+          relocation: boolean; divorce: boolean; debt_pressure: boolean; timeline_to_sell: string | null;
+        };
+        Insert: Partial<Database['public']['Tables']['land_parcels']['Row']> & { reference: string };
+        Update: Partial<Database['public']['Tables']['land_parcels']['Row']>;
+      };
+      parcel_documents: {
+        Row: { id: string; parcel_id: string; category: string; name: string; url: string | null; note: string | null; uploaded_by: string | null; created_at: string };
+        Insert: Partial<Database['public']['Tables']['parcel_documents']['Row']> & { parcel_id: string; category: string; name: string };
+        Update: Partial<Database['public']['Tables']['parcel_documents']['Row']>;
       };
       notifications: {
         Row: { id: string; user_id: string; channel: 'in_app' | 'email'; title: string; body: string | null; link: string | null; read_at: string | null; created_at: string };
@@ -655,6 +1031,7 @@ export interface Database {
           id: string; email: string; role: string; contact_id: string | null;
           related_entity_type: string | null; related_entity_id: string | null;
           token: string; status: string; expires_at: string; accepted_at: string | null; created_at: string;
+          onboarding: Json;
         };
         Insert: Partial<Database['public']['Tables']['invites']['Row']> & { email: string; role: string; token: string; expires_at: string };
         Update: Partial<Database['public']['Tables']['invites']['Row']>;

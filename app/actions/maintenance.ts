@@ -3,6 +3,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { requireRole } from '@/lib/auth';
 import { logActivity } from '@/lib/activity';
+import { onMaintenanceOpened } from '@/lib/automation-events';
 import { revalidatePath } from 'next/cache';
 
 /**
@@ -75,6 +76,7 @@ export async function createTicket(params: {
     action: params.warrantyId ? 'warranty_claim_filed' : 'ticket_created',
     metadata: { category: params.category, priority: params.priority },
   });
+  await onMaintenanceOpened(ticket.id);
 
   revalidatePath('/homeowner/maintenance');
   revalidatePath('/homeowner/warranty');

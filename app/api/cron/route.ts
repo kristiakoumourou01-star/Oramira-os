@@ -2,8 +2,8 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { runAllJobs, runJob, JOB_KEYS } from '@/lib/automations';
 
 /**
- * Automation Center cron entrypoint. Called by Vercel Cron (vercel.json) or a
- * Supabase scheduled Edge Function (supabase/functions/automations). Self-guards
+ * Automation Center cron entrypoint. Called by Supabase pg_cron (migration 0070,
+ * public.call_app_cron) — or Vercel Cron on a paid plan. Self-guards
  * with CRON_SECRET — sent as `Authorization: Bearer <secret>` (Vercel Cron) or
  * `?key=<secret>`. Pass `?job=<key>` to run a single automation, otherwise all
  * scheduled jobs run. Every run is logged to automation_runs.
@@ -13,7 +13,9 @@ export const maxDuration = 60;
 
 function authorized(request: NextRequest): boolean {
   const secret = process.env.CRON_SECRET;
-  if (!secret) return true; // unset in local dev — allow
+  // Χωρίς CRON_SECRET: ανοιχτό μόνο τοπικά (npm run dev). Σε Vercel κλειστό,
+  // αλλιώς οποιοσδήποτε θα μπορούσε να τρέχει τις εργασίες.
+  if (!secret) return process.env.NODE_ENV !== 'production';
   const auth = request.headers.get('authorization');
   if (auth === `Bearer ${secret}`) return true;
   return new URL(request.url).searchParams.get('key') === secret;

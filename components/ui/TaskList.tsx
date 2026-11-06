@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react';
 import { Check, Circle } from 'lucide-react';
 import { toggleTaskDone } from '@/app/actions/tasks';
+import { formatDate } from '@/lib/format';
 
 export interface TaskItem {
   id: string;
@@ -44,7 +45,7 @@ export function TaskList({ tasks, table = 'tasks' }: { tasks: TaskItem[]; table?
           </span>
           {task.due_at && (
             <span className="text-xs text-charcoal-600/60">
-              {new Date(task.due_at).toLocaleDateString()}
+              {formatDate(task.due_at)}
             </span>
           )}
         </li>

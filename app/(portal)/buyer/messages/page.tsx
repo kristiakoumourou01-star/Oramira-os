@@ -4,6 +4,7 @@ import { getBuyerUnit } from '@/lib/buyer';
 import { MessageSquare, Megaphone } from 'lucide-react';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { BuyerMessageThread, type ThreadMessage } from '@/components/buyer/BuyerMessageThread';
+import { formatDate } from '@/lib/format';
 
 export default async function BuyerMessagesPage() {
   const profile = await requireRole(['buyer', 'admin', 'sales', 'management']);
@@ -64,7 +65,7 @@ export default async function BuyerMessagesPage() {
               <div key={a.id} className="panel p-5">
                 <p className="text-sm font-medium text-charcoal">{a.title}</p>
                 <p className="mt-1 text-sm leading-relaxed text-charcoal-600/80">{a.body}</p>
-                <p className="mt-2 text-xs text-charcoal-600/50">{new Date(a.published_at).toLocaleDateString()}</p>
+                <p className="mt-2 text-xs text-charcoal-600/50">{formatDate(a.published_at)}</p>
               </div>
             ))
           )}

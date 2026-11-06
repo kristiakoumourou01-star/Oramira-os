@@ -8,6 +8,7 @@ import { PaymentProgress } from '@/components/buyer/PaymentProgress';
 import { BuyerMilestoneTimeline } from '@/components/buyer/BuyerMilestoneTimeline';
 import { HandoverChecklistView, type ChecklistItem } from '@/components/buyer/HandoverChecklistView';
 import { TicketStatusBadge } from '@/components/homeowner/TicketStatusBadge';
+import { formatDate, formatNumber, formatCurrency } from '@/lib/format';
 
 export default async function PropertyHistoryPage() {
   const profile = await requireRole(['homeowner', 'admin', 'sales', 'management']);
@@ -52,8 +53,8 @@ export default async function PropertyHistoryPage() {
           <h4 className="mb-4">Original contract</h4>
           <div className="space-y-3 text-sm">
             <div className="flex justify-between"><span className="text-charcoal-600/70">Status</span><span className={unit.contract?.status === 'signed' ? 'badge-forest' : 'badge-neutral'}>{unit.contract?.status ?? 'Not recorded'}</span></div>
-            <div className="flex justify-between"><span className="text-charcoal-600/70">Contract value</span><span className="figure text-charcoal">{total != null ? `€${Number(total).toLocaleString()}` : '—'}</span></div>
-            <div className="flex justify-between"><span className="text-charcoal-600/70">Purchase price</span><span className="figure text-charcoal">{unit.price != null ? `€${Number(unit.price).toLocaleString()}` : '—'}</span></div>
+            <div className="flex justify-between"><span className="text-charcoal-600/70">Contract value</span><span className="figure text-charcoal">{total != null ? `${formatCurrency(Number(total))}` : '—'}</span></div>
+            <div className="flex justify-between"><span className="text-charcoal-600/70">Purchase price</span><span className="figure text-charcoal">{unit.price != null ? `${formatCurrency(Number(unit.price))}` : '—'}</span></div>
           </div>
           <Link href="/homeowner/documents" className="btn-ghost mt-4 text-xs"><FileText size={13} strokeWidth={1.75} /> View documents</Link>
         </div>
@@ -65,8 +66,8 @@ export default async function PropertyHistoryPage() {
             <ul className="mt-4 space-y-1.5 border-t border-stone-line pt-3 text-sm">
               {(payments ?? []).slice(0, 5).map((p) => (
                 <li key={p.id} className="flex justify-between">
-                  <span className="text-charcoal-600/70">{new Date(p.paid_at).toLocaleDateString()} · {p.method ?? 'payment'}</span>
-                  <span className="figure text-charcoal">€{Number(p.amount_paid).toLocaleString()}</span>
+                  <span className="text-charcoal-600/70">{formatDate(p.paid_at)} · {p.method ?? 'payment'}</span>
+                  <span className="figure text-charcoal">€{formatNumber(Number(p.amount_paid))}</span>
                 </li>
               ))}
             </ul>
@@ -97,7 +98,7 @@ export default async function PropertyHistoryPage() {
                     <Link href={`/homeowner/maintenance/${t.id}`} className="flex items-center justify-between py-2.5 transition-colors hover:bg-stone/60">
                       <div>
                         <p className="text-sm text-charcoal">{t.title}</p>
-                        <p className="text-xs capitalize text-charcoal-600/60">{t.category ?? 'general'} · {new Date(t.created_at).toLocaleDateString()}</p>
+                        <p className="text-xs capitalize text-charcoal-600/60">{t.category ?? 'general'} · {formatDate(t.created_at)}</p>
                       </div>
                       <TicketStatusBadge status={t.status} />
                     </Link>

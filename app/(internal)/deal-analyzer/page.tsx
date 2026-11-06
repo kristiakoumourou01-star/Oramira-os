@@ -1,8 +1,9 @@
-import { requireRole } from '@/lib/auth';
+import { requirePermission } from '@/lib/auth';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import Link from 'next/link';
 import { Calculator, ChevronRight } from 'lucide-react';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { WorkspaceHeader } from '@/components/ui/WorkspaceHeader';
 import { NewDealButton } from '@/components/deals/NewDealButton';
 import { eur, pct } from '@/lib/deal-analyzer';
 
@@ -24,7 +25,7 @@ function riskBand(score: number | null): { label: string; cls: string } {
 }
 
 export default async function DealAnalyzerPage() {
-  await requireRole(['admin', 'sales', 'management']);
+  await requirePermission('deals');
   const supabase = await createSupabaseServerClient();
 
   const { data: deals } = await supabase
@@ -33,14 +34,8 @@ export default async function DealAnalyzerPage() {
     .order('updated_at', { ascending: false });
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="eyebrow mb-1">Acquisitions intelligence</p>
-          <h1 className="text-3xl">Deal Analyzer</h1>
-        </div>
-        <NewDealButton />
-      </div>
+    <div className="space-y-5">
+      <WorkspaceHeader eyebrow="Acquisitions intelligence" title="Deal Analyzer" action={<NewDealButton />} />
 
       {!deals || deals.length === 0 ? (
         <EmptyState

@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react';
 import { Bell, Wrench, ShieldCheck, Megaphone, Check } from 'lucide-react';
 import Link from 'next/link';
 import { markNotificationRead, markAllNotificationsRead } from '@/app/actions/notifications';
+import { formatDateTime } from '@/lib/format';
 
 export interface NotificationRow {
   id: string;
@@ -43,7 +44,7 @@ export function NotificationList({ initial }: { initial: NotificationRow[] }) {
   const unread = items.filter((n) => !n.read_at).length;
 
   if (items.length === 0) {
-    return <p className="text-sm text-charcoal-600/70">You're all caught up — no notifications right now.</p>;
+    return <p className="text-sm text-charcoal-600/70">You&apos;re all caught up — no notifications right now.</p>;
   }
 
   return (
@@ -67,7 +68,7 @@ export function NotificationList({ initial }: { initial: NotificationRow[] }) {
               <div className="flex-1">
                 <p className="text-sm font-medium text-charcoal">{n.title}</p>
                 {n.body && <p className="mt-0.5 text-sm text-charcoal-600/80">{n.body}</p>}
-                <p className="mt-0.5 text-xs text-charcoal-600/50">{new Date(n.created_at).toLocaleString()}</p>
+                <p className="mt-0.5 text-xs text-charcoal-600/50">{formatDateTime(n.created_at)}</p>
               </div>
               {!n.read_at && <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-champagne" />}
             </div>

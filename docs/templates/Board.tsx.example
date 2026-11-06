@@ -1,0 +1,32 @@
+// docs/templates/Board.tsx.example → copy to  components/feature/Board.tsx
+//
+// CLIENT Component. Interactive (state, events).
+// ✅ Import types/constants from '@/lib/feature-shared' (NEVER '@/lib/feature').
+// ✅ Import mutations from '@/app/actions/feature' (Server Actions — RPC boundary).
+// ⛔ Never import '@/lib/feature', '@/lib/supabase/server', next/headers, next/server, server-only.
+
+'use client';
+
+import { useTransition } from 'react';
+import { useRouter } from 'next/navigation';
+import { FEATURE_STAGES, STAGE_LABEL, type FeatureItem } from '@/lib/feature-shared';
+import { updateFeatureStage } from '@/app/actions/feature';
+
+export function Board({ items }: { items: FeatureItem[] }) {
+  const router = useRouter();
+  const [, start] = useTransition();
+  const move = (id: string, stage: string) => start(async () => { await updateFeatureStage(id, stage); router.refresh(); });
+
+  return (
+    <div>
+      {items.map((it) => (
+        <div key={it.id}>
+          {it.title} — {STAGE_LABEL[it.stage]}
+          <select value={it.stage} onChange={(e) => move(it.id, e.target.value)}>
+            {FEATURE_STAGES.map((s) => <option key={s} value={s}>{STAGE_LABEL[s]}</option>)}
+          </select>
+        </div>
+      ))}
+    </div>
+  );
+}

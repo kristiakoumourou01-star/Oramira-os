@@ -1,5 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { intakeContactForm } from '@/lib/intake';
+import { readConsent, recordConsent } from '@/lib/gdpr';
+import { missingPublicFields } from '@/lib/public-form';
 
 /**
  * Public website contact-form intake. No session (the public site calls this),
@@ -33,6 +35,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Email is required' }, { status: 400, headers: CORS });
   }
 
+  const missing = await missingPublicFields(body);
+  if (missing) return NextResponse.json({ error: missing }, { status: 400, headers: CORS });
+  const consent = await readConsent(body);
+  if (!consent.ok) return NextResponse.json({ error: consent.error }, { status: 400, headers: CORS });
+
   try {
     const result = await intakeContactForm({
       name: body.name,
@@ -44,7 +51,9 @@ export async function POST(request: NextRequest) {
       budget: body.budget,
       budgetMin: body.budgetMin != null ? Number(body.budgetMin) : undefined,
       budgetMax: body.budgetMax != null ? Number(body.budgetMax) : undefined,
+      areas: Array.isArray(body.areas) ? body.areas.map(String) : typeof body.areas === 'string' ? body.areas.split(',') : undefined,
     });
+    await recordConsent(result.contactId, { ...consent, source: 'Φόρμα ιστοσελίδας' });
     return NextResponse.json({ ok: true, ...result }, { headers: CORS });
   } catch (err: any) {
     return NextResponse.json({ error: err?.message ?? 'Intake failed' }, { status: 500, headers: CORS });

@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { CalendarClock, Truck, CheckCircle2, X } from 'lucide-react';
 import { scheduleVisit, updateVisit } from '@/app/actions/contractor';
+import { formatDateTime } from '@/lib/format';
 
 export interface VisitItem {
   id: string;
@@ -81,7 +82,7 @@ export function ScheduleVisitForm({
               <li key={v.id} className="py-3">
                 <div className="flex items-center justify-between">
                   <p className="figure text-sm text-charcoal">
-                    {v.scheduled_for ? new Date(v.scheduled_for).toLocaleString() : 'Time TBC'}
+                    {v.scheduled_for ? formatDateTime(v.scheduled_for) : 'Time TBC'}
                   </p>
                   <span className={STATUS_CLASS[v.status] ?? 'badge-neutral'}>{v.status.replace(/_/g, ' ')}</span>
                 </div>

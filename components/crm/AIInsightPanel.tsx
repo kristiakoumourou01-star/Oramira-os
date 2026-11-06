@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react';
 import { Sparkles, RefreshCw } from 'lucide-react';
 import { runAIAnalysis } from '@/app/actions/leads';
+import { formatDateTime } from '@/lib/format';
 
 /**
  * Surfaces the AI score, reasoning, summary, and recommended next steps for
@@ -63,20 +64,14 @@ export function AIInsightPanel({
         </div>
       </div>
 
-      <div className="space-y-3 border-t border-stone-line pt-4">
-        <div>
-          <p className="eyebrow mb-1">Summary</p>
-          <p className="text-sm text-charcoal">{state.summary ?? 'Run AI analysis to generate a summary.'}</p>
-        </div>
-        <div>
-          <p className="eyebrow mb-1">Recommended next steps</p>
-          <p className="text-sm text-charcoal">{state.nextSteps ?? '—'}</p>
-        </div>
+      <div className="border-t border-stone-line pt-4">
+        <p className="eyebrow mb-1">Summary</p>
+        <p className="text-sm text-charcoal">{state.summary ?? 'Run AI analysis to generate a summary.'}</p>
       </div>
 
       {generatedAt && (
         <p className="mt-4 text-xs text-charcoal-600/50">
-          Last generated {new Date(generatedAt).toLocaleString()}
+          Last generated {formatDateTime(generatedAt)}
         </p>
       )}
     </div>
