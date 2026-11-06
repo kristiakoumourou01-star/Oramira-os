@@ -1,52 +1,12 @@
 import type { Metadata } from 'next';
-import {
-  Source_Serif_4,
-  IBM_Plex_Sans,
-  IBM_Plex_Mono,
-  Cormorant_Garamond,
-  Playfair_Display,
-  Montserrat,
-  Inter,
-  Work_Sans,
-  Noto_Sans,
-  Noto_Serif,
-  Open_Sans,
-  Manrope,
-  Commissioner,
-  Literata,
-} from 'next/font/google';
+import './fonts';
 import './globals.css';
 import { getBranding, brandCssVars, sidebarBackground } from '@/lib/branding';
 import { getOrgSettings, getPublicAppearance } from '@/lib/org-settings';
 import { requestLocale } from '@/lib/locale-server';
 
-// Tabular figures — the ledger signature: every price, sqm, % renders here.
-// Not re-skinnable; the brand's numeric voice is constant.
-const mono = IBM_Plex_Mono({ subsets: ['latin'], weight: ['400', '500'], variable: '--font-mono' , preload: false });
-
-// Curated, re-skinnable typefaces. None is preloaded: only the pair chosen in
-// Settings is ever used, so preloading all 14 slowed every first page load.
-// Curated, re-skinnable typefaces. Each is exposed under its own CSS variable;
-// branding (lib/branding.ts) aliases --font-display / --font-sans to the chosen
-// pair at the root, so headings and body can be changed from Settings.
-const sourceSerif = Source_Serif_4({ subsets: ['latin', 'greek'], weight: ['400', '500', '600'], variable: '--font-source-serif' , preload: false });
-const cormorant = Cormorant_Garamond({ subsets: ['latin'], weight: ['400', '500', '600'], variable: '--font-cormorant' , preload: false });
-const playfair = Playfair_Display({ subsets: ['latin'], weight: ['400', '500', '600'], variable: '--font-playfair' , preload: false });
-const montserrat = Montserrat({ subsets: ['latin'], weight: ['400', '500', '600'], variable: '--font-montserrat' , preload: false });
-const ibmPlex = IBM_Plex_Sans({ subsets: ['latin', 'greek'], weight: ['400', '500', '600'], variable: '--font-ibm-plex' , preload: false });
-const inter = Inter({ subsets: ['latin', 'greek'], weight: ['400', '500', '600'], variable: '--font-inter' , preload: false });
-const workSans = Work_Sans({ subsets: ['latin'], weight: ['400', '500', '600'], variable: '--font-work-sans' , preload: false });
-// Greek-ready faces (the company works in Greek): body and heading options.
-const notoSans = Noto_Sans({ subsets: ['latin', 'greek'], weight: ['400', '500', '600'], variable: '--font-noto-sans', display: 'swap' , preload: false });
-const notoSerif = Noto_Serif({ subsets: ['latin', 'greek'], weight: ['400', '500', '600'], variable: '--font-noto-serif', display: 'swap' , preload: false });
-const openSans = Open_Sans({ subsets: ['latin', 'greek'], weight: ['400', '500', '600'], variable: '--font-open-sans', display: 'swap' , preload: false });
-const manrope = Manrope({ subsets: ['latin', 'greek'], weight: ['400', '500', '600'], variable: '--font-manrope', display: 'swap' , preload: false });
-const commissioner = Commissioner({ subsets: ['latin', 'greek'], weight: ['400', '500', '600'], variable: '--font-commissioner', display: 'swap' , preload: false });
-const literata = Literata({ subsets: ['latin', 'greek'], weight: ['400', '500', '600'], variable: '--font-literata', display: 'swap' , preload: false });
-
-const FONT_VARS = [sourceSerif, cormorant, playfair, montserrat, ibmPlex, inter, workSans, notoSans, notoSerif, openSans, manrope, commissioner, literata, mono]
-  .map((f) => f.variable)
-  .join(' ');
+// Οι γραμματοσειρές (και οι μεταβλητές τους) έρχονται από app/fonts.ts.
+const FONT_VARS = '';
 
 export async function generateMetadata(): Promise<Metadata> {
   const [{ companyName }, appearance] = await Promise.all([getBranding(), getPublicAppearance()]);

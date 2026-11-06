@@ -1,0 +1,17 @@
+/* Οι μεταβλητές που διαβάζει το branding (lib/branding-shared.ts). */
+:root {
+  --font-source-serif: 'Source Serif 4';
+  --font-cormorant: 'Cormorant Garamond';
+  --font-playfair: 'Playfair Display';
+  --font-montserrat: 'Montserrat';
+  --font-ibm-plex: 'IBM Plex Sans';
+  --font-inter: 'Inter';
+  --font-work-sans: 'Work Sans';
+  --font-noto-sans: 'Noto Sans';
+  --font-noto-serif: 'Noto Serif';
+  --font-open-sans: 'Open Sans';
+  --font-manrope: 'Manrope';
+  --font-commissioner: 'Commissioner';
+  --font-literata: 'Literata';
+  --font-mono: 'IBM Plex Mono';
+}
