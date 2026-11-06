@@ -26,7 +26,7 @@ export function LeadNextAction({ nba, source, phone }: { nba: NextBestAction; so
   return (
     <div className={`flex flex-wrap items-center gap-3 rounded-2xl border px-4 py-3 ${ring}`}>
       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-forest text-white"><Sparkles size={16} strokeWidth={1.9} /></span>
-      <div className="min-w-0 flex-1">
+      <div className="min-w-[12rem] flex-1">
         <p className="eyebrow flex items-center gap-1.5">
           Next best action
           <span className={`rounded px-1 py-px text-[9px] font-semibold uppercase tracking-wide ${source === 'claude' ? 'bg-champagne-100 text-champagne-600' : 'bg-sand-100 text-charcoal-600/70'}`}>

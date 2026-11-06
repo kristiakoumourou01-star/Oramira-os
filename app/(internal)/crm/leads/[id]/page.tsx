@@ -12,7 +12,7 @@ import Link from 'next/link';
 import { ArrowLeft, Phone, Mail, User } from 'lucide-react';
 import { StatusPipeline } from '@/components/crm/StatusPipeline';
 import { LeadPipelinePicker } from '@/components/crm/LeadPipelinePicker';
-import { pipelineOf, STATUS_EL } from '@/lib/pipeline-shared';
+import { pipelineOf, stageOf, STATUS_EL } from '@/lib/pipeline-shared';
 import { AIInsightPanel } from '@/components/crm/AIInsightPanel';
 import { ContactTimeline, type TimelineEntry } from '@/components/crm/ContactTimeline';
 import { LeadQuickActions } from '@/components/crm/LeadQuickActions';
@@ -199,7 +199,7 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
         <div>
           <div className="mb-1 flex items-center gap-2">
             <PriorityBadge score={score} />
-            <span className="badge-neutral">{STATUS_EL[lead.status] ?? lead.status}</span>
+            <span className="badge-neutral">{stageOf(pipeline, lead.status, stRow?.stage ?? null)?.label ?? STATUS_EL[lead.status] ?? lead.status}</span>
             {pl?.is_returning && <span className="badge-champagne" title="Έχει ξαναγοράσει από εσάς">Επιστρέφων πελάτης</span>}
           </div>
           <h1 className="text-3xl">{contact?.full_name ?? 'Unnamed lead'}</h1>
