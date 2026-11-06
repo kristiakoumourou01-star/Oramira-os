@@ -109,6 +109,14 @@ async function loadProfile(
  * ignores the cookie — only admins can view-as.
  */
 export const getCurrentProfile = cache(async function getCurrentProfile(): Promise<CurrentProfile | null> {
+  const t0 = Date.now();
+  try { return await readCurrentProfile(); } finally {
+    const ms = Date.now() - t0;
+    if (ms > 250) console.log(`[perf] profile ${ms}ms`);
+  }
+});
+
+async function readCurrentProfile(): Promise<CurrentProfile | null> {
   const supabase = await createSupabaseServerClient();
   const user = await getAuthUser();
   if (!user) return null;
@@ -135,7 +143,8 @@ export const getCurrentProfile = cache(async function getCurrentProfile(): Promi
     if (Number.isFinite(changed)) passwordExpired = Date.now() - changed > PASSWORD_MAX_AGE_DAYS * 86_400_000;
   }
   return { ...real, passwordExpired, impersonator: null };
-});
+}
+
 
 /**
  * Redirects to login if not signed in; use at the top of protected Server Components.

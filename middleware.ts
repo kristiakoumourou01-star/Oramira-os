@@ -20,7 +20,16 @@ const PORTAL_PREFIX_TO_ROLE: Record<string, string> = {
 
 const PUBLIC_PATHS = ['/login', '/invite', '/reset-password', '/book', '/auth/signout', '/selection/'];
 
+/** Times the guard; slow runs (sign-in check + role lookup) show up in the logs as «[perf] middleware …». */
 export async function middleware(request: NextRequest) {
+  const t0 = Date.now();
+  const res = await guard(request);
+  const ms = Date.now() - t0;
+  if (ms > 250) console.log(`[perf] middleware ${request.nextUrl.pathname.replace(/[0-9a-f]{8}-[0-9a-f-]{27,}/gi, ':id')} ${ms}ms`);
+  return res;
+}
+
+async function guard(request: NextRequest) {
   const { response, user } = await updateSession(request);
   const path = request.nextUrl.pathname;
 

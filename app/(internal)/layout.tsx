@@ -17,6 +17,8 @@ import { BrandMark } from '@/components/layout/BrandMark';
 import { navLabel, t } from '@/lib/i18n';
 import { cookies } from 'next/headers';
 import { SidebarToggle } from '@/components/layout/SidebarToggle';
+import { PerfReporter } from '@/components/layout/PerfReporter';
+import { Suspense } from 'react';
 import { SIDEBAR_COOKIE, parseSidebarMode } from '@/lib/sidebar-mode-shared';
 
 /**
@@ -69,6 +71,7 @@ export default async function InternalLayout({ children }: { children: React.Rea
   const content = (
     <div className="min-w-0 flex-1">
       {profile.impersonator && <ImpersonationBanner name={profile.fullName} role={profile.role} />}
+      <Suspense fallback={null}><PerfReporter /></Suspense>
       <TopBar profile={profile} showSearch start={menu.position === 'top' ? undefined : <SidebarToggle mode={sidebarMode} />} />
       <main className={`mx-auto px-6 py-5 ${CONTENT_WIDTH_CLASS[contentWidth]}`}>{children}</main>
     </div>
