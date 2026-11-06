@@ -113,7 +113,7 @@ function Row({ r, overdue, showDay, active, onActivate, onOpen, onDone, agents }
         <button type="button" onClick={onOpen} className="flex min-w-0 flex-1 items-center gap-3 text-left" title="Άνοιγμα καρτέλας">
           <Icon size={15} strokeWidth={1.75} className={overdue ? 'text-signal-danger' : 'text-olive'} />
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-sm text-charcoal"><span className="font-medium">{r.name}</span> · {r.note}</span>
+            <span className="block text-sm text-charcoal"><span className="font-medium">{r.name}</span> <span className="text-charcoal-600">· {r.note}</span></span>
             <span className="block truncate text-xs text-charcoal-600/70">
               <span className={overdue ? 'text-signal-danger' : ''}>{showDay || overdue ? formatDayMonthTime(r.dueAt) : formatTime(r.dueAt)}</span>
               {r.leadStatus ? ` · ${STATUS_EL[r.leadStatus] ?? r.leadStatus}` : ''}{r.budget ? ` · ${r.budget}` : ''}{r.ownerName ? ` · ${r.ownerName}` : ''}
@@ -122,8 +122,8 @@ function Row({ r, overdue, showDay, active, onActivate, onOpen, onDone, agents }
         </button>
         <div className="flex shrink-0 items-center gap-0.5">
           {tel && <a href={`tel:${tel}`} className="btn-ghost p-1.5" title="Κλήση"><Phone size={14} /></a>}
-          {tel && <a href={`https://wa.me/${tel.replace('+', '')}`} target="_blank" rel="noreferrer" className="btn-ghost p-1.5" title="WhatsApp"><MessageCircle size={14} /></a>}
-          {r.email && <a href={`mailto:${r.email}`} className="btn-ghost p-1.5" title="Email"><Mail size={14} /></a>}
+          {tel && <a href={`https://wa.me/${tel.replace('+', '')}`} target="_blank" rel="noreferrer" className="btn-ghost hidden p-1.5 md:inline-flex" title="WhatsApp"><MessageCircle size={14} /></a>}
+          {r.email && <a href={`mailto:${r.email}`} className="btn-ghost hidden p-1.5 md:inline-flex" title="Email"><Mail size={14} /></a>}
           <div className="relative">
             <button type="button" onClick={() => setSnooze((v) => !v)} className="btn-ghost p-1.5" title="Αναβολή"><AlarmClock size={14} /></button>
             {snooze && (
