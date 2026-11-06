@@ -37,7 +37,7 @@ export async function getLeadQuick(leadId: string): Promise<{ ok: true; lead: Le
   const [{ data: notes }, { data: comms }, { data: fus }] = await Promise.all([
     db.from('notes').select('id, body, created_at, author:author_id(full_name)').eq('entity_type', 'lead').eq('entity_id', leadId).order('created_at', { ascending: false }).limit(6),
     db.from('contact_communications').select('id, channel, direction, summary, occurred_at').eq('contact_id', l.contact_id).order('occurred_at', { ascending: false }).limit(6),
-    db.from('follow_up_tasks').select('id, due_at, note').eq('lead_id', leadId).eq('is_done', false).order('due_at').limit(5),
+    db.from('follow_up_tasks').select('id, due_at, note').eq('lead_id', leadId).eq('is_done', false).order('due_at').limit(10),
   ]);
   const c = l.contacts ?? {};
   return {

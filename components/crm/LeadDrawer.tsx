@@ -3,11 +3,14 @@
 import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { X, Maximize2, Phone, Mail, MessageCircle, Save, StickyNote, CalendarClock } from 'lucide-react';
+import { X, Maximize2, Phone, Mail, MessageCircle, Save, StickyNote, CalendarClock, Check, AlarmClock, Plus } from 'lucide-react';
 import { getLeadQuick, saveLeadQuick, type LeadQuick } from '@/app/actions/lead-quick';
 import { addNote, reassignLead } from '@/app/actions/leads';
 import { StatusPipeline } from '@/components/crm/StatusPipeline';
 import { formatDate, formatDateTime } from '@/lib/format';
+import { addFollowUp, updateFollowUp } from '@/app/actions/follow-ups';
+import { CompletePanel } from '@/components/crm/CompletePanel';
+import { NEXT_PRESETS, snoozeTo, toLocalInput } from '@/lib/follow-ups-shared';
 
 interface Agent { id: string; full_name: string | null }
 
@@ -84,6 +87,8 @@ export function LeadDrawer({ leadId, agents, onClose }: { leadId: string; agents
                   stageEnteredAt={lead.stageEnteredAt} lostReason={lead.lostReason} lostNote={lead.lostNote} commissionInvoiceId={lead.commissionInvoiceId} onChange={() => void load()} />
               </section>
 
+              <NextMoves leadId={leadId} items={lead.followUps} onChange={() => { router.refresh(); void load(); }} />
+
               <section className="panel grid gap-3 p-4 sm:grid-cols-2">
                 <Field label="Ονοματεπώνυμο"><input className="input text-sm" value={form.name ?? ''} onChange={set('name')} /></Field>
                 <Field label="Υπεύθυνος">
@@ -111,13 +116,6 @@ export function LeadDrawer({ leadId, agents, onClose }: { leadId: string; agents
               </section>
 
               {lead.message && <section className="panel p-4 text-sm"><p className="eyebrow mb-1">Μήνυμα πελάτη</p><p className="whitespace-pre-line text-charcoal-600">{lead.message}</p></section>}
-
-              {lead.followUps.length > 0 && (
-                <section className="panel p-4">
-                  <p className="eyebrow mb-2 flex items-center gap-1"><CalendarClock size={12} /> Ανοιχτά follow-ups</p>
-                  <ul className="space-y-1 text-sm">{lead.followUps.map((f) => <li key={f.id} className="flex justify-between gap-2"><span>{f.note ?? 'Follow-up'}</span><span className="text-xs text-charcoal-600/70">{formatDateTime(f.dueAt)}</span></li>)}</ul>
-                </section>
-              )}
 
               <section className="panel space-y-3 p-4">
                 <p className="eyebrow flex items-center gap-1"><StickyNote size={12} /> Σημειώσεις</p>
@@ -147,4 +145,52 @@ export function LeadDrawer({ leadId, agents, onClose }: { leadId: string; agents
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return <label className="block"><span className="eyebrow mb-1 block">{label}</span>{children}</label>;
+}
+
+/** Επόμενες κινήσεις: λίστα ανοιχτών follow-ups με «έγινε», αναβολή και νέα κίνηση. */
+function NextMoves({ leadId, items, onChange }: { leadId: string; items: { id: string; dueAt: string; note: string | null }[]; onChange: () => void }) {
+  const [pending, start] = useTransition();
+  const [doing, setDoing] = useState<string | null>(null);
+  const [note, setNote] = useState('Κλήση');
+  const [at, setAt] = useState(toLocalInput(snoozeTo('tomorrow')));
+  const [err, setErr] = useState<string | null>(null);
+  const now = Date.now();
+  const add = () => start(async () => {
+    const r = await addFollowUp(leadId, new Date(at).toISOString(), note);
+    if (!r.ok) { setErr(r.error); return; }
+    setErr(null); setNote('Κλήση'); setAt(toLocalInput(snoozeTo('tomorrow'))); onChange();
+  });
+  const postpone = (id: string, iso: string) => start(async () => { const r = await updateFollowUp(id, { dueAt: iso }); if (r.ok) onChange(); else setErr(r.error); });
+
+  return (
+    <section className="panel space-y-3 p-4">
+      <p className="eyebrow flex items-center gap-1"><CalendarClock size={12} /> Επόμενες κινήσεις</p>
+      <ul className="space-y-1.5">
+        {items.map((f) => (
+          <li key={f.id}>
+            <div className="flex items-center gap-2 text-sm">
+              <button type="button" title="Έγινε" onClick={() => setDoing(doing === f.id ? null : f.id)}
+                className={`grid h-5 w-5 shrink-0 place-items-center rounded-full border ${doing === f.id ? 'border-forest bg-forest text-white' : 'border-stone-line text-transparent hover:border-forest hover:text-forest'}`}><Check size={11} /></button>
+              <span className="min-w-0 flex-1 truncate">{f.note ?? 'Follow-up'}</span>
+              <span className={`shrink-0 text-xs ${Date.parse(f.dueAt) < now ? 'text-signal-danger' : 'text-charcoal-600/70'}`}>{formatDateTime(f.dueAt)}</span>
+              <button type="button" disabled={pending} onClick={() => postpone(f.id, snoozeTo('tomorrow'))} className="btn-ghost p-1 text-xs" title="Αναβολή για αύριο"><AlarmClock size={13} /></button>
+            </div>
+            {doing === f.id && <div className="mt-2"><CompletePanel inline r={{ id: f.id }} onCancel={() => setDoing(null)} onDone={() => { setDoing(null); onChange(); }} /></div>}
+          </li>
+        ))}
+        {items.length === 0 && <li className="text-xs text-charcoal-600/60">Δεν υπάρχει προγραμματισμένη κίνηση.</li>}
+      </ul>
+      <div className="space-y-2 border-t border-stone-line pt-3">
+        <div className="flex flex-wrap gap-1">
+          {NEXT_PRESETS.map((p) => <button key={p} type="button" onClick={() => setNote(p)} className={`rounded-full border px-2.5 py-0.5 text-xs ${note === p ? 'border-forest bg-forest text-white' : 'border-stone-line text-charcoal-600 hover:border-forest'}`}>{p}</button>)}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <input className="input min-w-[9rem] flex-1 text-sm" value={note} onChange={(e) => setNote(e.target.value)} />
+          <input type="datetime-local" className="input w-auto text-sm" value={at} onChange={(e) => setAt(e.target.value)} />
+          <button type="button" disabled={pending || !at} onClick={add} className="btn-secondary px-3 text-xs"><Plus size={13} /> Προσθήκη</button>
+        </div>
+        {err && <p className="text-xs text-signal-danger">{err}</p>}
+      </div>
+    </section>
+  );
 }

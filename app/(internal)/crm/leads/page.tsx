@@ -8,6 +8,7 @@ import { buildSalesCommand } from '@/lib/sales-command';
 import Link from 'next/link';
 import { SalesCommandCenter } from '@/components/crm/SalesCommandCenter';
 import { LeadBoard, type Agent } from '@/components/crm/LeadBoard';
+import { FollowUpsBoard } from '@/components/crm/FollowUpsBoard';
 import { PipelineInsights } from '@/components/crm/PipelineInsights';
 import { loadPipelineInsights } from '@/lib/pipeline-insights';
 import { NewLeadForm } from '@/components/crm/NewLeadForm';
@@ -40,7 +41,7 @@ export default async function SalesPage({ searchParams }: { searchParams: { tab?
     profile.impersonator && profile.role === 'sales'
       ? Promise.resolve({ data: [] as any[], error: null })
       : supabase.from('leads').select('id, created_at, source, status, contacts(full_name)').is('assigned_to', null).order('created_at', { ascending: true }).limit(80),
-    supabase.from('follow_up_tasks').select('id, note, due_at, lead_id, contacts(full_name)').eq('is_done', false).order('due_at', { ascending: true }).limit(100),
+    (supabase as any).from('follow_up_tasks').select('id, note, due_at, lead_id, contact_id, assigned_to, contacts(full_name, email, phone), leads(status, budget_min, budget_max), owner:assigned_to(full_name)').eq('is_done', false).order('due_at', { ascending: true }).limit(300),
     supabase.from('viewings').select('id, scheduled_at, status, lead_id, contacts(full_name), projects(name), agent:agent_id(full_name)').order('scheduled_at', { ascending: false }).limit(100),
     supabase.from('reservations').select('id, status, deposit_amount, deposit_paid, reserved_at, contacts(full_name), units(unit_number, projects(name))').order('reserved_at', { ascending: false }).limit(60),
     supabase.from('leads').select('id, contacts(full_name)').eq('status', 'won').limit(60),
@@ -94,25 +95,12 @@ export default async function SalesPage({ searchParams }: { searchParams: { tab?
     },
     {
       id: 'followups', label: 'Follow-ups', content: (
-        <Panel>{(followUps ?? []).length === 0 ? <Empty text="No open follow-ups. 🎉" /> : (
-          <ul className="divide-y divide-stone-line">
-            {(followUps ?? []).map((t: any) => {
-              const overdue = new Date(t.due_at).getTime() <= now;
-              return (
-                <li key={t.id} className="flex items-center justify-between py-3">
-                  <div className="flex items-center gap-3">
-                    <Clock size={15} className={overdue ? 'text-signal-danger' : 'text-olive'} strokeWidth={1.75} />
-                    <div>
-                      <p className="text-sm text-charcoal">{t.note ?? 'Follow-up'}{t.contacts?.full_name ? ` · ${t.contacts.full_name}` : ''}</p>
-                      <p className="text-xs text-charcoal-600/60">{formatDateTime(t.due_at)}</p>
-                    </div>
-                  </div>
-                  {t.lead_id && <Link href={`/crm/leads/${t.lead_id}`} className="text-sm text-forest hover:underline">Open</Link>}
-                </li>
-              );
-            })}
-          </ul>
-        )}</Panel>
+        <FollowUpsBoard currentUserId={profile.id} agents={(agents ?? []) as Agent[]} rows={((followUps ?? []) as any[]).map((t) => ({
+          id: t.id, leadId: t.lead_id, contactId: t.contact_id, dueAt: t.due_at, note: t.note ?? 'Follow-up',
+          name: t.contacts?.full_name ?? t.contacts?.email ?? 'Χωρίς όνομα', phone: t.contacts?.phone ?? null, email: t.contacts?.email ?? null,
+          ownerId: t.assigned_to ?? null, ownerName: t.owner?.full_name ?? null, leadStatus: t.leads?.status ?? null,
+          budget: t.leads?.budget_max ? `έως €${formatNumber(t.leads.budget_max)}` : t.leads?.budget_min ? `από €${formatNumber(t.leads.budget_min)}` : null,
+        }))} />
       ),
     },
     {
