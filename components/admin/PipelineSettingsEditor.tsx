@@ -70,28 +70,28 @@ export function PipelineSettingsEditor({ initial, canEdit, vatRates }: { initial
               </div>
               {isOpen && (
                 <div className="border-t border-stone-line p-3">
-                  <div className="hidden grid-cols-[52px_1.4fr_1fr_80px_80px_28px] items-center gap-2 text-[11px] text-charcoal-600/70 sm:grid">
-                    <span /><span>Όνομα σταδίου</span><span>Σημαίνει</span><span>Πιθανότητα %</span><span>Έως μέρες</span><span />
+                  <div className="hidden items-center gap-2 text-[11px] text-charcoal-600/70 2xl:flex">
+                    <span className="w-[44px]" /><span className="flex-[2_1_10rem]">Όνομα σταδίου</span><span className="flex-[1_1_9rem]">Σημαίνει</span><span className="w-[88px]">Πιθανότητα</span><span className="w-[88px]">Όριο</span><span className="w-5" />
                   </div>
                   {p.stages.map((st, i) => {
                     const won = st.status === 'won';
                     const lastNew = st.status === 'new' && p.stages.filter((x) => x.status === 'new').length === 1;
                     return (
-                      <div key={st.key} className="mt-1 grid grid-cols-[52px_1.4fr_1fr_80px_80px_28px] items-center gap-2">
-                        <span className="flex text-charcoal-600/50">
+                      <div key={st.key} className="mt-1 flex flex-wrap items-center gap-2 border-b border-stone-line/60 pb-1 last:border-0 2xl:border-0 2xl:pb-0">
+                        <span className="flex w-[44px] text-charcoal-600/50">
                           <button type="button" disabled={dis || i === 0 || won} onClick={() => moveStage(p.key, i, -1)} aria-label="Πάνω" className="disabled:opacity-20 hover:text-forest"><ChevronUp size={15} /></button>
                           <button type="button" disabled={dis || won || i >= p.stages.length - 2} onClick={() => moveStage(p.key, i, 1)} aria-label="Κάτω" className="disabled:opacity-20 hover:text-forest"><ChevronDown size={15} /></button>
                         </span>
-                        <input className="input py-1 text-sm" disabled={dis} value={st.label} maxLength={40} onChange={(e) => setStage(p.key, i, { label: e.target.value })} />
-                        <select className="input py-1 text-sm" disabled={dis || won || lastNew} value={st.status} onChange={(e) => setStage(p.key, i, { status: e.target.value as FlowStatus })}>
+                        <input className="input min-w-0 flex-[2_1_10rem] py-1 text-sm" placeholder="Όνομα σταδίου" aria-label="Όνομα σταδίου" disabled={dis} value={st.label} maxLength={40} onChange={(e) => setStage(p.key, i, { label: e.target.value })} />
+                        <select className="input min-w-0 flex-[1_1_9rem] py-1 text-sm" aria-label="Σημαίνει" title="Σημαίνει" disabled={dis || won || lastNew} value={st.status} onChange={(e) => setStage(p.key, i, { status: e.target.value as FlowStatus })}>
                           {FLOW.filter((f) => f !== 'won' || won).map((f) => <option key={f} value={f}>{STATUS_EL[f]}</option>)}
                         </select>
-                        <input className="input py-1 text-right text-sm" type="number" min={0} max={100} disabled={dis} value={st.probability} onChange={(e) => setStage(p.key, i, { probability: Number(e.target.value) })} />
-                        {won ? <span className="text-center text-xs text-charcoal-600/50">—</span>
-                          : <input className="input py-1 text-right text-sm" type="number" min={1} max={365} placeholder="∞" disabled={dis} value={st.maxDays ?? ''} onChange={(e) => setStage(p.key, i, { maxDays: e.target.value === '' ? null : Number(e.target.value) })} />}
+                        <label className="flex w-[88px] items-center gap-1 text-xs text-charcoal-600/70" title="Πιθανότητα κλεισίματος"><input className="input min-w-0 py-1 text-right text-sm" type="number" min={0} max={100} disabled={dis} value={st.probability} onChange={(e) => setStage(p.key, i, { probability: Number(e.target.value) })} />%</label>
+                        {won ? <span className="w-[88px] text-center text-xs text-charcoal-600/50">—</span>
+                          : <label className="flex w-[88px] items-center gap-1 text-xs text-charcoal-600/70" title="Όριο ημερών στο στάδιο"><input className="input min-w-0 py-1 text-right text-sm" type="number" min={1} max={365} placeholder="∞" disabled={dis} value={st.maxDays ?? ''} onChange={(e) => setStage(p.key, i, { maxDays: e.target.value === '' ? null : Number(e.target.value) })} />μ.</label>}
                         {canEdit && !won && !lastNew
-                          ? <button type="button" onClick={() => { if (window.confirm(`Διαγραφή του σταδίου «${st.label}»; Τα leads του θα φαίνονται στο στάδιο με την ίδια σημασία ή στο προηγούμενο.`)) removeStage(p.key, i); }} className="text-charcoal-600/40 hover:text-signal-danger" aria-label="Διαγραφή σταδίου"><Trash2 size={14} /></button>
-                          : <span />}
+                          ? <button type="button" onClick={() => { if (window.confirm(`Διαγραφή του σταδίου «${st.label}»; Τα leads του θα φαίνονται στο στάδιο με την ίδια σημασία ή στο προηγούμενο.`)) removeStage(p.key, i); }} className="w-5 text-charcoal-600/40 hover:text-signal-danger" aria-label="Διαγραφή σταδίου"><Trash2 size={14} /></button>
+                          : <span className="w-5" />}
                       </div>
                     );
                   })}
