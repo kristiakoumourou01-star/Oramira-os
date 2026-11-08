@@ -6,7 +6,7 @@ import { createSupabaseServerClient, createSupabaseServiceRoleClient } from '@/l
 import { requireProfile } from '@/lib/auth';
 import { logActivity } from '@/lib/activity';
 import { readImpersonationTarget, clearImpersonationCookie } from '@/lib/impersonation';
-import { getOrgSettings } from '@/lib/org-settings';
+import { getOrgSettingsRaw } from '@/lib/org-settings';
 import { passwordProblem } from '@/lib/security-shared';
 
 export type ChangePasswordState = { ok?: boolean; error?: string };
@@ -23,7 +23,7 @@ export async function changeOwnPassword(_prev: ChangePasswordState | undefined, 
   if (await readImpersonationTarget()) {
     return { error: 'Βγείτε πρώτα από την προβολή ως άλλος χρήστης.' };
   }
-  const issue = passwordProblem(password, (await getOrgSettings()).security);
+  const issue = passwordProblem(password, (await getOrgSettingsRaw()).security);
   if (issue) return { error: issue };
   if (password !== confirm) return { error: 'Οι δύο κωδικοί δεν είναι ίδιοι.' };
 

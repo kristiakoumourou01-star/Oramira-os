@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { requirePermission } from '@/lib/auth';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
-import { getOrgSettings } from '@/lib/org-settings';
+import { getOrgSettingsRaw } from '@/lib/org-settings';
 import { logActivity } from '@/lib/activity';
 import { cleanMeta, type ContactMeta } from '@/lib/contact-meta-shared';
 
@@ -12,7 +12,7 @@ export type MetaResult = { ok: true } | { ok: false; error: string };
 /** Save a contact's tags, groups and custom fields (needs Sales edit access). */
 export async function saveContactMeta(contactId: string, meta: ContactMeta): Promise<MetaResult> {
   await requirePermission('leads', 'edit');
-  const { tags: defs } = await getOrgSettings();
+  const { tags: defs } = await getOrgSettingsRaw();
   const { meta: clean, missing } = cleanMeta(meta, defs);
   if (missing.length) return { ok: false, error: `Συμπληρώστε τα υποχρεωτικά πεδία: ${missing.join(', ')}.` };
 

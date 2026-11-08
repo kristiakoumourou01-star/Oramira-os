@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { requirePermission } from '@/lib/auth';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
-import { getOrgSettings } from '@/lib/org-settings';
+import { getOrgSettingsRaw } from '@/lib/org-settings';
 import { logActivity } from '@/lib/activity';
 import { cleanRequirements, cleanValues, fieldsFor, label, type FieldValue, type Requirements } from '@/lib/unit-forms-shared';
 
@@ -13,7 +13,7 @@ const MISSING = 'Χρειάζεται μια αλλαγή στη βάση (migra
 /** Save a unit's type and its own fields (Settings → Φόρμες μονάδων). */
 export async function saveUnitFields(unitId: string, projectId: string, typeKey: string | null, values: Record<string, FieldValue>): Promise<Result> {
   await requirePermission('projects', 'edit');
-  const { unitForms } = await getOrgSettings();
+  const { unitForms } = await getOrgSettingsRaw();
   const type = unitForms.types.find((t) => t.key === typeKey) ?? null;
   const fields = fieldsFor(unitForms, type?.key ?? null);
   const clean = cleanValues(values, fields);
@@ -32,7 +32,7 @@ export async function saveUnitFields(unitId: string, projectId: string, typeKey:
 /** What the buyer is looking for, in the matching fields. */
 export async function saveLeadRequirements(leadId: string, req: Requirements): Promise<Result> {
   await requirePermission('leads', 'edit');
-  const { unitForms } = await getOrgSettings();
+  const { unitForms } = await getOrgSettingsRaw();
   const clean = cleanRequirements(req, unitForms.fields);
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.from('leads').update({ unit_requirements: clean } as any).eq('id', leadId);

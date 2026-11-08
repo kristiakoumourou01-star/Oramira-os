@@ -2,7 +2,7 @@
 
 import { createSupabaseServerClient, createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import { requireRole } from '@/lib/auth';
-import { getOrgSettings } from '@/lib/org-settings';
+import { getOrgSettingsRaw } from '@/lib/org-settings';
 import { passwordProblem } from '@/lib/security-shared';
 import { logActivity } from '@/lib/activity';
 import { queueNotificationEmail } from '@/lib/notifications';
@@ -188,7 +188,7 @@ export async function assignRole(profileId: string, choice: string): Promise<Use
 async function resolveChoice(choice: string): Promise<{ role: AppRole; customRole: string | null } | null> {
   if (choice.startsWith('custom:')) {
     const id = choice.slice(7);
-    const { roles } = await getOrgSettings();
+    const { roles } = await getOrgSettingsRaw();
     const r = roles.custom.find((c) => c.id === id);
     return r ? { role: r.base, customRole: r.id } : null;
   }
@@ -243,7 +243,7 @@ export async function createUserWithPassword(params: {
 
   if (!fullName) return { ok: false, error: 'Συμπληρώστε το όνομα.' };
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return { ok: false, error: 'Το email δεν είναι έγκυρο.' };
-  const pwIssue = passwordProblem(params.password, (await getOrgSettings()).security);
+  const pwIssue = passwordProblem(params.password, (await getOrgSettingsRaw()).security);
   if (pwIssue) return { ok: false, error: pwIssue };
   const chosen = await resolveChoice(params.role);
   if (!chosen) return { ok: false, error: 'Μη έγκυρος ρόλος.' };
@@ -304,7 +304,7 @@ export async function setUserPermissions(profileId: string, permissions: UserPer
 /** Admin sets a new (temporary) password for someone, e.g. when they forget it. */
 export async function setUserPassword(profileId: string, password: string, mustChange = true): Promise<UserActionResult> {
   const admin = await requireRole(['admin']);
-  const pwIssue = passwordProblem(password, (await getOrgSettings()).security);
+  const pwIssue = passwordProblem(password, (await getOrgSettingsRaw()).security);
   if (pwIssue) return { ok: false, error: pwIssue };
   const service = createSupabaseServiceRoleClient();
   const { error } = await service.auth.admin.updateUserById(profileId, { password, user_metadata: { pw_changed_at: new Date().toISOString() } });

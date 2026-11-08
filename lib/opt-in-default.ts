@@ -1,4 +1,4 @@
-import { getOrgSettings } from '@/lib/org-settings';
+import { getOrgSettingsRaw } from '@/lib/org-settings';
 
 /**
  * Settings → Πεδία πελατών → «Νέοι πελάτες ξεκινούν με συγκατάθεση». Μόνο για
@@ -8,7 +8,7 @@ import { getOrgSettings } from '@/lib/org-settings';
 export async function applyOptInDefault(db: any, contactId: string | null | undefined): Promise<void> {
   if (!contactId) return;
   try {
-    const { fields } = await getOrgSettings();
+    const { fields } = await getOrgSettingsRaw();
     if (!fields.optInDefault) return;
     const since = new Date(Date.now() - 2 * 60_000).toISOString();
     await db.from('contacts').update({ marketing_opt_in: true, marketing_opt_in_at: new Date().toISOString() })

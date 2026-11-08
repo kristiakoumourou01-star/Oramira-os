@@ -12,7 +12,7 @@ import { buyerProfile } from '@/lib/sales-doctrine';
 import { ensureFirstFollowUp } from '@/lib/lead-followup';
 import { pushEventToGoogle } from '@/lib/calendar-sync';
 import { revalidatePath } from 'next/cache';
-import { getOrgSettings } from '@/lib/org-settings';
+import { getOrgSettingsRaw } from '@/lib/org-settings';
 import { STAFF_FIELD_OPTIONS } from '@/lib/org-settings-shared';
 import { cleanAreas } from '@/lib/areas';
 import { applyOptInDefault } from '@/lib/opt-in-default';
@@ -44,7 +44,7 @@ export async function createLead(params: {
 }) {
   await requireRole(['admin', 'sales', 'management']);
   // Settings → Tags, ομάδες & πεδία → Υποχρεωτικά πεδία
-  const { fields } = await getOrgSettings();
+  const { fields } = await getOrgSettingsRaw();
   const has: Record<string, boolean> = {
     phone: !!params.phone?.trim(), budget: !!(params.budgetMin || params.budgetMax), project: !!params.preferredProjectId,
     buyerType: !!params.buyerType, language: !!params.language, timeline: !!params.timelineToBuy,

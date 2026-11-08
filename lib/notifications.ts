@@ -140,7 +140,7 @@ export async function queueNotificationEmail(params: {
     const resend = new Resend(process.env.RESEND_API_KEY);
     // Settings → Επικοινωνία: όνομα αποστολέα και διεύθυνση απάντησης.
     let fromName = ''; let replyTo = '';
-    try { const { getOrgSettings } = await import('@/lib/org-settings'); const c = (await getOrgSettings()).communication; fromName = c.emailFromName; replyTo = c.emailReplyTo; } catch { /* defaults */ }
+    try { const { getOrgSettingsRaw } = await import('@/lib/org-settings'); const c = (await getOrgSettingsRaw()).communication; fromName = c.emailFromName; replyTo = c.emailReplyTo; } catch { /* defaults */ }
     const base = process.env.RESEND_FROM_ADDRESS ?? 'Oramira <notifications@oramira.com>';
     const addr = base.match(/<([^>]+)>/)?.[1] ?? base;
     const { error } = await resend.emails.send({

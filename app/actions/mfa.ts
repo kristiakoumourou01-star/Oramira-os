@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createSupabaseServerClient, createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import { requireProfile, requireRole } from '@/lib/auth';
-import { getOrgSettings } from '@/lib/org-settings';
+import { getOrgSettingsRaw } from '@/lib/org-settings';
 import { logActivity } from '@/lib/activity';
 import { getMfaStatus, revokeDevices, trustThisDevice } from '@/lib/mfa';
 
@@ -41,7 +41,7 @@ export async function verifyLoginCode(_prev: { error?: string } | undefined, for
     await logActivity({ entityType: 'auth', entityId: auth.user.id, action: 'login_2fa_failed' });
     return { error: 'Λάθος ή ληγμένος κωδικός. Δοκιμάστε τον επόμενο που θα εμφανιστεί.' };
   }
-  const { security } = await getOrgSettings();
+  const { security } = await getOrgSettingsRaw();
   if (remember && security.trustedDevices) await trustThisDevice(auth.user.id);
   await logActivity({ entityType: 'auth', entityId: auth.user.id, action: 'login_2fa', metadata: { remembered: remember && security.trustedDevices } });
   redirect(next);
@@ -78,7 +78,7 @@ export async function confirmTotpEnroll(factorId: string, code: string): Promise
 /** Turn 2FA off for yourself (not allowed while Settings make it mandatory). */
 export async function removeTotp(factorId: string): Promise<MfaResult> {
   const profile = await requireProfile({ allowPasswordChange: true });
-  const { security } = await getOrgSettings();
+  const { security } = await getOrgSettingsRaw();
   if (security.otp) return { ok: false, error: 'Ο κωδικός μίας χρήσης είναι υποχρεωτικός στην εταιρεία. Για νέο κινητό, προσθέστε πρώτα το νέο ή ζητήστε από τον admin να τον μηδενίσει.' };
   const st = await getMfaStatus();
   if (st.current !== 'aal2') return { ok: false, error: 'Για ασφάλεια, αποσυνδεθείτε και μπείτε ξανά με κωδικό από την εφαρμογή, και μετά απενεργοποιήστε το.' };

@@ -1,5 +1,5 @@
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
-import { getOrgSettings } from '@/lib/org-settings';
+import { getOrgSettingsRaw } from '@/lib/org-settings';
 import { DEFAULT_GDPR, mergeGdpr, type GdprSettings } from '@/lib/org-settings-shared';
 import { buildZip, toCsv } from '@/lib/zip';
 
@@ -150,7 +150,7 @@ export async function exportAllZip(): Promise<{ zip: Uint8Array; tables: { name:
 
 /** Why this contact can't be erased yet (null = it can). */
 export async function legalHold(contactId: string): Promise<{ hold: string | null; missing: boolean }> {
-  const { gdpr } = await getOrgSettings();
+  const { gdpr } = await getOrgSettingsRaw();
   const { data, error } = await svc().rpc('gdpr_legal_hold', { p_contact: contactId, p_years: gdpr.retentionDealsYears });
   if (error) return { hold: null, missing: isMissing(error.message) };
   return { hold: (data as string | null) ?? null, missing: false };

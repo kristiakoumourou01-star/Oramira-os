@@ -25,10 +25,10 @@ export const STATUS_EL: Record<string, string> = {
  * θέλετε)· `status` = τι «σημαίνει» για το σύστημα (αυτοματισμοί, αναφορές,
  * προμήθειες). Πολλά στάδια μπορούν να σημαίνουν την ίδια κατάσταση.
  */
-export interface StageDef { key: string; status: FlowStatus; label: string; probability: number; maxDays: number | null }
-export interface PipelineDef { key: string; name: string; stages: StageDef[] }
+export interface StageDef { key: string; status: FlowStatus; label: string; probability: number; maxDays: number | null; /** Όνομα στα αγγλικά (προαιρετικό). */ en?: string }
+export interface PipelineDef { key: string; name: string; stages: StageDef[]; en?: string }
 /** Αποτέλεσμα κλεισίματος (Lost, Δεν ενδιαφέρεται…). `quick` = κουμπί με ένα κλικ στην καρτέλα του lead. */
-export interface LostReason { key: string; label: string; status: 'lost' | 'nurture' | 'no_response'; quick?: boolean }
+export interface LostReason { key: string; label: string; status: 'lost' | 'nurture' | 'no_response'; quick?: boolean; en?: string }
 export type CommissionMode = 'off' | 'prepare' | 'auto';
 export interface CommissionSettings {
   /** off = τίποτα · prepare = ειδοποίηση + έτοιμο τιμολόγιο για έλεγχο · auto = εκδίδεται αμέσως */
@@ -110,7 +110,8 @@ export function mergePipelines(x: any): PipelineSettings {
       const sk = typeof st?.key === 'string' && KEY_RE.test(st.key) && !taken.includes(st.key) ? st.key
         : !taken.includes(st.status) ? st.status : slugKey(label, taken);
       const md = st?.maxDays === null || st?.maxDays === '' || st?.maxDays === undefined ? null : num(st.maxDays, 1, 365, 7);
-      stages.push({ key: sk, status: st.status, label, probability: num(st?.probability, 0, 100, 0), maxDays: st.status === 'won' ? null : md });
+      const sen = s(st?.en, 40);
+      stages.push({ key: sk, status: st.status, label, probability: num(st?.probability, 0, 100, 0), maxDays: st.status === 'won' ? null : md, ...(sen ? { en: sen } : {}) });
       if (stages.length >= 20) break;
     }
     // Η σειρά είναι αυτή που ορίσατε· το «κλείσιμο» πάντα τελευταίο, και ένα
@@ -119,7 +120,8 @@ export function mergePipelines(x: any): PipelineSettings {
     const won = wonAt >= 0 ? stages.splice(wonAt, 1)[0] : { key: 'won', status: 'won' as const, label: STATUS_EL.won, probability: 100, maxDays: null };
     stages.push(won);
     if (!stages.some((y) => y.status === 'new')) stages.unshift({ key: stages.some((y) => y.key === 'new') ? slugKey('new', stages.map((y) => y.key)) : 'new', status: 'new', label: STATUS_EL.new, probability: 5, maxDays: 1 });
-    pipelines.push({ key, name, stages });
+    const pen = s(p?.en);
+    pipelines.push({ key, name, stages, ...(pen ? { en: pen } : {}) });
     if (pipelines.length >= 12) break;
   }
   if (!pipelines.length) pipelines.push(...DEFAULT_PIPELINE_SETTINGS.pipelines);
@@ -132,7 +134,8 @@ export function mergePipelines(x: any): PipelineSettings {
     const label = s(r?.label, 80); if (!label) continue;
     const key = typeof r?.key === 'string' && KEY_RE.test(r.key) && !lost.some((q) => q.key === r.key) ? r.key : slugKey(label, lost.map((q) => q.key));
     const quick = legacy ? ['lost', 'not_interested', 'later', 'unreachable'].includes(key) : r?.quick === true;
-    lost.push({ key, label, status: (['lost', 'nurture', 'no_response'] as const).includes(r?.status) ? r.status : 'lost', quick });
+    const len = s(r?.en, 80);
+    lost.push({ key, label, status: (['lost', 'nurture', 'no_response'] as const).includes(r?.status) ? r.status : 'lost', quick, ...(len ? { en: len } : {}) });
     if (lost.length >= 40) break;
   }
   const c = v.commission ?? {};

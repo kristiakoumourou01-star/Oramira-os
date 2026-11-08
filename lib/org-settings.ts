@@ -1,6 +1,8 @@
 import { cache } from 'react';
 import { unstable_cache } from 'next/cache';
 import { createSupabaseServiceRoleClient, } from '@/lib/supabase/server';
+import { localizeSettings } from '@/lib/localize';
+import { requestLocale } from '@/lib/locale-server';
 import { DEFAULT_ORG_SETTINGS, DEFAULT_APPEARANCE, mergeAppearance, mergeOrgSettings, type AppearanceSettings, type OrgSettings } from '@/lib/org-settings-shared';
 
 export * from '@/lib/org-settings-shared';
@@ -28,13 +30,21 @@ const readOrgSettingsRaw = unstable_cache(
  * Read the singleton agency settings. Never throws: any error (missing table,
  * schema drift) degrades to defaults. Request-deduped and cached across requests.
  */
-export const getOrgSettings = cache(async function getOrgSettings(): Promise<OrgSettings> {
+export const getOrgSettingsRaw = cache(async function getOrgSettingsRaw(): Promise<OrgSettings> {
   try {
     const raw = await readOrgSettingsRaw();
     return raw ? mergeOrgSettings(raw) : DEFAULT_ORG_SETTINGS;
   } catch {
     return DEFAULT_ORG_SETTINGS;
   }
+});
+
+/**
+ * Οι ρυθμίσεις για ΕΜΦΑΝΙΣΗ: ονόματα σταδίων, τμημάτων, πεδίων, μενού στη
+ * γλώσσα του χρήστη. Όποιος αποθηκεύει ή τις επεξεργάζεται → getOrgSettingsRaw.
+ */
+export const getOrgSettings = cache(async function getOrgSettings(): Promise<OrgSettings> {
+  return localizeSettings(await getOrgSettingsRaw(), requestLocale().lang);
 });
 
 /**
@@ -47,7 +57,7 @@ export const getPublicAppearance = cache(async function getPublicAppearance(): P
   try {
     // Only the appearance slice leaves this function, so signed-in or not is
     // the same cached read.
-    return (await getOrgSettings()).appearance ?? mergeAppearance(undefined);
+    return (await getOrgSettingsRaw()).appearance ?? mergeAppearance(undefined);
   } catch {
     return DEFAULT_APPEARANCE;
   }

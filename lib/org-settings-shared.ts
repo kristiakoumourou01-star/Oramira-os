@@ -123,7 +123,7 @@ export interface SecuritySettings {
  * A custom contact field. `key` is fixed once created (values are stored under
  * it), so renaming a field never loses data. `options` is used by Choice.
  */
-export interface CustomField { key: string; name: string; type: string; required: boolean; options: string[] }
+export interface CustomField { key: string; name: string; type: string; required: boolean; options: string[]; en?: string }
 export interface TagsSettings { tags: string[]; groups: string[]; fields: CustomField[] }
 export const FIELD_TYPES = ['Text', 'Number', 'Date', 'Choice', 'Yes / No'];
 export const FIELD_TYPE_LABEL: Record<string, string> = { Text: 'Κείμενο', Number: 'Αριθμός', Date: 'Ημερομηνία', Choice: 'Επιλογή', 'Yes / No': 'Ναι / Όχι' };
@@ -149,6 +149,7 @@ export function mergeTags(t: any): TagsSettings {
       ? f.key : fieldKeyFrom(name, fields.map((x) => x.key));
     fields.push({
       key, name: name.slice(0, 60),
+      ...(String(f?.en ?? '').trim() ? { en: String(f.en).trim().slice(0, 60) } : {}),
       type: FIELD_TYPES.includes(f.type) ? f.type : 'Text',
       required: !!f.required,
       options: uniq(f.options, []),
@@ -200,10 +201,12 @@ export type { DashboardSettings } from '@/lib/dashboard-shared';
  * Only what differs from the default needs to be stored.
  */
 export type MenuPosition = 'left' | 'right' | 'top';
-export interface MenuChildOverride { href: string; label?: string; hidden?: boolean }
+export interface MenuChildOverride { href: string; label?: string; hidden?: boolean; en?: string }
 export interface MenuItemOverride {
   href: string;
   label?: string;
+  /** Όνομα στα αγγλικά (προαιρετικό). */
+  en?: string;
   icon?: string;
   hidden?: boolean;
   /** Internal roles that don't see this entry (permissions still apply on top). */
@@ -214,9 +217,9 @@ export interface MenuSettings { position: MenuPosition; items: MenuItemOverride[
 export const DEFAULT_MENU: MenuSettings = { position: 'left', items: [] };
 
 /** A menu entry after overrides — what the sidebar and the editor work with. */
-export interface ResolvedNavChild { href: string; label: string; defaultLabel: string; hidden: boolean; module?: NavGroupDef['module'] }
+export interface ResolvedNavChild { href: string; label: string; defaultLabel: string; hidden: boolean; module?: NavGroupDef['module']; en?: string }
 export interface ResolvedNavItem {
-  href: string; label: string; defaultLabel: string; icon: string; defaultIcon: string;
+  href: string; label: string; defaultLabel: string; icon: string; defaultIcon: string; en?: string;
   hidden: boolean; hiddenRoles: string[]; module?: NavGroupDef['module'];
   section: number; locked: boolean; children: ResolvedNavChild[];
 }
@@ -254,12 +257,13 @@ export function resolveMenu(menu: MenuSettings, nav: NavDef[] = DEFAULT_NAV): Re
     return {
       ...d,
       label: (o.label ?? '').trim() || d.label,
+      ...(typeof o.en === 'string' && o.en.trim() ? { en: o.en.trim().slice(0, 60) } : {}),
       icon: o.icon || d.icon,
       hidden: d.locked ? false : !!o.hidden,
       hiddenRoles: d.locked ? [] : Array.isArray(o.hiddenRoles) ? o.hiddenRoles.filter((r) => typeof r === 'string') : [],
       children: kids.map((c) => {
         const co = (o.children ?? []).find((x) => x?.href === c.href);
-        return co ? { ...c, label: (co.label ?? '').trim() || c.label, hidden: !!co.hidden } : c;
+        return co ? { ...c, label: (co.label ?? '').trim() || c.label, hidden: !!co.hidden, ...(typeof co.en === 'string' && co.en.trim() ? { en: co.en.trim().slice(0, 60) } : {}) } : c;
       }),
     };
   });
@@ -272,12 +276,14 @@ export function menuOverridesFrom(items: ResolvedNavItem[], position: MenuPositi
     items: items.map((it) => {
       const o: MenuItemOverride = { href: it.href };
       if (it.label.trim() && it.label.trim() !== it.defaultLabel) o.label = it.label.trim();
+      if (it.en?.trim()) o.en = it.en.trim();
       if (it.icon !== it.defaultIcon) o.icon = it.icon;
       if (it.hidden && !it.locked) o.hidden = true;
       if (it.hiddenRoles.length && !it.locked) o.hiddenRoles = it.hiddenRoles;
       o.children = it.children.map((c) => {
         const co: MenuChildOverride = { href: c.href };
         if (c.label.trim() && c.label.trim() !== c.defaultLabel) co.label = c.label.trim();
+        if (c.en?.trim()) co.en = c.en.trim();
         if (c.hidden) co.hidden = true;
         return co;
       });
@@ -472,7 +478,7 @@ export function mergeCommunication(x: any): CommunicationSettings {
 }
 
 /* ---- Departments & rooms (γραφεία/ομάδες και αίθουσες συναντήσεων) ---- */
-export interface Department { key: string; name: string; active: boolean }
+export interface Department { key: string; name: string; active: boolean; en?: string }
 export interface Room { key: string; name: string; dept: string }
 export interface DepartmentSettings { showOnCalendar: boolean; items: Department[]; rooms: Room[] }
 export const DEFAULT_DEPARTMENTS: DepartmentSettings = { showOnCalendar: false, items: [], rooms: [] };
@@ -483,7 +489,8 @@ export function mergeDepartments(x: any): DepartmentSettings {
   for (const d of Array.isArray(v.items) ? v.items : []) {
     const name = str(d?.name, 60); if (!name) continue;
     const key = /^[a-z0-9_]{1,40}$/.test(d?.key) && !items.some((y) => y.key === d.key) ? d.key : `d${items.length + 1}_${Date.now().toString(36)}`;
-    items.push({ key, name, active: d?.active !== false });
+    const en = str(d?.en, 60);
+    items.push({ key, name, active: d?.active !== false, ...(en ? { en } : {}) });
     if (items.length >= 50) break;
   }
   const rooms: Room[] = [];

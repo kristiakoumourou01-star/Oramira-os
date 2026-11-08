@@ -1,6 +1,6 @@
 import { requireRole } from '@/lib/auth';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
-import { getOrgSettings } from '@/lib/org-settings';
+import { getOrgSettingsRaw } from '@/lib/org-settings';
 import { INTERNAL_ROLES } from '@/lib/permissions';
 import { RolesAdmin } from '@/components/admin/RolesAdmin';
 
@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
 export default async function RolesPage() {
   await requireRole(['admin']);
   const supabase = await createSupabaseServerClient();
-  const { roles } = await getOrgSettings();
+  const { roles } = await getOrgSettingsRaw();
 
   // How many people hold each role (custom_role is best-effort: migration 0054).
   const counts: Record<string, number> = {};

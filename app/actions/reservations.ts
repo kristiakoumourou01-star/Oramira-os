@@ -5,7 +5,7 @@ import { requireRole } from '@/lib/auth';
 import { logActivity } from '@/lib/activity';
 import { onReservationCreated } from '@/lib/automation-events';
 import { revalidatePath } from 'next/cache';
-import { getOrgSettings } from '@/lib/org-settings';
+import { getOrgSettingsRaw } from '@/lib/org-settings';
 import { buildSchedule } from '@/lib/pricing';
 
 /**
@@ -41,7 +41,7 @@ export async function createReservation(params: {
   }
 
   // Default hold comes from Settings → Pipelines → Κρατήσεις.
-  const { reservations: rs } = await getOrgSettings();
+  const { reservations: rs } = await getOrgSettingsRaw();
   const expiresAt = new Date(
     Date.now() + (params.holdDays ?? rs.holdDays) * 24 * 60 * 60 * 1000
   ).toISOString();

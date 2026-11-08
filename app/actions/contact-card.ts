@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { requirePermission } from '@/lib/auth';
 import { logActivity } from '@/lib/activity';
-import { getOrgSettings } from '@/lib/org-settings';
+import { getOrgSettingsRaw } from '@/lib/org-settings';
 import { BEST_TIME, CHANNELS, LANGUAGES, RELATIONS, cleanKyc, computeRisk, reviewDue, verifyMissing, type KycData } from '@/lib/kyc-shared';
 
 type Result = { ok: true } | { ok: false; error: string };
@@ -83,7 +83,7 @@ export async function saveKyc(contactId: string, raw: KycData, action: 'save' | 
   const profile = await requirePermission('leads', 'edit');
   if (!UUID.test(contactId ?? '')) return { ok: false, error: 'Άγνωστη επαφή.' };
   const k = cleanKyc(raw);
-  const { aml } = await getOrgSettings();
+  const { aml } = await getOrgSettingsRaw();
   const risk = computeRisk(k, aml);
   const supabase = await createSupabaseServerClient();
   const { data: prev } = await (supabase as any).from('contact_kyc').select('status, verified_at, verified_by').eq('contact_id', contactId).maybeSingle();
