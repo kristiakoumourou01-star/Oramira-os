@@ -108,7 +108,7 @@ export function SettingsScreen({
                 </div>
               </details>
             </div>
-            <div className="xl:sticky xl:top-4 xl:self-start"><LivePreview branding={branding} logoUrl={branding.logoUrl} sidebar={{ style: settings.appearance.sidebarStyle, custom: settings.appearance.sidebarColor }} /></div>
+            <div className="z-10 xl:sticky xl:top-[72px] xl:self-start"><LivePreview branding={branding} logoUrl={branding.logoUrl} sidebar={{ style: settings.appearance.sidebarStyle, custom: settings.appearance.sidebarColor }} /></div>
             </div>
           ) : section.key === 'business' ? (
             <BusinessSection initial={settings.business} companyName={branding.companyName || agencyName} canEdit={canEdit} logoUrl={branding.logoUrl} colorPrimary={branding.colorPrimary} colorSecondary={branding.colorSecondary} />
