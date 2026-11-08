@@ -11,7 +11,7 @@ import { LeadQuickActions } from './LeadQuickActions';
 import { reassignLead } from '@/app/actions/leads';
 import { formatNumber, formatCurrency } from '@/lib/format';
 import { nextBestAction, type NbaKey, type NbaTone } from '@/lib/next-best-action';
-import { DEFAULT_PIPELINE_SETTINGS, lateBy, pipelineOf, stageIndex, type PipelineSettings } from '@/lib/pipeline-shared';
+import { DEFAULT_PIPELINE_SETTINGS, closedBucket, lateBy, pipelineOf, stageIndex, type PipelineSettings } from '@/lib/pipeline-shared';
 
 const NBA_ICON: Record<NbaKey, any> = {
   respond: Zap, reply: MessageCircle, follow_up_overdue: AlertTriangle, confirm_viewing: CalendarCheck, book_viewing: CalendarClock,
@@ -45,6 +45,10 @@ const STAGE_ACCENT: Record<string, Accent> = {
   negotiating: { dot: 'bg-rose-500', badge: 'border-rose-200 bg-rose-50 text-rose-700', bar: 'border-l-rose-400' },
   reserved: { dot: 'bg-forest', badge: 'badge-forest', bar: 'border-l-forest/50' },
   no_response: { dot: 'bg-stone-400', badge: 'badge-neutral', bar: 'border-l-stone-line' },
+  lost: { dot: 'bg-signal-danger', badge: 'border-red-200 bg-red-50 text-signal-danger', bar: 'border-l-signal-danger/60' },
+  nurture: { dot: 'bg-amber-400', badge: 'border-amber-200 bg-amber-50 text-amber-700', bar: 'border-l-amber-300' },
+  won: { dot: 'bg-forest', badge: 'badge-forest', bar: 'border-l-forest' },
+  reactivation: { dot: 'bg-sky-400', badge: 'border-sky-200 bg-sky-50 text-sky-700', bar: 'border-l-sky-300' },
   retargeting: { dot: 'bg-fuchsia-500', badge: 'border-fuchsia-200 bg-fuchsia-50 text-fuchsia-700', bar: 'border-l-fuchsia-400' },
 };
 
@@ -52,13 +56,6 @@ const URGENCY = [
   { key: 'overdue', label: 'Εκπρόθεσμη ενέργεια', danger: true },
   { key: 'today', label: 'Σήμερα', danger: false },
   { key: 'tomorrow', label: 'Αύριο', danger: false },
-] as const;
-
-/** Parked leads that are not part of any pipeline's stages. */
-const CLOSED_SECTIONS = [
-  { key: 'no_response', label: 'Χωρίς απάντηση' },
-  { key: 'retargeting', label: 'Retargeting' },
-  { key: 'reactivation', label: 'Επανενεργοποίηση' },
 ] as const;
 
 function localDate(offsetDays: number): string {
@@ -137,7 +134,8 @@ function LeadCard({ lead, agents, late, onOpen }: { lead: LeadListItem; agents: 
   );
 }
 
-function Section({ accentKey, label, danger, leads, agents, lateOf, onOpen }: { accentKey: string; label: string; danger?: boolean; leads: LeadListItem[]; agents: Agent[]; lateOf?: (l: LeadListItem) => number | null; onOpen: (id: string) => void }) {
+function Section({ accentKey, label, danger, leads, agents, lateOf, onOpen, collapsible }: { accentKey: string; label: string; danger?: boolean; leads: LeadListItem[]; agents: Agent[]; lateOf?: (l: LeadListItem) => number | null; onOpen: (id: string) => void; collapsible?: boolean }) {
+  const [open, setOpen] = useState(!collapsible);
   if (leads.length === 0) return null;
   const acc = STAGE_ACCENT[accentKey] ?? DEFAULT_ACCENT;
   return (
@@ -146,10 +144,11 @@ function Section({ accentKey, label, danger, leads, agents, lateOf, onOpen }: { 
         <span className={`h-2.5 w-2.5 rounded-full ${acc.dot}`} />
         <h4 className={danger ? 'text-signal-danger' : 'text-charcoal'}>{label}</h4>
         <span className={`badge ${acc.badge}`}>{leads.length}</span>
+        {collapsible && <button type="button" onClick={() => setOpen((x) => !x)} className="text-xs text-forest hover:underline">{open ? 'Απόκρυψη' : 'Εμφάνιση'}</button>}
       </div>
-      <div className="grid grid-cols-3 gap-3">
+      {open && <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {leads.map((l) => <LeadCard key={l.id} lead={l} agents={agents} late={lateOf?.(l) ?? null} onOpen={onOpen} />)}
-      </div>
+      </div>}
     </section>
   );
 }
@@ -183,8 +182,10 @@ export function LeadBoard({ leads, agents, currentUserId, pipelines = DEFAULT_PI
   }, [inPipe, owner, currentUserId, onlyLate]);
 
   function bucketOf(l: LeadListItem): string {
+    const closed = closedBucket(pipelines.lostReasons, l.status, l.lost_reason ?? null);
+    if (closed) return closed.key;
+    if (l.status === 'won') return 'won';
     if (!l.owner_id) return 'unassigned';
-    if (['won', 'lost', 'nurture'].includes(l.status)) return 'done';
     if (l.next_action_date) {
       if (l.next_action_date < today) return 'overdue';
       if (l.next_action_date === today) return 'today';
@@ -194,6 +195,14 @@ export function LeadBoard({ leads, agents, currentUserId, pipelines = DEFAULT_PI
     const i = stageIndex(pipe, l.status, l.stage ?? null);
     return i >= 0 ? `stage:${pipe.stages[i].key}` : l.status;
   }
+
+  // Ενότητες κλεισμένων: με τη σειρά των αποτελεσμάτων στις Ρυθμίσεις.
+  const closedSections = useMemo(() => {
+    const seen = new globalThis.Map<string, { key: string; label: string; status: string }>();
+    for (const r of pipelines.lostReasons) seen.set(`closed:${r.key}`, { key: `closed:${r.key}`, label: r.label, status: r.status });
+    for (const l of filtered) { const c = closedBucket(pipelines.lostReasons, l.status, l.lost_reason ?? null); if (c && !seen.has(c.key)) seen.set(c.key, c); }
+    return [...seen.values()];
+  }, [filtered, pipelines.lostReasons]);
 
   const grouped = useMemo(() => {
     const m: Record<string, LeadListItem[]> = {};
@@ -226,7 +235,13 @@ export function LeadBoard({ leads, agents, currentUserId, pipelines = DEFAULT_PI
       {grouped['unassigned'] && <Section accentKey="unassigned" label="Χωρίς υπεύθυνο" leads={grouped['unassigned']} agents={agents} onOpen={setOpenId} lateOf={lateOf} />}
       {URGENCY.map((u) => <Section key={u.key} accentKey={u.key} label={u.label} danger={u.danger} leads={grouped[u.key] ?? []} agents={agents} onOpen={setOpenId} lateOf={lateOf} />)}
       {pipe.stages.filter((st) => st.status !== 'won').map((st) => <Section key={st.key} accentKey={st.status} label={`${st.label}${st.maxDays ? ` · έως ${st.maxDays} μέρ.` : ''}`} leads={grouped[`stage:${st.key}`] ?? []} agents={agents} onOpen={setOpenId} lateOf={lateOf} />)}
-      {CLOSED_SECTIONS.map((s) => <Section key={s.key} accentKey={s.key} label={s.label} leads={grouped[s.key] ?? []} agents={agents} onOpen={setOpenId} />)}
+      {closedSections.some((c) => grouped[c.key]?.length) || grouped['won']?.length ? (
+        <div className="space-y-4 border-t border-stone-line pt-5">
+          <p className="eyebrow">Κλεισμένα</p>
+          {closedSections.map((c) => <Section key={c.key} accentKey={c.status} label={c.label} leads={grouped[c.key] ?? []} agents={agents} onOpen={setOpenId} collapsible />)}
+          <Section accentKey="won" label={pipe.stages.find((x) => x.status === 'won')?.label ?? 'Κλείσιμο (Won)'} leads={grouped['won'] ?? []} agents={agents} onOpen={setOpenId} collapsible />
+        </div>
+      ) : null}
 
       {filtered.length === 0 && (
         <p className="py-12 text-center text-sm text-charcoal-600/70">Κανένα lead εδώ.</p>

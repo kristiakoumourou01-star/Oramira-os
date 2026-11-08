@@ -27,7 +27,8 @@ export const STATUS_EL: Record<string, string> = {
  */
 export interface StageDef { key: string; status: FlowStatus; label: string; probability: number; maxDays: number | null }
 export interface PipelineDef { key: string; name: string; stages: StageDef[] }
-export interface LostReason { key: string; label: string; status: 'lost' | 'nurture' | 'no_response' }
+/** Αποτέλεσμα κλεισίματος (Lost, Δεν ενδιαφέρεται…). `quick` = κουμπί με ένα κλικ στην καρτέλα του lead. */
+export interface LostReason { key: string; label: string; status: 'lost' | 'nurture' | 'no_response'; quick?: boolean }
 export type CommissionMode = 'off' | 'prepare' | 'auto';
 export interface CommissionSettings {
   /** off = τίποτα · prepare = ειδοποίηση + έτοιμο τιμολόγιο για έλεγχο · auto = εκδίδεται αμέσως */
@@ -68,15 +69,16 @@ export const DEFAULT_PIPELINE_SETTINGS: PipelineSettings = {
   defaultKey: 'sales',
   sources: ['Website', 'Referral', 'Portal', 'Walk-in', 'Campaign', 'Social'],
   lostReasons: [
-    { key: 'not_interested', label: 'Δεν ενδιαφέρεται πια', status: 'lost' },
+    { key: 'lost', label: 'Lost', status: 'lost', quick: true },
+    { key: 'not_interested', label: 'Not interested', status: 'lost', quick: true },
     { key: 'bought_elsewhere', label: 'Αγόρασε αλλού', status: 'lost' },
     { key: 'price', label: 'Τιμή / budget', status: 'lost' },
     { key: 'no_match', label: 'Δεν βρέθηκε κατάλληλο ακίνητο', status: 'lost' },
     { key: 'financing', label: 'Δεν πήρε δάνειο / χρηματοδότηση', status: 'lost' },
     { key: 'location', label: 'Τοποθεσία', status: 'lost' },
     { key: 'duplicate', label: 'Διπλή εγγραφή / λάθος στοιχεία', status: 'lost' },
-    { key: 'later', label: 'Όχι τώρα — αργότερα', status: 'nurture' },
-    { key: 'unreachable', label: 'Δεν απαντά', status: 'no_response' },
+    { key: 'later', label: 'Όχι τώρα — αργότερα', status: 'nurture', quick: true },
+    { key: 'unreachable', label: 'Δεν απαντά', status: 'no_response', quick: true },
   ],
   commission: { mode: 'prepare', defaultPct: 3, vatRate: null, billTo: 'buyer', fixed: { name: '', vatNo: '', address: '', email: '' } },
 };
@@ -122,10 +124,16 @@ export function mergePipelines(x: any): PipelineSettings {
   }
   if (!pipelines.length) pipelines.push(...DEFAULT_PIPELINE_SETTINGS.pipelines);
   const lost: LostReason[] = [];
-  for (const r of Array.isArray(v.lostReasons) ? v.lostReasons : DEFAULT_PIPELINE_SETTINGS.lostReasons) {
+  const rawLost: any[] = Array.isArray(v.lostReasons) ? v.lostReasons : DEFAULT_PIPELINE_SETTINGS.lostReasons;
+  // Παλιές ρυθμίσεις χωρίς «κουμπιά»: βάζουμε Lost / Not interested / Αργότερα / Δεν απαντά.
+  const legacy = !rawLost.some((r) => typeof r?.quick === 'boolean');
+  if (legacy && !rawLost.some((r) => r?.key === 'lost')) rawLost.unshift({ key: 'lost', label: 'Lost', status: 'lost', quick: true });
+  for (const r of rawLost) {
     const label = s(r?.label, 80); if (!label) continue;
     const key = typeof r?.key === 'string' && KEY_RE.test(r.key) && !lost.some((q) => q.key === r.key) ? r.key : slugKey(label, lost.map((q) => q.key));
-    lost.push({ key, label, status: (['lost', 'nurture', 'no_response'] as const).includes(r?.status) ? r.status : 'lost' });
+    const quick = legacy ? ['lost', 'not_interested', 'later', 'unreachable'].includes(key) : r?.quick === true;
+    lost.push({ key, label, status: (['lost', 'nurture', 'no_response'] as const).includes(r?.status) ? r.status : 'lost', quick });
+    if (lost.length >= 40) break;
   }
   const c = v.commission ?? {};
   const vat = Number(c.vatRate);
@@ -218,4 +226,12 @@ export interface CommissionDraft {
 
 export function commissionNet(base: number, pct: number): number {
   return Math.round(base * pct) / 100;
+}
+
+/** Οι ενότητες «κλεισμένων» στο Lead Management: ένα ανά αποτέλεσμα, και ένα για όσα δεν έχουν λόγο. */
+export const CLOSED_STATUS_EL: Record<string, string> = { lost: 'Lost', nurture: 'Για αργότερα', no_response: 'Χωρίς απάντηση', retargeting: 'Retargeting', reactivation: 'Επανενεργοποίηση' };
+export function closedBucket(lostReasons: LostReason[], status: string, reasonKey: string | null | undefined): { key: string; label: string; status: string } | null {
+  if (!(CLOSED as readonly string[]).includes(status)) return null;
+  const r = reasonKey ? lostReasons.find((x) => x.key === reasonKey && x.status === status) : null;
+  return r ? { key: `closed:${r.key}`, label: r.label, status } : { key: `closed:${status}`, label: CLOSED_STATUS_EL[status] ?? status, status };
 }

@@ -53,10 +53,16 @@ export function StatusPipeline({ leadId, currentStatus, currentStage = null, pip
     return (
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-stone-line bg-sand-50 px-4 py-3">
         <div>
-          <p className="text-sm font-medium text-charcoal">Το lead έκλεισε — <span className="text-charcoal-600">{STATUS_EL[currentStatus] ?? currentStatus}</span></p>
-          <p className="text-xs text-charcoal-600/60">{reason ? `Λόγος: ${reason}${lostNote ? ` — ${lostNote}` : ''}` : 'Ο λόγος είναι στο ιστορικό.'}</p>
+          <p className="text-sm font-medium text-charcoal">Το lead έκλεισε — <span className={currentStatus === 'lost' ? 'text-signal-danger' : 'text-charcoal-600'}>{reason ?? STATUS_EL[currentStatus] ?? currentStatus}</span></p>
+          <p className="text-xs text-charcoal-600/60">{lostNote && lostNote !== reason ? lostNote : reason ? STATUS_EL[currentStatus] ?? currentStatus : 'Ο λόγος είναι στο ιστορικό.'}</p>
         </div>
-        <button type="button" disabled={pending} onClick={() => set(working[1]?.status ?? 'contacted', undefined, undefined, working[1]?.key)} className="btn-ghost inline-flex items-center gap-1.5 text-xs"><RotateCcw size={13} /> Επαναφορά</button>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs text-charcoal-600/60">Επαναφορά σε:</span>
+          <select className="input w-auto py-1 text-xs" disabled={pending} defaultValue="" onChange={(e) => { const st = working.find((x) => x.key === e.target.value); if (st) set(st.status, undefined, undefined, st.key); }} aria-label="Επαναφορά σε στάδιο">
+            <option value="" disabled>Στάδιο…</option>{working.map((x) => <option key={x.key} value={x.key}>{x.label}</option>)}
+          </select>
+          <button type="button" disabled={pending} onClick={() => set(working[1]?.status ?? 'contacted', undefined, undefined, working[1]?.key)} className="btn-ghost inline-flex items-center gap-1.5 text-xs"><RotateCcw size={13} /> {working[1]?.label ?? 'Επαναφορά'}</button>
+        </div>
       </div>
     );
   }
@@ -88,7 +94,13 @@ export function StatusPipeline({ leadId, currentStatus, currentStage = null, pip
         <button type="button" disabled={pending} onClick={() => { if (window.confirm('Κλείσιμο της πώλησης (Won);')) set('won', undefined, undefined, pipeline.stages.find((x) => x.status === 'won')?.key); }} className="inline-flex items-center gap-1.5 rounded-md bg-forest px-3 py-1.5 text-xs font-medium text-white hover:bg-forest-deep">
           <Trophy size={12} /> Κλείσιμο (Won)
         </button>
-        {!closing && <button type="button" disabled={pending} onClick={() => setClosing(true)} className="text-xs font-medium text-charcoal-600/70 underline-offset-2 hover:text-signal-danger hover:underline">Δεν προχωρά; Κλείσιμο με λόγο</button>}
+        {lostReasons.filter((r) => r.quick).map((r) => (
+          <button key={r.key} type="button" disabled={pending} onClick={() => set(r.status, r.label, r.key)} title={`${r.label} → ${STATUS_EL[r.status] ?? r.status}`}
+            className={`inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors ${r.status === 'lost' ? 'border-signal-danger/30 text-signal-danger hover:bg-signal-danger hover:text-white' : 'border-stone-line text-charcoal-600 hover:border-champagne hover:bg-champagne-50'}`}>
+            <X size={12} /> {r.label}
+          </button>
+        ))}
+        {!closing && <button type="button" disabled={pending} onClick={() => setClosing(true)} className="text-xs font-medium text-charcoal-600/70 underline-offset-2 hover:text-signal-danger hover:underline">{lostReasons.some((r) => r.quick) ? 'Άλλος λόγος…' : 'Δεν προχωρά; Κλείσιμο με λόγο'}</button>}
       </div>
 
       {closing && (
