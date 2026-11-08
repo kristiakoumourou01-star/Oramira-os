@@ -70,7 +70,7 @@ export function DealWorkbench({
   return (
     <div className="space-y-6">
       {/* Sticky action bar */}
-      <div className="sticky top-0 z-10 -mx-8 flex items-center justify-between border-b border-stone-line bg-stone/95 px-8 py-3 backdrop-blur">
+      <div className="sticky top-14 z-10 -mx-6 flex flex-wrap items-center justify-between gap-3 border-b border-stone-line bg-stone/95 px-6 py-3 backdrop-blur">
         <div>
           <p className="eyebrow">Deal Analyzer</p>
           <h1 className="font-display text-2xl">{dealName}</h1>
