@@ -330,6 +330,7 @@ export function UsersAdmin({
   const [passwordFor, setPasswordFor] = useState<AdminUser | null>(null);
   const [isPending, startTransition] = useTransition();
   const [impErr, setImpErr] = useState<string | null>(null);
+  const [roleMsg, setRoleMsg] = useState<{ id: string; text: string } | null>(null);
   const router = useRouter();
 
   function run(fn: () => Promise<unknown>) {
@@ -366,8 +367,8 @@ export function UsersAdmin({
       {impErr && <p className="rounded-md bg-signal-danger/10 px-4 py-2 text-sm text-signal-danger">{impErr}</p>}
 
       {/* Users */}
-      <div className="panel overflow-hidden">
-        <table className="table-base w-full">
+      <div className="panel overflow-x-auto">
+        <table className="table-base w-full min-w-[760px]">
           <thead><tr><th>Name</th><th>Role</th><th>Πρόσβαση</th><th>Status</th><th></th></tr></thead>
           <tbody>
             {users.map((u) => {
@@ -385,31 +386,34 @@ export function UsersAdmin({
                       disabled={isPending || self}
                       onChange={(e) => {
                         const v = e.target.value;
-                        setImpErr(null);
+                        const label = e.target.selectedOptions[0]?.text ?? v;
+                        setImpErr(null); setRoleMsg(null);
                         startTransition(async () => {
                           const res = await assignRole(u.id, v);
                           if (!res.ok) setImpErr(res.error);
+                          else setRoleMsg({ id: u.id, text: `Ο ρόλος άλλαξε σε «${label}».` });
                           router.refresh();
                         });
                       }}
-                      className="input max-w-[200px]"
+                      className="input w-48 min-w-[11rem] text-sm"
                     >
                       <RoleOptions roles={roles} />
                     </select>
+                    {roleMsg?.id === u.id && <p className="mt-1 text-[11px] text-forest">{roleMsg.text}</p>}
                   </td>
                   <td>
                     {u.role === 'admin'
                       ? <span className="badge-neutral">Όλα</span>
                       : u.permissions
-                        ? <span className="badge-champagne">Προσαρμοσμένα</span>
-                        : <span className="badge-neutral">Του ρόλου</span>}
+                        ? <span className="badge-champagne whitespace-nowrap">Προσαρμοσμένα</span>
+                        : <span className="badge-neutral whitespace-nowrap">Του ρόλου</span>}
                   </td>
                   <td>
                     <span className={u.is_active ? 'badge-forest' : 'badge-neutral'}>{u.is_active ? 'Active' : 'Inactive'}</span>
                   </td>
                   <td className="text-right">
                     {!self && (
-                      <div className="flex items-center justify-end gap-1">
+                      <div className="flex flex-wrap items-center justify-end gap-1">
                         {u.role !== 'admin' && (
                           <button onClick={() => setPermsFor(u)} disabled={isPending} className="btn-ghost text-xs" title="Τι βλέπει και τι κάνει">
                             <ShieldCheck size={13} strokeWidth={1.75} /> Δικαιώματα
