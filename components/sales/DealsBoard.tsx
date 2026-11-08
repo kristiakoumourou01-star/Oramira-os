@@ -176,7 +176,7 @@ export function DealsBoard({ leads: initial, cfg, rawCfg, canEditStages = false,
     const Ic = ACT_ICON[l.next_activity_type ?? ''] ?? ChevronRight;
     return (
       <div key={l.id} draggable={!pending} onDragStart={(e) => onCardDragStart(e, l.id)} onDragEnd={() => { setDrag(null); setOver(null); }} onClick={() => setOpenId(l.id)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') setOpenId(l.id); }}
-        className={`group relative rounded-lg border bg-white p-2.5 text-sm shadow-sm transition hover:shadow-md ${rot ? 'border-rose-300 bg-rose-50/60' : 'border-stone-line'} ${drag === l.id ? 'opacity-40' : ''} cursor-grab active:cursor-grabbing`}>
+        className={`box-card group relative rounded-lg border bg-white p-2.5 text-sm shadow-sm transition hover:shadow-md ${rot ? 'border-rose-300 bg-rose-50/60' : 'border-stone-line'} ${drag === l.id ? 'opacity-40' : ''} cursor-grab active:cursor-grabbing`}>
         <p className="block pr-6 font-semibold leading-snug text-charcoal group-hover:text-forest" data-no-tr>{dealTitle(l)}</p>
         {l.title && l.full_name && <p className="truncate text-xs text-charcoal-600/70" data-no-tr>{l.full_name}</p>}
         {(l.labels ?? []).length > 0 && (
@@ -282,14 +282,14 @@ export function DealsBoard({ leads: initial, cfg, rawCfg, canEditStages = false,
         <div ref={scrollRef} className="-mx-1 overflow-x-auto pb-24"
           onDragOver={(e) => { if (drag) edgeScroll(e.clientX); }} onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) stopEdge(); }} onDrop={stopEdge}
           onPointerDown={onPanDown} onPointerMove={onPanMove} onPointerUp={onPanUp} onPointerCancel={onPanUp}>
-          <div className="flex min-h-[calc(100vh-330px)] min-w-max divide-x divide-stone-line rounded-xl border border-stone-line bg-white/60">
+          <div className="flex min-h-[calc(100vh-330px)] min-w-max divide-x divide-stone-line overflow-hidden rounded-xl border border-stone-line bg-white/60">
             {preset !== 'won' && preset !== 'lost' && columns.map((st, i) => {
               const items = byStage(st);
               const sum = items.reduce((s, l) => s + dealValue(l), 0);
               return (
                 <div key={st.key} {...dropZone(st.key, (l) => moveTo(l, st))}
-                  className={`flex w-[272px] shrink-0 flex-col transition ${over === st.key ? 'bg-forest/[0.06]' : 'bg-transparent'}`}>
-                  <div className="relative border-b border-stone-line bg-white px-3 py-2" style={{ clipPath: i < columns.length - 1 ? 'polygon(0 0, calc(100% - 10px) 0, 100% 50%, calc(100% - 10px) 100%, 0 100%)' : undefined }}>
+                  className={`stage-col flex w-[272px] shrink-0 flex-col transition ${over === st.key ? 'bg-forest/[0.06]' : 'bg-transparent'}`}>
+                  <div className="stage-head relative border-b border-stone-line bg-white px-3 py-2" style={{ clipPath: i < columns.length - 1 ? 'polygon(0 0, calc(100% - 10px) 0, 100% 50%, calc(100% - 10px) 100%, 0 100%)' : undefined }}>
                     <p className="truncate font-semibold text-charcoal" data-no-tr>{st.label}</p>
                     <p className="text-xs text-charcoal-600/70">{formatCurrency(sum)} · {items.length} deals · {st.probability}%</p>
                   </div>
@@ -462,7 +462,7 @@ function Forecast({ deals, pipeName, onMove }: { deals: LeadListItem[]; pipeName
         <span className="text-charcoal-600/70" data-no-tr>{pipeName} · με βάση την αναμενόμενη ημερομηνία κλεισίματος (σύρετε για αλλαγή μήνα)</span>
       </div>
       <div className="-mx-1 overflow-x-auto pb-4">
-        <div className="flex min-h-[calc(100vh-360px)] min-w-max divide-x divide-stone-line rounded-xl border border-stone-line bg-white/60">
+        <div className="flex min-h-[calc(100vh-360px)] min-w-max divide-x divide-stone-line overflow-hidden rounded-xl border border-stone-line bg-white/60">
           {[{ key: null as string | null, label: 'Χωρίς ημερομηνία' }, ...months].map((m) => {
             const items = col(m.key);
             const openSum = items.filter((l) => l.status !== 'won').reduce((s, l) => s + dealValue(l), 0);
