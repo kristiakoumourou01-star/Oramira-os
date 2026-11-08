@@ -12,6 +12,7 @@ export interface LeadQuick {
   id: string; status: string; stage: string | null; stageEnteredAt: string | null; source: string | null;
   budgetMin: number | null; budgetMax: number | null; timeline: string | null; message: string | null;
   nextActionDate: string | null; nextActionType: string | null; ownerId: string | null;
+  dealTitle: string | null; dealValue: number | null; expectedClose: string | null;
   lostReason: string | null; lostNote: string | null; commissionInvoiceId: string | null; createdAt: string;
   contact: { id: string; name: string; email: string | null; phone: string | null; language: string | null };
   project: string | null;
@@ -27,11 +28,12 @@ export async function getLeadQuick(leadId: string): Promise<{ ok: true; lead: Le
   if (!UUID.test(leadId ?? '')) return { ok: false, error: 'Άγνωστο lead.' };
   const supabase = await createSupabaseServerClient();
   const db = supabase as any;
-  const [{ data: l, error }, { data: extra }, { data: st }, settings] = await Promise.all([
+  const [{ data: l, error }, { data: extra }, { data: st }, settings, { data: deal }] = await Promise.all([
     db.from('leads').select('id, status, source, budget_min, budget_max, timeline_to_buy, message, next_action_date, next_action_type, assigned_to, created_at, contact_id, contacts(id, full_name, email, phone, preferred_language), projects:preferred_project_id(name)').eq('id', leadId).maybeSingle(),
     db.from('leads').select('pipeline, stage_entered_at, lost_reason, lost_note, commission_invoice_id').eq('id', leadId).maybeSingle(),
     db.from('leads').select('stage').eq('id', leadId).maybeSingle(),
     getOrgSettingsRaw(),
+    db.from('leads').select('title, value, expected_close_date').eq('id', leadId).maybeSingle(),
   ]);
   if (error || !l) return { ok: false, error: error?.message ?? 'Το lead δεν βρέθηκε.' };
   const [{ data: notes }, { data: comms }, { data: fus }] = await Promise.all([
@@ -46,6 +48,7 @@ export async function getLeadQuick(leadId: string): Promise<{ ok: true; lead: Le
       id: l.id, status: l.status, stage: st?.stage ?? null, stageEnteredAt: extra?.stage_entered_at ?? null, source: l.source,
       budgetMin: l.budget_min, budgetMax: l.budget_max, timeline: l.timeline_to_buy, message: l.message,
       nextActionDate: l.next_action_date, nextActionType: l.next_action_type, ownerId: l.assigned_to,
+      dealTitle: deal?.title ?? null, dealValue: deal?.value != null ? Number(deal.value) : null, expectedClose: deal?.expected_close_date ?? null,
       lostReason: extra?.lost_reason ?? null, lostNote: extra?.lost_note ?? null, commissionInvoiceId: extra?.commission_invoice_id ?? null, createdAt: l.created_at,
       contact: { id: c.id ?? l.contact_id, name: c.full_name ?? c.email ?? 'Χωρίς όνομα', email: c.email ?? null, phone: c.phone ?? null, language: c.preferred_language ?? null },
       project: l.projects?.name ?? null,

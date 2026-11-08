@@ -33,11 +33,6 @@ export const DEFAULT_NAV: NavDef[] = [
           { href: '/sales/deals', label: 'Deals' },
           { href: '/sales/activities', label: 'Activities' },
           { href: '/sales/insights', label: 'Insights' },
-          { href: '/crm/leads?tab=followups', label: 'Follow-ups' },
-          { href: '/crm/leads?tab=viewings', label: 'Προβολές' },
-          { href: '/crm/leads?tab=retargeting', label: 'Retargeting' },
-          { href: '/crm/leads?tab=closings', label: 'Κλεισίματα & προμήθειες' },
-          { href: '/crm/leads?tab=kpis', label: 'Στατιστικά' },
         ],
       },
       {
@@ -72,6 +67,7 @@ export const DEFAULT_NAV: NavDef[] = [
           { href: '/marketing', label: 'Καμπάνιες' },
           { href: '/automation', label: 'Αυτοματισμοί', module: 'automation' },
           { href: '/settings/templates', label: 'Templates', module: 'automation' },
+          { href: '/crm/leads?tab=retargeting', label: 'Retargeting', module: 'leads' },
         ],
       },
       {

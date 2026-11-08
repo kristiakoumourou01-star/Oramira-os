@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { X, Maximize2, Phone, Mail, MessageCircle, Save, StickyNote, CalendarClock, Check, AlarmClock, Plus, Trash2 } from 'lucide-react';
 import { getLeadQuick, saveLeadQuick, type LeadQuick } from '@/app/actions/lead-quick';
+import { updateDeal } from '@/app/actions/sales-deals';
 import { addNote, reassignLead } from '@/app/actions/leads';
 import { StatusPipeline } from '@/components/crm/StatusPipeline';
 import { formatDate, formatDateTime } from '@/lib/format';
@@ -37,6 +38,7 @@ export function LeadDrawer({ leadId, agents, onClose }: { leadId: string; agents
       name: r.lead.contact.name, email: r.lead.contact.email ?? '', phone: r.lead.contact.phone ?? '',
       budgetMin: r.lead.budgetMin?.toString() ?? '', budgetMax: r.lead.budgetMax?.toString() ?? '', timeline: r.lead.timeline ?? '',
       nextActionDate: r.lead.nextActionDate ?? '', nextActionType: r.lead.nextActionType ?? '',
+      dealTitle: r.lead.dealTitle ?? '', dealValue: r.lead.dealValue?.toString() ?? '', expectedClose: r.lead.expectedClose ?? '',
     });
   });
   useEffect(() => { setLead(null); setErr(null); setMsg(null); void load(); // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -54,8 +56,9 @@ export function LeadDrawer({ leadId, agents, onClose }: { leadId: string; agents
       budgetMin: form.budgetMin === '' ? null : Number(form.budgetMin), budgetMax: form.budgetMax === '' ? null : Number(form.budgetMax),
       timeline: form.timeline, nextActionDate: form.nextActionDate || null, nextActionType: form.nextActionType || null,
     });
-    setMsg(r.ok ? { ok: true, text: 'Αποθηκεύτηκε.' } : { ok: false, text: r.error });
-    if (r.ok) { router.refresh(); void load(); }
+    const r2 = r.ok ? await updateDeal(leadId, { title: form.dealTitle ?? '', value: form.dealValue === '' || form.dealValue == null ? null : Number(form.dealValue), expectedCloseDate: form.expectedClose || null }) : r;
+    setMsg(r2.ok ? { ok: true, text: 'Αποθηκεύτηκε.' } : { ok: false, text: r2.error });
+    if (r2.ok) { router.refresh(); void load(); }
   });
   const addN = () => start(async () => { if (!note.trim()) return; await addNote('lead', leadId, note.trim()); setNote(''); void load(); });
   const assign = (id: string) => start(async () => { if (id) { await reassignLead(leadId, id); router.refresh(); void load(); } });
@@ -94,6 +97,9 @@ export function LeadDrawer({ leadId, agents, onClose }: { leadId: string; agents
               <NextMoves leadId={leadId} items={lead.followUps} onChange={() => { router.refresh(); void load(); }} />
 
               <section className="panel grid gap-3 p-4 sm:grid-cols-2">
+                <Field label="Τίτλος deal"><input className="input text-sm" value={form.dealTitle ?? ''} placeholder={form.name || 'π.χ. Διαμέρισμα A12'} onChange={set('dealTitle')} /></Field>
+                <Field label="Αξία deal (€)"><input className="input text-sm" type="number" min={0} value={form.dealValue ?? ''} placeholder={form.budgetMax || ''} onChange={set('dealValue')} /></Field>
+                <Field label="Αναμενόμενο κλείσιμο"><input className="input text-sm" type="date" value={form.expectedClose ?? ''} onChange={set('expectedClose')} /></Field>
                 <Field label="Ονοματεπώνυμο"><input className="input text-sm" value={form.name ?? ''} onChange={set('name')} /></Field>
                 <Field label="Υπεύθυνος">
                   <select className="input text-sm" value={lead.ownerId ?? ''} disabled={pending} onChange={(e) => assign(e.target.value)}>

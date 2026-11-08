@@ -6,7 +6,8 @@ import { getOrgSettings } from '@/lib/org-settings';
 import { WorkspaceHeader } from '@/components/ui/WorkspaceHeader';
 import { byOwner, conversionFunnel, dealsPerformance, lostReasons, revenueForecast } from '@/lib/sales-insights';
 import { ACTIVITY_TYPES, activityLabel } from '@/lib/activity-types';
-import { formatCurrency } from '@/lib/format';
+import { formatCurrency, formatDate } from '@/lib/format';
+import { computeSalesKpis, formatMinutes } from '@/lib/sales-kpi';
 
 export const dynamic = 'force-dynamic';
 const PERIODS: [string, string, number][] = [['30', '30 μέρες', 30], ['90', '3 μήνες', 90], ['180', '6 μήνες', 180], ['365', '12 μήνες', 365]];
@@ -23,9 +24,11 @@ export default async function InsightsPage({ searchParams }: { searchParams: { p
   const period = PERIODS.find((p) => p[0] === searchParams.period) ?? PERIODS[2];
   const since = new Date(Date.now() - period[2] * 86400000).toISOString();
   const supabase = await createSupabaseServerClient() as any;
-  const [allLeads, settings, { data: acts }] = await Promise.all([
+  const [allLeads, settings, { data: acts }, kpis, { data: reservations }] = await Promise.all([
     getEnrichedLeads(), getOrgSettings(),
     supabase.from('follow_up_tasks').select('type, is_done, done_at, due_at, assigned_to, owner:assigned_to(full_name)').gte('due_at', since).limit(5000),
+    computeSalesKpis(supabase),
+    supabase.from('reservations').select('id, status, deposit_amount, deposit_paid, reserved_at, contacts(full_name), units(unit_number, projects(name))').order('reserved_at', { ascending: false }).limit(15),
   ]);
   const cfg = settings.pipelines;
   const pipeKey = cfg.pipelines.some((p) => p.key === searchParams.pipeline) ? searchParams.pipeline! : cfg.defaultKey;
@@ -65,6 +68,12 @@ export default async function InsightsPage({ searchParams }: { searchParams: { p
       <div className="grid gap-3 sm:grid-cols-4">
         {[['Won', formatCurrency(wonTotal), `${wonCount} deals`], ['Lost', String(lostCount), 'deals'], ['Win rate', `${wonCount + lostCount ? Math.round((wonCount / (wonCount + lostCount)) * 100) : 0}%`, 'won / (won + lost)'], ['Νέα deals', String(perf.reduce((s, r) => s + r.started, 0)), formatCurrency(perf.reduce((s, r) => s + r.startedValue, 0))]].map(([a, b, c]) => (
           <div key={a} className="panel p-4"><p className="text-xs uppercase tracking-wide text-charcoal-600/70">{a}</p><p className="figure text-2xl text-forest">{b}</p><p className="text-xs text-charcoal-600/60">{c}</p></div>
+        ))}
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-6">
+        {[['Ταχύτητα απάντησης', formatMinutes(kpis.speedToLeadAvgMinutes), `διάμεσος ${formatMinutes(kpis.speedToLeadMedianMinutes)}`], ['Απαντήθηκαν', `${kpis.responseRatePct}%`, `${kpis.totalLeads} leads`], ['Με προβολή', `${kpis.bookingRatePct}%`, 'leads με προβολή'], ['Προβολή → κράτηση', `${kpis.viewingToReservationPct}%`, `${kpis.reservationsCount} κρατήσεις`], ['Κράτηση → πώληση', `${kpis.reservationToSalePct}%`, `${kpis.wonCount} won`], ['Προμήθειες σε εκκρεμότητα', formatCurrency(kpis.commissionsPending), `${formatCurrency(kpis.commissionsPaid)} πληρωμένες`]].map(([a, b, c]) => (
+          <div key={a} className="panel p-3"><p className="text-[11px] uppercase tracking-wide text-charcoal-600/70">{a}</p><p className="figure text-xl text-charcoal">{b}</p><p className="text-[11px] text-charcoal-600/60">{c}</p></div>
         ))}
       </div>
 
@@ -135,6 +144,17 @@ export default async function InsightsPage({ searchParams }: { searchParams: { p
             </div>
           ))}</div>
           <p className="mt-2 text-xs text-charcoal-600/60">Βάλτε «Αναμ. κλείσιμο» στα deals (καρτέλα deal ή Forecast) για ακριβέστερη πρόβλεψη.</p>
+        </Card>
+        <Card title="Κλεισίματα & κρατήσεις" sub="Οι τελευταίες κρατήσεις μονάδων">
+          {(reservations ?? []).length === 0 ? <p className="text-sm text-charcoal-600/70">Καμία κράτηση ακόμη.</p> : (
+            <ul className="divide-y divide-stone-line text-sm">{((reservations ?? []) as any[]).map((r) => (
+              <li key={r.id} className="flex items-center justify-between gap-3 py-2">
+                <span><span className="text-charcoal" data-no-tr>{r.contacts?.full_name ?? '—'}</span><span className="block text-xs text-charcoal-600/70" data-no-tr>{[r.units?.projects?.name, r.units?.unit_number].filter(Boolean).join(' · ')}{r.reserved_at ? ` · ${formatDate(r.reserved_at)}` : ''}{r.deposit_amount ? ` · προκαταβολή ${formatCurrency(Number(r.deposit_amount))}${r.deposit_paid ? ' ✓' : ''}` : ''}</span></span>
+                <span className={r.status === 'active' ? 'badge-forest' : 'badge-neutral'}>{r.status}</span>
+              </li>
+            ))}</ul>
+          )}
+          <Link href="/crm/closings" className="mt-2 inline-block text-xs text-forest hover:underline">Όλα τα κλεισίματα & προμήθειες →</Link>
         </Card>
       </div>
     </div>
