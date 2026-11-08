@@ -118,7 +118,18 @@ export const DEFAULT_NAV: NavDef[] = [
   {
     label: 'Admin',
     items: [
+      { href: '/account', label: 'My account', icon: 'UserCog' },
       { href: '/settings', label: 'Settings', icon: 'Settings', module: 'users' },
+      { href: '/settings/mobile-app', label: 'Mobile app', icon: 'Smartphone', module: 'users' },
+      {
+        href: '/settings/users', label: 'Staff', icon: 'Users', module: 'users',
+        children: [
+          { href: '/settings/users', label: 'Χρήστες & πρόσβαση' },
+          { href: '/settings/roles', label: 'Ρόλοι & δικαιώματα' },
+          { href: '/settings/view-as', label: 'Προβολή ως χρήστης' },
+          { href: '/settings/audit', label: 'Audit log' },
+        ],
+      },
     ],
   },
 ];
@@ -128,7 +139,7 @@ export const NAV_ICON_NAMES = [
   'LayoutDashboard', 'TrendingUp', 'Contact', 'Building2', 'Map', 'Megaphone', 'Home', 'Wallet',
   'UserCog', 'ClipboardList', 'FileBarChart', 'Settings', 'CalendarDays', 'Users', 'Briefcase',
   'HardHat', 'Hammer', 'KeyRound', 'Landmark', 'LineChart', 'PieChart', 'Target', 'Inbox',
-  'MessageSquare', 'Mail', 'Phone', 'FileText', 'FolderOpen', 'Star', 'Zap', 'Globe', 'ShieldCheck',
+  'MessageSquare', 'Mail', 'Phone', 'FileText', 'FolderOpen', 'Star', 'Zap', 'Globe', 'ShieldCheck', 'Smartphone',
 ] as const;
 
 /** Every internal page the menu can open — the allow-list for the start screen. */

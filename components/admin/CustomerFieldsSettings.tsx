@@ -2,10 +2,11 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { Check } from 'lucide-react';
+import { Check, Plus, Trash2 } from 'lucide-react';
 import { optInAllContacts, saveOrgSlice } from '@/app/actions/org-settings';
 import { UndoButton } from '@/components/admin/UndoButton';
-import { PUBLIC_FIELD_OPTIONS, STAFF_FIELD_OPTIONS, type FieldRules } from '@/lib/org-settings-shared';
+import { FIELD_TYPES, FIELD_TYPE_LABEL, PUBLIC_FIELD_OPTIONS, STAFF_FIELD_OPTIONS, type CustomField, type FieldRules, type TagsSettings } from '@/lib/org-settings-shared';
+import { ChipList } from '@/components/admin/SettingsSections';
 import { Switch } from '@/components/admin/settings-ui';
 
 /** Πάντα στη δημόσια φόρμα (χωρίς αυτά δεν μπορούμε να απαντήσουμε). */
@@ -17,7 +18,7 @@ const ALWAYS_SHOWN = ['name', 'phone', 'email'];
  * υποχρεωτικά όταν γράφεται μόνος του ο πελάτης (κράτηση προβολής,
  * ιστοσελίδα), και προτιμήσεις marketing (συγκατάθεση).
  */
-export function CustomerFieldsSettings({ initial, canEdit }: { initial: FieldRules; canEdit: boolean }) {
+export function CustomerFieldsSettings({ initial, tags, canEdit }: { initial: FieldRules; tags: TagsSettings; canEdit: boolean }) {
   const router = useRouter();
   const [v, setV] = useState<FieldRules>(initial);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
@@ -25,7 +26,9 @@ export function CustomerFieldsSettings({ initial, canEdit }: { initial: FieldRul
   const [confirmAll, setConfirmAll] = useState(false);
   const [allMsg, setAllMsg] = useState<string | null>(null);
   const dis = !canEdit;
-  const dirty = JSON.stringify(v) !== JSON.stringify(initial);
+  const [custom, setCustom] = useState<CustomField[]>(tags.fields);
+  const dirty = JSON.stringify(v) !== JSON.stringify(initial) || JSON.stringify(custom) !== JSON.stringify(tags.fields);
+  const setCF = (i: number, p: Partial<CustomField>) => { setCustom((c) => c.map((f, j) => (j === i ? { ...f, ...p } : f))); setMsg(null); };
 
   const toggle = (list: 'staff' | 'public' | 'publicShown', k: string, on: boolean) => {
     setMsg(null);
@@ -37,28 +40,35 @@ export function CustomerFieldsSettings({ initial, canEdit }: { initial: FieldRul
     });
   };
   const save = (next = v) => start(async () => {
-    const r = await saveOrgSlice('fields', next);
+    const r0 = JSON.stringify(custom) !== JSON.stringify(tags.fields) ? await saveOrgSlice('tags', { ...tags, fields: custom.filter((f) => f.name.trim()) }) : { ok: true as const };
+    const r = r0.ok ? await saveOrgSlice('fields', next) : r0;
     setMsg(r.ok ? { ok: true, text: 'Αποθηκεύτηκε.' } : { ok: false, text: r.error });
     if (r.ok) router.refresh();
   });
   const head = 'grid items-center gap-2 bg-stone/40 px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-charcoal-600/80';
-  const row = 'grid items-center gap-2 border-t border-stone-line px-4 py-3 text-sm text-charcoal';
+  const row = 'grid items-center gap-2 border-t border-stone-line px-4 py-2.5 text-sm text-charcoal';
 
   return (
     <div className="space-y-6">
       <section className="space-y-2">
         <h3 className="font-display text-xl text-charcoal">Πεδία πελατών</h3>
-        <p className="text-sm text-charcoal-600/75">Διαλέξτε ποια στοιχεία πρέπει να συμπληρώνονται — χωριστά για το προσωπικό και για τους πελάτες που γράφονται μόνοι τους.</p>
+        <p className="text-sm text-charcoal-600/75">Διαλέξτε ποια στοιχεία πρέπει να συμπληρώνονται — χωριστά για το προσωπικό και για τους πελάτες που γράφονται μόνοι τους. Όλα τα πεδία, και τα δικά σας, είναι εδώ.</p>
         <div className="panel space-y-6 p-5">
           <div className="space-y-2">
             <p className="font-medium text-charcoal">Όταν το προσωπικό καταχωρεί πελάτη</p>
-            <p className="text-sm text-charcoal-600/75">Ισχύει στη φόρμα «Νέο lead» / νέα επαφή. Με τον διακόπτη το πεδίο γίνεται υποχρεωτικό — η φόρμα δεν αποθηκεύεται όσο είναι κενό. Το όνομα και το email ή τηλέφωνο χρειάζονται πάντα και δεν εμφανίζονται εδώ.</p>
+            <p className="text-sm text-charcoal-600/75">Ισχύει στη φόρμα «Νέο lead» / νέα επαφή. Με τον διακόπτη το πεδίο γίνεται υποχρεωτικό — η φόρμα δεν αποθηκεύεται όσο είναι κενό. Το όνομα χρειάζεται πάντα και δεν εμφανίζεται εδώ.</p>
             <div className="overflow-hidden rounded-xl border border-stone-line">
               <div className={`${head} grid-cols-[1fr_110px]`}><span>Όταν το προσωπικό καταχωρεί πελάτη</span><span className="text-center">Υποχρεωτικό</span></div>
               {STAFF_FIELD_OPTIONS.map((o) => (
                 <div key={o.key} className={`${row} grid-cols-[1fr_110px]`}>
                   <span>{o.label}</span>
                   <span className="flex justify-center"><Switch checked={v.staff.includes(o.key)} disabled={dis} label={`${o.label} υποχρεωτικό`} onChange={(x) => toggle('staff', o.key, x)} /></span>
+                </div>
+              ))}
+              {custom.filter((f) => f.name.trim()).map((f) => (
+                <div key={f.key} className={`${row} grid-cols-[1fr_110px]`}>
+                  <span>{f.name} <span className="ml-1 text-xs text-charcoal-600/50">δικό σας · {FIELD_TYPE_LABEL[f.type] ?? f.type}</span></span>
+                  <span className="flex justify-center"><Switch checked={f.required} disabled={dis} label={`${f.name} υποχρεωτικό`} onChange={(x) => setCF(custom.indexOf(f), { required: x })} /></span>
                 </div>
               ))}
             </div>
@@ -81,6 +91,24 @@ export function CustomerFieldsSettings({ initial, canEdit }: { initial: FieldRul
               })}
             </div>
             <p className="text-xs text-charcoal-600/60">Η εισαγωγή από CSV εξαιρείται και από τα δύο: ένα αρχείο από άλλο σύστημα δεν μπορεί να ακολουθεί τους δικούς σας κανόνες.</p>
+          </div>
+
+          <div className="space-y-2">
+            <p className="font-medium text-charcoal">Δικά σας πεδία</p>
+            <p className="text-sm text-charcoal-600/75">Προσθέστε ό,τι άλλο θέλετε να κρατάτε (π.χ. ημερομηνία γέννησης, αριθμός ταυτότητας, εταιρεία). Εμφανίζονται στην καρτέλα κάθε επαφής και lead, και στον πρώτο πίνακα για να τα κάνετε υποχρεωτικά.</p>
+            {custom.map((f, i) => (
+              <div key={f.key} className="space-y-2 rounded-xl border border-stone-line p-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <input className="input min-w-[10rem] flex-1 py-1.5 text-sm" disabled={dis} placeholder="Όνομα πεδίου" value={f.name} onChange={(e) => setCF(i, { name: e.target.value })} />
+                  <select className="input w-40 py-1.5 text-sm" disabled={dis} value={f.type} onChange={(e) => setCF(i, { type: e.target.value })}>
+                    {FIELD_TYPES.map((t) => <option key={t} value={t}>{FIELD_TYPE_LABEL[t] ?? t}</option>)}
+                  </select>
+                  {canEdit && <button type="button" onClick={() => { setCustom((c) => c.filter((_, j) => j !== i)); setMsg(null); }} className="p-1 text-charcoal-600/50 hover:text-signal-danger" aria-label="Διαγραφή πεδίου"><Trash2 size={15} /></button>}
+                </div>
+                {f.type === 'Choice' && <ChipList items={f.options ?? []} onChange={(options) => setCF(i, { options })} placeholder="Νέα επιλογή" canEdit={canEdit} />}
+              </div>
+            ))}
+            {canEdit && <button type="button" onClick={() => { setCustom((c) => [...c, { key: `f_${Date.now().toString(36)}`, name: '', type: 'Text', required: false, options: [] }]); setMsg(null); }} className="btn-secondary text-sm"><Plus size={14} /> Νέο πεδίο</button>}
           </div>
 
           {canEdit && (

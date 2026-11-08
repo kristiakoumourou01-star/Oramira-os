@@ -335,6 +335,8 @@ export interface OrgSettings {
   leadAutomation: LeadAutomationSettings;
   /** Settings → Τμήματα: γραφεία/ομάδες και αίθουσες. */
   departments: DepartmentSettings;
+  /** Settings → Επικοινωνία: όνομα αποστολέα SMS, email αποστολής/απάντησης, push. */
+  communication: CommunicationSettings;
 }
 
 /* ---- Defaults (prototype values where applicable) ---- */
@@ -459,6 +461,16 @@ export function mergeGdpr(g: any): GdprSettings {
 
 export const DEFAULT_LAYOUT: LayoutSettings = { startScreen: '/dashboard', sidebarCompact: false, denseLists: false, sidebarAccordion: true, sidebarDefault: 'full', weekStart: 'monday' };
 
+/* ---- Communication (SMS / email / push) ---- */
+export interface CommunicationSettings { smsSender: string; emailFromName: string; emailReplyTo: string; pushEnabled: boolean }
+export const DEFAULT_COMMUNICATION: CommunicationSettings = { smsSender: '', emailFromName: '', emailReplyTo: '', pushEnabled: false };
+export function mergeCommunication(x: any): CommunicationSettings {
+  const v = x && typeof x === 'object' ? x : {};
+  const sms = typeof v.smsSender === 'string' ? v.smsSender.replace(/[^A-Za-z0-9]/g, '').slice(0, 11) : '';
+  const reply = typeof v.emailReplyTo === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.emailReplyTo.trim()) ? v.emailReplyTo.trim().slice(0, 200) : '';
+  return { smsSender: sms, emailFromName: typeof v.emailFromName === 'string' ? v.emailFromName.replace(/[<>"]/g, '').trim().slice(0, 80) : '', emailReplyTo: reply, pushEnabled: v.pushEnabled === true };
+}
+
 /* ---- Departments & rooms (γραφεία/ομάδες και αίθουσες συναντήσεων) ---- */
 export interface Department { key: string; name: string; active: boolean }
 export interface Room { key: string; name: string; dept: string }
@@ -499,6 +511,7 @@ export const DEFAULT_ORG_SETTINGS: OrgSettings = {
   leadAutomation: DEFAULT_LEAD_AUTOMATION,
   roles: DEFAULT_ROLES,
   departments: DEFAULT_DEPARTMENTS,
+  communication: DEFAULT_COMMUNICATION,
 };
 
 const arr = <T,>(v: any, fallback: T[]): T[] => (Array.isArray(v) ? v : fallback);
@@ -530,6 +543,7 @@ export function mergeOrgSettings(data: any): OrgSettings {
       return { ...l, sidebarDefault: ['full', 'icons', 'auto'].includes(raw) ? raw : (l.sidebarCompact ? 'icons' : 'full'), weekStart: ['monday', 'sunday', 'saturday'].includes(l.weekStart) ? l.weekStart : 'monday' };
     })(),
     departments: mergeDepartments(d.departments),
+    communication: mergeCommunication(d.communication),
     dashboard: mergeDashboard(d.dashboard),
     appearance: mergeAppearance(d.appearance),
     roles: mergeRoles(d.roles),

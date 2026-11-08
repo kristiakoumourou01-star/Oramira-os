@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowUp, ArrowDown, Eye, EyeOff, ChevronRight, RotateCcw, Lock } from 'lucide-react';
+import { ArrowUp, ArrowDown, Eye, EyeOff, ChevronRight, RotateCcw, Lock, GripVertical } from 'lucide-react';
 import { saveOrgSlice } from '@/app/actions/org-settings';
 import { DEFAULT_NAV, NAV_ICON_NAMES, allNavTargets } from '@/lib/nav';
 import {
@@ -77,6 +77,8 @@ export function MenuEditor({ layout, menu, canEdit }: { layout: LayoutSettings; 
   const toggleRole = (it: ResolvedNavItem, role: string) =>
     update(it.href, { hiddenRoles: it.hiddenRoles.includes(role) ? it.hiddenRoles.filter((r) => r !== role) : [...it.hiddenRoles, role] });
 
+  const [dragI, setDragI] = useState<number | null>(null);
+  const [overI, setOverI] = useState<number | null>(null);
   const [quickMsg, setQuickMsg] = useState<{ ok: boolean; text: string } | null>(null);
   /** Οι κάρτες αποθηκεύονται αμέσως (μόνο θέση/διάταξη — όχι οι αλλαγές στα στοιχεία του μενού). */
   function quick(p: { position?: MenuPosition; lay?: LayoutSettings }) {
@@ -164,7 +166,7 @@ export function MenuEditor({ layout, menu, canEdit }: { layout: LayoutSettings; 
         <div className="mb-3 flex items-center justify-between gap-3">
           <div>
             <p className="eyebrow">Στοιχεία μενού</p>
-            <p className="text-xs text-charcoal-600/60">Αλλάξτε σειρά με τα βελάκια, ονόματα και εικονίδια, κρύψτε ό,τι δεν χρειάζεστε. Πατήστε ▸ για υποενότητες και ρόλους.</p>
+            <p className="text-xs text-charcoal-600/60">Σύρετε από τις τελίτσες ⋮⋮ για να αλλάξετε σειρά, αλλάξτε ονόματα και εικονίδια, κρύψτε ό,τι δεν χρειάζεστε. Πατήστε ▸ για υποενότητες και ρόλους.</p>
           </div>
         </div>
         <ul className="divide-y divide-stone-line">
@@ -172,12 +174,14 @@ export function MenuEditor({ layout, menu, canEdit }: { layout: LayoutSettings; 
             const Icon = navIcon(it.icon);
             const expanded = open === it.href;
             return (
-              <li key={it.href} className={`py-2 ${it.hidden ? 'opacity-55' : ''}`}>
+              <li key={it.href} draggable={!disabled}
+                onDragStart={(e) => { if ((e.target as HTMLElement).closest('button,input,select')) { e.preventDefault(); return; } e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', it.href); setDragI(i); }}
+                onDragOver={(e) => { if (dragI !== null) { e.preventDefault(); setOverI(i); } }}
+                onDrop={(e) => { e.preventDefault(); if (dragI !== null && dragI !== i) { const n = [...items]; const [x] = n.splice(dragI, 1); n.splice(i, 0, x); setItems(n); setMsg(null); } setDragI(null); setOverI(null); }}
+                onDragEnd={() => { setDragI(null); setOverI(null); }}
+                className={`py-2 ${it.hidden ? 'opacity-55' : ''} ${overI === i && dragI !== i ? 'rounded-lg ring-2 ring-forest/30' : ''} ${dragI === i ? 'opacity-50' : ''}`}>
                 <div className="flex flex-wrap items-center gap-2">
-                  <div className="flex">
-                    <button type="button" className="btn-ghost px-1.5" disabled={disabled || i === 0} onClick={() => setItems(move(items, i, -1))} aria-label="Πάνω"><ArrowUp size={14} /></button>
-                    <button type="button" className="btn-ghost px-1.5" disabled={disabled || i === items.length - 1} onClick={() => setItems(move(items, i, 1))} aria-label="Κάτω"><ArrowDown size={14} /></button>
-                  </div>
+                  <span className={`px-1 text-charcoal-600/40 ${disabled ? '' : 'cursor-grab active:cursor-grabbing'}`} title="Σύρετε για αλλαγή σειράς"><GripVertical size={16} /></span>
                   <span className="flex h-8 w-8 items-center justify-center rounded-md bg-forest/[0.06] text-forest"><Icon size={15} strokeWidth={1.75} /></span>
                   <select className="input w-40 py-1 text-xs" disabled={disabled} value={it.icon} onChange={(e) => update(it.href, { icon: e.target.value })} aria-label="Εικονίδιο">
                     {NAV_ICON_NAMES.filter((n) => NAV_ICONS[n]).map((n) => <option key={n} value={n}>{n}</option>)}

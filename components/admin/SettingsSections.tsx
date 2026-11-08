@@ -51,7 +51,7 @@ function Toggle({ checked, onChange, label, disabled }: { checked: boolean; onCh
   );
 }
 
-function ChipList({ items, onChange, placeholder, canEdit }: { items: string[]; onChange: (v: string[]) => void; placeholder: string; canEdit: boolean }) {
+export function ChipList({ items, onChange, placeholder, canEdit }: { items: string[]; onChange: (v: string[]) => void; placeholder: string; canEdit: boolean }) {
   const [draft, setDraft] = useState('');
   const add = () => { const t = draft.trim(); if (t && !items.includes(t)) onChange([...items, t]); setDraft(''); };
   return (
@@ -177,8 +177,6 @@ export function SecuritySection({ initial, canEdit, currentIp }: { initial: Secu
 /* ------------------------------------------------------------------- Tags -- */
 export function TagsSection({ initial, canEdit }: { initial: TagsSettings; canEdit: boolean }) {
   const { v, setV, save, pending, msg } = useSlice('tags', initial);
-  const setField = (i: number, p: Partial<TagsSettings['fields'][number]>) => setV({ ...v, fields: v.fields.map((f, idx) => (idx === i ? { ...f, ...p } : f)) });
-  const addField = () => setV({ ...v, fields: [...v.fields, { key: `f_${Date.now().toString(36)}`, name: '', type: 'Text', required: false, options: [] }] });
   return (
     <div className="space-y-4">
       <div className="panel p-5">
@@ -191,35 +189,8 @@ export function TagsSection({ initial, canEdit }: { initial: TagsSettings; canEd
         <p className="mb-3 text-xs text-charcoal-600/60">Λίστες επαφών (π.χ. Ρωσόφωνοι αγοραστές, Παλιοί πελάτες) για στοχευμένα μηνύματα.</p>
         <ChipList items={v.groups} onChange={(groups) => setV({ ...v, groups })} placeholder="Νέα ομάδα" canEdit={canEdit} />
       </div>
-      <div className="panel space-y-3 p-5">
-        <div className="flex items-center justify-between">
-          <div>
-            <h4>Δικά σας πεδία</h4>
-            <p className="text-xs text-charcoal-600/60">Εμφανίζονται στην καρτέλα κάθε επαφής και lead. Η μετονομασία δεν χάνει τις τιμές που έχουν ήδη συμπληρωθεί.</p>
-          </div>
-          {canEdit && <button onClick={addField} className="btn-ghost text-xs"><Plus size={13} /> Νέο πεδίο</button>}
-        </div>
-        {v.fields.map((f, i) => (
-          <div key={f.key || `new-${i}`} className="space-y-2 rounded-lg border border-stone-line p-3">
-            <div className="grid grid-cols-1 items-center gap-2 sm:grid-cols-[1.4fr_1fr_auto_auto]">
-              <input className="input" disabled={!canEdit} placeholder="Όνομα πεδίου" value={f.name} onChange={(e) => setField(i, { name: e.target.value })} />
-              <select className="input" disabled={!canEdit} value={f.type} onChange={(e) => setField(i, { type: e.target.value })}>
-                {FIELD_TYPES.map((t) => <option key={t} value={t}>{FIELD_TYPE_LABEL[t] ?? t}</option>)}
-              </select>
-              <button onClick={() => setField(i, { required: !f.required })} disabled={!canEdit} className={`badge ${f.required ? 'badge-forest' : 'badge-neutral'}`}>{f.required ? 'Υποχρεωτικό' : 'Προαιρετικό'}</button>
-              {canEdit && <button onClick={() => setV({ ...v, fields: v.fields.filter((_, idx) => idx !== i) })} className="text-signal-danger/70 hover:text-signal-danger" aria-label="Διαγραφή πεδίου"><Trash2 size={15} /></button>}
-            </div>
-            {f.type === 'Choice' && (
-              <div>
-                <p className="mb-1 text-xs text-charcoal-600/70">Επιλογές</p>
-                <ChipList items={f.options ?? []} onChange={(options) => setField(i, { options })} placeholder="Νέα επιλογή" canEdit={canEdit} />
-              </div>
-            )}
-          </div>
-        ))}
-        {v.fields.length === 0 && <p className="text-sm text-charcoal-600/60">Κανένα πεδίο ακόμα.</p>}
-      </div>
-      <SaveBar onSave={save} pending={pending} msg={msg} canEdit={canEdit} slice="tags" onReset={() => setV(DEFAULT_ORG_SETTINGS.tags as any)} />
+      <p className="text-sm text-charcoal-600/70">Τα πεδία (και τα δικά σας) ρυθμίζονται όλα μαζί στα <a href="/settings?section=customerFields" className="text-forest underline">Πεδία πελατών</a>.</p>
+      <SaveBar onSave={save} pending={pending} msg={msg} canEdit={canEdit} slice="tags" onReset={() => setV({ ...(DEFAULT_ORG_SETTINGS.tags as any), fields: v.fields })} />
     </div>
   );
 }

@@ -10,7 +10,7 @@
 export type SettingsKey =
   | 'business' | 'appearance' | 'layout' | 'dashboard' | 'invoices'
   | 'notifications' | 'security' | 'tags' | 'pipelines' | 'leads' | 'integrations' | 'gdpr' | 'portals' | 'unitforms'
-  | 'departments' | 'customerFields';
+  | 'departments' | 'customerFields' | 'communication';
 
 export interface SettingsSection {
   key: SettingsKey;
@@ -31,9 +31,10 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
   { key: 'invoices', label: 'Τιμολόγια & ΦΠΑ', subtitle: 'Συντελεστές ΦΠΑ, αρίθμηση, απόδειξη', group: 'Money', ready: true, outline: ['Συντελεστές ΦΠΑ', 'Αρίθμηση χωρίς κενά (INV-, REC-, CN-)', 'Logo / διεύθυνση / IBAN στο παραστατικό', 'myDATA export'] },
   { key: 'notifications', label: 'Ειδοποιήσεις', subtitle: 'Ποιος ενημερώνεται, και πώς', group: 'Work', outline: ['Events (new lead, viewing booked, payment failed…)', 'Who gets told (agent / manager / client)', 'Channels: in-app, push, email, SMS', 'Quiet hours'] },
   { key: 'security', label: 'Ασφάλεια', subtitle: 'Σύνδεση, συσκευές, κωδικοί', group: 'Work', outline: ['Two-factor (OTP)', 'Trusted devices & session timeout', 'Password policy (length, symbols, expiry)', 'IP allow-list'] },
-  { key: 'tags', label: 'Tags, ομάδες & πεδία', subtitle: 'Για τις επαφές', group: 'Work', outline: ['Contact tags (Cash buyer, Investor, VIP…)', 'Saved groups / segments', 'Custom fields (type, required)'] },
+  { key: 'tags', label: 'Tags & ομάδες', subtitle: 'Ετικέτες και λίστες επαφών', group: 'Work', outline: ['Contact tags (Cash buyer, Investor, VIP…)', 'Saved groups / segments', 'Custom fields (type, required)'] },
+  { key: 'communication', label: 'Επικοινωνία', subtitle: 'SMS, email και push', group: 'Connections', ready: true, outline: [] },
   { key: 'departments', label: 'Τμήματα', subtitle: 'Γραφεία / ομάδες και αίθουσες συναντήσεων', group: 'Work', ready: true, outline: [] },
-  { key: 'customerFields', label: 'Πεδία πελατών', subtitle: 'Τι είναι υποχρεωτικό για το προσωπικό και στις δημόσιες φόρμες', group: 'Work', ready: true, outline: [] },
+  { key: 'customerFields', label: 'Πεδία πελατών', subtitle: 'Όλα τα πεδία σε ένα σημείο: υποχρεωτικά, στη φόρμα, δικά σας πεδία', group: 'Work', ready: true, outline: [] },
   { key: 'pipelines', label: 'Pipelines & φόρμες', subtitle: 'Pipelines, στάδια και όρια, λόγοι απώλειας, προμήθεια, κρατήσεις', group: 'Work', ready: true, outline: ['Πολλαπλά pipelines', 'Στάδια, πιθανότητες, μέγιστες μέρες', 'Λόγοι απώλειας', 'Πηγές leads', 'Τιμολόγιο προμήθειας στο «Won»', 'Κρατήσεις: διάρκεια, προειδοποίηση, αποδέσμευση'] },
   { key: 'leads', label: 'Leads & αυτοματισμοί', subtitle: 'Υπεύθυνος ανά πηγή, round robin, καλωσόρισμα, follow-up, αναπάντητα, ημερήσια σύνοψη', group: 'Work', ready: true, outline: ['Υπεύθυνος ανά πηγή', 'Round robin (με άδειες)', 'Καλωσόρισμα στη γλώσσα του πελάτη', 'Αναπάντητο lead: ειδοποίηση και επαναδιανομή', 'Follow-up sequence', 'Ημερήσια σύνοψη'] },
   { key: 'unitforms', label: 'Φόρμες μονάδων', subtitle: 'Τύποι μονάδων, δικά σας πεδία (EL/EN), υδατογράφημα φωτογραφιών', group: 'Work', ready: true, outline: ['Τύποι μονάδων', 'Πεδία ανά τύπο', 'Ορατό στον πελάτη ή μόνο στο προσωπικό', 'Χρήση στο matching', 'Υδατογράφημα φωτογραφιών'] },
@@ -71,7 +72,7 @@ export const SETTINGS_NAV: SettingsNavGroup[] = [
   { label: 'Λειτουργία', items: [
     { label: 'Ειδοποιήσεις', href: '/settings?section=notifications', icon: 'notifications' },
     { label: 'Ασφάλεια', href: '/settings?section=security', icon: 'security' },
-    { label: 'Tags & πεδία', href: '/settings?section=tags', icon: 'tags' },
+    { label: 'Tags & ομάδες', href: '/settings?section=tags', icon: 'tags' },
     { label: 'Τμήματα', href: '/settings?section=departments', icon: 'departments' },
     { label: 'Πεδία πελατών', href: '/settings?section=customerFields', icon: 'customerFields' },
     { label: 'Pipelines & φόρμες', href: '/settings?section=pipelines', icon: 'pipelines' },
@@ -90,6 +91,8 @@ export const SETTINGS_NAV: SettingsNavGroup[] = [
     { label: 'ΦΠΑ & αποδείξεις', href: '/settings?section=invoices', icon: 'invoices' },
   ] },
   { label: 'Συνδέσεις', items: [
+    { label: 'Επικοινωνία', href: '/settings?section=communication', icon: 'communication' },
+    { label: 'Mobile app', href: '/settings/mobile-app', icon: 'mobile' },
     { label: 'Integrations', href: '/settings?section=integrations', icon: 'integrations' },
   ] },
   { label: 'Δεδομένα', items: [
