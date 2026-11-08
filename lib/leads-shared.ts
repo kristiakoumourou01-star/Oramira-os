@@ -26,5 +26,7 @@ export interface LeadListItem {
   stage_entered_at?: string | null;
   /** Το δικό του στάδιο στο pipeline (migration 0072). */
   stage?: string | null;
+  /** Λόγος/αποτέλεσμα κλεισίματος (Lost, Not interested…). */
+  lost_reason?: string | null;
   is_returning?: boolean;
 }

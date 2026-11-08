@@ -46,7 +46,7 @@ export async function getEnrichedLeads(): Promise<LeadListItem[]> {
 
   const [leads, { data: followUps }] = await Promise.all([
     selectResilient(
-      scoped(supabase.from('leads').select(`${FULL}, stage`)).order('created_at', { ascending: false }),
+      scoped(supabase.from('leads').select(`${FULL}, stage, lost_reason`)).order('created_at', { ascending: false }),
       () => selectResilient(
         scoped(supabase.from('leads').select(FULL)).order('created_at', { ascending: false }),
         () => scoped(supabase.from('leads').select(BASE)).order('created_at', { ascending: false }),
@@ -99,6 +99,7 @@ export async function getEnrichedLeads(): Promise<LeadListItem[]> {
       pipeline: (l as any).pipeline ?? null,
       stage_entered_at: (l as any).stage_entered_at ?? null,
       stage: (l as any).stage ?? null,
+      lost_reason: (l as any).lost_reason ?? null,
       is_returning: !!(l as any).is_returning,
       needs_action: deriveNeedsAction(l.status, l.last_contacted_at, l.created_at, (l as any).next_action_date ?? nextFollowUp),
     };

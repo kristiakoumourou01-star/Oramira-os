@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Check, Plus, Trash2, Star, ChevronDown, ChevronRight, ChevronUp, FileText, X } from 'lucide-react';
 import { saveOrgSlice } from '@/app/actions/org-settings';
 import { UndoButton } from '@/components/admin/UndoButton';
-import { FLOW, STATUS_EL, slugKey, type FlowStatus, type PipelineDef, type PipelineSettings, type StageDef } from '@/lib/pipeline-shared';
+import { FLOW, STATUS_EL, slugKey, type FlowStatus, type LostReason, type PipelineDef, type PipelineSettings, type StageDef } from '@/lib/pipeline-shared';
 
 const Lbl = ({ children }: { children: React.ReactNode }) => <span className="eyebrow mb-1 block">{children}</span>;
 
@@ -104,18 +104,28 @@ export function PipelineSettingsEditor({ initial, canEdit, vatRates }: { initial
       </div>
 
       <div className="panel space-y-2 p-5">
-        <h4>Λόγοι απώλειας</h4>
-        <p className="text-xs text-charcoal-600/60">Εμφανίζονται όταν κλείνει ένα lead και μετρούν στο «Γιατί χάνονται». Κάθε λόγος οδηγεί σε «Χάθηκε», «Για αργότερα» ή «Χωρίς απάντηση».</p>
-        {v.lostReasons.map((r, i) => (
-          <div key={r.key} className="grid grid-cols-[1fr_170px_auto] items-center gap-2">
-            <input className="input py-1 text-sm" disabled={dis} value={r.label} onChange={(e) => patch({ lostReasons: v.lostReasons.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)) })} />
-            <select className="input py-1 text-sm" disabled={dis} value={r.status} onChange={(e) => patch({ lostReasons: v.lostReasons.map((x, j) => (j === i ? { ...x, status: e.target.value as any } : x)) })}>
-              <option value="lost">Χάθηκε</option><option value="nurture">Για αργότερα</option><option value="no_response">Χωρίς απάντηση</option>
-            </select>
-            {canEdit && <button type="button" onClick={() => patch({ lostReasons: v.lostReasons.filter((_, j) => j !== i) })} className="text-charcoal-600/40 hover:text-signal-danger"><Trash2 size={14} /></button>}
-          </div>
-        ))}
-        {canEdit && <button type="button" onClick={() => patch({ lostReasons: [...v.lostReasons, { key: slugKey('reason', v.lostReasons.map((x) => x.key)), label: 'Νέος λόγος', status: 'lost' }] })} className="btn-ghost text-xs"><Plus size={13} /> Λόγος</button>}
+        <h4>Κλείσιμο χωρίς πώληση: Lost, Not interested…</h4>
+        <p className="text-xs text-charcoal-600/60">Τα αποτελέσματα που μπορεί να έχει ένα lead όταν δεν προχωρά. Με «Κουμπί» εμφανίζεται ως κουμπί ενός κλικ δίπλα στο «Κλείσιμο (Won)»· τα υπόλοιπα είναι στο «Άλλος λόγος…». Στο Lead Management κάθε αποτέλεσμα έχει δική του ενότητα, και μετρά στο «Γιατί χάνονται».</p>
+        <div className="hidden items-center gap-2 text-[11px] text-charcoal-600/70 sm:flex"><span className="w-[44px]" /><span className="flex-1">Όνομα</span><span className="w-[170px]">Σημαίνει</span><span className="w-[72px]">Κουμπί</span><span className="w-5" /></div>
+        {v.lostReasons.map((r, i) => {
+          const setR = (x: Partial<LostReason>) => patch({ lostReasons: v.lostReasons.map((y, j) => (j === i ? { ...y, ...x } : y)) });
+          const move = (d: number) => { const a = [...v.lostReasons]; const t = a[i + d]; if (!t) return; a[i + d] = a[i]; a[i] = t; patch({ lostReasons: a }); };
+          return (
+            <div key={r.key} className="flex flex-wrap items-center gap-2 border-b border-stone-line/60 pb-1 last:border-0 sm:flex-nowrap sm:border-0 sm:pb-0">
+              <span className="flex w-[44px] text-charcoal-600/50">
+                <button type="button" disabled={dis || i === 0} onClick={() => move(-1)} aria-label="Πάνω" className="disabled:opacity-20 hover:text-forest"><ChevronUp size={15} /></button>
+                <button type="button" disabled={dis || i === v.lostReasons.length - 1} onClick={() => move(1)} aria-label="Κάτω" className="disabled:opacity-20 hover:text-forest"><ChevronDown size={15} /></button>
+              </span>
+              <input className="input min-w-0 flex-[1_1_10rem] py-1 text-sm" aria-label="Όνομα" disabled={dis} value={r.label} maxLength={80} onChange={(e) => setR({ label: e.target.value })} />
+              <select className="input w-[170px] py-1 text-sm" aria-label="Σημαίνει" disabled={dis} value={r.status} onChange={(e) => setR({ status: e.target.value as LostReason['status'] })}>
+                <option value="lost">Lost (χάθηκε)</option><option value="nurture">Για αργότερα</option><option value="no_response">Χωρίς απάντηση</option>
+              </select>
+              <label className="flex w-[72px] items-center gap-1.5 text-xs text-charcoal-600"><input type="checkbox" disabled={dis} checked={!!r.quick} onChange={(e) => setR({ quick: e.target.checked })} /> Κουμπί</label>
+              {canEdit ? <button type="button" onClick={() => patch({ lostReasons: v.lostReasons.filter((_, j) => j !== i) })} className="w-5 text-charcoal-600/40 hover:text-signal-danger" aria-label="Διαγραφή"><Trash2 size={14} /></button> : <span className="w-5" />}
+            </div>
+          );
+        })}
+        {canEdit && <button type="button" onClick={() => patch({ lostReasons: [...v.lostReasons, { key: slugKey('reason', v.lostReasons.map((x) => x.key)), label: 'Νέο αποτέλεσμα', status: 'lost', quick: true }] })} className="btn-ghost text-xs"><Plus size={13} /> Αποτέλεσμα</button>}
       </div>
 
       <div className="panel space-y-2 p-5">

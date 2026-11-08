@@ -121,6 +121,7 @@ export async function updateLeadStatus(leadId: string, status: string, reason?: 
   const closing = ['lost', 'nurture', 'no_response'].includes(status);
   const patch: Record<string, unknown> = { status, stage: stageKey && /^[a-z0-9_]{1,30}$/.test(stageKey) ? stageKey : null };
   if (closing && lostKey) { patch.lost_reason = lostKey.slice(0, 40); patch.lost_note = (reason ?? '').slice(0, 500) || null; }
+  else if (!closing) { patch.lost_reason = null; patch.lost_note = null; }
   let { error: upErr } = await (supabase as any).from('leads').update(patch).eq('id', leadId);
   if (upErr) { delete patch.stage; ({ error: upErr } = await (supabase as any).from('leads').update(patch).eq('id', leadId)); } // πριν το 0072
   if (upErr && 'lost_reason' in patch) await supabase.from('leads').update({ status } as any).eq('id', leadId);
