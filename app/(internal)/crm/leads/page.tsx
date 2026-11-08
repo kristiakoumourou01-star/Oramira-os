@@ -33,7 +33,7 @@ export default async function SalesPage({ searchParams }: { searchParams: { tab?
   const supabase = await createSupabaseServerClient();
   const now = Date.now();
 
-  const [leads, { data: projects }, { data: agents }, { data: pending }, unassignedRes, { data: followUps }, { data: viewings }, { data: reservations }, { data: won }, retarget, kpis] = await Promise.all([
+  const [allLeads, { data: projects }, { data: agents }, { data: pending }, unassignedRes, { data: followUps }, { data: viewings }, { data: reservations }, { data: won }, retarget, kpis] = await Promise.all([
     getEnrichedLeads(),
     supabase.from('projects').select('id, name'),
     supabase.from('profiles').select('id, full_name').in('role', ['admin', 'sales', 'management']),
@@ -50,6 +50,7 @@ export default async function SalesPage({ searchParams }: { searchParams: { tab?
     computeSalesKpis(supabase),
   ]);
 
+  const leads = allLeads.filter((l) => !l.archived_at);
   const command = await buildSalesCommand(supabase);
   const { pipelines: pipeCfg } = await getOrgSettings();
   const insights = await loadPipelineInsights(pipeCfg);

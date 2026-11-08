@@ -48,7 +48,16 @@ export interface PipelineSettings {
   sources: string[];
   lostReasons: LostReason[];
   commission: CommissionSettings;
+  /** Labels των deals (όπως Pipedrive: Hot / Warm / Cold). */
+  dealLabels: DealLabel[];
 }
+export type LabelColor = 'red' | 'yellow' | 'green' | 'blue' | 'purple' | 'gray';
+export interface DealLabel { key: string; name: string; color: LabelColor }
+export const LABEL_COLORS: LabelColor[] = ['red', 'yellow', 'green', 'blue', 'purple', 'gray'];
+export const LABEL_CLASS: Record<LabelColor, string> = {
+  red: 'bg-rose-100 text-rose-700 border-rose-200', yellow: 'bg-amber-100 text-amber-800 border-amber-200', green: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+  blue: 'bg-sky-100 text-sky-700 border-sky-200', purple: 'bg-violet-100 text-violet-700 border-violet-200', gray: 'bg-stone text-charcoal-600 border-stone-line',
+};
 
 const S = (status: FlowStatus, label: string, probability: number, maxDays: number | null): StageDef => ({ key: status, status, label, probability, maxDays });
 export const DEFAULT_PIPELINE_SETTINGS: PipelineSettings = {
@@ -81,6 +90,7 @@ export const DEFAULT_PIPELINE_SETTINGS: PipelineSettings = {
     { key: 'unreachable', label: 'Δεν απαντά', status: 'no_response', quick: true },
   ],
   commission: { mode: 'prepare', defaultPct: 3, vatRate: null, billTo: 'buyer', fixed: { name: '', vatNo: '', address: '', email: '' } },
+  dealLabels: [{ key: 'hot', name: 'Hot', color: 'red' }, { key: 'warm', name: 'Warm', color: 'yellow' }, { key: 'cold', name: 'Cold', color: 'blue' }],
 };
 
 const KEY_RE = /^[a-z0-9_]{1,30}$/;
@@ -152,6 +162,16 @@ export function mergePipelines(x: any): PipelineSettings {
       billTo: c.billTo === 'fixed' ? 'fixed' : 'buyer',
       fixed: { name: s(c.fixed?.name, 200), vatNo: s(c.fixed?.vatNo, 40), address: s(c.fixed?.address, 400), email: s(c.fixed?.email, 200) },
     },
+    dealLabels: (() => {
+      const out: DealLabel[] = [];
+      for (const l of Array.isArray(v.dealLabels) ? v.dealLabels : DEFAULT_PIPELINE_SETTINGS.dealLabels) {
+        const name = s(l?.name, 30); if (!name) continue;
+        const key = typeof l?.key === 'string' && KEY_RE.test(l.key) && !out.some((q) => q.key === l.key) ? l.key : slugKey(name, out.map((q) => q.key));
+        out.push({ key, name, color: LABEL_COLORS.includes(l?.color) ? l.color : 'gray' });
+        if (out.length >= 20) break;
+      }
+      return out;
+    })(),
   };
 }
 

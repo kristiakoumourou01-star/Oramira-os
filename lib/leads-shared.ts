@@ -29,4 +29,21 @@ export interface LeadListItem {
   /** Λόγος/αποτέλεσμα κλεισίματος (Lost, Not interested…). */
   lost_reason?: string | null;
   is_returning?: boolean;
+  /** Deal (migration 0075) — όπως στο Pipedrive. */
+  title?: string | null;
+  value?: number | null;
+  currency?: string;
+  expected_close_date?: string | null;
+  labels?: string[];
+  won_at?: string | null;
+  lost_at?: string | null;
+  archived_at?: string | null;
+  in_inbox?: boolean;
+  /** Η πιο κοντινή ανοιχτή activity (ημ/νία + τύπος). */
+  next_activity_type?: string | null;
 }
+
+/** Η αξία του deal: η αξία που ορίστηκε, αλλιώς ο προϋπολογισμός. */
+export const dealValue = (l: Pick<LeadListItem, 'value' | 'budget_max' | 'budget_min'>) => Number(l.value ?? l.budget_max ?? l.budget_min ?? 0) || 0;
+/** Τίτλος deal: ο δικός του, αλλιώς το όνομα της επαφής. */
+export const dealTitle = (l: Pick<LeadListItem, 'title' | 'full_name' | 'email'>) => (l.title ?? '').trim() || l.full_name || l.email || '—';
