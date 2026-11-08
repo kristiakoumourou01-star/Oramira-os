@@ -12,6 +12,7 @@ import { RiskPanel } from './RiskPanel';
 import { ScenarioPanel, type SavedScenario } from './ScenarioPanel';
 import { AIAdvisoryPanel } from './AIAdvisoryPanel';
 import { ConvertToProjectButton } from './ConvertToProjectButton';
+import { DealRowActions } from '@/components/deals/DealRowActions';
 
 const STATUSES = ['draft', 'reviewing', 'approved', 'rejected', 'on_hold', 'acquired'];
 
@@ -73,7 +74,7 @@ export function DealWorkbench({
       <div className="sticky top-14 z-10 -mx-6 flex flex-wrap items-center justify-between gap-3 border-b border-stone-line bg-stone/95 px-6 py-3 backdrop-blur">
         <div>
           <p className="eyebrow">Deal Analyzer</p>
-          <h1 className="font-display text-2xl">{dealName}</h1>
+          <div className="flex items-center gap-2"><h1 className="font-display text-2xl">{dealName}</h1><DealRowActions id={dealId} name={dealName} compact /></div>
         </div>
         <div className="flex items-center gap-3">
           {(status === 'approved' || status === 'acquired' || projectId) && (

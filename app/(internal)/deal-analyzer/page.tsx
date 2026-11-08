@@ -5,6 +5,7 @@ import { Calculator, ChevronRight } from 'lucide-react';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { WorkspaceHeader } from '@/components/ui/WorkspaceHeader';
 import { NewDealButton } from '@/components/deals/NewDealButton';
+import { DealRowActions } from '@/components/deals/DealRowActions';
 import { eur, pct } from '@/lib/deal-analyzer';
 
 const STATUS_CLASS: Record<string, string> = {
@@ -64,7 +65,7 @@ export default async function DealAnalyzerPage() {
                     <td className="figure">{d.roi != null ? pct(d.roi) : '—'}</td>
                     <td className="figure text-charcoal-600">{d.profit_margin != null ? pct(d.profit_margin) : '—'}</td>
                     <td><span className={band.cls}>{band.label}</span></td>
-                    <td className="text-right"><Link href={`/deal-analyzer/${d.id}`}><ChevronRight size={16} className="text-charcoal-600/40" strokeWidth={1.75} /></Link></td>
+                    <td className="whitespace-nowrap text-right"><DealRowActions id={d.id} name={d.name} /><Link href={`/deal-analyzer/${d.id}`} className="ml-1 inline-block align-middle"><ChevronRight size={16} className="text-charcoal-600/40" strokeWidth={1.75} /></Link></td>
                   </tr>
                 );
               })}
