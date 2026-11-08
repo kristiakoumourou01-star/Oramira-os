@@ -162,6 +162,32 @@ export async function updateMilestoneStatus(
   revalidatePath(`/projects/${projectId}`);
 }
 
+/** Επεξεργασία σταδίου (τύπος, ημερομηνίες, σημειώσεις). */
+export async function updateMilestone(milestoneId: string, projectId: string, p: { milestoneType?: string; plannedStart?: string | null; plannedEnd?: string | null; notes?: string | null }) {
+  await requireRole(STAFF);
+  const supabase = await createSupabaseServerClient();
+  const patch: Record<string, unknown> = {};
+  if (p.milestoneType && ['permits', 'excavation', 'structure', 'mep', 'finishes', 'delivery'].includes(p.milestoneType)) patch.milestone_type = p.milestoneType;
+  const day = (v: string | null | undefined) => (v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null);
+  if (p.plannedStart !== undefined) patch.planned_start = day(p.plannedStart);
+  if (p.plannedEnd !== undefined) patch.planned_end = day(p.plannedEnd);
+  if (p.notes !== undefined) patch.notes = p.notes?.trim().slice(0, 1000) || null;
+  const { error } = await supabase.from('project_milestones').update(patch as any).eq('id', milestoneId).eq('project_id', projectId);
+  if (error) return { ok: false as const, error: error.message };
+  revalidatePath(`/projects/${projectId}`);
+  return { ok: true as const };
+}
+
+/** Διαγραφή σταδίου. */
+export async function deleteMilestone(milestoneId: string, projectId: string) {
+  await requireRole(STAFF);
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.from('project_milestones').delete().eq('id', milestoneId).eq('project_id', projectId);
+  if (error) return { ok: false as const, error: error.message };
+  revalidatePath(`/projects/${projectId}`);
+  return { ok: true as const };
+}
+
 /** Read-only signal from the suggestion engine — staff still decide. */
 export async function getSuggestedContractors(trade: string, projectId: string) {
   await requireRole(STAFF);
