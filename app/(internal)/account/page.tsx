@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { KeyRound, ShieldCheck, MonitorSmartphone, Bell, ChevronRight, User, History, Palette, LogOut, Sparkles, LifeBuoy } from 'lucide-react';
+import { ScrollText, KeyRound, ShieldCheck, MonitorSmartphone, Bell, ChevronRight, User, History, Palette, LogOut, Sparkles, LifeBuoy } from 'lucide-react';
 import { requireProfile } from '@/lib/auth';
 import { createSupabaseServerClient, createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import { listTrustedDevices, listTotpFactors } from '@/lib/mfa';
@@ -9,12 +9,14 @@ import { signOutEverywhere } from '@/app/actions/account';
 import { AccountProfile } from '@/components/account/AccountProfile';
 import { PersonalDisplay } from '@/components/account/PersonalDisplay';
 import { NotificationPrefs } from '@/components/account/NotificationPrefs';
+import { AuditLogView } from '@/components/admin/AuditLogView';
+import { getAuditLog } from '@/lib/audit';
 
 export const dynamic = 'force-dynamic';
 
-type Tab = 'info' | 'logs' | 'display' | 'notifications' | 'news';
+type Tab = 'info' | 'logs' | 'audit' | 'display' | 'notifications' | 'news';
 const TABS: { group: string; items: { key: Tab; label: string; icon: typeof User }[] }[] = [
-  { group: 'Προφίλ', items: [{ key: 'info', label: 'Πληροφορίες', icon: User }, { key: 'logs', label: 'Ιστορικό', icon: History }] },
+  { group: 'Προφίλ', items: [{ key: 'info', label: 'Πληροφορίες', icon: User }, { key: 'logs', label: 'Ιστορικό', icon: History }, { key: 'audit', label: 'Audit log', icon: ScrollText }] },
   { group: 'Υποστήριξη', items: [{ key: 'news', label: 'Τι νέο', icon: Sparkles }] },
   { group: 'Λογαριασμός', items: [{ key: 'display', label: 'Εμφάνιση', icon: Palette }, { key: 'notifications', label: 'Ειδοποιήσεις', icon: Bell }] },
 ];
@@ -41,7 +43,9 @@ function fmt(d: string) {
 /** Ο λογαριασμός μου — όπως το My Account του demo, χωριστά από τις ρυθμίσεις εταιρείας. */
 export default async function AccountPage({ searchParams }: { searchParams: { tab?: string } }) {
   const me = await requireProfile();
-  const tab: Tab = (['info', 'logs', 'display', 'notifications', 'news'] as const).includes(searchParams.tab as Tab) ? (searchParams.tab as Tab) : 'info';
+  const isAdmin = me.role === 'admin';
+  const allowed: Tab[] = ['info', 'logs', 'display', 'notifications', 'news', ...(isAdmin ? ['audit' as const] : [])];
+  const tab: Tab = allowed.includes(searchParams.tab as Tab) ? (searchParams.tab as Tab) : 'info';
   const supabase = await createSupabaseServerClient();
   const { data: auth } = await supabase.auth.getUser();
   const svc = createSupabaseServiceRoleClient() as any;
@@ -96,6 +100,14 @@ export default async function AccountPage({ searchParams }: { searchParams: { ta
             </ul>}
       </div>
     );
+  } else if (tab === 'audit') {
+    const rows = await getAuditLog(500);
+    body = (
+      <div className="space-y-3">
+        <div className="panel px-5 py-3.5"><p className="font-semibold text-charcoal">Audit log</p><p className="text-sm text-charcoal-600/75">Ποιος, πότε, από πού — όλοι οι χρήστες (τελευταίες 500 εγγραφές). Το βλέπει μόνο ο διαχειριστής.</p></div>
+        <AuditLogView rows={rows} />
+      </div>
+    );
   } else if (tab === 'display') {
     const loc = requestLocale();
     body = <div className="panel p-5"><PersonalDisplay lang={loc.lang} num={loc.num} /></div>;
@@ -125,7 +137,7 @@ export default async function AccountPage({ searchParams }: { searchParams: { ta
           {TABS.map((g) => (
             <div key={g.group}>
               <p className="px-2 pb-1 text-[11px] font-semibold uppercase tracking-wide text-charcoal-600/60">{g.group}</p>
-              {g.items.map((t) => (
+              {g.items.filter((t) => t.key !== 'audit' || isAdmin).map((t) => (
                 <Link key={t.key} href={`/account?tab=${t.key}`} aria-current={tab === t.key ? 'page' : undefined}
                   className={`flex items-center gap-2 rounded-lg px-2 py-2 text-sm ${tab === t.key ? 'bg-forest/10 font-medium text-forest' : 'text-charcoal hover:bg-stone'}`}>
                   <t.icon size={15} /> <span className="flex-1">{t.label}</span>{tab === t.key && <ChevronRight size={14} />}
