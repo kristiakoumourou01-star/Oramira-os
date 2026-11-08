@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { Check, Plus, Trash2, ArrowUp, ArrowDown, Eye, EyeOff, Target, ChevronDown, ChevronRight } from 'lucide-react';
+import { useDragSort, moveItem } from '@/components/ui/useDragSort';
+import { Check, Plus, Trash2, GripVertical, Eye, EyeOff, Target, ChevronDown, ChevronRight } from 'lucide-react';
 import { saveOrgSlice } from '@/app/actions/org-settings';
 import { UndoButton } from '@/components/admin/UndoButton';
 import {
@@ -35,7 +36,9 @@ export function UnitFormsEditor({ initial, canEdit }: { initial: UnitFormsSettin
   const patch = (p: Partial<UnitFormsSettings>) => { setV((x) => ({ ...x, ...p })); setMsg(null); };
   const setType = (i: number, p: Partial<UnitType>) => patch({ types: v.types.map((t, idx) => (idx === i ? { ...t, ...p } : t)) });
   const setField = (i: number, p: Partial<UnitField>) => patch({ fields: v.fields.map((f, idx) => (idx === i ? { ...f, ...p } : f)) });
-  const move = <T,>(arr: T[], i: number, d: -1 | 1): T[] => { const j = i + d; if (j < 0 || j >= arr.length) return arr; const a = [...arr]; [a[i], a[j]] = [a[j], a[i]]; return a; };
+  const dndT = useDragSort((from, to) => patch({ types: moveItem(v.types, from, to) }), canEdit, 'types');
+  const dndF = useDragSort((from, to) => patch({ fields: moveItem(v.fields, from, to) }), canEdit, 'fields');
+  const grip = canEdit ? <span className="cursor-grab text-charcoal-600/40 active:cursor-grabbing" title="Σύρετε για αλλαγή σειράς"><GripVertical size={15} /></span> : null;
   const addField = () => {
     const key = keyFrom('new field', v.fields.map((f) => f.key));
     patch({ fields: [...v.fields, { key, el: 'Νέο πεδίο', en: 'New field', type: 'text', options: [], suffix: '', section: 'features', types: [], visibleToClient: true, useInMatching: false, required: false }] });
@@ -54,13 +57,12 @@ export function UnitFormsEditor({ initial, canEdit }: { initial: UnitFormsSettin
           <p className="text-xs text-charcoal-600/60">Ελληνική και αγγλική ονομασία. Ο τύπος κάθε μονάδας ορίζει ποια πεδία εμφανίζονται στη φόρμα της.</p>
         </div>
         {v.types.map((t, i) => (
-          <div key={t.key} className="grid grid-cols-[1fr_1fr_auto] items-center gap-2">
+          <div key={t.key} {...dndT.item(i)} className={`grid grid-cols-[auto_1fr_1fr_auto] items-center gap-2 ${dndT.cls(i)}`}>
+            {grip ?? <span />}
             <input className="input" disabled={!canEdit} value={t.el} placeholder="Ελληνικά" onChange={(e) => setType(i, { el: e.target.value })} />
             <input className="input" disabled={!canEdit} value={t.en} placeholder="English" onChange={(e) => setType(i, { en: e.target.value })} />
             {canEdit ? (
               <div className="flex gap-1">
-                <button type="button" onClick={() => patch({ types: move(v.types, i, -1) })} className="text-charcoal-600/50 hover:text-forest"><ArrowUp size={14} /></button>
-                <button type="button" onClick={() => patch({ types: move(v.types, i, 1) })} className="text-charcoal-600/50 hover:text-forest"><ArrowDown size={14} /></button>
                 <button type="button" onClick={() => patch({ types: v.types.filter((_, idx) => idx !== i), fields: v.fields.map((f) => ({ ...f, types: f.types.filter((k) => k !== t.key) })) })} className="text-charcoal-600/50 hover:text-signal-danger"><Trash2 size={14} /></button>
               </div>
             ) : <span />}
@@ -79,8 +81,9 @@ export function UnitFormsEditor({ initial, canEdit }: { initial: UnitFormsSettin
         {v.fields.map((f, i) => {
           const isOpen = open === f.key;
           return (
-            <div key={f.key} className="rounded-md border border-stone-line">
+            <div key={f.key} {...dndF.item(i)} className={`rounded-md border border-stone-line ${dndF.cls(i)}`}>
               <div className="flex items-center gap-2 px-3 py-2">
+                {grip}
                 <button type="button" onClick={() => setOpen(isOpen ? null : f.key)} className="flex min-w-0 flex-1 items-center gap-2 text-left">
                   {isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                   <span className="truncate text-sm font-medium text-charcoal">{f.el}</span>
@@ -90,8 +93,6 @@ export function UnitFormsEditor({ initial, canEdit }: { initial: UnitFormsSettin
                 {f.useInMatching && <span title="Matching" className="text-forest"><Target size={13} /></span>}
                 {canEdit && (
                   <>
-                    <button type="button" onClick={() => patch({ fields: move(v.fields, i, -1) })} className="text-charcoal-600/50 hover:text-forest"><ArrowUp size={14} /></button>
-                    <button type="button" onClick={() => patch({ fields: move(v.fields, i, 1) })} className="text-charcoal-600/50 hover:text-forest"><ArrowDown size={14} /></button>
                     <button type="button" onClick={() => { if (confirm(`Διαγραφή του πεδίου «${f.el}»; Οι τιμές που έχουν ήδη συμπληρωθεί κρατιούνται, αλλά δεν θα εμφανίζονται.`)) patch({ fields: v.fields.filter((_, idx) => idx !== i) }); }} className="text-charcoal-600/50 hover:text-signal-danger"><Trash2 size={14} /></button>
                   </>
                 )}
