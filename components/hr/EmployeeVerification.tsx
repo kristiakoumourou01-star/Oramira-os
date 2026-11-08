@@ -44,6 +44,9 @@ interface State {
   agreedSalary: string; salaryFrequency: string; commissionPct: string; bonusStructure: string;
   contractTitle: string; contractFileType: string; cStart: string; cExpiry: string; cRenewal: string; cProbation: string;
   contractPath: string; contractBucket: string;
+  files: { path: string; name: string; type: string }[];
+  cMonths: string;
+  cActive: boolean;
 }
 const initial: State = {
   fullName: '', email: '', phone: '', idPassport: '', address: '', emergencyContact: '',
@@ -55,7 +58,25 @@ const initial: State = {
   agreedSalary: '', salaryFrequency: 'monthly', commissionPct: '', bonusStructure: '',
   contractTitle: 'Employment contract', contractFileType: 'contract', cStart: '', cExpiry: '', cRenewal: '', cProbation: '',
   contractPath: '', contractBucket: '',
+  files: [],
+  cMonths: '12',
+  cActive: true,
 };
+
+/** Λήξη = έναρξη + διάρκεια − 1 μέρα (π.χ. 08/11/2026 + 12 μήνες → 07/11/2027). */
+function endOf(start: string, months: string): string {
+  const m = Number(months);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(start) || !m) return '';
+  const [y, mo, d] = start.split('-').map(Number);
+  const t = new Date(Date.UTC(y, mo - 1 + m, d));
+  if (t.getUTCDate() !== d) t.setUTCDate(0); // 31/1 + 1 μήνας → 28/2
+  t.setUTCDate(t.getUTCDate() - 1);
+  return t.toISOString().slice(0, 10);
+}
+/** Ίδια μέρα μετά από Ν μήνες (επέτειος), π.χ. 08/11/2026 + 12 → 08/11/2027. */
+function plusMonths(start: string, months: string): string { const e = endOf(start, months); if (!e) return ''; const t = new Date(`${e}T00:00:00Z`); t.setUTCDate(t.getUTCDate() + 1); return t.toISOString().slice(0, 10); }
+/** Ανανέωση = έναρξη + διάρκεια· δοκιμαστική = έναρξη + 6 μήνες. Η λήξη ΔΕΝ μπαίνει αυτόματα (μόνο αν τερματιστεί η συνεργασία). */
+const withDates = (start: string, months: string) => ({ cStart: start, cMonths: months, cRenewal: plusMonths(start, months), cProbation: plusMonths(start, '6') });
 
 const Field = ({ label, children }: { label: string; children: React.ReactNode }) => (
   <label className="block text-xs text-charcoal-600/70">{label}<div className="mt-1">{children}</div></label>
@@ -73,24 +94,41 @@ export function EmployeeVerification() {
   const [s, setS] = useState<State>(initial);
   const [uploading, setUploading] = useState(false);
   const [done, setDone] = useState(false);
+  const [result, setResult] = useState<{ link: string; emailSent: boolean } | null>(null);
+  const [copied, setCopied] = useState(false);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
   const set = (patch: Partial<State>) => setS((p) => ({ ...p, ...patch }));
   const toggleModule = (k: string) => set({ moduleAccess: s.moduleAccess.includes(k) ? s.moduleAccess.filter((m) => m !== k) : [...s.moduleAccess, k] });
   const toggleBenefit = (k: string) => set({ benefits: { ...s.benefits, [k]: !s.benefits[k] } });
 
-  async function uploadContract(file: File) {
-    setUploading(true);
+  const [upErr, setUpErr] = useState<string | null>(null);
+  const [docType, setDocType] = useState('contract');
+  async function uploadTo(file: File): Promise<string | null> {
+    setUploading(true); setUpErr(null);
     const supabase = createSupabaseBrowserClient();
-    const path = `invites/${s.email || 'pending'}/${crypto.randomUUID()}-${file.name}`;
+    const safe = file.name.normalize('NFKD').replace(/[^\w.\-]+/g, '_').slice(-80);
+    const path = `invites/${(s.email || 'pending').toLowerCase()}/${crypto.randomUUID()}-${safe}`;
     const { error } = await supabase.storage.from('contracts').upload(path, file, { upsert: false });
     setUploading(false);
-    if (!error) set({ contractPath: path, contractBucket: 'contracts' });
+    if (error) { setUpErr(`Δεν ανέβηκε το «${file.name}»: ${error.message}`); return null; }
+    return path;
+  }
+  async function uploadContract(file: File) {
+    const path = await uploadTo(file);
+    if (path) set({ contractPath: path, contractBucket: 'contracts' });
+  }
+  async function uploadFiles(list: FileList) {
+    for (const f of Array.from(list)) {
+      if (f.size > 20 * 1024 * 1024) { setUpErr(`Το «${f.name}» είναι πάνω από 20MB.`); continue; }
+      const path = await uploadTo(f);
+      if (path) setS((p) => ({ ...p, files: [...p.files, { path, name: f.name, type: docType }] }));
+    }
   }
 
   function submit() {
     startTransition(async () => {
-      await createEmployeeInvite({
+      const res = await createEmployeeInvite({
         email: s.email, fullName: s.fullName, phone: s.phone || undefined, idPassport: s.idPassport || undefined,
         address: s.address || undefined, emergencyContact: s.emergencyContact || undefined,
         role: s.role, position: s.position || undefined, department: s.department || undefined,
@@ -104,17 +142,22 @@ export function EmployeeVerification() {
         agreedSalary: s.agreedSalary ? Number(s.agreedSalary) : undefined, salaryBasis: 'gross',
         salaryFrequency: s.salaryFrequency, commissionPct: s.commissionPct ? Number(s.commissionPct) : undefined,
         bonusStructure: s.bonusStructure || undefined,
-        contracts: (s.contractTitle || s.contractPath || s.cStart) ? [{
+        contracts: ((s.contractTitle && (s.contractPath || s.cStart || !s.files.length)) || s.contractPath || s.cStart ? [{
           type: s.contractFileType, title: s.contractTitle, start_date: s.cStart || undefined, expiry_date: s.cExpiry || undefined,
           renewal_date: s.cRenewal || undefined, probation_end_date: s.cProbation || undefined,
           storage_path: s.contractPath || undefined, bucket: s.contractBucket || undefined,
-        }] : [],
+        }] : []).concat(s.files.map((f) => ({
+          type: f.type, title: f.name, start_date: f.type === 'contract' ? (s.cStart || s.startDate || undefined) : undefined,
+          expiry_date: undefined, renewal_date: undefined, probation_end_date: undefined,
+          storage_path: f.path, bucket: 'contracts',
+        }))),
       });
+      setResult(res ?? null);
       setDone(true);
       router.refresh();
     });
   }
-  function reset() { setS(initial); setStep(1); setDone(false); setOpen(false); }
+  function reset() { setS(initial); setStep(1); setDone(false); setOpen(false); setResult(null); setCopied(false); }
 
   if (!open) return <button onClick={() => setOpen(true)} className="btn-primary"><UserPlus size={15} strokeWidth={1.75} /> Verify & invite employee</button>;
   const canContinue = step === 1 ? !!(s.fullName && s.email) : true;
@@ -141,7 +184,17 @@ export function EmployeeVerification() {
           {done ? (
             <div className="py-8 text-center">
               <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-forest/10 text-forest"><Check size={22} /></div>
-              <p className="text-sm text-charcoal">Invite emailed to <strong>{s.email}</strong>. The full verification profile activates when they accept.</p>
+              <p className="text-sm text-charcoal">{result?.emailSent ? <>Invite emailed to <strong>{s.email}</strong>.</> : <>The invite was created, but <strong>no email was sent</strong> (email sending is not set up yet). Send the activation link below to <strong>{s.fullName || s.email}</strong> yourself.</>} The full verification profile activates when they accept.</p>
+              {result?.link && (
+                <div className="mx-auto mt-4 max-w-md space-y-2 text-left">
+                  <input readOnly value={result.link} className="input text-xs" onFocus={(e) => e.target.select()} />
+                  <div className="flex flex-wrap justify-center gap-2">
+                    <button type="button" onClick={() => { void navigator.clipboard?.writeText(result.link); setCopied(true); }} className="btn-secondary text-sm">{copied ? 'Copied ✓' : 'Copy link'}</button>
+                    {s.phone && <a href={`https://wa.me/${s.phone.replace(/[^\d]/g, '').replace(/^(\d{8})$/, '357$1')}?text=${encodeURIComponent(`Welcome to Oramira! Activate your account: ${result.link}`)}`} target="_blank" rel="noreferrer" className="btn-secondary text-sm">Send via WhatsApp</a>}
+                    <a href={`mailto:${s.email}?subject=${encodeURIComponent('Your Oramira OS access')}&body=${encodeURIComponent(`Welcome to the team! Activate your account: ${result.link}`)}`} className="btn-secondary text-sm">Open in email</a>
+                  </div>
+                </div>
+              )}
               <button onClick={reset} className="btn-primary mt-4">Done</button>
             </div>
           ) : (
@@ -163,7 +216,31 @@ export function EmployeeVerification() {
                       <Field label="Address"><input value={s.address} onChange={(e) => set({ address: e.target.value })} className="input text-sm" /></Field>
                       <Field label="Emergency contact"><input value={s.emergencyContact} onChange={(e) => set({ emergencyContact: e.target.value })} className="input text-sm" /></Field>
                       <Field label="Department"><input value={s.department} onChange={(e) => set({ department: e.target.value })} placeholder="e.g. Sales" className="input text-sm" /></Field>
+                      <Field label="Starting date"><input type="date" value={s.startDate} onChange={(e) => set({ startDate: e.target.value, ...(!s.cStart || s.cStart === s.startDate ? withDates(e.target.value, s.cMonths) : {}) })} className="input text-sm" /></Field>
                     </div>
+                  </Card>
+                  <Card title="Documents (contract, ID, certificates)">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <select value={docType} onChange={(e) => setDocType(e.target.value)} className="input w-auto text-sm" aria-label="Document type">
+                        <option value="contract">Employment contract</option><option value="id">ID / Passport copy</option><option value="nda">NDA</option><option value="certificate">Certificate</option><option value="other">Other</option>
+                      </select>
+                      <label className="flex flex-1 cursor-pointer items-center gap-2 rounded border border-dashed border-stone-line px-3 py-2 text-sm text-charcoal-600/80 hover:bg-sand-100">
+                        <Paperclip size={15} strokeWidth={1.75} /> {uploading ? 'Uploading…' : 'Upload files (PDF, Word, images — up to 20MB each)'}
+                        <input type="file" multiple accept="application/pdf,image/*,.doc,.docx" className="hidden" disabled={uploading} onChange={(e) => { if (e.target.files?.length) void uploadFiles(e.target.files); e.target.value = ''; }} />
+                      </label>
+                    </div>
+                    {upErr && <p className="mt-2 text-xs text-signal-danger">{upErr}</p>}
+                    {s.files.length > 0 && (
+                      <ul className="mt-3 space-y-1 text-sm">
+                        {s.files.map((f, i) => (
+                          <li key={f.path} className="flex items-center justify-between gap-2 rounded bg-sand-100/60 px-2 py-1">
+                            <span className="truncate"><FileText size={13} className="mr-1 inline" />{f.name} <span className="text-xs text-charcoal-600/60">· {f.type}</span></span>
+                            <button type="button" onClick={() => set({ files: s.files.filter((_, j) => j !== i) })} className="text-xs text-charcoal-600/60 hover:text-signal-danger">Remove</button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {!s.email && <p className="mt-2 text-[11px] text-charcoal-600/50">Tip: fill in the email first so the files are filed under this employee.</p>}
                   </Card>
                 </div>
               )}
@@ -189,7 +266,7 @@ export function EmployeeVerification() {
                 <div className="space-y-4">
                   <Card title="Employment">
                     <div className="grid grid-cols-2 gap-3">
-                      <Field label="Start date"><input type="date" value={s.startDate} onChange={(e) => set({ startDate: e.target.value })} className="input text-sm" /></Field>
+                      <Field label="Start date"><input type="date" value={s.startDate} onChange={(e) => set({ startDate: e.target.value, ...(!s.cStart || s.cStart === s.startDate ? withDates(e.target.value, s.cMonths) : {}) })} className="input text-sm" /></Field>
                       <Field label="Work schedule"><select value={s.workSchedule} onChange={(e) => set({ workSchedule: e.target.value })} className="input text-sm"><option value="5_day">5-day week</option><option value="6_day">6-day week</option></select></Field>
                     </div>
                   </Card>
@@ -231,12 +308,20 @@ export function EmployeeVerification() {
                   <div className="grid grid-cols-2 gap-3">
                     <Field label="Document type"><select value={s.contractFileType} onChange={(e) => set({ contractFileType: e.target.value })} className="input text-sm"><option value="contract">Employment contract</option><option value="nda">NDA</option><option value="agreement">Internal agreement</option><option value="amendment">Amendment</option></select></Field>
                     <Field label="Title"><input value={s.contractTitle} onChange={(e) => set({ contractTitle: e.target.value })} className="input text-sm" /></Field>
-                    <Field label="Contract status"><select value={s.contractStatus} onChange={(e) => set({ contractStatus: e.target.value })} className="input text-sm"><option value="active">Active</option><option value="probation">Probation</option><option value="pending">Pending</option></select></Field>
+                    <Field label="Contract status"><select value={s.contractStatus} onChange={(e) => set({ contractStatus: e.target.value })} className="input text-sm"><option value="active">Active</option><option value="probation">Probation</option><option value="pending">Pending</option><option value="terminated">Terminated</option></select></Field>
                     <Field label="Contract type"><select value={s.contractType} onChange={(e) => set({ contractType: e.target.value })} className="input text-sm"><option value="full_time">Full-time</option><option value="part_time">Part-time</option><option value="fixed_term">Fixed-term</option><option value="contractor">Contractor</option></select></Field>
-                    <Field label="Start date"><input type="date" value={s.cStart} onChange={(e) => set({ cStart: e.target.value })} className="input text-sm" /></Field>
-                    <Field label="Expiry date"><input type="date" value={s.cExpiry} onChange={(e) => set({ cExpiry: e.target.value })} className="input text-sm" /></Field>
-                    <Field label="Renewal date"><input type="date" value={s.cRenewal} onChange={(e) => set({ cRenewal: e.target.value })} className="input text-sm" /></Field>
-                    <Field label="Probation end"><input type="date" value={s.cProbation} onChange={(e) => set({ cProbation: e.target.value })} className="input text-sm" /></Field>
+                    <Field label="Start date"><input type="date" value={s.cStart} onChange={(e) => set(withDates(e.target.value, s.cMonths))} className="input text-sm" /></Field>
+                    <Field label="Renewal every"><select value={s.cMonths} onChange={(e) => set(e.target.value ? withDates(s.cStart, e.target.value) : { cMonths: '', cRenewal: '', cProbation: plusMonths(s.cStart, '6') })} className="input text-sm">
+                      <option value="3">3 months</option><option value="6">6 months</option><option value="12">1 year</option><option value="24">2 years</option><option value="36">3 years</option><option value="">Indefinite (no renewal)</option>
+                    </select></Field>
+                    <Field label="Renewal date (auto)"><input type="date" value={s.cRenewal} onChange={(e) => set({ cRenewal: e.target.value })} className="input text-sm" /></Field>
+                    <div className="block text-xs text-charcoal-600/70">
+                      <span className="flex items-center justify-between">Expiry / end date
+                        <label className="flex items-center gap-1.5 text-charcoal"><input type="checkbox" checked={s.cActive} onChange={(e) => set({ cActive: e.target.checked, cExpiry: e.target.checked ? '' : s.cExpiry, contractStatus: e.target.checked ? (s.contractStatus === 'terminated' ? 'active' : s.contractStatus) : 'terminated' })} /> Active — no end date</label>
+                      </span>
+                      <div className="mt-1"><input type="date" value={s.cExpiry} disabled={s.cActive} onChange={(e) => set({ cExpiry: e.target.value })} className="input text-sm disabled:opacity-50" placeholder="Only if the cooperation ended" /></div>
+                    </div>
+                    <Field label="Probation end (auto = 6 months)"><input type="date" value={s.cProbation} onChange={(e) => set({ cProbation: e.target.value })} className="input text-sm" /></Field>
                   </div>
                   <label className="mt-3 flex cursor-pointer items-center gap-2 rounded border border-dashed border-stone-line px-3 py-2 text-sm text-charcoal-600/80 hover:bg-sand-100">
                     <Paperclip size={15} strokeWidth={1.75} /> {uploading ? 'Uploading…' : s.contractPath ? 'File attached ✓' : 'Attach contract file (PDF)'}
@@ -256,7 +341,9 @@ export function EmployeeVerification() {
                     <Review k="Leave" v={`${s.annualLeaveDays || 0} annual · ${s.sickLeaveDays || 0} sick`} />
                     <Review k="Benefits" v={Object.keys(s.benefits).filter((k) => s.benefits[k]).map((k) => BENEFITS.find((b) => b.key === k)?.label).join(', ') || 'None'} />
                     <Review k="Gross salary" v={s.agreedSalary ? `${formatCurrency(Number(s.agreedSalary))} / ${s.salaryFrequency}` : '—'} />
+                    <Review k="Starting date" v={s.startDate || '—'} />
                     <Review k="Contract" v={s.contractTitle ? `${s.contractTitle}${s.contractPath ? ' (file attached)' : ''}` : '—'} />
+                    <Review k="Documents" v={s.files.map((f) => f.name).join(', ') || '—'} />
                   </div>
                   <p className="pt-3 text-xs text-charcoal-600/50">Sending the invite emails the employee an activation link. On acceptance this full profile becomes active.</p>
                 </Card>

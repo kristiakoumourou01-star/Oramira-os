@@ -3,7 +3,7 @@
 import { onLeadWon } from '@/lib/pipeline';
 
 import { createSupabaseServerClient } from '@/lib/supabase/server';
-import { requireRole } from '@/lib/auth';
+import { requireRole, requirePermission } from '@/lib/auth';
 import { logActivity } from '@/lib/activity';
 import { runLeadAIAnalysis } from '@/lib/ai';
 import { createReservation } from '@/app/actions/reservations';
@@ -383,4 +383,27 @@ export async function setLeadPipeline(leadId: string, key: string | null) {
   await logActivity({ entityType: 'lead', entityId: leadId, action: 'pipeline_changed', metadata: { pipeline: k } });
   revalidatePath(`/crm/leads/${leadId}`);
   revalidatePath('/crm/leads');
+}
+
+/**
+ * Διαγραφή lead(s) με υποχρεωτικό λόγο (migration 0073). Το lead κρύβεται από
+ * όλες τις λίστες και κλείνει· μένει στη βάση με ποιος/πότε/γιατί.
+ */
+export async function deleteLeads(leadIds: string[], reason: string): Promise<{ ok: true; deleted: number } | { ok: false; error: string }> {
+  await requirePermission('leads', 'delete');
+  const why = (reason ?? '').trim();
+  if (why.length < 3) return { ok: false, error: 'Γράψτε τον λόγο της διαγραφής.' };
+  const ids = (leadIds ?? []).filter((x) => /^[0-9a-f-]{36}$/i.test(x)).slice(0, 200);
+  if (!ids.length) return { ok: false, error: 'Δεν επιλέξατε lead.' };
+  const supabase = await createSupabaseServerClient();
+  let deleted = 0; let lastErr = '';
+  for (const id of ids) {
+    const { error } = await (supabase as any).rpc('soft_delete_lead', { p_lead: id, p_reason: why });
+    if (error) { lastErr = /function|does not exist/i.test(error.message) ? 'Λείπει το migration 0073 στη βάση.' : error.message; continue; }
+    deleted++;
+    await logActivity({ entityType: 'lead', entityId: id, action: 'lead_deleted', metadata: { reason: why.slice(0, 500) } });
+  }
+  revalidatePath('/crm/leads');
+  if (!deleted) return { ok: false, error: lastErr || 'Η διαγραφή δεν έγινε.' };
+  return { ok: true, deleted };
 }

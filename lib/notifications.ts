@@ -121,7 +121,7 @@ export async function queueNotificationEmail(params: {
   recipientEmail: string;
   subject: string;
   body: string;
-}) {
+}): Promise<boolean> {
   const supabase = createSupabaseServiceRoleClient();
   await supabase.from('notification_events').insert({
     trigger_type: params.triggerType,
@@ -134,14 +134,20 @@ export async function queueNotificationEmail(params: {
 
   // Actual send — Resend. Kept as a thin call so swapping providers later
   // only touches this one function.
-  if (process.env.RESEND_API_KEY) {
+  if (!process.env.RESEND_API_KEY) return false; // δεν έχει ρυθμιστεί αποστολή email
+  try {
     const { Resend } = await import('resend');
     const resend = new Resend(process.env.RESEND_API_KEY);
-    await resend.emails.send({
+    const { error } = await resend.emails.send({
       from: process.env.RESEND_FROM_ADDRESS ?? 'Oramira <notifications@oramira.com>',
       to: params.recipientEmail,
       subject: params.subject,
       html: params.body,
     });
+    if (error) { console.error('[email]', error); return false; }
+    return true;
+  } catch (e) {
+    console.error('[email]', e);
+    return false;
   }
 }

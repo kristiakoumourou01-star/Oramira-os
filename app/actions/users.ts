@@ -146,16 +146,18 @@ export async function createEmployeeInvite(params: {
   });
   if (error) throw error;
 
-  await queueNotificationEmail({
+  const link = `${process.env.NEXT_PUBLIC_APP_URL}/invite/${token}`;
+  const emailSent = await queueNotificationEmail({
     triggerType: 'staff_invite',
     recipientEmail: params.email,
     subject: 'Your Oramira OS access is ready',
-    body: `<p>Welcome to the team. Your account has been set up as <strong>${params.position ?? params.role}</strong>. Activate your access: <a href="${process.env.NEXT_PUBLIC_APP_URL}/invite/${token}">Activate account</a></p>`,
+    body: `<p>Welcome to the team. Your account has been set up as <strong>${params.position ?? params.role}</strong>. Activate your access: <a href="${link}">Activate account</a></p>`,
   });
 
-  await logActivity({ entityType: 'invite', entityId: profile.id, action: 'employee_verified_invited', metadata: { email: params.email, role: params.role } });
+  await logActivity({ entityType: 'invite', entityId: profile.id, action: 'employee_verified_invited', metadata: { email: params.email, role: params.role, emailSent } });
   revalidatePath('/hr');
   revalidatePath('/settings/users');
+  return { link, emailSent };
 }
 
 export async function setUserRole(profileId: string, role: AppRole) {
