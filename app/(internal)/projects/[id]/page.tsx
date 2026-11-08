@@ -9,7 +9,7 @@ import { ProjectInfoForm } from '@/components/property/ProjectInfoForm';
 import { StructureManager } from '@/components/projects/StructureManager';
 import { ProjectTimeline } from '@/components/projects/ProjectTimeline';
 import { ContractorAssignment } from '@/components/projects/ContractorAssignment';
-import { ProjectGallery } from '@/components/projects/ProjectGallery';
+import { ProjectGalleryPanel, ProjectDocumentsPanel } from '@/components/projects/ProjectFiles';
 import { NewUnitForm } from '@/components/units/NewUnitForm';
 import { UnitImport } from '@/components/units/UnitImport';
 import { AvailabilityBoard } from '@/components/units/AvailabilityBoard';
@@ -21,8 +21,6 @@ import type { BoardUnit } from '@/lib/unit-board-shared';
 import { getOrgSettings } from '@/lib/org-settings';
 import { effectiveCan } from '@/lib/permissions';
 import { UnitInventoryTable } from '@/components/units/UnitInventoryTable';
-import { DocumentList } from '@/components/ui/DocumentList';
-import { getDocumentUrl } from '@/app/actions/storage';
 
 export default async function ProjectDetailPage({ params }: { params: { id: string } }) {
   const profile = await requirePermission('projects');
@@ -56,7 +54,8 @@ export default async function ProjectDetailPage({ params }: { params: { id: stri
         .from('documents')
         .select('id, title, category, storage_path, bucket, created_at')
         .eq('entity_type', 'project')
-        .eq('entity_id', project.id),
+        .eq('entity_id', project.id)
+        .order('created_at', { ascending: false }),
     ]);
 
   const unitCountByBuilding = (units ?? []).reduce<Record<string, number>>((acc, u) => {
@@ -91,9 +90,6 @@ export default async function ProjectDetailPage({ params }: { params: { id: stri
     company_name: (a as any).contractors?.company_name ?? 'Contractor',
   }));
 
-  const galleryItems = (documents ?? [])
-    .filter((d) => d.bucket === 'project-media')
-    .map((d) => ({ id: d.id, storage_path: d.storage_path, title: d.title }));
   const fileDocs = (documents ?? []).filter((d) => d.bucket !== 'project-media');
 
   // Πίνακας διαθεσιμότητας: active reservations' expiry per unit.
@@ -172,15 +168,9 @@ export default async function ProjectDetailPage({ params }: { params: { id: stri
 
           <StructureManager projectId={project.id} buildings={buildingNodes} phases={phases ?? []} />
 
-          <div className="panel p-6">
-            <h4 className="mb-4">Gallery</h4>
-            <ProjectGallery items={galleryItems} getUrl={getDocumentUrl.bind(null, 'project-media')} />
-          </div>
+          <ProjectGalleryPanel projectId={project.id} canEdit={canImport} items={(documents ?? []).filter((d) => d.bucket === 'project-media') as any} />
 
-          <div className="panel p-6">
-            <h4 className="mb-4">Documents</h4>
-            <DocumentList documents={fileDocs} getSignedUrl={getDocumentUrl.bind(null, 'contracts')} />
-          </div>
+          <ProjectDocumentsPanel projectId={project.id} canEdit={canImport} items={fileDocs as any} />
         </div>
 
         <div className="space-y-6">
