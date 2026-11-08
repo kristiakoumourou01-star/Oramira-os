@@ -10,7 +10,16 @@ import { PhoneInput, COUNTRIES } from '@/components/ui/PhoneInput';
 import { SettingsBlock, FieldLabel, LogoDrop, ColorField } from '@/components/admin/settings-ui';
 
 const EMPTY_OFFICE: Office = { name: '', address: '', phone: '', manager: '', main: false };
-interface Hit { display_name: string; lat: string; lon: string; address?: Record<string, string> }
+interface Hit { display_name: string; lat: string; lon: string; address?: Record<string, string>; area?: boolean }
+
+/** Χωρίζει «1st of April 28, 3117» σε οδό, αριθμό και ταχυδρομικό κώδικα. */
+export function parseAddressQuery(raw: string): { street: string; number: string; postcode: string } {
+  const t = raw.trim();
+  const postcode = t.match(/(?:^|[\s,])(\d{4,5})(?=$|[\s,])/)?.[1] ?? '';
+  const rest = (postcode ? t.replace(new RegExp(`(^|[\\s,])${postcode}(?=$|[\\s,])`), ' ') : t).replace(/\s*,\s*/g, ', ').replace(/\s+/g, ' ').replace(/^[,\s]+|[,\s]+$/g, '');
+  const nums = [...rest.matchAll(/(?:^|[\s,])(\d{1,4}[A-Za-zΑ-Ωα-ω]?)(?=$|[\s,])/g)].map((m) => m[1]);
+  return { street: rest, number: nums[nums.length - 1] ?? '', postcode };
+}
 
 /**
  * Settings → Στοιχεία εταιρείας, στη μορφή του demo: «Ταυτότητα & branding»
@@ -46,30 +55,63 @@ export function BusinessSection({ initial, companyName, canEdit, logoUrl = null,
     </label>
   );
 
+  async function nom(params: Record<string, string>): Promise<Hit[]> {
+    const u = new URLSearchParams({ format: 'json', addressdetails: '1', limit: '6', 'accept-language': 'el,en', ...params });
+    if (b.country) u.set('countrycodes', b.country.toLowerCase());
+    try { const r = await fetch(`https://nominatim.openstreetmap.org/search?${u}`); return r.ok ? await r.json() : []; } catch { return []; }
+  }
+  /**
+   * Αναζήτηση: αν γράψατε ταχυδρομικό κώδικα, ψάχνει οδό + Τ.Κ. και βάζει πρώτα
+   * τα αποτελέσματα με αυτόν τον κώδικα. Αν η οδός δεν υπάρχει στον χάρτη (συχνό
+   * στην Κύπρο), δείχνει την περιοχή του Τ.Κ. και κρατά την οδό όπως τη γράψατε.
+   */
   async function search() {
-    if (!q.trim()) return;
+    const raw = q.trim();
+    if (!raw) return;
     setSearching(true); setHits(null);
-    try {
-      const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=5&accept-language=el,en&q=${encodeURIComponent(q.trim())}`);
-      setHits(r.ok ? await r.json() : []);
-    } catch { setHits([]); }
+    const { street, postcode } = parseAddressQuery(raw);
+    let out: Hit[] = [];
+    if (postcode) {
+      const [structured, free] = await Promise.all([street ? nom({ street, postalcode: postcode }) : Promise.resolve([]), nom({ q: `${street} ${postcode}`.trim() })]);
+      const same = (h: Hit) => (h.address?.postcode ?? '').replace(/\s/g, '') === postcode;
+      out = [...structured, ...free.filter(same)];
+      if (out.length === 0) out = (await nom({ postalcode: postcode })).slice(0, 3).map((h) => ({ ...h, area: true }));
+      if (out.length === 0) out = free;
+    } else {
+      out = await nom({ q: raw });
+    }
+    const seen = new Set<string>();
+    setHits(out.filter((h) => { const k = `${h.lat},${h.lon}`; if (seen.has(k)) return false; seen.add(k); return true; }));
     setSearching(false);
   }
   function pick(h: Hit) {
     const a = h.address ?? {};
-    const road = [a.road ?? a.pedestrian ?? '', a.house_number ?? ''].filter(Boolean).join(' ');
+    const typed = parseAddressQuery(q);
+    let road = [a.road ?? a.pedestrian ?? '', a.house_number ?? ''].filter(Boolean).join(' ');
+    if (road && !a.house_number && typed.number) road = `${road} ${typed.number}`; // ο χάρτης συχνά δεν έχει αριθμούς σπιτιών
+    if (h.area || !road) road = typed.street || h.display_name.split(',')[0];
     const cc = (a.country_code ?? '').toUpperCase();
     setB((p) => ({
       ...p,
-      address1: road || h.display_name.split(',')[0],
-      address2: a.suburb ?? a.neighbourhood ?? '',
+      address1: road,
+      address2: a.suburb ?? a.neighbourhood ?? a.village ?? '',
       city: a.city ?? a.town ?? a.village ?? a.municipality ?? '',
       region: a.state_district ?? a.state ?? a.county ?? '',
-      postalCode: a.postcode ?? '',
+      postalCode: typed.postcode || a.postcode || '',
       country: COUNTRIES.some((c) => c.iso === cc) ? cc : p.country,
       lat: Number(h.lat).toFixed(6), lng: Number(h.lon).toFixed(6),
     }));
-    setHits(null); setQ(h.display_name);
+    setMsg(null); setHits(null); setQ(h.area ? `${road}, ${h.display_name}` : h.display_name);
+  }
+  const [locMsg, setLocMsg] = useState<string | null>(null);
+  function useMyLocation() {
+    if (!navigator.geolocation) { setLocMsg('Ο browser δεν δίνει τοποθεσία.'); return; }
+    setLocMsg('Εντοπισμός…');
+    navigator.geolocation.getCurrentPosition(
+      (pos) => { set('lat', pos.coords.latitude.toFixed(6)); set('lng', pos.coords.longitude.toFixed(6)); setLocMsg('Ο χάρτης δείχνει την τρέχουσα θέση σας — αν είστε στο γραφείο, αυτή είναι η σωστή.'); },
+      () => setLocMsg('Δεν δόθηκε άδεια τοποθεσίας.'),
+      { enableHighAccuracy: true, timeout: 15000 },
+    );
   }
 
   const lat = Number(b.lat), lng = Number(b.lng);
@@ -128,12 +170,14 @@ export function BusinessSection({ initial, companyName, canEdit, logoUrl = null,
               <input className="input pl-9" disabled={dis} value={q} placeholder="Αρχίστε να γράφετε μια διεύθυνση…" onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void search(); } }} />
             </label>
             <button type="button" disabled={dis || searching} onClick={() => void search()} className="btn-secondary">{searching ? '…' : 'Αναζήτηση'}</button>
+            <button type="button" disabled={dis} onClick={useMyLocation} className="btn-ghost" title="Η τρέχουσα θέση μου"><MapPin size={15} /> <span className="hidden sm:inline">Είμαι εδώ</span></button>
           </div>
-          <p className="mt-1 text-xs text-charcoal-600/60">Η αναζήτηση γίνεται στο OpenStreetMap. Διαλέξτε αποτέλεσμα για να συμπληρωθούν ο χάρτης και οι συντεταγμένες.</p>
+          <p className="mt-1 text-xs text-charcoal-600/60">Γράψτε οδό, αριθμό και ταχυδρομικό κώδικα (π.χ. «1ης Απριλίου 28, 3117»). Αν η οδός δεν υπάρχει στον χάρτη, διαλέξτε την περιοχή — η διεύθυνση κρατιέται όπως τη γράψατε. Ή πατήστε «Είμαι εδώ» όταν είστε στο γραφείο.</p>
+          {locMsg && <p className="mt-1 text-xs text-forest">{locMsg}</p>}
           {hits && (
             <ul className="mt-2 divide-y divide-stone-line overflow-hidden rounded-lg border border-stone-line bg-white text-sm">
               {hits.length === 0 && <li className="px-3 py-2 text-charcoal-600/70">Δεν βρέθηκε. Δοκιμάστε πιο απλά (οδός, πόλη).</li>}
-              {hits.map((h) => <li key={`${h.lat},${h.lon}`}><button type="button" onClick={() => pick(h)} className="flex w-full items-start gap-2 px-3 py-2 text-left hover:bg-stone"><MapPin size={14} className="mt-0.5 shrink-0 text-olive" />{h.display_name}</button></li>)}
+              {hits.map((h) => <li key={`${h.lat},${h.lon}`}><button type="button" onClick={() => pick(h)} className="flex w-full items-start gap-2 px-3 py-2 text-left hover:bg-stone"><MapPin size={14} className="mt-0.5 shrink-0 text-olive" /><span>{h.area && <span className="mr-1 font-medium text-charcoal">Περιοχή Τ.Κ. —</span>}{h.display_name}{h.area && <span className="block text-xs text-charcoal-600/70">Η οδός δεν βρέθηκε στον χάρτη· θα κρατηθεί όπως τη γράψατε.</span>}</span></button></li>)}
             </ul>
           )}
         </div>
