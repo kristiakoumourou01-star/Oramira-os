@@ -2,22 +2,23 @@
 
 import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { Check } from 'lucide-react';
+import { Check, Sun, Moon, Monitor } from 'lucide-react';
 import { saveBrandBasics, saveLogo } from '@/app/actions/branding';
 import { saveOrgSlice } from '@/app/actions/org-settings';
 import { setMyLocale } from '@/app/actions/locale';
 import { LANGS, type Lang, type NumFmt } from '@/lib/locale-shared';
 import type { LayoutSettings } from '@/lib/org-settings-shared';
-import { onLiveBrand, patchLiveBrand } from '@/lib/brand-live';
+import { onLiveBrand, patchLiveBrand, reapplyLiveBrand } from '@/lib/brand-live';
 import { Switch, SettingsBlock, FieldLabel, LogoDrop, ColorField } from '@/components/admin/settings-ui';
 
 const PREFS_KEY = 'oramira:display';
 const SWATCHES = ['#1E3A2F', '#159947', '#2F6F6A', '#2563EB', '#7C3AED', '#C0396B', '#D9612B'];
 
-function readDisplay(): { scale: number; reduceMotion: boolean } {
-  try { const p = JSON.parse(localStorage.getItem(PREFS_KEY) || '{}'); return { scale: Number(p.scale) || 100, reduceMotion: p.reduceMotion === true }; } catch { return { scale: 100, reduceMotion: false }; }
+type Theme = 'light' | 'dark' | 'system';
+function readDisplay(): { scale: number; reduceMotion: boolean; theme: Theme; highContrast: boolean } {
+  try { const p = JSON.parse(localStorage.getItem(PREFS_KEY) || '{}'); return { scale: Number(p.scale) || 100, reduceMotion: p.reduceMotion === true, theme: ['dark', 'system'].includes(p.theme) ? p.theme : 'light', highContrast: p.highContrast === true }; } catch { return { scale: 100, reduceMotion: false, theme: 'light', highContrast: false }; }
 }
-function writeDisplay(patch: { scale?: number; reduceMotion?: boolean }) {
+function writeDisplay(patch: { scale?: number; reduceMotion?: boolean; theme?: Theme; highContrast?: boolean }) {
   let cur: any = {};
   try { cur = JSON.parse(localStorage.getItem(PREFS_KEY) || '{}'); } catch { /* */ }
   const next = { ...cur, ...patch };
@@ -25,7 +26,18 @@ function writeDisplay(patch: { scale?: number; reduceMotion?: boolean }) {
   const d = document.documentElement;
   if (patch.scale !== undefined) d.style.setProperty('--ui-zoom', String(patch.scale / 100));
   if (patch.reduceMotion !== undefined) { if (patch.reduceMotion) d.dataset.motion = 'reduce'; else delete d.dataset.motion; }
+  if (patch.highContrast !== undefined) { if (patch.highContrast) d.dataset.contrast = 'high'; else delete d.dataset.contrast; }
+  if (patch.theme !== undefined) {
+    const dark = patch.theme === 'dark' || (patch.theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    d.dataset.theme = dark ? 'dark' : 'light';
+    reapplyLiveBrand();
+  }
 }
+const THEMES: { v: Theme; label: string; hint: string; icon: typeof Sun }[] = [
+  { v: 'light', label: 'Ανοιχτό', hint: 'Προεπιλογή', icon: Sun },
+  { v: 'dark', label: 'Σκούρο', hint: 'Για χαμηλό φως', icon: Moon },
+  { v: 'system', label: 'Όπως η συσκευή', hint: 'Ακολουθεί το σύστημα', icon: Monitor },
+];
 
 /**
  * Settings → Εμφάνιση (επάνω μέρος), στη μορφή του demo: μέγεθος γραμματοσειράς,
@@ -39,13 +51,15 @@ export function AppearanceBasics({ primary, secondary, logoUrl, layout, lang, nu
   const [pending, start] = useTransition();
   const [scale, setScale] = useState(100);
   const [motion, setMotion] = useState(false);
+  const [theme, setTheme] = useState<Theme>('light');
+  const [contrast, setContrast] = useState(false);
   const [myLang, setMyLang] = useState<Lang>(lang);
   const [week, setWeek] = useState(layout.weekStart);
   const [c1, setC1] = useState(primary);
   const [c2, setC2] = useState(secondary);
   const [logo, setLogo] = useState<string | null>(logoUrl);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
-  useEffect(() => { const p = readDisplay(); setScale(p.scale); setMotion(p.reduceMotion); }, []);
+  useEffect(() => { const p = readDisplay(); setScale(p.scale); setMotion(p.reduceMotion); setTheme(p.theme); setContrast(p.highContrast); }, []);
   useEffect(() => onLiveBrand((d) => { setC1((x) => (x.toUpperCase() === d.colorPrimary ? x : d.colorPrimary)); setC2((x) => (x.toUpperCase() === d.colorSecondary ? x : d.colorSecondary)); }), []);
   // Ζωντανά σε όλη την οθόνη (και στην προεπισκόπηση) πριν την αποθήκευση.
   useEffect(() => { if (/^#[0-9a-fA-F]{6}$/.test(c1)) patchLiveBrand({ colorPrimary: c1.toUpperCase() }); }, [c1]);
@@ -59,6 +73,20 @@ export function AppearanceBasics({ primary, secondary, logoUrl, layout, lang, nu
 
   return (
     <div className="space-y-6">
+      <section className="space-y-2">
+        <h3 className="font-display text-xl text-charcoal">Θέμα</h3>
+        <p className="text-sm text-charcoal-600/75">Προσωπικό — ισχύει μόνο σε αυτή τη συσκευή.</p>
+        <div className="grid gap-3 sm:grid-cols-3">
+          {THEMES.map((t) => (
+            <button key={t.v} type="button" aria-pressed={theme === t.v} onClick={() => { setTheme(t.v); writeDisplay({ theme: t.v }); }}
+              className={`flex items-center gap-3 rounded-xl border p-3 text-left ${theme === t.v ? 'border-forest bg-forest/[0.05] ring-1 ring-forest/40' : 'border-stone-line bg-white hover:border-forest/40'}`}>
+              <span className={`flex h-9 w-9 items-center justify-center rounded-lg ${t.v === 'dark' ? 'bg-[#15171A] text-white' : t.v === 'light' ? 'border border-stone-line bg-white text-charcoal' : 'bg-gradient-to-r from-white to-[#15171A] text-forest'}`}><t.icon size={16} /></span>
+              <span><span className="block text-sm font-medium text-charcoal">{t.label}</span><span className="text-xs text-charcoal-600/60">{t.hint}</span></span>
+            </button>
+          ))}
+        </div>
+      </section>
+
       <SettingsBlock title="Μέγεθος γραμματοσειράς" note="Προσωπικό — ισχύει μόνο σε αυτή τη συσκευή.">
         <div className="flex items-center gap-4">
           <span className="text-sm text-charcoal">A</span>
@@ -70,6 +98,10 @@ export function AppearanceBasics({ primary, secondary, logoUrl, layout, lang, nu
         <div className="flex items-center justify-between gap-4">
           <div><p className="font-medium text-charcoal">Μείωση κίνησης</p><p className="text-sm text-charcoal-600/70">Χωρίς μεταβάσεις και animations.</p></div>
           <Switch checked={motion} label="Μείωση κίνησης" onChange={(v) => { setMotion(v); writeDisplay({ reduceMotion: v }); }} />
+        </div>
+        <div className="flex items-center justify-between gap-4">
+          <div><p className="font-medium text-charcoal">Έντονη αντίθεση</p><p className="text-sm text-charcoal-600/70">Πιο σκούρα γράμματα και γραμμές.</p></div>
+          <Switch checked={contrast} label="Έντονη αντίθεση" onChange={(v) => { setContrast(v); writeDisplay({ highContrast: v }); }} />
         </div>
       </SettingsBlock>
 

@@ -2,84 +2,13 @@
 
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { Upload, Trash2, Sun, Moon, Monitor } from 'lucide-react';
+import { Upload, Trash2 } from 'lucide-react';
 import { saveLogo } from '@/app/actions/branding';
 import { fileToDataUrl } from '@/lib/image-upload';
 import { patchLiveMenu } from '@/lib/brand-live';
 import { saveAppearance } from '@/app/actions/org-settings';
 import { sidebarBackground } from '@/lib/branding-shared';
-import { SIDEBAR_COOKIE, SIDEBAR_MODES, parseSidebarMode, writeSidebarMode, type SidebarMode } from '@/lib/sidebar-mode-shared';
 import type { AppearanceSettings, BoxStyle, Corners, LabelStyle, SidebarStyle } from '@/lib/org-settings-shared';
-
-/* ─────────────────────────── personal display (this device) ─────────────── */
-
-type Theme = 'light' | 'dark' | 'system';
-interface DisplayPrefs { theme: Theme; scale: number; reduceMotion: boolean; highContrast: boolean }
-const PREFS_KEY = 'oramira:display';
-const DEFAULT_PREFS: DisplayPrefs = { theme: 'light', scale: 100, reduceMotion: false, highContrast: false };
-
-function readPrefs(): DisplayPrefs {
-  try { return { ...DEFAULT_PREFS, ...JSON.parse(localStorage.getItem(PREFS_KEY) || '{}') }; } catch { return DEFAULT_PREFS; }
-}
-function applyPrefs(p: DisplayPrefs) {
-  const d = document.documentElement;
-  const dark = p.theme === 'dark' || (p.theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-  d.dataset.theme = dark ? 'dark' : 'light';
-  d.style.setProperty('--ui-zoom', String(p.scale / 100));
-  if (p.reduceMotion) d.dataset.motion = 'reduce'; else delete d.dataset.motion;
-  if (p.highContrast) d.dataset.contrast = 'high'; else delete d.dataset.contrast;
-  try { localStorage.setItem(PREFS_KEY, JSON.stringify(p)); } catch { /* private mode */ }
-}
-
-function PersonalDisplay() {
-  const router = useRouter();
-  const [p, setP] = useState<DisplayPrefs>(DEFAULT_PREFS);
-  const [sb, setSb] = useState<SidebarMode | null>(null);
-  useEffect(() => {
-    setP(readPrefs());
-    const m = document.cookie.split('; ').find((c) => c.startsWith(SIDEBAR_COOKIE + '='));
-    setSb(parseSidebarMode(m?.split('=')[1]));
-  }, []);
-  const setSidebar = (m: SidebarMode | null) => { setSb(m); writeSidebarMode(m); router.refresh(); };
-  const set = (patch: Partial<DisplayPrefs>) => { const next = { ...readPrefs(), ...patch }; setP(next); applyPrefs(next); };
-  const THEMES: { v: Theme; label: string; icon: React.ReactNode }[] = [
-    { v: 'light', label: 'Ανοιχτό', icon: <Sun size={14} /> },
-    { v: 'dark', label: 'Σκούρο (beta)', icon: <Moon size={14} /> },
-    { v: 'system', label: 'Όπως η συσκευή', icon: <Monitor size={14} /> },
-  ];
-  return (
-    <div className="panel space-y-4 p-5">
-      <div>
-        <h4>Η δική μου προβολή</h4>
-        <p className="text-xs text-charcoal-600/60">Μόνο για εσάς, σε αυτή τη συσκευή. Αλλάζει αμέσως, χωρίς αποθήκευση. Κάθε χρήστης ρυθμίζει τη δική του.</p>
-      </div>
-      <div className="flex flex-wrap gap-2">
-        {THEMES.map((t) => (
-          <button key={t.v} type="button" onClick={() => set({ theme: t.v })}
-            className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm ${p.theme === t.v ? 'border-forest bg-forest/[0.06] text-forest' : 'border-stone-line text-charcoal-600'}`}>
-            {t.icon}{t.label}
-          </button>
-        ))}
-      </div>
-      <label className="flex items-center gap-2 text-sm text-charcoal">
-        <input type="checkbox" checked={p.highContrast} onChange={(e) => set({ highContrast: e.target.checked })} />
-        Έντονη αντίθεση (πιο σκούρα γράμματα και γραμμές)
-      </label>
-      <div>
-        <p className="eyebrow mb-1.5">Πλαϊνό μενού</p>
-        <div className="flex flex-wrap gap-2">
-          {[{ v: null as SidebarMode | null, l: 'Όπως η εταιρεία' }, ...SIDEBAR_MODES].map((o) => (
-            <button key={o.v ?? 'default'} type="button" onClick={() => setSidebar(o.v)}
-              className={`rounded-lg border px-3 py-1.5 text-sm ${sb === o.v ? 'border-forest bg-forest/[0.06] text-forest' : 'border-stone-line text-charcoal-600'}`}>
-              {o.l}
-            </button>
-          ))}
-        </div>
-        <p className="mt-1 text-[11px] text-charcoal-600/60">Γρήγορα: το κουμπί πάνω αριστερά ή Ctrl/⌘ + \ το κρύβει και το εμφανίζει.</p>
-      </div>
-    </div>
-  );
-}
 
 /* ─────────────────────────── image upload helper ────────────────────────── */
 
@@ -185,7 +114,6 @@ export function AppearanceExtras({
 
   return (
     <div className="space-y-5">
-      <PersonalDisplay />
 
       <div className="panel space-y-5 p-5">
         <div>

@@ -97,9 +97,16 @@ export function SettingsScreen({
             <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
             <div className="min-w-0 space-y-5">
               <AppearanceBasics primary={branding.colorPrimary} secondary={branding.colorSecondary} logoUrl={branding.logoUrl} layout={settings.layout} lang={myLocale?.lang ?? settings.locale.lang} num={myLocale?.num ?? settings.locale.num} canEdit={canEdit} />
-              <AppearanceExtras logoUrl={branding.logoUrl} primary={branding.colorPrimary} initial={settings.appearance} canEdit={canEdit} />
-              <CompanyLocaleDefault initial={settings.locale} canEdit={canEdit} />
-              <BrandingForm initial={branding} />
+              <details className="group rounded-xl border border-stone-line bg-white/60">
+                <summary className="cursor-pointer list-none px-5 py-4 font-display text-xl text-charcoal">
+                  Περισσότερες ρυθμίσεις εμφάνισης <span className="font-sans text-sm text-charcoal-600/60">— γραμματοσειρές, όλα τα χρώματα, χρώμα μενού, γωνίες, favicon, γλώσσα εταιρείας</span>
+                </summary>
+                <div className="space-y-5 px-5 pb-5">
+                  <BrandingForm initial={branding} />
+                  <AppearanceExtras logoUrl={branding.logoUrl} primary={branding.colorPrimary} initial={settings.appearance} canEdit={canEdit} />
+                  <CompanyLocaleDefault initial={settings.locale} canEdit={canEdit} />
+                </div>
+              </details>
             </div>
             <div className="xl:sticky xl:top-4 xl:self-start"><LivePreview branding={branding} logoUrl={branding.logoUrl} sidebar={{ style: settings.appearance.sidebarStyle, custom: settings.appearance.sidebarColor }} /></div>
             </div>
