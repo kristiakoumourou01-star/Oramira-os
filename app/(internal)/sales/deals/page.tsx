@@ -25,7 +25,7 @@ export default async function DealsPage({ searchParams }: { searchParams: { view
   const pipes = [cfg.pipelines.find((p) => p.key === cfg.defaultKey) ?? cfg.pipelines[0], ...cfg.pipelines.filter((p) => p.key !== cfg.defaultKey)].map((p) => ({ key: p.key, name: p.name }));
   return (
     <div className="space-y-4">
-      <WorkspaceHeader eyebrow="Sales" title="Deals" action={<NewLeadForm projects={projects ?? []} agents={(agents ?? []) as Agent[]} required={settings.fields.staff} pipelines={pipes} />} />
+      <WorkspaceHeader eyebrow="Sales" title="Deals" action={<NewLeadForm projects={projects ?? []} agents={(agents ?? []) as Agent[]} required={settings.fields.staff} pipelines={pipes} deal={{ pipelines: [cfg.pipelines.find((p) => p.key === cfg.defaultKey) ?? cfg.pipelines[0], ...cfg.pipelines.filter((p) => p.key !== cfg.defaultKey)].map((p) => ({ key: p.key, name: p.name, stages: p.stages.filter((x) => x.status !== 'won').map((x) => ({ key: x.key, label: x.label })) })), labels: cfg.dealLabels }} />} />
       <DealsBoard leads={leads} cfg={cfg} rawCfg={raw?.pipelines} canEditStages={profile.role === 'admin'} agents={(agents ?? []) as Agent[]} currentUserId={profile.id} initialView={view} />
     </div>
   );

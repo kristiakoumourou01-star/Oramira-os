@@ -11,15 +11,15 @@ import { StageEditor } from '@/components/sales/StageEditor';
 import type { LeadListItem } from '@/lib/leads-shared';
 import { dealTitle, dealValue } from '@/lib/leads-shared';
 import { CLOSED, LABEL_CLASS, lateBy, pipelineOf, stageOf, type PipelineSettings, type StageDef } from '@/lib/pipeline-shared';
-import { ACTIVITY_TYPES, activityState, type ActivityState } from '@/lib/activity-types';
+import { ACTIVITY_TYPES, activityLabel, activityState, type ActivityState } from '@/lib/activity-types';
 import { formatCurrency } from '@/lib/format';
 import { updateLeadStatus, setLeadPipeline } from '@/app/actions/leads';
-import { addFollowUp } from '@/app/actions/follow-ups';
+import { addFollowUp, completeAndNext, getDealActivities, type DealActivity } from '@/app/actions/follow-ups';
 import { setDealsArchived, updateDeal } from '@/app/actions/sales-deals';
 import { DeleteLeadDialog } from '@/components/crm/DeleteLeadDialog';
 import { LeadManager } from '@/components/crm/LeadManager';
 import { LeadDrawer } from '@/components/crm/LeadDrawer';
-import { DATE_TAG, currentLocale } from '@/lib/locale-shared';
+import { DATE_TAG, currentLocale, tx } from '@/lib/locale-shared';
 
 export interface Agent { id: string; full_name: string | null }
 type View = 'board' | 'list' | 'forecast' | 'archive';
@@ -397,7 +397,7 @@ export function DealsBoard({ leads: initial, cfg, rawCfg, canEditStages = false,
       )}
       {delFor && <DeleteLeadDialog ids={[delFor.id]} names={[dealTitle(delFor)]} onClose={() => setDelFor(null)} onDeleted={() => { setLeads((xs) => xs.filter((x) => x.id !== delFor.id)); setDelFor(null); }} />}
       {openId && <LeadDrawer leadId={openId} agents={agents} onClose={() => { setOpenId(null); router.refresh(); }} />}
-      {actFor && <QuickActivity deal={actFor} onClose={() => setActFor(null)} onSaved={(due, type) => { patchLocal(actFor.id, { next_follow_up: due, next_activity_type: type }); setActFor(null); router.refresh(); }} />}
+      {actFor && <QuickActivity deal={actFor} agents={agents} currentUserId={currentUserId} onClose={() => setActFor(null)} onSaved={(due, type) => { patchLocal(actFor.id, { next_follow_up: due, next_activity_type: type }); setActFor(null); router.refresh(); }} />}
     </div>
   );
 }
@@ -427,37 +427,74 @@ function LostPicker({ cfg, onPick }: { cfg: PipelineSettings; onPick: (r: Pipeli
   );
 }
 
-function QuickActivity({ deal, onClose, onSaved }: { deal: LeadListItem; onClose: () => void; onSaved: (dueIso: string, type: string) => void }) {
+function QuickActivity({ deal, agents, currentUserId, onClose, onSaved }: { deal: LeadListItem; agents: Agent[]; currentUserId: string; onClose: () => void; onSaved: (dueIso: string | null, type: string | null) => void }) {
+  // Όπως στο Pipedrive: οι προγραμματισμένες activities του deal (✓ για ολοκλήρωση) και «Προγραμματισμός activity».
+  const [list, setList] = useState<DealActivity[] | null>(null);
+  const [form, setForm] = useState(false);
   const [type, setType] = useState<string>('call');
   const tomorrow = new Date(Date.now() + 86400000);
   const [date, setDate] = useState(`${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`);
   const [time, setTime] = useState('10:00');
+  const [dur, setDur] = useState(30);
   const [note, setNote] = useState('');
+  const [who, setWho] = useState<string>(deal.owner_id ?? currentUserId);
   const [err, setErr] = useState<string | null>(null);
   const [pending, start] = useTransition();
-  const ref = useRef<HTMLInputElement>(null);
-  useEffect(() => ref.current?.focus(), []);
+  const load = () => getDealActivities(deal.id).then((x) => { setList(x); if (x.length === 0) setForm(true); });
+  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [deal.id]);
   const label = ACTIVITY_TYPES.find((a) => a.key === type)?.label ?? '';
+  const today = new Date().toDateString();
+  const when = (iso: string) => { const d = new Date(iso); const tag = DATE_TAG[currentLocale().lang]; return d.toDateString() === today ? `${tx('Σήμερα', 'Today', 'Сегодня')} ${d.toLocaleTimeString(tag, { hour: '2-digit', minute: '2-digit' })}` : d.toLocaleString(tag, { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }); };
+  const nextAfter = (xs: DealActivity[]) => { const n = xs[0]; onSaved(n ? n.dueAt : null, n ? n.type : null); };
   return (
-    <Modal title={`Activity: ${dealTitle(deal)}`} onClose={onClose}>
+    <Modal title={dealTitle(deal)} onClose={onClose}>
       <div className="space-y-3">
-        <div className="flex flex-wrap gap-1">
-          {ACTIVITY_TYPES.map((a) => { const I = ACT_ICON[a.key]; return (
-            <button key={a.key} type="button" onClick={() => setType(a.key)} title={a.label} aria-label={a.label} aria-pressed={type === a.key}
-              className={`flex h-9 w-9 items-center justify-center rounded-lg border ${type === a.key ? 'border-forest bg-forest/10 text-forest' : 'border-stone-line text-charcoal-600 hover:bg-stone'}`}><I size={16} /></button>
-          ); })}
-        </div>
-        <input ref={ref} className="input" placeholder={label} value={note} onChange={(e) => setNote(e.target.value)} />
-        <div className="grid grid-cols-2 gap-2"><input type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)} /><input type="time" className="input" value={time} onChange={(e) => setTime(e.target.value)} /></div>
-        {err && <p className="text-sm text-signal-danger">{err}</p>}
-        <div className="flex justify-end gap-2">
-          <button type="button" className="btn-ghost" onClick={onClose}>Άκυρο</button>
-          <button type="button" className="btn-primary" disabled={pending} onClick={() => start(async () => {
-            const due = new Date(`${date}T${time || '10:00'}`).toISOString();
-            const r = await addFollowUp(deal.id, due, note || label, null, { type });
-            if (r.ok) onSaved(due, type); else setErr(r.error);
-          })}><Plus size={14} /> Αποθήκευση</button>
-        </div>
+        {list === null ? <p className="text-sm text-charcoal-600/60">…</p> : list.length > 0 && (
+          <ul className="divide-y divide-stone-line rounded-lg border border-stone-line">
+            {list.map((a) => { const I = ACT_ICON[a.type] ?? CheckSquare; const late = Date.parse(a.dueAt) < Date.now(); return (
+              <li key={a.id} className="flex items-start gap-3 px-3 py-2.5">
+                <button type="button" disabled={pending} title="Ολοκλήρωση" aria-label="Ολοκλήρωση" onClick={() => start(async () => { const r = await completeAndNext(a.id); if (r.ok) { const rest = list.filter((x) => x.id !== a.id); setList(rest); nextAfter(rest); } })}
+                  className="mt-0.5 h-5 w-5 shrink-0 rounded-full border-2 border-stone-300 hover:border-emerald-600 hover:bg-emerald-50" />
+                <div className="min-w-0 flex-1">
+                  <p className="flex items-center gap-1.5 font-medium text-charcoal"><I size={14} className="shrink-0 text-charcoal-600" /><span className="truncate" data-no-tr>{a.note || activityLabel(a.type)}</span></p>
+                  <p className="text-xs"><span className={late ? 'font-medium text-signal-danger' : 'text-emerald-700'}>{when(a.dueAt)}</span><span className="text-charcoal-600/70" data-no-tr> · {a.assigneeName ?? '—'}</span></p>
+                </div>
+              </li>
+            ); })}
+          </ul>
+        )}
+        {!form ? (
+          <button type="button" className="btn-primary w-full justify-center" onClick={() => setForm(true)}><Plus size={14} /> Προγραμματισμός activity</button>
+        ) : (
+          <div className="space-y-3 rounded-lg border border-stone-line p-3">
+            <div className="flex flex-wrap gap-1">
+              {ACTIVITY_TYPES.map((a) => { const I = ACT_ICON[a.key]; return (
+                <button key={a.key} type="button" onClick={() => setType(a.key)} title={a.label} aria-label={a.label} aria-pressed={type === a.key}
+                  className={`flex h-9 w-9 items-center justify-center rounded-lg border ${type === a.key ? 'border-forest bg-forest/10 text-forest' : 'border-stone-line text-charcoal-600 hover:bg-stone'}`}><I size={16} /></button>
+              ); })}
+            </div>
+            <input autoFocus className="input" placeholder={label} value={note} onChange={(e) => setNote(e.target.value)} />
+            <div className="grid grid-cols-3 gap-2">
+              <input type="date" className="input col-span-1" value={date} onChange={(e) => setDate(e.target.value)} aria-label="Ημερομηνία" />
+              <input type="time" className="input" value={time} onChange={(e) => setTime(e.target.value)} aria-label="Ώρα" />
+              <select className="input" value={dur} onChange={(e) => setDur(Number(e.target.value))} aria-label="Διάρκεια">{[15, 30, 45, 60, 90, 120].map((m) => <option key={m} value={m}>{m}′</option>)}</select>
+            </div>
+            <label className="block"><span className="text-xs text-charcoal-600/70">Ανάθεση σε</span>
+              <select className="input" value={who} onChange={(e) => setWho(e.target.value)} data-no-tr>{agents.map((a) => <option key={a.id} value={a.id}>{a.full_name ?? '—'}{a.id === currentUserId ? ' (εγώ)' : ''}</option>)}</select>
+            </label>
+            <p className="text-xs text-charcoal-600/60">Κλείνεται στο ημερολόγιο του υπεύθυνου (και στο Google Calendar του, αν το έχει συνδέσει).</p>
+            {err && <p className="text-sm text-signal-danger">{err}</p>}
+            <div className="flex justify-end gap-2">
+              <button type="button" className="btn-ghost" onClick={() => (list && list.length ? setForm(false) : onClose())}>Άκυρο</button>
+              <button type="button" className="btn-primary" disabled={pending} onClick={() => start(async () => {
+                const due = new Date(`${date}T${time || '10:00'}`).toISOString();
+                const r = await addFollowUp(deal.id, due, note || label, who || null, { type, durationMin: dur });
+                if (!r.ok) { setErr(r.error); return; }
+                const x = await getDealActivities(deal.id); setList(x); setForm(false); setNote(''); nextAfter(x);
+              })}><Plus size={14} /> Αποθήκευση</button>
+            </div>
+          </div>
+        )}
       </div>
     </Modal>
   );

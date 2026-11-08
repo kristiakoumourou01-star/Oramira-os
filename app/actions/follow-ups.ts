@@ -5,6 +5,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { requireRole } from '@/lib/auth';
 import { logActivity } from '@/lib/activity';
 import { ACTIVITY_KEYS } from '@/lib/activity-types';
+import { syncActivityToCalendar } from '@/lib/activity-sync';
 
 type Result = { ok: true } | { ok: false; error: string };
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -21,6 +22,7 @@ export async function updateFollowUp(id: string, p: { dueAt?: string; note?: str
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.from('follow_up_tasks').update(patch as any).eq('id', id).select('lead_id').single();
   if (error) return { ok: false, error: error.message };
+  if (p.dueAt || p.assignedTo !== undefined) await syncActivityToCalendar(id);
   if (p.dueAt && data?.lead_id) await logActivity({ entityType: 'lead', entityId: data.lead_id, action: 'follow_up_rescheduled', metadata: { due_at: patch.due_at } });
   refresh(data?.lead_id);
   return { ok: true };
@@ -41,7 +43,8 @@ export async function completeAndNext(id: string, next?: { dueAt: string; note: 
   if (next?.dueAt && ft) {
     const t = Date.parse(next.dueAt);
     if (Number.isFinite(t)) {
-      await supabase.from('follow_up_tasks').insert({ lead_id: ft.lead_id, contact_id: ft.contact_id, assigned_to: ft.assigned_to ?? me.id, due_at: new Date(t).toISOString(), note: next.note.trim().slice(0, 300) || 'Follow-up' });
+      const { data: nx } = await supabase.from('follow_up_tasks').insert({ lead_id: ft.lead_id, contact_id: ft.contact_id, assigned_to: ft.assigned_to ?? me.id, due_at: new Date(t).toISOString(), note: next.note.trim().slice(0, 300) || 'Follow-up' }).select('id').single();
+      if (nx?.id) await syncActivityToCalendar(nx.id);
     }
   }
   if (ft?.lead_id) await logActivity({ entityType: 'lead', entityId: ft.lead_id, action: 'follow_up_done', metadata: { next: next?.dueAt ?? null } });
@@ -63,13 +66,24 @@ export async function addFollowUp(leadId: string, dueAt: string, note: string, a
   if (opts?.priority && ['low', 'normal', 'high'].includes(opts.priority)) row.priority = opts.priority;
   if (opts?.durationMin && Number.isFinite(opts.durationMin)) row.duration_min = Math.min(1440, Math.max(5, Math.round(opts.durationMin)));
   if (opts?.location) row.location = opts.location.trim().slice(0, 200) || null;
-  let { error } = await (supabase as any).from('follow_up_tasks').insert(row);
+  let { data: ins, error } = await (supabase as any).from('follow_up_tasks').insert(row).select('id').single();
   if (error && opts) { // πριν το migration 0075
     delete row.type; delete row.priority; delete row.duration_min; delete row.location;
-    ({ error } = await (supabase as any).from('follow_up_tasks').insert(row));
+    ({ data: ins, error } = await (supabase as any).from('follow_up_tasks').insert(row).select('id').single());
   }
   if (error) return { ok: false, error: error.message };
+  if (ins?.id) await syncActivityToCalendar(ins.id);
   await logActivity({ entityType: 'lead', entityId: leadId, action: 'follow_up_scheduled', metadata: { due_at: new Date(t).toISOString() } });
   refresh(leadId);
   return { ok: true };
+}
+
+export interface DealActivity { id: string; type: string; note: string | null; dueAt: string; assignedTo: string | null; assigneeName: string | null }
+/** Οι ανοιχτές activities ενός deal (το αναδυόμενο της κάρτας, όπως στο Pipedrive). */
+export async function getDealActivities(leadId: string): Promise<DealActivity[]> {
+  await requireRole(['admin', 'sales', 'management']);
+  if (!UUID.test(leadId ?? '')) return [];
+  const supabase = await createSupabaseServerClient();
+  const { data } = await (supabase as any).from('follow_up_tasks').select('id, type, note, due_at, assigned_to, profiles:assigned_to(full_name)').eq('lead_id', leadId).eq('is_done', false).order('due_at').limit(20);
+  return ((data ?? []) as any[]).map((r) => ({ id: r.id, type: r.type ?? 'task', note: r.note, dueAt: r.due_at, assignedTo: r.assigned_to, assigneeName: r.profiles?.full_name ?? null }));
 }

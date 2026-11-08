@@ -25,7 +25,7 @@ const TYPE_STYLE: Record<string, { chip: string; dot: string; label: string }> =
   reminder: { chip: 'border-rose-300 bg-rose-50 text-rose-800', dot: 'bg-rose-500', label: 'Reminder' },
   google: { chip: 'border-stone-300 bg-stone-100 text-charcoal-600', dot: 'bg-stone-400', label: 'Google' },
 };
-const styleFor = (t: string) => TYPE_STYLE[t] ?? TYPE_STYLE.meeting;
+const styleFor = (t: string) => TYPE_STYLE[t] ?? (['call', 'email', 'deadline', 'lunch'].includes(t) ? TYPE_STYLE.followup : TYPE_STYLE.meeting);
 
 /* ---- date helpers (local time) ---- */
 const p2 = (n: number) => String(n).padStart(2, '0');
@@ -306,6 +306,7 @@ function EventDetail({ item, onClose, onChanged }: { item: CalendarItem; onClose
           )}
         </div>
         {!item.editable && item.source === 'google' && <p className="mt-3 text-xs text-charcoal-600/60">Συγχρονισμένο από Google Calendar (read-only εδώ).</p>}
+        {item.source === 'activity' && <p className="mt-3 text-xs text-charcoal-600/60">Activity από το Sales → Activities· αλλάζει ή ολοκληρώνεται από εκεί ή από το deal.</p>}
       </div>
     </div>
   );

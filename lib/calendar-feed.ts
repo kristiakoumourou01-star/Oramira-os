@@ -1,6 +1,20 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { getGoogleEventsForUser } from '@/lib/calendar-sync';
 import type { CalendarSource, CalendarItem } from '@/lib/calendar-feed-shared';
+import { activityLabel } from '@/lib/activity-types';
+
+/** Activities (Sales → Activities) του υπεύθυνου ως «κλεισμένες» ώρες στο ημερολόγιο. */
+async function activityItems(supabase: any, ids: string[], fromISO: string, toISO: string): Promise<(CalendarItem & { owner: string; googleId: string | null })[]> {
+  try {
+    const { data } = await supabase.from('follow_up_tasks')
+      .select('id, lead_id, assigned_to, due_at, note, type, duration_min, location, google_event_id, leads(title, full_name), contacts(full_name)')
+      .in('assigned_to', ids).eq('is_done', false).gte('due_at', fromISO).lte('due_at', toISO);
+    return ((data ?? []) as any[]).map((a) => {
+      const who = a.leads?.title || a.contacts?.full_name || a.leads?.full_name || '';
+      return { id: a.id, source: 'activity' as const, type: a.type ?? 'task', title: `${activityLabel(a.type)}: ${a.note || ''}${who ? ` — ${who}` : ''}`, start: a.due_at, durationMin: a.duration_min ?? 30, status: null, color: null, location: a.location ?? null, meetingLink: null, leadId: a.lead_id ?? null, editable: false, owner: a.assigned_to, googleId: a.google_event_id ?? null };
+    });
+  } catch { return []; }
+}
 export type { CalendarSource, CalendarItem } from '@/lib/calendar-feed-shared';
 
 /**
@@ -79,6 +93,12 @@ export async function getCalendarFeed(profileId: string, fromISO: string, toISO:
     }
   } catch { /* degrade */ }
 
+  // Activities του χρήστη (κλήσεις, συναντήσεις, εργασίες…).
+  for (const { owner: _o, googleId, ...it } of await activityItems(supabase, [profileId], fromISO, toISO)) {
+    if (googleId) mirroredGoogleIds.add(googleId);
+    items.push(it);
+  }
+
   // Google Calendar — anything not already mirrored from an internal row/viewing.
   try {
     const gevents = await getGoogleEventsForUser(profileId, fromISO, toISO);
@@ -148,6 +168,7 @@ export async function getTeamCalendarFeed(memberIds: string[], fromISO: string, 
         meetingLink: v.meeting_link ?? null, leadId: v.lead_id ?? null, editable: false,
       });
     }
+    for (const { owner, googleId: _g, ...it } of await activityItems(supabase, memberIds, fromISO, toISO)) (out[owner] ??= []).push(it);
     for (const id of memberIds) out[id].sort((a, b) => a.start.localeCompare(b.start));
     return out;
   } catch {
