@@ -6,6 +6,7 @@ import { Check, Plus, Trash2, ArrowUp, ArrowDown } from 'lucide-react';
 import { saveOrgSlice } from '@/app/actions/org-settings';
 import { UndoButton } from '@/components/admin/UndoButton';
 import { DEFAULT_PORTAL, type PortalSettings } from '@/lib/org-settings-shared';
+import { PhoneInput } from '@/components/ui/PhoneInput';
 
 const Lbl = ({ children }: { children: React.ReactNode }) => <span className="eyebrow mb-1 block">{children}</span>;
 
@@ -36,7 +37,7 @@ export function PortalSettingsSection({ initial, canEdit }: { initial: PortalSet
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="block"><Lbl>Email υποστήριξης</Lbl><input className="input" type="email" disabled={!canEdit} value={v.helpEmail} onChange={(e) => patch({ helpEmail: e.target.value })} placeholder="support@oramiraltd.com" /></label>
-          <label className="block"><Lbl>Τηλέφωνο</Lbl><input className="input" disabled={!canEdit} value={v.helpPhone} onChange={(e) => patch({ helpPhone: e.target.value })} placeholder="+357 …" /></label>
+          <label className="block"><Lbl>Τηλέφωνο</Lbl><PhoneInput disabled={!canEdit} value={v.helpPhone} onChange={(x) => patch({ helpPhone: x })} /></label>
         </div>
       </div>
 

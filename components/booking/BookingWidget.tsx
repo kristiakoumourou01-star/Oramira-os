@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { CalendarClock, Check, ChevronLeft, MapPin, Clock, Zap, Home, Video } from 'lucide-react';
 import type { DaySlots } from '@/lib/availability';
 import { formatTime, formatWeekdayDate } from '@/lib/format';
+import { PhoneInput } from '@/components/ui/PhoneInput';
 
 interface Agent { id: string; name: string | null; avatarUrl: string | null }
 export interface ConsentWording { consent: string; marketing: string; required: boolean; marketingDefault: boolean }
@@ -118,7 +119,7 @@ export function BookingWidget({ agent, days, totalSlots, project, consentWording
           <div className="space-y-2.5">
             <input value={form.name} onChange={set('name')} placeholder="Your name" className="input" autoFocus />
             <div className="grid grid-cols-2 gap-2.5">
-              <input value={form.phone} onChange={set('phone')} placeholder="Phone (WhatsApp)" className="input" />
+              <PhoneInput value={form.phone} onChange={(v) => setForm((f: any) => ({ ...f, phone: v }))} placeholder="Phone (WhatsApp)" />
               <input value={form.email} onChange={set('email')} type="email" placeholder="Email" className="input" />
             </div>
             <textarea value={form.message} onChange={set('message')} placeholder="Anything we should know? (optional)" className="input min-h-[64px]" />

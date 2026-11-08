@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Users, Plus, Trash2, Star, Search } from 'lucide-react';
 import { addRelation, deleteRelation, findContacts, type ContactHit } from '@/app/actions/contact-card';
 import { RELATIONS, inverseRelationLabel, relationLabel } from '@/lib/kyc-shared';
+import { PhoneInput } from '@/components/ui/PhoneInput';
 
 export interface RelationRow {
   id: string; direction: 'out' | 'in'; relation: string; decisionMaker: boolean; note: string | null;
@@ -61,7 +62,7 @@ export function ContactRelations({ contactId, rows, canEdit, missing }: { contac
           </div>
           {picked ? <p className="text-xs text-signal-success">Θα συνδεθεί με την επαφή «{picked.name}».</p> : q.trim().length >= 2 && (
             <div className="grid gap-2 sm:grid-cols-2">
-              <input className="input py-1.5 text-sm" placeholder="Τηλέφωνο (προαιρετικό)" value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} />
+              <PhoneInput placeholder="Τηλέφωνο (προαιρετικό)" value={f.phone} onChange={(v) => setF({ ...f, phone: v })} />
               <input className="input py-1.5 text-sm" placeholder="Email (προαιρετικό)" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} />
             </div>
           )}

@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { Check, Plus, Trash2, Star, ChevronDown, ChevronRight, ChevronUp, FileText, X } from 'lucide-react';
+import { Check, Plus, Trash2, Star, ChevronDown, ChevronRight, ChevronUp, FileText, X, GripVertical } from 'lucide-react';
 import { saveOrgSlice } from '@/app/actions/org-settings';
 import { UndoButton } from '@/components/admin/UndoButton';
 import { FLOW, STATUS_EL, slugKey, type FlowStatus, type LostReason, type PipelineDef, type PipelineSettings, type StageDef } from '@/lib/pipeline-shared';
@@ -27,6 +27,28 @@ export function PipelineSettingsEditor({ initial, canEdit, vatRates }: { initial
     if (j < 0 || j >= st.length || st[i].status === 'won' || st[j].status === 'won') return;
     [st[i], st[j]] = [st[j], st[i]]; setPipe(key, { stages: st });
   };
+  /** Σύρσιμο: μετακίνηση σταδίου από → σε (το «κλείσιμο» μένει πάντα τελευταίο). */
+  const dropStage = (key: string, from: number, to: number) => {
+    const st = [...stagesOf(key)];
+    if (from === to || st[from]?.status === 'won') return;
+    const [it] = st.splice(from, 1);
+    const wonAt = st.findIndex((x) => x.status === 'won');
+    st.splice(Math.min(to, wonAt >= 0 ? wonAt : st.length), 0, it);
+    setPipe(key, { stages: st });
+  };
+  /** Ένα στάδιο που «σημαίνει» Lost / αργότερα / χωρίς απάντηση γίνεται αποτέλεσμα κλεισίματος. */
+  const toOutcome = (key: string, i: number, status: LostReason['status']) => {
+    const st = stagesOf(key)[i]; if (!st) return;
+    const rk = slugKey(st.label || 'reason', v.lostReasons.map((x) => x.key));
+    setV((x) => ({
+      ...x,
+      pipelines: x.pipelines.map((q) => (q.key === key ? { ...q, stages: q.stages.filter((_, j) => j !== i) } : q)),
+      lostReasons: [...x.lostReasons, { key: rk, label: st.label || 'Lost', status, quick: true }],
+    }));
+    setMsg({ ok: true, text: `Το «${st.label}» μπήκε στο «Κλείσιμο χωρίς πώληση» (κάτω) ως κουμπί. Πατήστε Αποθήκευση.` });
+  };
+  const [drag, setDrag] = useState<{ list: string; i: number } | null>(null);
+  const [over, setOver] = useState<{ list: string; i: number } | null>(null);
   const removeStage = (key: string, i: number) => {
     const st = stagesOf(key);
     if (st[i].status === 'won' || (st[i].status === 'new' && st.filter((x) => x.status === 'new').length === 1)) return;
@@ -53,7 +75,7 @@ export function PipelineSettingsEditor({ initial, canEdit, vatRates }: { initial
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div>
             <h4>Pipelines</h4>
-            <p className="text-xs text-charcoal-600/60">Φτιάξτε όσα στάδια θέλετε, με δικά σας ονόματα και σειρά. Το «Σημαίνει» λέει στο σύστημα τι είναι το στάδιο (για αυτοματισμούς, αναφορές και προμήθειες). Η πιθανότητα μετρά στις προβλέψεις· αν ένα lead μείνει περισσότερες μέρες από το όριο, φαίνεται «σε καθυστέρηση» και ο υπεύθυνος ειδοποιείται.</p>
+            <p className="text-xs text-charcoal-600/60">Φτιάξτε όσα στάδια θέλετε, με δικά σας ονόματα και σειρά (σύρετε από τις τελίτσες ⋮⋮ ή με τα βελάκια). Για Lost / Δεν ενδιαφέρεται διαλέξτε στο «Σημαίνει» → «Κλείσιμο χωρίς πώληση». Το «Σημαίνει» λέει στο σύστημα τι είναι το στάδιο (για αυτοματισμούς, αναφορές και προμήθειες). Η πιθανότητα μετρά στις προβλέψεις· αν ένα lead μείνει περισσότερες μέρες από το όριο, φαίνεται «σε καθυστέρηση» και ο υπεύθυνος ειδοποιείται.</p>
           </div>
           {canEdit && v.pipelines.length < 12 && <button type="button" onClick={addPipe} className="btn-secondary px-3 py-1.5 text-xs"><Plus size={13} /> Pipeline</button>}
         </div>
@@ -71,20 +93,27 @@ export function PipelineSettingsEditor({ initial, canEdit, vatRates }: { initial
               {isOpen && (
                 <div className="border-t border-stone-line p-3">
                   <div className="hidden items-center gap-2 text-[11px] text-charcoal-600/70 2xl:flex">
-                    <span className="w-[44px]" /><span className="flex-[2_1_10rem]">Όνομα σταδίου</span><span className="flex-[1_1_9rem]">Σημαίνει</span><span className="w-[88px]">Πιθανότητα</span><span className="w-[88px]">Όριο</span><span className="w-5" />
+                    <span className="w-[60px]" /><span className="flex-[2_1_10rem]">Όνομα σταδίου</span><span className="flex-[1_1_9rem]">Σημαίνει</span><span className="w-[88px]">Πιθανότητα</span><span className="w-[88px]">Όριο</span><span className="w-5" />
                   </div>
                   {p.stages.map((st, i) => {
                     const won = st.status === 'won';
                     const lastNew = st.status === 'new' && p.stages.filter((x) => x.status === 'new').length === 1;
                     return (
-                      <div key={st.key} className="mt-1 flex flex-wrap items-center gap-2 border-b border-stone-line/60 pb-1 last:border-0 2xl:border-0 2xl:pb-0">
-                        <span className="flex w-[44px] text-charcoal-600/50">
+                      <div key={st.key} draggable={canEdit && !won}
+                        onDragStart={(e) => { if ((e.target as HTMLElement).closest('input,select')) { e.preventDefault(); return; } e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', st.key); setDrag({ list: p.key, i }); }}
+                        onDragOver={(e) => { if (drag?.list === p.key) { e.preventDefault(); setOver({ list: p.key, i }); } }}
+                        onDrop={(e) => { e.preventDefault(); if (drag?.list === p.key) dropStage(p.key, drag.i, i); setDrag(null); setOver(null); }}
+                        onDragEnd={() => { setDrag(null); setOver(null); }}
+                        className={`mt-1 flex flex-wrap items-center gap-2 border-b border-stone-line/60 pb-1 last:border-0 2xl:border-0 2xl:pb-0 ${over?.list === p.key && over.i === i && drag?.i !== i ? 'rounded-md ring-2 ring-forest/40' : ''} ${drag?.list === p.key && drag.i === i ? 'opacity-50' : ''}`}>
+                        <span className="flex w-[60px] items-center text-charcoal-600/50">
+                          <span className={won || !canEdit ? 'invisible' : 'cursor-grab active:cursor-grabbing'} title="Σύρετε για αλλαγή σειράς"><GripVertical size={15} /></span>
                           <button type="button" disabled={dis || i === 0 || won} onClick={() => moveStage(p.key, i, -1)} aria-label="Πάνω" className="disabled:opacity-20 hover:text-forest"><ChevronUp size={15} /></button>
                           <button type="button" disabled={dis || won || i >= p.stages.length - 2} onClick={() => moveStage(p.key, i, 1)} aria-label="Κάτω" className="disabled:opacity-20 hover:text-forest"><ChevronDown size={15} /></button>
                         </span>
                         <input className="input min-w-0 flex-[2_1_10rem] py-1 text-sm" placeholder="Όνομα σταδίου" aria-label="Όνομα σταδίου" disabled={dis} value={st.label} maxLength={40} onChange={(e) => setStage(p.key, i, { label: e.target.value })} />
-                        <select className="input min-w-0 flex-[1_1_9rem] py-1 text-sm" aria-label="Σημαίνει" title="Σημαίνει" disabled={dis || won || lastNew} value={st.status} onChange={(e) => setStage(p.key, i, { status: e.target.value as FlowStatus })}>
-                          {FLOW.filter((f) => f !== 'won' || won).map((f) => <option key={f} value={f}>{STATUS_EL[f]}</option>)}
+                        <select className="input min-w-0 flex-[1_1_9rem] py-1 text-sm" aria-label="Σημαίνει" title="Σημαίνει" disabled={dis || won || lastNew} value={st.status} onChange={(e) => { const x = e.target.value; if (x.startsWith('out:')) toOutcome(p.key, i, x.slice(4) as LostReason['status']); else setStage(p.key, i, { status: x as FlowStatus }); }}>
+                          <optgroup label="Στάδιο πώλησης">{FLOW.filter((f) => f !== 'won' || won).map((f) => <option key={f} value={f}>{STATUS_EL[f]}</option>)}</optgroup>
+                          {!won && <optgroup label="Κλείσιμο χωρίς πώληση"><option value="out:lost">✕ Lost / Δεν ενδιαφέρεται</option><option value="out:nurture">✕ Για αργότερα</option><option value="out:no_response">✕ Χωρίς απάντηση</option></optgroup>}
                         </select>
                         <label className="flex w-[88px] items-center gap-1 text-xs text-charcoal-600/70" title="Πιθανότητα κλεισίματος"><input className="input min-w-0 py-1 text-right text-sm" type="number" min={0} max={100} disabled={dis} value={st.probability} onChange={(e) => setStage(p.key, i, { probability: Number(e.target.value) })} />%</label>
                         {won ? <span className="w-[88px] text-center text-xs text-charcoal-600/50">—</span>
@@ -106,13 +135,19 @@ export function PipelineSettingsEditor({ initial, canEdit, vatRates }: { initial
       <div className="panel space-y-2 p-5">
         <h4>Κλείσιμο χωρίς πώληση: Lost, Not interested…</h4>
         <p className="text-xs text-charcoal-600/60">Τα αποτελέσματα που μπορεί να έχει ένα lead όταν δεν προχωρά. Με «Κουμπί» εμφανίζεται ως κουμπί ενός κλικ δίπλα στο «Κλείσιμο (Won)»· τα υπόλοιπα είναι στο «Άλλος λόγος…». Στο Lead Management κάθε αποτέλεσμα έχει δική του ενότητα, και μετρά στο «Γιατί χάνονται».</p>
-        <div className="hidden items-center gap-2 text-[11px] text-charcoal-600/70 sm:flex"><span className="w-[44px]" /><span className="flex-1">Όνομα</span><span className="w-[170px]">Σημαίνει</span><span className="w-[72px]">Κουμπί</span><span className="w-5" /></div>
+        <div className="hidden items-center gap-2 text-[11px] text-charcoal-600/70 sm:flex"><span className="w-[60px]" /><span className="flex-1">Όνομα</span><span className="w-[170px]">Σημαίνει</span><span className="w-[72px]">Κουμπί</span><span className="w-5" /></div>
         {v.lostReasons.map((r, i) => {
           const setR = (x: Partial<LostReason>) => patch({ lostReasons: v.lostReasons.map((y, j) => (j === i ? { ...y, ...x } : y)) });
           const move = (d: number) => { const a = [...v.lostReasons]; const t = a[i + d]; if (!t) return; a[i + d] = a[i]; a[i] = t; patch({ lostReasons: a }); };
           return (
-            <div key={r.key} className="flex flex-wrap items-center gap-2 border-b border-stone-line/60 pb-1 last:border-0 sm:flex-nowrap sm:border-0 sm:pb-0">
-              <span className="flex w-[44px] text-charcoal-600/50">
+            <div key={r.key} draggable={canEdit}
+              onDragStart={(e) => { if ((e.target as HTMLElement).closest('input,select')) { e.preventDefault(); return; } e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', r.key); setDrag({ list: '#out', i }); }}
+              onDragOver={(e) => { if (drag?.list === '#out') { e.preventDefault(); setOver({ list: '#out', i }); } }}
+              onDrop={(e) => { e.preventDefault(); if (drag?.list === '#out' && drag.i !== i) { const a = [...v.lostReasons]; const [it] = a.splice(drag.i, 1); a.splice(i, 0, it); patch({ lostReasons: a }); } setDrag(null); setOver(null); }}
+              onDragEnd={() => { setDrag(null); setOver(null); }}
+              className={`flex flex-wrap items-center gap-2 border-b border-stone-line/60 pb-1 last:border-0 sm:flex-nowrap sm:border-0 sm:pb-0 ${over?.list === '#out' && over.i === i && drag?.i !== i ? 'rounded-md ring-2 ring-forest/40' : ''} ${drag?.list === '#out' && drag.i === i ? 'opacity-50' : ''}`}>
+              <span className="flex w-[60px] items-center text-charcoal-600/50">
+                <span className={canEdit ? 'cursor-grab active:cursor-grabbing' : 'invisible'} title="Σύρετε για αλλαγή σειράς"><GripVertical size={15} /></span>
                 <button type="button" disabled={dis || i === 0} onClick={() => move(-1)} aria-label="Πάνω" className="disabled:opacity-20 hover:text-forest"><ChevronUp size={15} /></button>
                 <button type="button" disabled={dis || i === v.lostReasons.length - 1} onClick={() => move(1)} aria-label="Κάτω" className="disabled:opacity-20 hover:text-forest"><ChevronDown size={15} /></button>
               </span>
