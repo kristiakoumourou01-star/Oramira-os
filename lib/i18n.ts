@@ -76,6 +76,7 @@ const NAV: Record<string, Tr> = {
   '/command-center': { el: 'Command Center', en: 'Command Center', ru: 'Командный центр' },
   '/crm/leads': { el: 'Sales', en: 'Sales', ru: 'Продажи' },
   '/sales/deals': { el: 'Deals', en: 'Deals', ru: 'Сделки' },
+  '/sales/activities': { el: 'Activities', en: 'Activities', ru: 'Активности' },
   '/crm/leads?tab=inbox': { el: 'Lead Management', en: 'Lead Management', ru: 'Лиды' },
   '/crm/leads?tab=pipeline': { el: 'Pipeline', en: 'Pipeline', ru: 'Воронка' },
   '/crm/leads?tab=followups': { el: 'Follow-ups', en: 'Follow-ups', ru: 'Напоминания' },
