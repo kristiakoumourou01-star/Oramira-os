@@ -192,7 +192,7 @@ export function EmployeeVerification() {
                   <div className="flex flex-wrap justify-center gap-2">
                     <button type="button" onClick={() => { void navigator.clipboard?.writeText(result.link); setCopied(true); }} className="btn-secondary text-sm">{copied ? 'Copied ✓' : 'Copy link'}</button>
                     {s.phone && <a href={`https://wa.me/${s.phone.replace(/[^\d]/g, '').replace(/^(\d{8})$/, '357$1')}?text=${encodeURIComponent(`Welcome to Oramira! Activate your account: ${result.link}`)}`} target="_blank" rel="noreferrer" className="btn-secondary text-sm">Send via WhatsApp</a>}
-                    <a href={`mailto:${s.email}?subject=${encodeURIComponent('Your Oramira OS access')}&body=${encodeURIComponent(`Welcome to the team! Activate your account: ${result.link}`)}`} className="btn-secondary text-sm">Open in email</a>
+                    <a href={`mailto:${s.email}?subject=${encodeURIComponent('Your Oramira access')}&body=${encodeURIComponent(`Welcome to the team! Activate your account: ${result.link}`)}`} className="btn-secondary text-sm">Open in email</a>
                   </div>
                 </div>
               )}

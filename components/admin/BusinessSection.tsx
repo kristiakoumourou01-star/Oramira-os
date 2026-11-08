@@ -114,7 +114,7 @@ export function BusinessSection({ initial, companyName, canEdit, logoUrl = null,
           <p className="text-sm text-charcoal-600/70">Τα χρώματα αυτά ισχύουν σε όλη την εταιρεία.</p>
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="block"><FieldLabel>Κύριο</FieldLabel><ColorField value={brand.primary} disabled={dis} onChange={(v) => setBrand({ ...brand, primary: v })} /></label>
-            <label className="block"><FieldLabel>Δεύτερο</FieldLabel><ColorField value={brand.secondary} disabled={dis} placeholder="#2563EB" onChange={(v) => setBrand({ ...brand, secondary: v })} /></label>
+            <label className="block"><FieldLabel>Δεύτερο</FieldLabel><ColorField value={brand.secondary} disabled={dis} placeholder="#BFAB88" onChange={(v) => setBrand({ ...brand, secondary: v })} /><span className="mt-1 block text-xs text-charcoal-600/60">Δευτερεύουσες επιφάνειες: καρτέλες, αναζήτηση, μπάρες.</span></label>
           </div>
         </div>
       </SettingsBlock>

@@ -25,6 +25,7 @@ import { MenuEditor } from '@/components/admin/MenuEditor';
 import { DashboardEditor } from '@/components/admin/DashboardEditor';
 import { AppearanceExtras } from '@/components/admin/AppearanceExtras';
 import { AppearanceBasics } from '@/components/admin/AppearanceBasics';
+import { LivePreview } from '@/components/admin/LivePreview';
 import { DepartmentsSettings } from '@/components/admin/DepartmentsSettings';
 import { CustomerFieldsSettings } from '@/components/admin/CustomerFieldsSettings';
 import type { LocalePrefs } from '@/lib/locale-shared';
@@ -93,11 +94,14 @@ export function SettingsScreen({
           </div>
 
           {section.key === 'appearance' ? (
-            <div className="space-y-5">
+            <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
+            <div className="min-w-0 space-y-5">
               <AppearanceBasics primary={branding.colorPrimary} secondary={branding.colorSecondary} logoUrl={branding.logoUrl} layout={settings.layout} lang={myLocale?.lang ?? settings.locale.lang} num={myLocale?.num ?? settings.locale.num} canEdit={canEdit} />
               <AppearanceExtras logoUrl={branding.logoUrl} primary={branding.colorPrimary} initial={settings.appearance} canEdit={canEdit} />
               <CompanyLocaleDefault initial={settings.locale} canEdit={canEdit} />
               <BrandingForm initial={branding} />
+            </div>
+            <div className="xl:sticky xl:top-4 xl:self-start"><LivePreview branding={branding} logoUrl={branding.logoUrl} sidebar={{ style: settings.appearance.sidebarStyle, custom: settings.appearance.sidebarColor }} /></div>
             </div>
           ) : section.key === 'business' ? (
             <BusinessSection initial={settings.business} companyName={branding.companyName || agencyName} canEdit={canEdit} logoUrl={branding.logoUrl} colorPrimary={branding.colorPrimary} colorSecondary={branding.colorSecondary} />

@@ -8,6 +8,7 @@ import { saveOrgSlice } from '@/app/actions/org-settings';
 import { setMyLocale } from '@/app/actions/locale';
 import { LANGS, type Lang, type NumFmt } from '@/lib/locale-shared';
 import type { LayoutSettings } from '@/lib/org-settings-shared';
+import { onLiveBrand, patchLiveBrand } from '@/lib/brand-live';
 import { Switch, SettingsBlock, FieldLabel, LogoDrop, ColorField } from '@/components/admin/settings-ui';
 
 const PREFS_KEY = 'oramira:display';
@@ -45,6 +46,10 @@ export function AppearanceBasics({ primary, secondary, logoUrl, layout, lang, nu
   const [logo, setLogo] = useState<string | null>(logoUrl);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   useEffect(() => { const p = readDisplay(); setScale(p.scale); setMotion(p.reduceMotion); }, []);
+  useEffect(() => onLiveBrand((d) => { setC1((x) => (x.toUpperCase() === d.colorPrimary ? x : d.colorPrimary)); setC2((x) => (x.toUpperCase() === d.colorSecondary ? x : d.colorSecondary)); }), []);
+  // Ζωντανά σε όλη την οθόνη (και στην προεπισκόπηση) πριν την αποθήκευση.
+  useEffect(() => { if (/^#[0-9a-fA-F]{6}$/.test(c1)) patchLiveBrand({ colorPrimary: c1.toUpperCase() }); }, [c1]);
+  useEffect(() => { if (/^#[0-9a-fA-F]{6}$/.test(c2)) patchLiveBrand({ colorSecondary: c2.toUpperCase() }); }, [c2]);
 
   const saveColors = () => start(async () => {
     const r = await saveBrandBasics({ colorPrimary: c1, ...(c2 ? { colorSecondary: c2 } : {}) });
@@ -102,7 +107,7 @@ export function AppearanceBasics({ primary, secondary, logoUrl, layout, lang, nu
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="block"><FieldLabel>Χρώμα brand · κύριο</FieldLabel><ColorField value={c1} disabled={!canEdit} onChange={setC1} /></label>
             <label className="block"><FieldLabel>Χρώμα brand · δεύτερο</FieldLabel><ColorField value={c2} disabled={!canEdit} placeholder="#2563EB" onChange={setC2} />
-              <span className="mt-1 block text-xs text-charcoal-600/60">Προαιρετικό, για διχρωμία στα γραφήματα.</span></label>
+              <span className="mt-1 block text-xs text-charcoal-600/60">Δευτερεύουσες επιφάνειες: καρτέλες, αναζήτηση, μπάρες.</span></label>
           </div>
           {canEdit && <button type="button" disabled={pending || (c1 === primary && c2 === secondary)} onClick={saveColors} className="btn-primary"><Check size={15} /> {pending ? 'Αποθήκευση…' : 'Εφαρμογή χρωμάτων'}</button>}
           <div>

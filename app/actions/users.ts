@@ -62,8 +62,8 @@ export async function inviteUser(params: {
   await queueNotificationEmail({
     triggerType: 'staff_invite',
     recipientEmail: params.email,
-    subject: 'Your Oramira OS access is ready',
-    body: `<p>You've been invited to Oramira OS as <strong>${params.role}</strong>. Set up your account: <a href="${process.env.NEXT_PUBLIC_APP_URL}/invite/${token}">Activate access</a></p>`,
+    subject: 'Your Oramira access is ready',
+    body: `<p>You've been invited to Oramira as <strong>${params.role}</strong>. Set up your account: <a href="${process.env.NEXT_PUBLIC_APP_URL}/invite/${token}">Activate access</a></p>`,
   });
 
   await logActivity({ entityType: 'invite', entityId: profile.id, action: 'user_invited', metadata: { email: params.email, role: params.role } });
@@ -150,7 +150,7 @@ export async function createEmployeeInvite(params: {
   const emailSent = await queueNotificationEmail({
     triggerType: 'staff_invite',
     recipientEmail: params.email,
-    subject: 'Your Oramira OS access is ready',
+    subject: 'Your Oramira access is ready',
     body: `<p>Welcome to the team. Your account has been set up as <strong>${params.position ?? params.role}</strong>. Activate your access: <a href="${link}">Activate account</a></p>`,
   });
 

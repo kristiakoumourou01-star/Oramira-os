@@ -526,7 +526,8 @@ export function mergeOrgSettings(data: any): OrgSettings {
     gdpr: mergeGdpr(d.gdpr),
     layout: (() => {
       const l = { ...DEFAULT_LAYOUT, ...(d.layout ?? {}) };
-      return { ...l, sidebarDefault: ['full', 'icons', 'auto'].includes(l.sidebarDefault) ? l.sidebarDefault : (l.sidebarCompact ? 'icons' : 'full'), weekStart: ['monday', 'sunday', 'saturday'].includes(l.weekStart) ? l.weekStart : 'monday' };
+      const raw = d.layout?.sidebarDefault;
+      return { ...l, sidebarDefault: ['full', 'icons', 'auto'].includes(raw) ? raw : (l.sidebarCompact ? 'icons' : 'full'), weekStart: ['monday', 'sunday', 'saturday'].includes(l.weekStart) ? l.weekStart : 'monday' };
     })(),
     departments: mergeDepartments(d.departments),
     dashboard: mergeDashboard(d.dashboard),

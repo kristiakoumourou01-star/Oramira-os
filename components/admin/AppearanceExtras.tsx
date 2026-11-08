@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Upload, Trash2, Sun, Moon, Monitor } from 'lucide-react';
 import { saveLogo } from '@/app/actions/branding';
 import { fileToDataUrl } from '@/lib/image-upload';
+import { patchLiveMenu } from '@/lib/brand-live';
 import { saveAppearance } from '@/app/actions/org-settings';
 import { sidebarBackground } from '@/lib/branding-shared';
 import { SIDEBAR_COOKIE, SIDEBAR_MODES, parseSidebarMode, writeSidebarMode, type SidebarMode } from '@/lib/sidebar-mode-shared';
@@ -178,7 +179,7 @@ export function AppearanceExtras({
     d.dataset.corners = a.corners;
     d.dataset.box = a.boxStyle;
     d.dataset.labels = a.labelStyle ?? 'soft';
-    d.style.setProperty('--sidebar-bg', menuBg);
+    patchLiveMenu(a.sidebarStyle, a.sidebarColor);
   }, [a.corners, a.boxStyle, a.labelStyle, menuBg]);
   const patch = (p: Partial<AppearanceSettings>) => { setA((prev) => ({ ...prev, ...p })); setMsg({ ok: true, text: 'Προεπισκόπηση — πατήστε «Αποθήκευση» για να μείνει.' }); };
 

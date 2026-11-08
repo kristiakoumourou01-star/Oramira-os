@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition, type CSSProperties } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Check, RotateCcw, Palette } from 'lucide-react';
 import {
@@ -8,11 +8,11 @@ import {
   FONT_CATALOG,
   HEADING_FONTS,
   BODY_FONTS,
-  brandStyleObject,
   type Branding,
   type FontKey,
 } from '@/lib/branding-shared';
 import { saveBranding } from '@/app/actions/branding';
+import { onLiveBrand, patchLiveBrand } from '@/lib/brand-live';
 
 const COLOR_FIELDS: { key: keyof Branding; label: string; hint: string }[] = [
   { key: 'colorPrimary', label: 'Κύριο χρώμα', hint: 'Sidebar, τίτλοι, primary κουμπιά' },
@@ -27,10 +27,13 @@ export function BrandingForm({ initial }: { initial: Branding }) {
   const [isPending, startTransition] = useTransition();
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const router = useRouter();
+  // Ίδια χρώματα με το επάνω μέρος της Εμφάνισης (κύριο/δεύτερο).
+  useEffect(() => onLiveBrand((d) => setB((p) => (p.colorPrimary === d.colorPrimary && p.colorSecondary === d.colorSecondary ? p : { ...p, colorPrimary: d.colorPrimary, colorSecondary: d.colorSecondary }))), []);
 
   const set = <K extends keyof Branding>(key: K, value: Branding[K]) => {
     setB((prev) => ({ ...prev, [key]: value }));
     setMsg(null);
+    if (typeof value !== 'string' || !key.startsWith('color') || /^#[0-9a-fA-F]{6}$/.test(value)) patchLiveBrand({ [key]: value } as Partial<Branding>);
   };
 
   function onSave() {
@@ -56,10 +59,9 @@ export function BrandingForm({ initial }: { initial: Branding }) {
     });
   }
 
-  const previewStyle = brandStyleObject(b) as CSSProperties;
 
   return (
-    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+    <div>
       {/* ---- Controls ---- */}
       <div className="space-y-5">
         <div className="panel space-y-4 p-5">
@@ -136,7 +138,7 @@ export function BrandingForm({ initial }: { initial: Branding }) {
           <button onClick={onSave} disabled={isPending} className="btn-primary">
             <Check size={15} strokeWidth={1.75} /> {isPending ? 'Αποθήκευση…' : 'Αποθήκευση'}
           </button>
-          <button onClick={() => { setB({ ...DEFAULT_BRANDING }); setMsg(null); }} disabled={isPending} className="btn-ghost">
+          <button onClick={() => { setB({ ...DEFAULT_BRANDING }); setMsg(null); patchLiveBrand({ ...DEFAULT_BRANDING, companyName: b.companyName }); }} disabled={isPending} className="btn-ghost">
             <RotateCcw size={14} strokeWidth={1.75} /> Επαναφορά default
           </button>
           {msg && (
@@ -145,40 +147,6 @@ export function BrandingForm({ initial }: { initial: Branding }) {
         </div>
       </div>
 
-      {/* ---- Live preview ---- */}
-      <div className="lg:sticky lg:top-5 lg:self-start">
-        <p className="eyebrow mb-2">Προεπισκόπηση</p>
-        <div style={previewStyle} className="overflow-hidden rounded-[18px] bg-stone shadow-overlay">
-          <div className="flex h-[320px]">
-            {/* mini sidebar */}
-            <div className="flex w-20 flex-col gap-2 bg-gradient-to-b from-forest-deep to-forest p-3">
-              <div className="mb-2 h-4 rounded bg-champagne/80" />
-              <div className="h-2 rounded bg-white/25" />
-              <div className="h-2 w-3/4 rounded bg-white/15" />
-              <div className="h-2 w-2/3 rounded bg-white/15" />
-              <div className="mt-auto h-2 w-1/2 rounded bg-champagne/60" />
-            </div>
-            {/* body */}
-            <div className="flex-1 space-y-3 p-4">
-              <h3 className="text-xl">{b.companyName} OS</h3>
-              <p className="font-sans text-xs text-charcoal-600">Δείγμα κειμένου σώματος με την επιλεγμένη γραμματοσειρά.</p>
-              <div className="panel space-y-2 p-3">
-                <div className="flex items-center justify-between">
-                  <span className="eyebrow">Έσοδα</span>
-                  <span className="figure text-champagne-600">€1.240.000</span>
-                </div>
-                <div className="h-2 rounded bg-sand" />
-                <div className="h-2 w-2/3 rounded bg-sand-300" />
-              </div>
-              <div className="flex gap-2">
-                <span className="btn-primary !px-3 !py-1.5 !text-xs">Primary</span>
-                <span className="badge-forest">Badge</span>
-              </div>
-            </div>
-          </div>
-        </div>
-        <p className="mt-2 text-xs text-charcoal-600/60">Οι σκιάσεις (shades) παράγονται αυτόματα από τα χρώματά σου.</p>
-      </div>
     </div>
   );
 }

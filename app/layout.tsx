@@ -11,8 +11,8 @@ const FONT_VARS = '';
 export async function generateMetadata(): Promise<Metadata> {
   const [{ companyName }, appearance] = await Promise.all([getBranding(), getPublicAppearance()]);
   return {
-    title: `${companyName} OS`,
-    description: `The ${companyName} operating system — CRM, deal analysis, and client portals.`,
+    title: companyName,
+    description: `${companyName} — CRM, deal analysis and client portals.`,
     ...(appearance.favicon ? { icons: { icon: appearance.favicon } } : {}),
   };
 }
