@@ -1,7 +1,8 @@
 import { requirePermission } from '@/lib/auth';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { INTERNAL_ROLES } from '@/lib/permissions';
-import { LeaveApprovals, type PendingLeave } from '@/components/hr/LeaveApprovals';
+import { LeaveManager } from '@/components/hr/LeaveManager';
+import { effectiveCan } from '@/lib/permissions';
 import { PayrollAdmin, type Employee } from '@/components/hr/PayrollAdmin';
 import { PayrollApprovals, type PayslipRow } from '@/components/hr/PayrollApprovals';
 import { ContractsAdmin, type ContractRow } from '@/components/hr/ContractsAdmin';
@@ -23,11 +24,16 @@ const BENEFIT_LABEL: Record<string, string> = {
 const Panel = ({ children }: { children: React.ReactNode }) => <div className="panel p-6">{children}</div>;
 
 export default async function HRWorkspacePage({ searchParams }: { searchParams: { tab?: string } }) {
-  await requirePermission('hr');
+  const me = await requirePermission('hr');
   const supabase = await createSupabaseServerClient();
+  const canEditHr = effectiveCan(me.role, me.moduleAccess, 'hr', 'edit', me.permissions);
+  const [{ data: allLeave }, { data: balances }] = await Promise.all([
+    supabase.from('leave_requests').select('id, profile_id, leave_type, start_date, end_date, days, reason, status, created_at, profiles!leave_requests_profile_id_fkey(full_name)').order('start_date', { ascending: false }).limit(1000),
+    supabase.from('leave_balances').select('profile_id, leave_type, year, total_days, used_days'),
+  ]);
 
   const [{ data: pending }, { data: employees }, { data: payslips }, { data: contracts }, { data: commissions }, { data: staff }] = await Promise.all([
-    supabase.from('leave_requests').select('id, leave_type, start_date, end_date, days, reason, profiles(full_name)').eq('status', 'pending').order('created_at', { ascending: false }),
+    supabase.from('leave_requests').select('id').eq('status', 'pending').order('created_at', { ascending: false }),
     supabase.from('profiles').select('id, full_name').in('role', INTERNAL_ROLES).order('full_name'),
     supabase.from('payslips').select('id, period, gross_amount, net_amount, employer_cost, status, payment_date, profiles(full_name)').order('issued_at', { ascending: false }).limit(50),
     supabase.from('employee_contracts').select('id, type, title, status, start_date, expiry_date, profiles(full_name)').order('created_at', { ascending: false }),
@@ -38,7 +44,6 @@ export default async function HRWorkspacePage({ searchParams }: { searchParams: 
   const hrAlerts = await computeHrAlerts(supabase);
   const teamScores = await buildTeamPerformance(supabase, INTERNAL_ROLES);
 
-  const leaveRows: PendingLeave[] = (pending ?? []).map((r: any) => ({ id: r.id, employee: r.profiles?.full_name ?? null, leave_type: r.leave_type, start_date: r.start_date, end_date: r.end_date, days: r.days, reason: r.reason }));
   const payslipRows: PayslipRow[] = (payslips ?? []).map((p: any) => ({ id: p.id, employee: p.profiles?.full_name ?? null, period: p.period, gross_amount: p.gross_amount, net_amount: p.net_amount, employer_cost: p.employer_cost, status: p.status, payment_date: p.payment_date }));
   const contractRows: ContractRow[] = (contracts ?? []).map((c: any) => ({ id: c.id, employee: c.profiles?.full_name ?? null, type: c.type, title: c.title, status: c.status, start_date: c.start_date, expiry_date: c.expiry_date }));
   const commissionRows: CommissionRow[] = (commissions ?? []).map((c: any) => ({ id: c.id, employee: c.profiles?.full_name ?? null, base_value: c.base_value, commission_pct: c.commission_pct, amount: c.amount, status: c.status, created_at: c.created_at }));
@@ -95,7 +100,7 @@ export default async function HRWorkspacePage({ searchParams }: { searchParams: 
         )}</Panel>
       ),
     },
-    { id: 'leave', label: 'Leave', content: <Panel><LeaveApprovals requests={leaveRows} /></Panel> },
+    { id: 'leave', label: 'Leave', content: <LeaveManager me={me.id} canEdit={canEditHr} employees={emps} balances={((balances ?? []) as any[]).map((b) => ({ ...b, total_days: Number(b.total_days ?? 0), used_days: Number(b.used_days ?? 0) }))} requests={((allLeave ?? []) as any[]).map((r) => ({ ...r, employee: r.profiles?.full_name ?? null }))} /> },
     {
       id: 'benefits', label: 'Benefits', content: (
         <Panel>

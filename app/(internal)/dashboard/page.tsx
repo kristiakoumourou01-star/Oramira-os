@@ -56,7 +56,7 @@ export default async function DashboardPage() {
       supabase.from('commissions').select('id, base_value, commission_pct, amount, status').eq('profile_id', profile.id).order('created_at', { ascending: false }).limit(8),
       supabase.from('viewings').select('id, scheduled_at, status, lead_id, meeting_link, contacts(full_name)').eq('agent_id', profile.id).gte('scheduled_at', winStart).lte('scheduled_at', winEnd).limit(40),
       supabase.from('notifications').select('id, title, body, link, read_at, created_at').eq('user_id', profile.id).order('created_at', { ascending: false }).limit(6),
-      supabase.from('leave_requests').select('id, leave_type, days, start_date, profiles(full_name)').eq('status', 'pending').order('created_at', { ascending: false }).limit(8),
+      supabase.from('leave_requests').select('id, leave_type, days, start_date, profiles!leave_requests_profile_id_fkey(full_name)').eq('status', 'pending').order('created_at', { ascending: false }).limit(8),
       isCalendarConnected(profile.id),
       getGoogleEventsForUser(profile.id, winStart, winEnd),
       getEnrichedLeads().catch(() => []),

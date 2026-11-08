@@ -8,26 +8,62 @@ import { renderPayslipPdf } from '@/lib/payslip-pdf';
 import { revalidatePath } from 'next/cache';
 import { formatCurrency } from '@/lib/format';
 
-const DAY = 24 * 60 * 60 * 1000;
-function inclusiveDays(start: string, end: string): number {
-  const d = Math.round((new Date(end).getTime() - new Date(start).getTime()) / DAY) + 1;
-  return Math.max(1, d);
+/** Εργάσιμες μέρες (Δευ–Παρ) στο διάστημα, συμπεριλαμβανομένων των άκρων. Μισή μέρα = 0,5. */
+function inclusiveDays(start: string, end: string, half = false): number {
+  const a = new Date(`${start}T00:00:00Z`); const b = new Date(`${end}T00:00:00Z`);
+  let n = 0;
+  for (let d = new Date(a); d <= b; d.setUTCDate(d.getUTCDate() + 1)) { const w = d.getUTCDay(); if (w !== 0 && w !== 6) n++; }
+  if (half && n === 1) return 0.5;
+  return Math.max(half ? 0.5 : 1, n);
 }
+const LEAVE_TYPES = ['annual', 'sick', 'unpaid', 'maternity', 'paternity', 'other'];
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
 
-/** Employee submits a leave request (their own). */
-export async function requestLeave(params: { leaveType: string; startDate: string; endDate: string; reason?: string }) {
+/**
+ * Αίτηση άδειας. Ο υπάλληλος για τον εαυτό του· το HR μπορεί να καταχωρίσει για
+ * άλλον (profileId) και να την εγκρίνει αμέσως (approve).
+ */
+export async function requestLeave(params: { leaveType: string; startDate: string; endDate: string; reason?: string; halfDay?: boolean; profileId?: string; approve?: boolean }): Promise<{ ok: true } | { ok: false; error: string }> {
   const profile = await requireProfile();
+  if (!ISO_DAY.test(params.startDate) || !ISO_DAY.test(params.endDate)) return { ok: false, error: 'Διαλέξτε ημερομηνίες.' };
+  if (params.endDate < params.startDate) return { ok: false, error: 'Η λήξη είναι πριν την έναρξη.' };
+  const type = LEAVE_TYPES.includes(params.leaveType) ? params.leaveType : 'annual';
+  const forOther = !!params.profileId && params.profileId !== profile.id;
+  if (forOther || params.approve) await requirePermission('hr', 'edit');
   const supabase = await createSupabaseServerClient();
-  await supabase.from('leave_requests').insert({
-    profile_id: profile.id,
-    leave_type: params.leaveType,
-    start_date: params.startDate,
-    end_date: params.endDate,
-    days: inclusiveDays(params.startDate, params.endDate),
-    reason: params.reason ?? null,
-  });
+  const who = forOther ? params.profileId! : profile.id;
+  // Επικάλυψη με άλλη ενεργή αίτηση του ίδιου;
+  const { data: clash } = await supabase.from('leave_requests').select('id').eq('profile_id', who).in('status', ['pending', 'approved']).lte('start_date', params.endDate).gte('end_date', params.startDate).limit(1);
+  if (clash?.length) return { ok: false, error: 'Υπάρχει ήδη άδεια σε αυτές τις μέρες.' };
+  const { data: ins, error } = await supabase.from('leave_requests').insert({
+    profile_id: who, leave_type: type, start_date: params.startDate, end_date: params.endDate,
+    days: inclusiveDays(params.startDate, params.endDate, !!params.halfDay && params.startDate === params.endDate),
+    reason: params.reason?.trim().slice(0, 500) || null,
+  }).select('id').single();
+  if (error) return { ok: false, error: error.message };
+  if (params.approve && ins?.id) await decideLeave(ins.id, 'approved');
   revalidatePath('/dashboard');
   revalidatePath('/hr');
+  return { ok: true };
+}
+
+/** Ακύρωση / διαγραφή αίτησης. Αν ήταν εγκεκριμένη, οι μέρες επιστρέφουν στο υπόλοιπο. */
+export async function cancelLeave(requestId: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  const profile = await requireProfile();
+  const supabase = await createSupabaseServerClient();
+  const { data: req } = await supabase.from('leave_requests').select('id, profile_id, leave_type, days, start_date, status').eq('id', requestId).maybeSingle();
+  if (!req) return { ok: false, error: 'Η αίτηση δεν βρέθηκε.' };
+  const own = req.profile_id === profile.id && req.status === 'pending';
+  if (!own) await requirePermission('hr', 'edit');
+  if (req.status === 'approved') {
+    const year = new Date(req.start_date).getFullYear();
+    const { data: bal } = await supabase.from('leave_balances').select('id, used_days').eq('profile_id', req.profile_id).eq('leave_type', req.leave_type).eq('year', year).maybeSingle();
+    if (bal) await supabase.from('leave_balances').update({ used_days: Math.max(0, Number(bal.used_days) - Number(req.days ?? 0)) }).eq('id', bal.id);
+  }
+  const { error } = await supabase.from('leave_requests').delete().eq('id', requestId);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath('/hr'); revalidatePath('/dashboard');
+  return { ok: true };
 }
 
 /** HR/admin approves or rejects a leave request; on approval, draws down the balance. */
@@ -35,7 +71,8 @@ export async function decideLeave(requestId: string, decision: 'approved' | 'rej
   const profile = await requirePermission('hr', 'edit');
   const supabase = await createSupabaseServerClient();
 
-  const { data: req } = await supabase.from('leave_requests').select('id, profile_id, leave_type, days, start_date').eq('id', requestId).single();
+  const { data: req } = await supabase.from('leave_requests').select('id, profile_id, leave_type, days, start_date, status').eq('id', requestId).single();
+  if (req && req.status !== 'pending') return;
   await supabase.from('leave_requests').update({ status: decision, decided_by: profile.id, decided_at: new Date().toISOString() }).eq('id', requestId);
 
   if (decision === 'approved' && req) {
