@@ -1,10 +1,12 @@
 'use server';
 
-import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { createSupabaseServerClient, createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import { requireRole } from '@/lib/auth';
 import { logActivity } from '@/lib/activity';
 import { revalidatePath, revalidateTag } from 'next/cache';
 import { ORG_SETTINGS_TAG } from '@/lib/org-settings';
+import { getLabelMap, ensureLabelTranslations } from '@/lib/label-tr';
+import { settingsNames } from '@/lib/localize';
 import { headers } from 'next/headers';
 import { ipAllowed } from '@/lib/security-shared';
 import { mergeWatermark } from '@/lib/watermark-shared';
@@ -17,7 +19,21 @@ import { mergeOrgSettings, mergeAppearance, mergeTags, mergeNotifications, merge
 export type SaveResult = { ok: true } | { ok: false; error: string };
 
 /** Merge one settings slice into the singleton org_settings.data JSONB. */
+/** Μετά την αποθήκευση: αυτόματη μετάφραση των νέων ονομάτων (στάδια, τμήματα, πεδία, μενού, ρόλοι). */
+const NAMED_SLICES = ['pipelines', 'departments', 'tags', 'menu', 'roles'];
 export async function saveOrgSlice(slice: string, value: unknown): Promise<SaveResult> {
+  const r = await saveOrgSliceInner(slice, value);
+  if (r.ok && NAMED_SLICES.includes(slice)) {
+    try {
+      const { data } = await (createSupabaseServiceRoleClient() as any).from('org_settings').select('data').eq('id', 'org').maybeSingle();
+      const raw = mergeOrgSettings(data?.data ?? {});
+      await ensureLabelTranslations(settingsNames(raw), { ...(await getLabelMap()) }, 8000);
+    } catch { /* η μετάφραση θα ξαναδοκιμαστεί όταν ανοίξει σελίδα */ }
+  }
+  return r;
+}
+
+async function saveOrgSliceInner(slice: string, value: unknown): Promise<SaveResult> {
   // Slices with structure are normalized server-side before they are stored.
   if (slice === 'tags') return saveSlice(slice, mergeTags(value));
   if (slice === 'notifications') return saveSlice(slice, mergeNotifications(value));

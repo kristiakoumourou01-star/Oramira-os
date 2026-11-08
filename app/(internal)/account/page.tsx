@@ -4,6 +4,7 @@ import { requireProfile } from '@/lib/auth';
 import { createSupabaseServerClient, createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import { listTrustedDevices, listTotpFactors } from '@/lib/mfa';
 import { requestLocale } from '@/lib/locale-server';
+import { tx } from '@/lib/locale-shared';
 import { logout } from '@/app/actions/auth';
 import { signOutEverywhere } from '@/app/actions/account';
 import { AccountProfile } from '@/components/account/AccountProfile';
@@ -58,7 +59,7 @@ export default async function AccountPage({ searchParams }: { searchParams: { ta
     const sec = [
       { icon: KeyRound, title: 'Κωδικός', text: 'Αλλάξτε τον κωδικό σύνδεσης.', href: '/account/password', cta: 'Αλλαγή' },
       { icon: ShieldCheck, title: 'Έλεγχος δύο βημάτων', text: twoFa ? 'Ενεργός — κωδικός από εφαρμογή σε κάθε σύνδεση.' : 'Ανενεργός — προσθέστε κωδικό από εφαρμογή (Google Authenticator κ.ά.).', href: '/account/security', cta: twoFa ? 'Διαχείριση' : 'Ενεργοποίηση' },
-      { icon: MonitorSmartphone, title: 'Συσκευές', text: devices.length ? `Αυτή η συσκευή · ${devices.length} αξιόπιστ${devices.length === 1 ? 'η' : 'ες'} συσκευ${devices.length === 1 ? 'ή' : 'ές'}` : 'Αυτή η συσκευή', href: '/account/security', cta: 'Προβολή' },
+      { icon: MonitorSmartphone, title: 'Συσκευές', text: devices.length ? `${tx('Αυτή η συσκευή', 'This device', 'Это устройство')} · ${devices.length} ${devices.length === 1 ? tx('αξιόπιστη συσκευή', 'trusted device', 'доверенное устройство') : tx('αξιόπιστες συσκευές', 'trusted devices', 'доверенных устройств')}` : 'Αυτή η συσκευή', href: '/account/security', cta: 'Προβολή' },
       { icon: Bell, title: 'Προτιμήσεις ειδοποιήσεων', text: 'Ήχος και ειδοποιήσεις στην οθόνη.', href: '/account?tab=notifications', cta: 'Διαχείριση' },
     ];
     body = (

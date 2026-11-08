@@ -100,7 +100,6 @@ export function CustomerFieldsSettings({ initial, tags, canEdit }: { initial: Fi
               <div key={f.key} className="space-y-2 rounded-xl border border-stone-line p-3">
                 <div className="flex flex-wrap items-center gap-2">
                   <input className="input min-w-[10rem] flex-1 py-1.5 text-sm" disabled={dis} placeholder="Όνομα πεδίου" value={f.name} onChange={(e) => setCF(i, { name: e.target.value })} />
-                  <input className="input min-w-[8rem] flex-1 py-1.5 text-sm" disabled={dis} placeholder="English" aria-label="English" value={f.en ?? ''} onChange={(e) => setCF(i, { en: e.target.value })} />
                   <select className="input w-40 py-1.5 text-sm" disabled={dis} value={f.type} onChange={(e) => setCF(i, { type: e.target.value })}>
                     {FIELD_TYPES.map((t) => <option key={t} value={t}>{FIELD_TYPE_LABEL[t] ?? t}</option>)}
                   </select>

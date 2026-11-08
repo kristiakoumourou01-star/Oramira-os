@@ -187,8 +187,7 @@ export function MenuEditor({ layout, menu, canEdit }: { layout: LayoutSettings; 
                   <select className="input w-40 py-1 text-xs" disabled={disabled} value={it.icon} onChange={(e) => update(it.href, { icon: e.target.value })} aria-label={tx('Εικονίδιο', 'Icon')}>
                     {NAV_ICON_NAMES.filter((n) => NAV_ICONS[n]).map((n) => <option key={n} value={n}>{n}</option>)}
                   </select>
-                  <input className="input min-w-[140px] flex-1 py-1" disabled={disabled} value={it.label} placeholder={it.defaultLabel} onChange={(e) => update(it.href, { label: e.target.value })} aria-label="Ελληνικά" title="Ελληνικά" />
-                  <input className="input min-w-[140px] flex-1 py-1" disabled={disabled} value={it.en ?? ''} placeholder={navLabel(it.href, it.label === it.defaultLabel ? it.defaultLabel : '', 'en') || 'English'} onChange={(e) => update(it.href, { en: e.target.value })} aria-label="English" title="English" />
+                  <input className="input min-w-[160px] flex-1 py-1" disabled={disabled} value={navLabel(it.href, it.label)} placeholder={navLabel(it.href, it.defaultLabel)} onChange={(e) => update(it.href, { label: e.target.value })} aria-label={tx('Όνομα', 'Name', 'Название')} />
                   {it.locked ? (
                     <span className="flex items-center gap-1 px-2 text-xs text-charcoal-600/60" title={tx('Το Settings μένει πάντα ορατό στον admin', 'Settings always stays visible to admins')}><Lock size={12} /> {tx('Πάντα', 'Always')}</span>
                   ) : (
@@ -231,8 +230,7 @@ export function MenuEditor({ layout, menu, canEdit }: { layout: LayoutSettings; 
                             onDragEnd={(e) => { e.stopPropagation(); setCDrag(null); setCOver(null); }}
                             className={`flex flex-wrap items-center gap-2 ${c.hidden ? 'opacity-55' : ''} ${cDrag?.href === it.href && cOver === ci && cDrag.i !== ci ? 'rounded-md ring-2 ring-forest/30' : ''} ${cDrag?.href === it.href && cDrag.i === ci ? 'opacity-50' : ''}`}>
                             <span className={`px-1 text-charcoal-600/40 ${disabled ? '' : 'cursor-grab active:cursor-grabbing'}`} title={tx('Σύρετε για αλλαγή σειράς', 'Drag to reorder')}><GripVertical size={14} /></span>
-                            <input className="input min-w-[130px] flex-1 py-1 text-sm" disabled={disabled} value={c.label} placeholder={c.defaultLabel} onChange={(e) => updateChild(it.href, c.href, { label: e.target.value })} aria-label="Ελληνικά" title="Ελληνικά" />
-                            <input className="input min-w-[130px] flex-1 py-1 text-sm" disabled={disabled} value={c.en ?? ''} placeholder={navLabel(c.href, c.label === c.defaultLabel ? c.defaultLabel : '', 'en') || 'English'} onChange={(e) => updateChild(it.href, c.href, { en: e.target.value })} aria-label="English" title="English" />
+                            <input className="input min-w-[160px] flex-1 py-1 text-sm" disabled={disabled} value={navLabel(c.href, c.label)} placeholder={navLabel(c.href, c.defaultLabel)} onChange={(e) => updateChild(it.href, c.href, { label: e.target.value })} aria-label={tx('Όνομα υποενότητας', 'Sub-item name', 'Название подпункта')} />
                             <button type="button" className="btn-ghost text-xs" disabled={disabled} onClick={() => updateChild(it.href, c.href, { hidden: !c.hidden })}>
                               {c.hidden ? <><EyeOff size={13} /> {tx('Κρυφό', 'Hidden')}</> : <><Eye size={13} /> {tx('Ορατό', 'Visible')}</>}
                             </button>
