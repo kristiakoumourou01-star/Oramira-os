@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { requirePermission, requireRole } from '@/lib/auth';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
-import { getOrgSettings } from '@/lib/org-settings';
+import { getOrgSettingsRaw } from '@/lib/org-settings';
 import { logActivity } from '@/lib/activity';
 import { KIND_LABEL, type DocKind } from '@/lib/invoices-shared';
 
@@ -47,7 +47,7 @@ export async function issueDocument(kind: DocKind, input: IssueInput): Promise<D
   const profile = await requirePermission('financials', 'edit');
   if (!KINDS.includes(kind)) return { ok: false, error: 'Άγνωστο είδος παραστατικού.' };
 
-  const { invoices: cfg } = await getOrgSettings();
+  const { invoices: cfg } = await getOrgSettingsRaw();
   const allowed = new Set(cfg.vatRates.map((r) => r.rate));
   allowed.add(0); // receipts are recorded without VAT
   const svc = createSupabaseServiceRoleClient() as any;

@@ -7,7 +7,7 @@ import { homeRouteForRole } from '@/lib/auth';
 import { isInternalRole } from '@/lib/permissions';
 import { clearImpersonationCookie } from '@/lib/impersonation';
 import { logActivity } from '@/lib/activity';
-import { getOrgSettings } from '@/lib/org-settings';
+import { getOrgSettingsRaw } from '@/lib/org-settings';
 import { START_SCREENS } from '@/lib/org-settings-shared';
 import { isTrustedDevice } from '@/lib/mfa';
 import { t } from '@/lib/i18n';
@@ -62,7 +62,7 @@ export async function login(_prevState: LoginState | undefined, formData: FormDa
   // validated against the allow-list; portal users keep their fixed home.
   let target = homeRouteForRole(role);
   if (isInternalRole(role)) {
-    const { layout } = await getOrgSettings();
+    const { layout } = await getOrgSettingsRaw();
     if (START_SCREENS.some((s) => s.value === layout.startScreen)) target = layout.startScreen;
   }
   if (state && (state as any).must_change_password === true) target = '/account/password';
@@ -70,12 +70,12 @@ export async function login(_prevState: LoginState | undefined, formData: FormDa
   // unless this browser is one of their trusted devices.
   const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
   if (aal?.nextLevel === 'aal2' && aal.currentLevel !== 'aal2') {
-    const { security } = await getOrgSettings();
+    const { security } = await getOrgSettingsRaw();
     if (!(security.trustedDevices && (await isTrustedDevice(data.user.id)))) target = `/login/2fa?next=${encodeURIComponent(target)}`;
   }
   // Language + number format: the user's own choice, else the company default.
   {
-    const { locale: companyLocale } = await getOrgSettings();
+    const { locale: companyLocale } = await getOrgSettingsRaw();
     const mine = (data.user.user_metadata as any)?.locale;
     (await cookies()).set(LOCALE_COOKIE, serializeLocale(parseLocale(mine, companyLocale)), { sameSite: 'lax', secure: process.env.NODE_ENV === 'production', path: '/', maxAge: 60 * 60 * 24 * 365 });
   }

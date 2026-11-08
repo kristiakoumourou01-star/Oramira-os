@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { requirePermission, requireRole } from '@/lib/auth';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
-import { getOrgSettings } from '@/lib/org-settings';
+import { getOrgSettingsRaw } from '@/lib/org-settings';
 import { logActivity } from '@/lib/activity';
 import { anonymize, runRetention, retentionPreview, type RetentionPreview } from '@/lib/gdpr';
 
@@ -16,7 +16,7 @@ export type GdprResult = { ok: true; message?: string } | { ok: false; error: st
 export async function eraseContact(contactId: string, reason: string): Promise<GdprResult> {
   const profile = await requirePermission('leads', 'delete');
   if (!String(reason ?? '').trim()) return { ok: false, error: 'Γράψτε γιατί διαγράφεται (π.χ. «Αίτημα πελάτη με email 12/3»).' };
-  const { gdpr } = await getOrgSettings();
+  const { gdpr } = await getOrgSettingsRaw();
   try {
     await anonymize(contactId, profile.id, 'request', reason, gdpr.retentionDealsYears);
   } catch (e) {
@@ -49,7 +49,7 @@ export async function previewRetention(months: number): Promise<RetentionPreview
 /** Settings → GDPR: anonymize expired leads now (uses the saved settings). */
 export async function runRetentionNow(): Promise<GdprResult> {
   const profile = await requireRole(['admin']);
-  const { gdpr } = await getOrgSettings();
+  const { gdpr } = await getOrgSettingsRaw();
   try {
     const r = await runRetention(profile.id, gdpr);
     await logActivity({ entityType: 'org_settings', entityId: 'org', action: 'gdpr_retention_run', metadata: { processed: r.processed, failed: r.failed } });

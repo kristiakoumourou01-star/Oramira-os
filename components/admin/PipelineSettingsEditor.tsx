@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import { suggestEn } from '@/lib/localize';
 import { Check, Plus, Trash2, Star, ChevronDown, ChevronRight, FileText, X, GripVertical } from 'lucide-react';
 import { saveOrgSlice } from '@/app/actions/org-settings';
 import { UndoButton } from '@/components/admin/UndoButton';
@@ -81,6 +82,7 @@ export function PipelineSettingsEditor({ initial, canEdit, vatRates }: { initial
               <div className="flex items-center gap-2 px-3 py-2">
                 <button type="button" onClick={() => setOpen(isOpen ? null : p.key)} className="text-charcoal-600">{isOpen ? <ChevronDown size={15} /> : <ChevronRight size={15} />}</button>
                 <input className="input flex-1 py-1 text-sm font-medium" disabled={dis} value={p.name} onChange={(e) => setPipe(p.key, { name: e.target.value })} />
+                <input className="input w-44 py-1 text-sm" aria-label="English" title="English" disabled={dis} value={p.en ?? ''} placeholder={suggestEn(p.name) || 'English'} maxLength={60} onChange={(e) => setPipe(p.key, { en: e.target.value })} />
                 <button type="button" disabled={dis} title="Προεπιλογή για τα νέα leads" onClick={() => patch({ defaultKey: p.key })} className={isDef ? 'text-champagne' : 'text-charcoal-600/40 hover:text-champagne'}><Star size={15} className={isDef ? 'fill-champagne' : ''} /></button>
                 <span className="text-xs text-charcoal-600/60">{p.stages.length} στάδια</span>
                 {canEdit && v.pipelines.length > 1 && <button type="button" onClick={() => { if (window.confirm(`Διαγραφή του «${p.name}»; Τα leads του πάνε στο προεπιλεγμένο.`)) patch({ pipelines: v.pipelines.filter((q) => q.key !== p.key), defaultKey: isDef ? v.pipelines.find((q) => q.key !== p.key)!.key : v.defaultKey }); }} className="text-charcoal-600/40 hover:text-signal-danger"><Trash2 size={14} /></button>}
@@ -88,7 +90,7 @@ export function PipelineSettingsEditor({ initial, canEdit, vatRates }: { initial
               {isOpen && (
                 <div className="border-t border-stone-line p-3">
                   <div className="hidden items-center gap-2 text-[11px] text-charcoal-600/70 2xl:flex">
-                    <span className="w-6" /><span className="flex-[2_1_10rem]">Όνομα σταδίου</span><span className="flex-[1_1_9rem]">Σημαίνει</span><span className="w-[88px]">Πιθανότητα</span><span className="w-[88px]">Όριο</span><span className="w-5" />
+                    <span className="w-6" /><span className="flex-[2_1_10rem]">Όνομα σταδίου</span><span className="flex-[2_1_8rem]">English</span><span className="flex-[1_1_9rem]">Σημαίνει</span><span className="w-[88px]">Πιθανότητα</span><span className="w-[88px]">Όριο</span><span className="w-5" />
                   </div>
                   {p.stages.map((st, i) => {
                     const won = st.status === 'won';
@@ -104,6 +106,7 @@ export function PipelineSettingsEditor({ initial, canEdit, vatRates }: { initial
                           <span className={won || !canEdit ? 'invisible' : 'cursor-grab active:cursor-grabbing'} title="Σύρετε για αλλαγή σειράς"><GripVertical size={15} /></span>
                         </span>
                         <input className="input min-w-0 flex-[2_1_10rem] py-1 text-sm" placeholder="Όνομα σταδίου" aria-label="Όνομα σταδίου" disabled={dis} value={st.label} maxLength={40} onChange={(e) => setStage(p.key, i, { label: e.target.value })} />
+                        <input className="input min-w-0 flex-[2_1_8rem] py-1 text-sm" aria-label="English" title="English" disabled={dis} value={st.en ?? ''} placeholder={suggestEn(st.label) || 'English'} maxLength={40} onChange={(e) => setStage(p.key, i, { en: e.target.value })} />
                         <select className="input min-w-0 flex-[1_1_9rem] py-1 text-sm" aria-label="Σημαίνει" title="Σημαίνει" disabled={dis || won || lastNew} value={st.status} onChange={(e) => { const x = e.target.value; if (x.startsWith('out:')) toOutcome(p.key, i, x.slice(4) as LostReason['status']); else setStage(p.key, i, { status: x as FlowStatus }); }}>
                           <optgroup label="Στάδιο πώλησης">{FLOW.filter((f) => f !== 'won' || won).map((f) => <option key={f} value={f}>{STATUS_EL[f]}</option>)}</optgroup>
                           {!won && <optgroup label="Κλείσιμο χωρίς πώληση"><option value="out:lost">✕ Lost / Δεν ενδιαφέρεται</option><option value="out:nurture">✕ Για αργότερα</option><option value="out:no_response">✕ Χωρίς απάντηση</option></optgroup>}
@@ -128,7 +131,7 @@ export function PipelineSettingsEditor({ initial, canEdit, vatRates }: { initial
       <div className="panel space-y-2 p-5">
         <h4>Κλείσιμο χωρίς πώληση: Lost, Not interested…</h4>
         <p className="text-xs text-charcoal-600/60">Τα αποτελέσματα που μπορεί να έχει ένα lead όταν δεν προχωρά. Με «Κουμπί» εμφανίζεται ως κουμπί ενός κλικ δίπλα στο «Κλείσιμο (Won)»· τα υπόλοιπα είναι στο «Άλλος λόγος…». Στο Lead Management κάθε αποτέλεσμα έχει δική του ενότητα, και μετρά στο «Γιατί χάνονται».</p>
-        <div className="hidden items-center gap-2 text-[11px] text-charcoal-600/70 sm:flex"><span className="w-6" /><span className="flex-1">Όνομα</span><span className="w-[170px]">Σημαίνει</span><span className="w-[72px]">Κουμπί</span><span className="w-5" /></div>
+        <div className="hidden items-center gap-2 text-[11px] text-charcoal-600/70 sm:flex"><span className="w-6" /><span className="flex-[1_1_10rem]">Όνομα</span><span className="flex-[1_1_9rem]">English</span><span className="w-[170px]">Σημαίνει</span><span className="w-[72px]">Κουμπί</span><span className="w-5" /></div>
         {v.lostReasons.map((r, i) => {
           const setR = (x: Partial<LostReason>) => patch({ lostReasons: v.lostReasons.map((y, j) => (j === i ? { ...y, ...x } : y)) });
           return (
@@ -142,6 +145,7 @@ export function PipelineSettingsEditor({ initial, canEdit, vatRates }: { initial
                 <span className={canEdit ? 'cursor-grab active:cursor-grabbing' : 'invisible'} title="Σύρετε για αλλαγή σειράς"><GripVertical size={15} /></span>
               </span>
               <input className="input min-w-0 flex-[1_1_10rem] py-1 text-sm" aria-label="Όνομα" disabled={dis} value={r.label} maxLength={80} onChange={(e) => setR({ label: e.target.value })} />
+              <input className="input min-w-0 flex-[1_1_9rem] py-1 text-sm" aria-label="English" title="English" disabled={dis} value={r.en ?? ''} placeholder={suggestEn(r.label) || 'English'} maxLength={80} onChange={(e) => setR({ en: e.target.value })} />
               <select className="input w-[170px] py-1 text-sm" aria-label="Σημαίνει" disabled={dis} value={r.status} onChange={(e) => setR({ status: e.target.value as LostReason['status'] })}>
                 <option value="lost">Lost (χάθηκε)</option><option value="nurture">Για αργότερα</option><option value="no_response">Χωρίς απάντηση</option>
               </select>

@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import { cache } from 'react';
 import { effectiveCan, isInternalRole, sanitizePermissions, type Module, type Action, type UserPermissions } from '@/lib/permissions';
 import { readImpersonationTarget } from '@/lib/impersonation';
-import { getOrgSettings } from '@/lib/org-settings';
+import { getOrgSettingsRaw } from '@/lib/org-settings';
 import { resolveRole, type RightKey } from '@/lib/roles-shared';
 import { cookies, headers } from 'next/headers';
 import { LAST_SEEN_COOKIE, PASSWORD_MAX_AGE_DAYS, ipAllowed } from '@/lib/security-shared';
@@ -64,7 +64,7 @@ async function loadProfile(
   // never breaks on a missing column.
   const [{ data: full, error }, { roles: rolesEarly }] = await Promise.all([
     supabase.from('profiles').select('id, role, full_name, contact_id, contractor_id, module_access, permissions, must_change_password, is_active, custom_role').eq('id', userId).maybeSingle(),
-    getOrgSettings(),
+    getOrgSettingsRaw(),
   ]);
   let profile: any = full;
   if (error) {
@@ -137,7 +137,7 @@ async function readCurrentProfile(): Promise<CurrentProfile | null> {
 
   // Password age (Settings → Ασφάλεια) — for the real signed-in user only.
   let passwordExpired = false;
-  const { security } = await getOrgSettings();
+  const { security } = await getOrgSettingsRaw();
   if (security.pwExpire90) {
     const changed = Date.parse((auth.user.user_metadata as any)?.pw_changed_at ?? auth.user.created_at ?? '');
     if (Number.isFinite(changed)) passwordExpired = Date.now() - changed > PASSWORD_MAX_AGE_DAYS * 86_400_000;
@@ -229,7 +229,7 @@ export function hasRight(profile: Pick<CurrentProfile, 'role' | 'rights'>, right
 async function enforceMfa(profile: CurrentProfile, allowSetup: boolean): Promise<void> {
   const st = await getMfaStatus();
   if (!st.userId) return;
-  const { security } = await getOrgSettings();
+  const { security } = await getOrgSettingsRaw();
   if (st.hasFactor) {
     if (st.current === 'aal2') return;
     if (security.trustedDevices && (await isTrustedDevice(st.userId))) return;
@@ -246,7 +246,7 @@ async function enforceMfa(profile: CurrentProfile, allowSetup: boolean): Promise
  *  - IP allow-list (empty = any address)
  */
 async function enforceSessionRules(): Promise<void> {
-  const { security } = await getOrgSettings();
+  const { security } = await getOrgSettingsRaw();
   try {
     if (security.sessionTimeoutHours > 0) {
       const seen = Number((await cookies()).get(LAST_SEEN_COOKIE)?.value ?? '');

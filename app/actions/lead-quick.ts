@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { requireRole } from '@/lib/auth';
-import { getOrgSettings } from '@/lib/org-settings';
+import { getOrgSettingsRaw } from '@/lib/org-settings';
 import { pipelineOf, type LostReason, type PipelineDef } from '@/lib/pipeline-shared';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -31,7 +31,7 @@ export async function getLeadQuick(leadId: string): Promise<{ ok: true; lead: Le
     db.from('leads').select('id, status, source, budget_min, budget_max, timeline_to_buy, message, next_action_date, next_action_type, assigned_to, created_at, contact_id, contacts(id, full_name, email, phone, preferred_language), projects:preferred_project_id(name)').eq('id', leadId).maybeSingle(),
     db.from('leads').select('pipeline, stage_entered_at, lost_reason, lost_note, commission_invoice_id').eq('id', leadId).maybeSingle(),
     db.from('leads').select('stage').eq('id', leadId).maybeSingle(),
-    getOrgSettings(),
+    getOrgSettingsRaw(),
   ]);
   if (error || !l) return { ok: false, error: error?.message ?? 'Το lead δεν βρέθηκε.' };
   const [{ data: notes }, { data: comms }, { data: fus }] = await Promise.all([

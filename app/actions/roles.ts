@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { requireRole } from '@/lib/auth';
-import { getOrgSettings } from '@/lib/org-settings';
+import { getOrgSettingsRaw } from '@/lib/org-settings';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import { logActivity } from '@/lib/activity';
 import { saveOrgSlice } from '@/app/actions/org-settings';
@@ -12,7 +12,7 @@ import type { AppRole } from '@/lib/permissions';
 export type RoleResult = { ok: true; id?: string } | { ok: false; error: string };
 
 async function current(): Promise<RolesSettings> {
-  return (await getOrgSettings()).roles;
+  return (await getOrgSettingsRaw()).roles;
 }
 
 async function store(next: RolesSettings, action: string, meta: Record<string, unknown>): Promise<RoleResult> {

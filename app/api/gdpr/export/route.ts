@@ -3,7 +3,7 @@ import { getCurrentProfile } from '@/lib/auth';
 import { exportAllZip } from '@/lib/gdpr';
 import { logActivity } from '@/lib/activity';
 import { mfaSatisfied } from '@/lib/mfa';
-import { getOrgSettings } from '@/lib/org-settings';
+import { getOrgSettingsRaw } from '@/lib/org-settings';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -12,7 +12,7 @@ export const maxDuration = 60;
 export async function GET() {
   const profile = await getCurrentProfile();
   if (!profile) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  if (!(await mfaSatisfied((await getOrgSettings()).security.trustedDevices))) return NextResponse.json({ error: 'Χρειάζεται ο κωδικός μίας χρήσης (2FA).' }, { status: 401 });
+  if (!(await mfaSatisfied((await getOrgSettingsRaw()).security.trustedDevices))) return NextResponse.json({ error: 'Χρειάζεται ο κωδικός μίας χρήσης (2FA).' }, { status: 401 });
   if (profile.role !== 'admin') return NextResponse.json({ error: 'Μόνο ο admin.' }, { status: 403 });
   const { zip, tables } = await exportAllZip();
   await logActivity({ entityType: 'org_settings', entityId: 'org', action: 'gdpr_full_export', metadata: { tables: tables.length } });

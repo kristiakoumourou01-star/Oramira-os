@@ -4,7 +4,7 @@ import { effectiveCan } from '@/lib/permissions';
 import { exportContactData } from '@/lib/gdpr';
 import { logActivity } from '@/lib/activity';
 import { mfaSatisfied } from '@/lib/mfa';
-import { getOrgSettings } from '@/lib/org-settings';
+import { getOrgSettingsRaw } from '@/lib/org-settings';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,7 +15,7 @@ export const dynamic = 'force-dynamic';
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const profile = await getCurrentProfile();
   if (!profile) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  if (!(await mfaSatisfied((await getOrgSettings()).security.trustedDevices))) return NextResponse.json({ error: 'Χρειάζεται ο κωδικός μίας χρήσης (2FA).' }, { status: 401 });
+  if (!(await mfaSatisfied((await getOrgSettingsRaw()).security.trustedDevices))) return NextResponse.json({ error: 'Χρειάζεται ο κωδικός μίας χρήσης (2FA).' }, { status: 401 });
   if (!effectiveCan(profile.role, profile.moduleAccess, 'leads', 'view', profile.permissions) || !hasRight(profile, 'export_data')) {
     return NextResponse.json({ error: 'Δεν έχετε δικαίωμα export.' }, { status: 403 });
   }

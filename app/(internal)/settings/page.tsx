@@ -2,7 +2,7 @@ import { requireRole } from '@/lib/auth';
 import { loadLeadTeam } from '@/lib/lead-automation';
 import { headers } from 'next/headers';
 import { getBranding } from '@/lib/branding';
-import { getOrgSettings } from '@/lib/org-settings';
+import { getOrgSettingsRaw } from '@/lib/org-settings';
 import { isCalendarConnected } from '@/lib/calendar-sync';
 import { listSeries } from '@/lib/invoices';
 import { recentErasures, gdprMissing } from '@/lib/gdpr';
@@ -26,7 +26,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: { s
   const initialSection = getSection(searchParams.section).key as SettingsKey;
   const isGdpr = initialSection === 'gdpr';
   const [branding, settings, conn, docSeries, erasures, gdprMiss] = await Promise.all([
-    getBranding(), getOrgSettings(), isCalendarConnected(profile.id),
+    getBranding(), getOrgSettingsRaw(), isCalendarConnected(profile.id),
     initialSection === 'invoices' ? listSeries() : Promise.resolve({ series: [], missing: false }),
     isGdpr ? recentErasures() : Promise.resolve([]),
     isGdpr ? gdprMissing() : Promise.resolve(false),

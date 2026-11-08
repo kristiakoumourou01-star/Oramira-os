@@ -1,7 +1,7 @@
 import { requirePermission } from '@/lib/auth';
 import { createSupabaseServerClient, createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import { INTERNAL_ROLES, sanitizePermissions } from '@/lib/permissions';
-import { getOrgSettings } from '@/lib/org-settings';
+import { getOrgSettingsRaw } from '@/lib/org-settings';
 import { UsersAdmin, type AdminUser, type AdminInvite } from '@/components/admin/UsersAdmin';
 
 const PORTAL_ROLES = ['buyer', 'homeowner', 'investor', 'contractor'];
@@ -30,7 +30,7 @@ export default async function UsersSettingsPage() {
     const { data } = await supabase.from('profiles').select('id, custom_role').in('id', ids);
     for (const row of (data ?? []) as any[]) if (row.custom_role) customRoles.set(row.id, row.custom_role);
   }
-  const { roles } = await getOrgSettings();
+  const { roles } = await getOrgSettingsRaw();
   const emails = new Map<string, string>();
   try {
     const service = createSupabaseServiceRoleClient();

@@ -1,5 +1,5 @@
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
-import { getOrgSettings } from '@/lib/org-settings';
+import { getOrgSettingsRaw } from '@/lib/org-settings';
 import { logActivity } from '@/lib/activity';
 import { deliverNotification } from '@/lib/notifications';
 import { commissionNet, type CommissionDraft } from '@/lib/pipeline-shared';
@@ -13,7 +13,7 @@ import { commissionNet, type CommissionDraft } from '@/lib/pipeline-shared';
 /** What a commission invoice for this lead would contain (null = nothing sold to bill). */
 export async function commissionDraft(leadId: string): Promise<CommissionDraft | null> {
   const svc = createSupabaseServiceRoleClient() as any;
-  const { pipelines: cfg, invoices } = await getOrgSettings();
+  const { pipelines: cfg, invoices } = await getOrgSettingsRaw();
   const { data: lead } = await svc.from('leads').select('id, contact_id, contacts(full_name, email)').eq('id', leadId).maybeSingle();
   if (!lead) return null;
   // The sale: latest contract of this buyer, else reservation, else a unit in their name.
@@ -56,7 +56,7 @@ async function recipients(svc: any, owner: string | null): Promise<string[]> {
  * invoice; auto = issue the invoice now (numbered, final) and link it.
  */
 export async function onLeadWon(leadId: string, actorId: string | null): Promise<{ invoiceId?: string; prepared?: boolean; note?: string }> {
-  const { pipelines: cfg, invoices: inv } = await getOrgSettings();
+  const { pipelines: cfg, invoices: inv } = await getOrgSettingsRaw();
   if (cfg.commission.mode === 'off') return {};
   let svc: any;
   try { svc = createSupabaseServiceRoleClient(); } catch { return { note: 'no-service' }; }

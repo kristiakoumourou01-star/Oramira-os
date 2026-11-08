@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { requirePermission } from '@/lib/auth';
-import { getOrgSettings } from '@/lib/org-settings';
+import { getOrgSettingsRaw } from '@/lib/org-settings';
 import { logActivity } from '@/lib/activity';
 import { MAX_IMPORT_ROWS, toUnitColumns, type ParsedUnit } from '@/lib/unit-import-shared';
 
@@ -32,7 +32,7 @@ export async function importUnits(input: { projectId: string; fileName?: string;
   const supabase = await createSupabaseServerClient();
   const { data: project } = await supabase.from('projects').select('id, name').eq('id', projectId).maybeSingle();
   if (!project) return { ok: false, error: 'Το έργο δεν βρέθηκε.' };
-  const { unitForms } = await getOrgSettings();
+  const { unitForms } = await getOrgSettingsRaw();
 
   const rows = input.units.map((u) => toUnitColumns(u, unitForms)).filter((x): x is NonNullable<typeof x> => !!x);
   const dupe = new Set<string>();
