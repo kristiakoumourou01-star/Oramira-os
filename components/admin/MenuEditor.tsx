@@ -11,17 +11,19 @@ import {
 } from '@/lib/org-settings-shared';
 import { INTERNAL_ROLES, ROLE_LABEL } from '@/lib/permissions';
 import { NAV_ICONS, navIcon } from '@/components/layout/nav-icons';
+import { navLabel } from '@/lib/i18n';
+import { tx } from '@/lib/locale-shared';
 import { moveItem } from '@/components/ui/useDragSort';
 
-const NAV_CARDS: { value: MenuPosition; label: string; hint: string }[] = [
-  { value: 'left', label: 'Αριστερό μενού', hint: 'Προεπιλογή' },
-  { value: 'top', label: 'Μενού πάνω', hint: 'Οριζόντιο' },
-  { value: 'right', label: 'Δεξί μενού', hint: 'Καθρέφτης' },
+const NAV_CARDS = (): { value: MenuPosition; label: string; hint: string }[] => [
+  { value: 'left', label: tx('Αριστερό μενού', 'Left menu', 'Меню слева'), hint: tx('Προεπιλογή', 'Default', 'По умолчанию') },
+  { value: 'top', label: tx('Μενού πάνω', 'Top menu', 'Меню сверху'), hint: tx('Οριζόντιο', 'Horizontal', 'Горизонтальное') },
+  { value: 'right', label: tx('Δεξί μενού', 'Right menu', 'Меню справа'), hint: tx('Καθρέφτης', 'Mirrored', 'Зеркально') },
 ];
-const SIDEBAR_CARDS: { value: LayoutSettings['sidebarDefault']; label: string; hint: string }[] = [
-  { value: 'full', label: 'Ανοιχτό', hint: 'Πλήρες πλάτος' },
-  { value: 'icons', label: 'Στενό', hint: 'Μόνο εικονίδια' },
-  { value: 'auto', label: 'Αυτόματη απόκρυψη', hint: 'Ανοίγει με το ποντίκι' },
+const SIDEBAR_CARDS = (): { value: LayoutSettings['sidebarDefault']; label: string; hint: string }[] => [
+  { value: 'full', label: tx('Ανοιχτό', 'Expanded', 'Развёрнуто'), hint: tx('Πλήρες πλάτος', 'Full width', 'Полная ширина') },
+  { value: 'icons', label: tx('Στενό', 'Collapsed', 'Свёрнуто'), hint: tx('Μόνο εικονίδια', 'Icons only', 'Только значки') },
+  { value: 'auto', label: tx('Αυτόματη απόκρυψη', 'Auto-hide', 'Автоскрытие'), hint: tx('Ανοίγει με το ποντίκι', 'Opens on hover', 'Открывается при наведении') },
 ];
 
 /** Κάρτα επιλογής με μικρό σκίτσο της διάταξης (όπως στο demo). */
@@ -87,8 +89,8 @@ export function MenuEditor({ layout, menu, canEdit }: { layout: LayoutSettings; 
       if (a.ok && b.ok) {
         // Η δική σας προσωπική επιλογή (κουμπί πάνω αριστερά) δεν θα έκρυβε την αλλαγή.
         if (p.lay) document.cookie = 'oramira_sidebar=; path=/; max-age=0; samesite=lax';
-        setQuickMsg({ ok: true, text: 'Εφαρμόστηκε.' }); router.refresh();
-      } else setQuickMsg({ ok: false, text: (!a.ok ? a.error : !b.ok ? (b as any).error : '') || 'Αποτυχία αποθήκευσης.' });
+        setQuickMsg({ ok: true, text: tx('Εφαρμόστηκε.', 'Applied.') }); router.refresh();
+      } else setQuickMsg({ ok: false, text: (!a.ok ? a.error : !b.ok ? (b as any).error : '') || tx('Αποτυχία αποθήκευσης.', 'Could not save.') });
     });
   }
 
@@ -96,15 +98,15 @@ export function MenuEditor({ layout, menu, canEdit }: { layout: LayoutSettings; 
     start(async () => {
       const a = await saveOrgSlice('menu', menuOverridesFrom(items, position));
       const b = a.ok ? await saveOrgSlice('layout', lay) : a;
-      if (a.ok && b.ok) { setMsg({ ok: true, text: 'Αποθηκεύτηκε. Το μενού άλλαξε για όλους.' }); router.refresh(); }
-      else setMsg({ ok: false, text: (!a.ok ? a.error : !b.ok ? b.error : '') || 'Αποτυχία αποθήκευσης.' });
+      if (a.ok && b.ok) { setMsg({ ok: true, text: tx('Αποθηκεύτηκε. Το μενού άλλαξε για όλους.', 'Saved. The menu changed for everyone.') }); router.refresh(); }
+      else setMsg({ ok: false, text: (!a.ok ? a.error : !b.ok ? b.error : '') || tx('Αποτυχία αποθήκευσης.', 'Could not save.') });
     });
   }
 
   function reset() {
     setItems(resolveMenu(DEFAULT_MENU, DEFAULT_NAV));
     setPosition(DEFAULT_MENU.position);
-    setMsg({ ok: true, text: 'Επαναφέρθηκε το αρχικό μενού. Πατήστε Αποθήκευση για να εφαρμοστεί.' });
+    setMsg({ ok: true, text: tx('Επαναφέρθηκε το αρχικό μενού. Πατήστε Αποθήκευση για να εφαρμοστεί.', 'Original menu restored. Press Save to apply it.') });
   }
 
   const disabled = !canEdit || pending;
@@ -113,47 +115,47 @@ export function MenuEditor({ layout, menu, canEdit }: { layout: LayoutSettings; 
     <div className="space-y-4">
       {/* Όπως στο demo: κάρτες για πλοήγηση και sidebar, σελίδα έναρξης, επαναφορά. Αποθηκεύονται αμέσως. */}
       <section className="space-y-2">
-        <h3 className="font-display text-xl text-charcoal">Πλοήγηση</h3>
+        <h3 className="font-display text-xl text-charcoal">{tx('Πλοήγηση', 'Navigation', 'Навигация')}</h3>
         <div className="grid gap-3 sm:grid-cols-3">
-          {NAV_CARDS.map((c) => (
+          {NAV_CARDS().map((c) => (
             <LayoutCard key={c.value} title={c.label} hint={c.hint} active={position === c.value} disabled={disabled} art={c.value}
               onClick={() => quick({ position: c.value })} />
           ))}
         </div>
       </section>
       <section className="space-y-2">
-        <h3 className="font-display text-xl text-charcoal">Πλαϊνό μενού</h3>
+        <h3 className="font-display text-xl text-charcoal">{tx('Πλαϊνό μενού', 'Sidebar', 'Боковое меню')}</h3>
         <div className="grid gap-3 sm:grid-cols-3">
-          {SIDEBAR_CARDS.map((c) => (
+          {SIDEBAR_CARDS().map((c) => (
             <LayoutCard key={c.value} title={c.label} hint={c.hint} active={lay.sidebarDefault === c.value} disabled={disabled || position === 'top'} art={c.value}
               onClick={() => quick({ lay: { ...lay, sidebarDefault: c.value, sidebarCompact: c.value === 'icons' } })} />
           ))}
         </div>
-        {position === 'top' && <p className="text-xs text-charcoal-600/60">Με το μενού πάνω δεν υπάρχει πλαϊνό μενού.</p>}
+        {position === 'top' && <p className="text-xs text-charcoal-600/60">{tx('Με το μενού πάνω δεν υπάρχει πλαϊνό μενού.', 'With the top menu there is no sidebar.')}</p>}
       </section>
       <section className="space-y-2">
-        <h3 className="font-display text-xl text-charcoal">Σελίδα έναρξης</h3>
+        <h3 className="font-display text-xl text-charcoal">{tx('Σελίδα έναρξης', 'Start page', 'Стартовая страница')}</h3>
         <div className="panel space-y-4 p-5">
           <label className="block">
-            <span className="eyebrow mb-1.5 block">Πού μπαίνετε μετά τη σύνδεση</span>
+            <span className="eyebrow mb-1.5 block">{tx('Πού μπαίνετε μετά τη σύνδεση', 'Where you land after signing in')}</span>
             <select className="input" disabled={disabled} value={lay.startScreen} onChange={(e) => quick({ lay: { ...lay, startScreen: e.target.value } })}>
-              {targets.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+              {targets.map((t) => <option key={t.value} value={t.value}>{navLabel(t.value, t.label)}</option>)}
             </select>
           </label>
           <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-charcoal">
             <label className="flex items-center gap-2">
               <input type="checkbox" checked={lay.denseLists} disabled={disabled} onChange={(e) => quick({ lay: { ...lay, denseLists: e.target.checked } })} />
-              Πυκνές λίστες και πίνακες
+              {tx('Πυκνές λίστες και πίνακες', 'Compact lists and tables')}
             </label>
             <label className="flex items-center gap-2">
               <input type="checkbox" checked={lay.sidebarAccordion !== false} disabled={disabled || position === 'top'} onChange={(e) => quick({ lay: { ...lay, sidebarAccordion: e.target.checked } })} />
-              Μία ενότητα ανοιχτή τη φορά στο μενού
+              {tx('Μία ενότητα ανοιχτή τη φορά στο μενού', 'One menu section open at a time')}
             </label>
           </div>
         </div>
         <div className="flex items-center justify-end gap-3">
           {quickMsg && <span className={`text-sm ${quickMsg.ok ? 'text-forest' : 'text-signal-danger'}`}>{quickMsg.text}</span>}
-          {canEdit && <button type="button" className="btn-secondary text-sm" disabled={disabled} onClick={() => quick({ position: 'left', lay: { ...lay, sidebarDefault: 'full', sidebarCompact: false, startScreen: '/dashboard', denseLists: false, sidebarAccordion: true } })}>Επαναφορά προεπιλογών</button>}
+          {canEdit && <button type="button" className="btn-secondary text-sm" disabled={disabled} onClick={() => quick({ position: 'left', lay: { ...lay, sidebarDefault: 'full', sidebarCompact: false, startScreen: '/dashboard', denseLists: false, sidebarAccordion: true } })}>{tx('Επαναφορά προεπιλογών', 'Restore defaults', 'Сбросить')}</button>}
         </div>
       </section>
 
@@ -161,8 +163,8 @@ export function MenuEditor({ layout, menu, canEdit }: { layout: LayoutSettings; 
       <div className="panel p-5">
         <div className="mb-3 flex items-center justify-between gap-3">
           <div>
-            <p className="eyebrow">Στοιχεία μενού</p>
-            <p className="text-xs text-charcoal-600/60">Σύρετε από τις τελίτσες ⋮⋮ για να αλλάξετε σειρά, αλλάξτε ονόματα και εικονίδια, κρύψτε ό,τι δεν χρειάζεστε. Πατήστε ▸ για υποενότητες και ρόλους.</p>
+            <p className="eyebrow">{tx('Στοιχεία μενού', 'Menu items', 'Пункты меню')}</p>
+            <p className="text-xs text-charcoal-600/60">{tx('Σύρετε από τις τελίτσες ⋮⋮ για να αλλάξετε σειρά, αλλάξτε ονόματα και εικονίδια, κρύψτε ό,τι δεν χρειάζεστε. Πατήστε ▸ για υποενότητες και ρόλους.', 'Drag the ⋮⋮ handle to reorder, rename items, change icons and hide what you don’t need. Press ▸ for sub-items and roles.')}</p>
           </div>
         </div>
         <ul className="divide-y divide-stone-line">
@@ -180,22 +182,22 @@ export function MenuEditor({ layout, menu, canEdit }: { layout: LayoutSettings; 
                 onDragEnd={() => { setDragI(null); setOverI(null); }}
                 className={`py-2 ${it.hidden ? 'opacity-55' : ''} ${overI === i && dragI !== i ? 'rounded-lg ring-2 ring-forest/30' : ''} ${dragI === i ? 'opacity-50' : ''}`}>
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className={`px-1 text-charcoal-600/40 ${disabled ? '' : 'cursor-grab active:cursor-grabbing'}`} title="Σύρετε για αλλαγή σειράς"><GripVertical size={16} /></span>
+                  <span className={`px-1 text-charcoal-600/40 ${disabled ? '' : 'cursor-grab active:cursor-grabbing'}`} title={tx('Σύρετε για αλλαγή σειράς', 'Drag to reorder')}><GripVertical size={16} /></span>
                   <span className="flex h-8 w-8 items-center justify-center rounded-md bg-forest/[0.06] text-forest"><Icon size={15} strokeWidth={1.75} /></span>
-                  <select className="input w-40 py-1 text-xs" disabled={disabled} value={it.icon} onChange={(e) => update(it.href, { icon: e.target.value })} aria-label="Εικονίδιο">
+                  <select className="input w-40 py-1 text-xs" disabled={disabled} value={it.icon} onChange={(e) => update(it.href, { icon: e.target.value })} aria-label={tx('Εικονίδιο', 'Icon')}>
                     {NAV_ICON_NAMES.filter((n) => NAV_ICONS[n]).map((n) => <option key={n} value={n}>{n}</option>)}
                   </select>
-                  <input className="input min-w-[160px] flex-1 py-1" disabled={disabled} value={it.label} placeholder={it.defaultLabel} onChange={(e) => update(it.href, { label: e.target.value })} aria-label="Όνομα" />
+                  <input className="input min-w-[160px] flex-1 py-1" disabled={disabled} value={navLabel(it.href, it.label)} placeholder={navLabel(it.href, it.defaultLabel)} onChange={(e) => update(it.href, { label: e.target.value })} aria-label={tx('Όνομα', 'Name')} />
                   {it.locked ? (
-                    <span className="flex items-center gap-1 px-2 text-xs text-charcoal-600/60" title="Το Settings μένει πάντα ορατό στον admin"><Lock size={12} /> Πάντα</span>
+                    <span className="flex items-center gap-1 px-2 text-xs text-charcoal-600/60" title={tx('Το Settings μένει πάντα ορατό στον admin', 'Settings always stays visible to admins')}><Lock size={12} /> {tx('Πάντα', 'Always')}</span>
                   ) : (
-                    <button type="button" className="btn-ghost text-xs" disabled={disabled} onClick={() => update(it.href, { hidden: !it.hidden })} title={it.hidden ? 'Εμφάνιση' : 'Απόκρυψη'}>
-                      {it.hidden ? <><EyeOff size={13} /> Κρυφό</> : <><Eye size={13} /> Ορατό</>}
+                    <button type="button" className="btn-ghost text-xs" disabled={disabled} onClick={() => update(it.href, { hidden: !it.hidden })} title={it.hidden ? tx('Εμφάνιση', 'Show') : tx('Απόκρυψη', 'Hide')}>
+                      {it.hidden ? <><EyeOff size={13} /> {tx('Κρυφό', 'Hidden')}</> : <><Eye size={13} /> {tx('Ορατό', 'Visible')}</>}
                     </button>
                   )}
                   <button type="button" className="btn-ghost text-xs" onClick={() => setOpen(expanded ? null : it.href)} aria-expanded={expanded}>
                     <ChevronRight size={14} className={`transition-transform ${expanded ? 'rotate-90' : ''}`} />
-                    {it.children.length > 0 ? `${it.children.length} υποενότητες` : 'Ρόλοι'}
+                    {it.children.length > 0 ? `${it.children.length} ${tx('υποενότητες', 'sub-items')}` : tx('Ρόλοι', 'Roles')}
                   </button>
                 </div>
 
@@ -203,19 +205,19 @@ export function MenuEditor({ layout, menu, canEdit }: { layout: LayoutSettings; 
                   <div className="ml-10 mt-3 space-y-4 rounded-lg bg-stone/60 p-3">
                     {!it.locked && (
                       <div>
-                        <p className="mb-1.5 text-xs font-medium text-charcoal">Κρυφό για τους ρόλους:</p>
+                        <p className="mb-1.5 text-xs font-medium text-charcoal">{tx('Κρυφό για τους ρόλους:', 'Hidden for roles:')}</p>
                         <div className="flex flex-wrap gap-1.5">
                           {INTERNAL_ROLES.map((r) => {
                             const off = it.hiddenRoles.includes(r);
                             return (
                               <button key={r} type="button" disabled={disabled} onClick={() => toggleRole(it, r)}
                                 className={`rounded-full border px-2.5 py-0.5 text-xs ${off ? 'border-signal-danger/40 bg-signal-danger/10 text-signal-danger' : 'border-stone-line bg-white text-charcoal-600'}`}>
-                                {ROLE_LABEL[r]}{off ? ' · κρυφό' : ''}
+                                {ROLE_LABEL[r]}{off ? ` · ${tx('κρυφό', 'hidden')}` : ''}
                               </button>
                             );
                           })}
                         </div>
-                        <p className="mt-1 text-[11px] text-charcoal-600/60">Το μενού μόνο κρύβει. Τι επιτρέπεται να ανοίξει κάθε χρήστης ορίζεται στα δικαιώματα (Χρήστες & πρόσβαση).</p>
+                        <p className="mt-1 text-[11px] text-charcoal-600/60">{tx('Το μενού μόνο κρύβει. Τι επιτρέπεται να ανοίξει κάθε χρήστης ορίζεται στα δικαιώματα (Χρήστες & πρόσβαση).', 'The menu only hides items. What each user may open is set in permissions (Users & access).')}</p>
                       </div>
                     )}
                     {it.children.length > 0 && (
@@ -227,10 +229,10 @@ export function MenuEditor({ layout, menu, canEdit }: { layout: LayoutSettings; 
                             onDrop={(e) => { if (cDrag?.href !== it.href) return; e.preventDefault(); e.stopPropagation(); if (cDrag.i !== ci) { dropChild(it.href, cDrag.i, ci); setMsg(null); } setCDrag(null); setCOver(null); }}
                             onDragEnd={(e) => { e.stopPropagation(); setCDrag(null); setCOver(null); }}
                             className={`flex flex-wrap items-center gap-2 ${c.hidden ? 'opacity-55' : ''} ${cDrag?.href === it.href && cOver === ci && cDrag.i !== ci ? 'rounded-md ring-2 ring-forest/30' : ''} ${cDrag?.href === it.href && cDrag.i === ci ? 'opacity-50' : ''}`}>
-                            <span className={`px-1 text-charcoal-600/40 ${disabled ? '' : 'cursor-grab active:cursor-grabbing'}`} title="Σύρετε για αλλαγή σειράς"><GripVertical size={14} /></span>
-                            <input className="input min-w-[160px] flex-1 py-1 text-sm" disabled={disabled} value={c.label} placeholder={c.defaultLabel} onChange={(e) => updateChild(it.href, c.href, { label: e.target.value })} aria-label="Όνομα υποενότητας" />
+                            <span className={`px-1 text-charcoal-600/40 ${disabled ? '' : 'cursor-grab active:cursor-grabbing'}`} title={tx('Σύρετε για αλλαγή σειράς', 'Drag to reorder')}><GripVertical size={14} /></span>
+                            <input className="input min-w-[160px] flex-1 py-1 text-sm" disabled={disabled} value={navLabel(c.href, c.label)} placeholder={navLabel(c.href, c.defaultLabel)} onChange={(e) => updateChild(it.href, c.href, { label: e.target.value })} aria-label={tx('Όνομα υποενότητας', 'Sub-item name')} />
                             <button type="button" className="btn-ghost text-xs" disabled={disabled} onClick={() => updateChild(it.href, c.href, { hidden: !c.hidden })}>
-                              {c.hidden ? <><EyeOff size={13} /> Κρυφό</> : <><Eye size={13} /> Ορατό</>}
+                              {c.hidden ? <><EyeOff size={13} /> {tx('Κρυφό', 'Hidden')}</> : <><Eye size={13} /> {tx('Ορατό', 'Visible')}</>}
                             </button>
                           </li>
                         ))}
@@ -247,8 +249,8 @@ export function MenuEditor({ layout, menu, canEdit }: { layout: LayoutSettings; 
 
       {canEdit && (
         <div className="flex flex-wrap items-center gap-3">
-          <button type="button" onClick={save} disabled={pending} className="btn-primary">{pending ? 'Αποθήκευση…' : 'Αποθήκευση'}</button>
-          <button type="button" onClick={reset} disabled={pending} className="btn-ghost"><RotateCcw size={14} /> Επαναφορά στο αρχικό μενού</button>
+          <button type="button" onClick={save} disabled={pending} className="btn-primary">{pending ? tx('Αποθήκευση…', 'Saving…') : tx('Αποθήκευση', 'Save', 'Сохранить')}</button>
+          <button type="button" onClick={reset} disabled={pending} className="btn-ghost"><RotateCcw size={14} /> {tx('Επαναφορά στο αρχικό μενού', 'Restore original menu')}</button>
           {msg && <span className={`text-sm ${msg.ok ? 'text-forest' : 'text-signal-danger'}`}>{msg.text}</span>}
         </div>
       )}
