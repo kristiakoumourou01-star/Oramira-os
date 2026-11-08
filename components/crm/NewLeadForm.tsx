@@ -10,6 +10,7 @@ import { useAutoOpen } from '@/lib/use-auto-open';
 import { formatCurrency } from '@/lib/format';
 import { PhoneInput } from '@/components/ui/PhoneInput';
 import { LABEL_CLASS, type LabelColor } from '@/lib/pipeline-shared';
+import { parseAmount } from '@/lib/amount';
 
 export interface DealFormCfg { pipelines: { key: string; name: string; stages: { key: string; label: string }[] }[]; labels: { key: string; name: string; color: LabelColor }[] }
 
@@ -23,7 +24,7 @@ function DealFields({ cfg }: { cfg: DealFormCfg }) {
   return (
     <div className="grid grid-cols-2 gap-3">
       <label className="col-span-2 block"><span className="text-xs text-charcoal-600/70">Τίτλος deal</span><input name="title" placeholder="π.χ. Διαμέρισμα A12" className="input" /></label>
-      <label className="block"><span className="text-xs text-charcoal-600/70">Αξία (€)</span><input name="value" type="number" min={0} step={1000} inputMode="numeric" className="input" /></label>
+      <label className="block"><span className="text-xs text-charcoal-600/70">Αξία (€)</span><input name="value" inputMode="decimal" placeholder="π.χ. 650.000" className="input" /></label>
       <label className="block"><span className="text-xs text-charcoal-600/70">Αναμενόμενο κλείσιμο</span><input name="expectedClose" type="date" className="input" /></label>
       {cfg.pipelines.length > 1 && (
         <label className="col-span-2 block"><span className="text-xs text-charcoal-600/70">Pipeline</span>
@@ -139,7 +140,7 @@ export function NewLeadForm({ projects, agents = [], required = [], pipelines = 
         areas: String(formData.get('areas') || '').split(',').map((x) => x.trim()).filter(Boolean),
         pipeline: String(formData.get('pipeline') || '') || undefined,
         title: String(formData.get('title') || '') || undefined,
-        value: Number(formData.get('value')) || undefined,
+        value: parseAmount(formData.get('value')) || undefined,
         expectedCloseDate: String(formData.get('expectedClose') || '') || undefined,
         labels: String(formData.get('labels') || '').split(',').filter(Boolean),
         stageKey: String(formData.get('stageKey') || '') || undefined,

@@ -11,6 +11,7 @@ import {
   convertReservationToContract,
 } from '@/app/actions/reservations';
 import { formatDate, formatCurrency } from '@/lib/format';
+import { parseAmount } from '@/lib/amount';
 
 export interface ReservationView {
   id: string;
@@ -82,7 +83,7 @@ export function ReservationPanel({
               createReservation({
                 unitId,
                 buyerContactId,
-                depositAmount: Number(formData.get('depositAmount')) || undefined,
+                depositAmount: parseAmount(formData.get('depositAmount')) || undefined,
                 holdDays: Number(formData.get('holdDays')) || undefined,
               })
             );
@@ -101,7 +102,7 @@ export function ReservationPanel({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="eyebrow">Deposit (€)</label>
-              <input name="depositAmount" type="number" className="input mt-1" placeholder="e.g. 5000" />
+              <input name="depositAmount" inputMode="decimal" className="input mt-1" placeholder="e.g. 5.000" />
             </div>
             <div>
               <label className="eyebrow">Hold (days)</label>

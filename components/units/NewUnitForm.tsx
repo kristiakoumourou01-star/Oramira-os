@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Plus } from 'lucide-react';
 import { createUnit } from '@/app/actions/units';
 import { Modal, ModalBody, ModalFooter } from '@/components/ui/Modal';
+import { parseAmount } from '@/lib/amount';
 
 export interface StructureOption { id: string; name: string }
 
@@ -32,7 +33,7 @@ export function NewUnitForm({
         floor: Number(formData.get('floor')) || undefined,
         type: String(formData.get('type') || '') || undefined,
         sqm: Number(formData.get('sqm')) || undefined,
-        price: Number(formData.get('price')) || undefined,
+        price: parseAmount(formData.get('price')) || undefined,
         bedrooms: Number(formData.get('bedrooms')) || undefined,
         bathrooms: Number(formData.get('bathrooms')) || undefined,
         description: String(formData.get('description') || '') || undefined,
@@ -68,7 +69,7 @@ export function NewUnitForm({
             <input name="sqm" type="number" step="0.1" placeholder="m²" className="input" />
             <input name="bedrooms" type="number" placeholder="Beds" className="input" />
             <input name="bathrooms" type="number" step="0.5" placeholder="Baths" className="input" />
-            <input name="price" type="number" placeholder="Price (€)" className="input col-span-3" />
+            <input name="price" inputMode="decimal" placeholder="Price (€) π.χ. 650.000" className="input col-span-3" />
             <textarea name="description" placeholder="Description / internal notes" className="input col-span-3 min-h-[60px]" />
           </ModalBody>
           <ModalFooter>
