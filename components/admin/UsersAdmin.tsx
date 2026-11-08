@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { UserPlus, X, Mail, Eye, KeyRound, ShieldCheck, Copy, RefreshCw } from 'lucide-react';
+import { UserPlus, X, Mail, Eye, KeyRound, ShieldCheck, Copy, RefreshCw, UserX, UserCheck } from 'lucide-react';
 import {
   inviteUser, assignRole, setUserActive, revokeInvite,
   createUserWithPassword, setUserPermissions, setUserPassword,
@@ -352,7 +352,7 @@ export function UsersAdmin({
       <div className="flex items-center justify-between">
         <div>
           <p className="eyebrow mb-1">Admin</p>
-          <h1 className="text-3xl">Users & roles</h1>
+          <h1 className="text-3xl">Χρήστες & πρόσβαση</h1>
         </div>
         <div className="flex gap-2">
           <button onClick={() => setShowInvite(true)} className="btn-ghost">
@@ -368,8 +368,8 @@ export function UsersAdmin({
 
       {/* Users */}
       <div className="panel overflow-x-auto">
-        <table className="table-base w-full min-w-[760px]">
-          <thead><tr><th>Name</th><th>Role</th><th>Πρόσβαση</th><th>Status</th><th></th></tr></thead>
+        <table className="table-base w-full min-w-[820px]">
+          <thead><tr><th>Όνομα</th><th>Ρόλος</th><th>Πρόσβαση</th><th>Κατάσταση</th><th className="text-right">Ενέργειες</th></tr></thead>
           <tbody>
             {users.map((u) => {
               const self = u.id === currentUserId;
@@ -409,33 +409,19 @@ export function UsersAdmin({
                         : <span className="badge-neutral whitespace-nowrap">Του ρόλου</span>}
                   </td>
                   <td>
-                    <span className={u.is_active ? 'badge-forest' : 'badge-neutral'}>{u.is_active ? 'Active' : 'Inactive'}</span>
+                    <span className={`whitespace-nowrap ${u.is_active ? 'badge-forest' : 'badge-neutral'}`}>{u.is_active ? 'Ενεργός' : 'Ανενεργός'}</span>
                   </td>
-                  <td className="text-right">
+                  <td className="whitespace-nowrap text-right">
                     {!self && (
-                      <div className="flex flex-wrap items-center justify-end gap-1">
-                        {u.role !== 'admin' && (
-                          <button onClick={() => setPermsFor(u)} disabled={isPending} className="btn-ghost text-xs" title="Τι βλέπει και τι κάνει">
-                            <ShieldCheck size={13} strokeWidth={1.75} /> Δικαιώματα
-                          </button>
-                        )}
-                        <button onClick={() => setPasswordFor(u)} disabled={isPending} className="btn-ghost text-xs" title="Νέος κωδικός">
-                          <KeyRound size={13} strokeWidth={1.75} /> Κωδικός
-                        </button>
-                        <button
-                          onClick={() => { if (window.confirm('Μηδενισμός 2FA: σβήνεται η εφαρμογή επαλήθευσης και οι εμπιστευμένες συσκευές του. Στην επόμενη σύνδεση το ρυθμίζει ξανά. Συνέχεια;')) run(() => resetUserMfa(u.id)); }}
-                          disabled={isPending} className="btn-ghost text-xs" title="Έχασε το κινητό; Μηδενισμός κωδικού μίας χρήσης"
-                        >
-                          <RefreshCw size={13} strokeWidth={1.75} /> 2FA
-                        </button>
-                        {canImpersonate && (
-                          <button onClick={() => viewAs(u.id)} disabled={isPending} className="btn-ghost text-xs" title="Προβολή ως αυτός ο χρήστης">
-                            <Eye size={13} strokeWidth={1.75} /> View as
-                          </button>
-                        )}
-                        <button onClick={() => run(() => setUserActive(u.id, !u.is_active))} disabled={isPending} className="btn-ghost text-xs">
-                          {u.is_active ? 'Deactivate' : 'Activate'}
-                        </button>
+                      <div className="flex flex-nowrap items-center justify-end gap-0.5">
+                        {u.role !== 'admin' && <IconBtn label="Δικαιώματα" onClick={() => setPermsFor(u)} disabled={isPending}><ShieldCheck size={16} strokeWidth={1.75} /></IconBtn>}
+                        <IconBtn label="Νέος κωδικός" onClick={() => setPasswordFor(u)} disabled={isPending}><KeyRound size={16} strokeWidth={1.75} /></IconBtn>
+                        <IconBtn label="Μηδενισμός 2FA" disabled={isPending} onClick={() => { if (window.confirm('Μηδενισμός 2FA: σβήνεται η εφαρμογή επαλήθευσης και οι εμπιστευμένες συσκευές του. Στην επόμενη σύνδεση το ρυθμίζει ξανά. Συνέχεια;')) run(() => resetUserMfa(u.id)); }}><RefreshCw size={16} strokeWidth={1.75} /></IconBtn>
+                        {canImpersonate && <IconBtn label="Προβολή ως χρήστης" onClick={() => viewAs(u.id)} disabled={isPending}><Eye size={16} strokeWidth={1.75} /></IconBtn>}
+                        <IconBtn label={u.is_active ? 'Απενεργοποίηση' : 'Ενεργοποίηση'} danger={u.is_active} disabled={isPending}
+                          onClick={() => { if (!u.is_active || window.confirm(`Απενεργοποίηση του χρήστη «${u.full_name ?? ''}»; Δεν θα μπορεί να συνδεθεί μέχρι να τον ενεργοποιήσετε ξανά.`)) run(() => setUserActive(u.id, !u.is_active)); }}>
+                          {u.is_active ? <UserX size={16} strokeWidth={1.75} /> : <UserCheck size={16} strokeWidth={1.75} />}
+                        </IconBtn>
                       </div>
                     )}
                   </td>
@@ -455,17 +441,15 @@ export function UsersAdmin({
             <span className="badge-neutral">{portalUsers.length}</span>
           </div>
           <table className="table-base mt-2 w-full">
-            <thead><tr><th>Name</th><th>Type</th><th>Status</th><th></th></tr></thead>
+            <thead><tr><th>Όνομα</th><th>Τύπος</th><th>Κατάσταση</th><th className="text-right">Ενέργειες</th></tr></thead>
             <tbody>
               {portalUsers.map((u) => (
                 <tr key={u.id} className="hover:bg-stone/60">
                   <td className="font-medium text-charcoal">{u.full_name ?? 'Unnamed'}</td>
                   <td><span className="badge-neutral">{PORTAL_ROLE_LABEL[u.role] ?? u.role}</span></td>
-                  <td><span className={u.is_active ? 'badge-forest' : 'badge-neutral'}>{u.is_active ? 'Active' : 'Inactive'}</span></td>
+                  <td><span className={u.is_active ? 'badge-forest' : 'badge-neutral'}>{u.is_active ? 'Ενεργός' : 'Ανενεργός'}</span></td>
                   <td className="text-right">
-                    <button onClick={() => viewAs(u.id)} disabled={isPending} className="btn-ghost text-xs" title="Προβολή ως αυτός ο χρήστης">
-                      <Eye size={13} strokeWidth={1.75} /> View as
-                    </button>
+                    <IconBtn label="Προβολή ως χρήστης" onClick={() => viewAs(u.id)} disabled={isPending}><Eye size={16} strokeWidth={1.75} /></IconBtn>
                   </td>
                 </tr>
               ))}
@@ -552,5 +536,15 @@ export function UsersAdmin({
         </div>
       )}
     </div>
+  );
+}
+
+/** Κουμπί-εικονίδιο· το όνομά του εμφανίζεται όταν περνά το ποντίκι. */
+function IconBtn({ label, onClick, disabled, danger, children }: { label: string; onClick: () => void; disabled?: boolean; danger?: boolean; children: React.ReactNode }) {
+  return (
+    <button type="button" onClick={onClick} disabled={disabled} aria-label={label} title={label}
+      className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-charcoal-600 transition-colors hover:bg-stone disabled:opacity-40 ${danger ? 'hover:text-signal-danger' : 'hover:text-forest'}`}>
+      {children}
+    </button>
   );
 }
