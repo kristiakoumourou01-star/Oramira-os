@@ -41,10 +41,16 @@ export async function createLead(params: {
   areas?: string[];
   /** Settings → Pipelines key (empty = the default pipeline). */
   pipeline?: string;
+  /** Στοιχεία deal (όπως «Add deal» του Pipedrive). */
+  title?: string;
+  value?: number;
+  expectedCloseDate?: string;
+  labels?: string[];
+  stageKey?: string;
 }) {
   await requireRole(['admin', 'sales', 'management']);
   // Settings → Tags, ομάδες & πεδία → Υποχρεωτικά πεδία
-  const { fields } = await getOrgSettingsRaw();
+  const { fields, pipelines: pcfg } = await getOrgSettingsRaw();
   const has: Record<string, boolean> = {
     phone: !!params.phone?.trim(), budget: !!(params.budgetMin || params.budgetMax), project: !!params.preferredProjectId,
     buyerType: !!params.buyerType, language: !!params.language, timeline: !!params.timelineToBuy,
@@ -93,6 +99,22 @@ export async function createLead(params: {
   if (error) throw error;
   if (lead?.id && params.pipeline && /^[a-z0-9_]{1,30}$/.test(params.pipeline)) {
     await (supabase as any).from('leads').update({ pipeline: params.pipeline }).eq('id', lead.id);
+  }
+  if (lead?.id) {
+    // Στοιχεία deal: τίτλος, αξία, αναμ. κλείσιμο, labels, στάδιο.
+    const deal: Record<string, unknown> = {};
+    if (params.title?.trim()) deal.title = params.title.trim().slice(0, 200);
+    if (params.value && Number.isFinite(params.value) && params.value > 0) deal.value = Math.round(params.value);
+    if (params.expectedCloseDate && /^\d{4}-\d{2}-\d{2}$/.test(params.expectedCloseDate)) deal.expected_close_date = params.expectedCloseDate;
+    const okLabels = (params.labels ?? []).filter((k) => pcfg.dealLabels.some((l) => l.key === k));
+    if (okLabels.length) deal.labels = okLabels;
+    if (params.stageKey) {
+      const pl = pcfg.pipelines.find((p) => p.key === (params.pipeline || pcfg.defaultKey)) ?? pcfg.pipelines[0];
+      const st = pl?.stages.find((x) => x.key === params.stageKey && x.status !== 'won');
+      if (st) { deal.status = st.status; deal.stage = st.key; }
+    }
+    // Ό,τι καταχωρεί το προσωπικό στο Deals πάει κατευθείαν στο pipeline.
+    if (Object.keys(deal).length) { deal.in_inbox = false; await (supabase as any).from('leads').update(deal).eq('id', lead.id); }
   }
   if (lead?.id && params.areas?.length) {
     await supabase.from('leads').update({ preferred_areas: cleanAreas(params.areas) } as any).eq('id', lead.id);

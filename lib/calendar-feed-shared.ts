@@ -1,6 +1,6 @@
 /** Client-safe types for @/lib/calendar-feed (the server reads stay there). */
 
-export type CalendarSource = 'internal' | 'viewing' | 'google';
+export type CalendarSource = 'internal' | 'viewing' | 'google' | 'activity';
 
 export interface CalendarItem {
   id: string;
