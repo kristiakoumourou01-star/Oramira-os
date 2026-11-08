@@ -107,11 +107,40 @@ export async function deleteScenario(scenarioId: string, dealId: string) {
   revalidatePath(`/deal-analyzer/${dealId}`);
 }
 
-export async function deleteDeal(dealId: string) {
+export async function deleteDeal(dealId: string): Promise<{ ok: true } | { ok: false; error: string }> {
   await requireRole(STAFF);
   const supabase = await createSupabaseServerClient();
-  await supabase.from('deals').delete().eq('id', dealId);
+  await (supabase as any).from('deal_scenarios').delete().eq('deal_id', dealId); // τα σενάρια του deal
+  const { error } = await supabase.from('deals').delete().eq('id', dealId);
+  if (error) return { ok: false, error: error.message };
+  await logActivity({ entityType: 'deal', entityId: dealId, action: 'deleted' });
   revalidatePath('/deal-analyzer');
+  return { ok: true };
+}
+
+/** Μετονομασία ανάλυσης. */
+export async function renameDeal(dealId: string, name: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  await requireRole(STAFF);
+  const n = name.trim().slice(0, 120);
+  if (!n) return { ok: false, error: 'Δώστε όνομα.' };
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.from('deals').update({ name: n } as any).eq('id', dealId);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath('/deal-analyzer'); revalidatePath(`/deal-analyzer/${dealId}`);
+  return { ok: true };
+}
+
+/** Αντίγραφο ανάλυσης (ίδια δεδομένα, νέο όνομα, ως Draft, χωρίς σύνδεση με έργο). */
+export async function duplicateDeal(dealId: string): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
+  const profile = await requireRole(STAFF);
+  const supabase = await createSupabaseServerClient();
+  const { data: d, error } = await (supabase as any).from('deals').select('*').eq('id', dealId).single();
+  if (error || !d) return { ok: false, error: 'Η ανάλυση δεν βρέθηκε.' };
+  const { id: _id, created_at: _c, updated_at: _u, project_id: _p, ...rest } = d;
+  const { data: ins, error: e2 } = await (supabase as any).from('deals').insert({ ...rest, name: `${d.name} (αντίγραφο)`.slice(0, 120), status: 'draft', created_by: profile.id }).select('id').single();
+  if (e2) return { ok: false, error: e2.message };
+  revalidatePath('/deal-analyzer');
+  return { ok: true, id: ins.id };
 }
 
 /**
