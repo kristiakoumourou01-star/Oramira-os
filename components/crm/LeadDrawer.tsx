@@ -3,13 +3,14 @@
 import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { X, Maximize2, Phone, Mail, MessageCircle, Save, StickyNote, CalendarClock, Check, AlarmClock, Plus } from 'lucide-react';
+import { X, Maximize2, Phone, Mail, MessageCircle, Save, StickyNote, CalendarClock, Check, AlarmClock, Plus, Trash2 } from 'lucide-react';
 import { getLeadQuick, saveLeadQuick, type LeadQuick } from '@/app/actions/lead-quick';
 import { addNote, reassignLead } from '@/app/actions/leads';
 import { StatusPipeline } from '@/components/crm/StatusPipeline';
 import { formatDate, formatDateTime } from '@/lib/format';
 import { addFollowUp, updateFollowUp } from '@/app/actions/follow-ups';
 import { CompletePanel } from '@/components/crm/CompletePanel';
+import { DeleteLeadDialog } from '@/components/crm/DeleteLeadDialog';
 import { NEXT_PRESETS, snoozeTo, toLocalInput } from '@/lib/follow-ups-shared';
 
 interface Agent { id: string; full_name: string | null }
@@ -26,6 +27,7 @@ export function LeadDrawer({ leadId, agents, onClose }: { leadId: string; agents
   const [note, setNote] = useState('');
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [pending, start] = useTransition();
+  const [askDelete, setAskDelete] = useState(false);
 
   const load = () => getLeadQuick(leadId).then((r) => {
     if (!r.ok) { setErr(r.error); return; }
@@ -72,6 +74,7 @@ export function LeadDrawer({ leadId, agents, onClose }: { leadId: string; agents
             {tel && <a href={`tel:${tel}`} className="btn-ghost p-2" title="Κλήση"><Phone size={15} /></a>}
             {tel && <a href={`https://wa.me/${tel.replace('+', '')}`} target="_blank" rel="noreferrer" className="btn-ghost p-2" title="WhatsApp"><MessageCircle size={15} /></a>}
             {form.email && <a href={`mailto:${form.email}`} className="btn-ghost p-2" title="Email"><Mail size={15} /></a>}
+            {lead && <button type="button" onClick={() => setAskDelete(true)} className="btn-ghost p-2 text-charcoal-600/60 hover:text-signal-danger" title="Διαγραφή lead"><Trash2 size={15} /></button>}
             <Link href={`/crm/leads/${leadId}`} className="btn-secondary px-3 py-1.5 text-xs" title="Πλήρες προφίλ"><Maximize2 size={13} /> Πλήρες προφίλ</Link>
             <button type="button" onClick={onClose} className="btn-ghost p-2" aria-label="Κλείσιμο"><X size={17} /></button>
           </div>
@@ -139,6 +142,7 @@ export function LeadDrawer({ leadId, agents, onClose }: { leadId: string; agents
           )}
         </div>
       </aside>
+      {askDelete && lead && <DeleteLeadDialog ids={[leadId]} names={[lead.contact.name]} onClose={() => setAskDelete(false)} onDeleted={onClose} />}
     </div>
   );
 }
@@ -150,6 +154,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 /** Επόμενες κινήσεις: λίστα ανοιχτών follow-ups με «έγινε», αναβολή και νέα κίνηση. */
 function NextMoves({ leadId, items, onChange }: { leadId: string; items: { id: string; dueAt: string; note: string | null }[]; onChange: () => void }) {
   const [pending, start] = useTransition();
+  const [askDelete, setAskDelete] = useState(false);
   const [doing, setDoing] = useState<string | null>(null);
   const [note, setNote] = useState('Κλήση');
   const [at, setAt] = useState(toLocalInput(snoozeTo('tomorrow')));

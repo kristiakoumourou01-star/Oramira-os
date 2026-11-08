@@ -2,10 +2,11 @@
 
 import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, List, Columns3, Phone, MessageCircle, AlertTriangle, X, Users, ArrowUpDown } from 'lucide-react';
+import { Search, List, Columns3, Phone, MessageCircle, AlertTriangle, X, Users, ArrowUpDown, Trash2 } from 'lucide-react';
 import type { LeadListItem } from '@/lib/leads-shared';
 import { reassignLead, updateLeadStatus } from '@/app/actions/leads';
 import { LeadDrawer } from '@/components/crm/LeadDrawer';
+import { DeleteLeadDialog } from '@/components/crm/DeleteLeadDialog';
 import { closedBucket, daysSince, lateBy, pipelineOf, stageIndex, type PipelineSettings } from '@/lib/pipeline-shared';
 import { formatCurrency, formatDate } from '@/lib/format';
 
@@ -45,13 +46,15 @@ export function LeadManager({ leads, agents, currentUserId, pipelines }: { leads
   const [openId, setOpenId] = useState<string | null>(null);
   const [over, setOver] = useState<Record<string, Partial<LeadListItem>>>({}); // αλλαγές πριν το refresh
   const [msg, setMsg] = useState<string | null>(null);
+  const [askDelete, setAskDelete] = useState(false);
+  const [gone, setGone] = useState<Set<string>>(new Set());
 
   const pipe = pipelineOf(pipelines, pipeKey);
   const working = pipe.stages.filter((s) => s.status !== 'won');
   const wonStage = pipe.stages.find((s) => s.status === 'won');
   const now = Date.now();
 
-  const rows = useMemo(() => leads.map((l) => ({ ...l, ...over[l.id] })), [leads, over]);
+  const rows = useMemo(() => leads.filter((l) => !gone.has(l.id)).map((l) => ({ ...l, ...over[l.id] })), [leads, over, gone]);
   const inPipe = useMemo(() => rows.filter((l) => pipelineOf(pipelines, l.pipeline ?? null).key === pipe.key), [rows, pipelines, pipe.key]);
   const sources = useMemo(() => [...new Set(inPipe.map((l) => l.source).filter(Boolean))].sort(), [inPipe]);
 
@@ -200,6 +203,7 @@ export function LeadManager({ leads, agents, currentUserId, pipelines }: { leads
           <span className="font-medium text-forest">{sel.size} επιλεγμένα</span>
           <div><StageSelect ids={[...sel]} /></div>
           <div><OwnerSelect ids={[...sel]} value={undefined} /></div>
+          <button type="button" onClick={() => setAskDelete(true)} className="inline-flex items-center gap-1 rounded-md border border-signal-danger/30 bg-white px-2.5 py-1 text-xs text-signal-danger hover:bg-signal-danger hover:text-white"><Trash2 size={12} /> Διαγραφή</button>
           <button type="button" onClick={() => setSel(new Set())} className="btn-ghost ml-auto p-1" aria-label="Καθαρισμός επιλογής"><X size={14} /></button>
         </div>
       )}
@@ -250,6 +254,7 @@ export function LeadManager({ leads, agents, currentUserId, pipelines }: { leads
       )}
 
       <p className="flex items-center gap-1 text-xs text-charcoal-600/60"><Users size={12} /> {filtered.length} από {inPipe.length} leads · κλικ σε ένα lead για να ανοίξει η καρτέλα του δίπλα.</p>
+      {askDelete && <DeleteLeadDialog ids={[...sel]} names={rows.filter((l) => sel.has(l.id)).map((l) => l.full_name ?? l.email ?? '—')} onClose={() => setAskDelete(false)} onDeleted={() => { setGone((g) => new Set([...g, ...sel])); setSel(new Set()); }} />}
       {openId && <LeadDrawer leadId={openId} agents={agents} onClose={() => { setOpenId(null); router.refresh(); }} />}
     </div>
   );
