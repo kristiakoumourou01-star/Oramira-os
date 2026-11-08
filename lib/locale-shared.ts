@@ -52,3 +52,11 @@ export function currentLocale(): LocalePrefs {
     return DEFAULT_LOCALE;
   }
 }
+
+/**
+ * Μικρή μετάφραση κειμένου μέσα σε component: `tx('Αποθήκευση', 'Save')`.
+ * Τα ρωσικά, όπου δεν δίνονται, πέφτουν στα αγγλικά.
+ */
+export function tx(el: string, en: string, ru?: string, lang: Lang = currentLocale().lang): string {
+  return lang === 'el' ? el : lang === 'ru' ? (ru ?? en) : en;
+}
