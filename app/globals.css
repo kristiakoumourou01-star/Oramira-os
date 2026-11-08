@@ -29,6 +29,8 @@
     --c-forest-50: 234 240 236;
     --c-sand: 230 220 200;
     --c-sand-100: 240 233 218;
+    --c-box-sand: 238 232 222;
+    --c-box-cream: 255 247 232;
     --c-sand-300: 217 203 170;
     --c-stone: 247 243 236;
     --c-stone-line: 227 218 201;
@@ -264,6 +266,18 @@ html[data-box='flat'] .ws-card-primary { box-shadow: none; }
 html[data-box='outline'] .box-card { box-shadow: none; }
 html[data-box='outline'] .box-card:hover { box-shadow: inset 0 0 0 1px rgb(var(--c-forest) / 0.35); }
 html[data-box='flat'] .box-card { box-shadow: none; border-color: transparent; background-color: rgb(var(--c-stone-200)); }
+
+/* Χρώμα κουτιών (company-wide): λευκό, μπεζ (από το δεύτερο χρώμα) ή κρεμ (από το accent). */
+html[data-boxcolor='sand']:not([data-theme='dark']) { --c-box: var(--c-box-sand); }
+html[data-boxcolor='cream']:not([data-theme='dark']) { --c-box: var(--c-box-cream); }
+html[data-boxcolor='sand']:not([data-theme='dark']) :is(.panel, .ws-card, .ws-card-primary, .box-card, .bg-white),
+html[data-boxcolor='cream']:not([data-theme='dark']) :is(.panel, .ws-card, .ws-card-primary, .box-card, .bg-white) { background-color: rgb(var(--c-box)); }
+html[data-boxcolor='sand']:not([data-theme='dark']) .bg-white\/60,
+html[data-boxcolor='cream']:not([data-theme='dark']) .bg-white\/60 { background-color: rgb(var(--c-box) / 0.55); }
+html[data-boxcolor='sand']:not([data-theme='dark']) .bg-white\/80,
+html[data-boxcolor='cream']:not([data-theme='dark']) .bg-white\/80 { background-color: rgb(var(--c-box) / 0.85); }
+/* Πεδία κειμένου μένουν λευκά, για να ξεχωρίζουν μέσα στα μπεζ κουτιά. */
+html[data-boxcolor]:not([data-theme='dark']) .input { background-color: rgb(255 255 255); }
 
 /* Status labels (badges) */
 html[data-labels='solid'] .badge-forest { background-color: rgb(var(--c-forest)); color: #fff; border-color: transparent; }
