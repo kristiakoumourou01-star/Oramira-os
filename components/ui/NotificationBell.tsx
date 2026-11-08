@@ -5,6 +5,7 @@ import { Bell } from 'lucide-react';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 import Link from 'next/link';
 import { t } from '@/lib/i18n';
+import { markAllNotificationsRead } from '@/app/actions/notifications';
 
 interface NotificationRow {
   id: string;
@@ -50,6 +51,27 @@ function chime() {
 export function NotificationBell({ userId }: { userId: string }) {
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<NotificationRow[]>([]);
+  // Όσα ήταν αδιάβαστα όταν άνοιξε η λίστα: μένουν τονισμένα μέχρι να κλείσει.
+  const [fresh, setFresh] = useState<Set<string>>(new Set());
+  const boxRef = useRef<HTMLDivElement>(null);
+  const toggle = () => {
+    if (open) { setOpen(false); setFresh(new Set()); return; }
+    const unread = items.filter((n) => !n.read_at).map((n) => n.id);
+    setOpen(true);
+    if (unread.length) {
+      setFresh(new Set(unread));
+      const now = new Date().toISOString();
+      setItems((prev) => prev.map((n) => (n.read_at ? n : { ...n, read_at: now }))); // ο αριθμός φεύγει αμέσως
+      void markAllNotificationsRead().catch(() => null);
+    }
+  };
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => { if (boxRef.current && !boxRef.current.contains(e.target as Node)) { setOpen(false); setFresh(new Set()); } };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { setOpen(false); setFresh(new Set()); } };
+    document.addEventListener('mousedown', onDown); document.addEventListener('keydown', onKey);
+    return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey); };
+  }, [open]);
   const [prefs, setPrefs] = useState<Prefs>({ sound: false, desktop: false });
   const prefsRef = useRef(prefs);
   useEffect(() => { const p = readPrefs(); setPrefs(p); prefsRef.current = p; }, []);
@@ -79,7 +101,7 @@ export function NotificationBell({ userId }: { userId: string }) {
       .from('notifications')
       .select('id, title, body, link, read_at, created_at')
       .order('created_at', { ascending: false })
-      .limit(10)
+      .limit(20)
       .then(({ data }) => setItems(data ?? []));
 
     const channel = supabase
@@ -87,7 +109,7 @@ export function NotificationBell({ userId }: { userId: string }) {
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` },
-        (payload) => { setItems((prev) => [payload.new as NotificationRow, ...prev].slice(0, 10)); announce(payload.new as NotificationRow); }
+        (payload) => { setItems((prev) => [payload.new as NotificationRow, ...prev].slice(0, 20)); announce(payload.new as NotificationRow); }
       )
       .subscribe();
 
@@ -99,9 +121,9 @@ export function NotificationBell({ userId }: { userId: string }) {
   const unreadCount = items.filter((n) => !n.read_at).length;
 
   return (
-    <div className="relative">
+    <div className="relative" ref={boxRef}>
       <button
-        onClick={() => setOpen((v) => !v)}
+        onClick={toggle}
         className="relative rounded p-2 text-charcoal-600 transition-colors hover:bg-sand-100"
         aria-label={t('notifications')}
       >
@@ -131,7 +153,7 @@ export function NotificationBell({ userId }: { userId: string }) {
                   <Link
                     href={n.link ?? '#'}
                     className={`block rounded px-2 py-2 text-sm hover:bg-stone ${
-                      !n.read_at ? 'bg-champagne-50/60' : ''
+                      !n.read_at || fresh.has(n.id) ? 'bg-champagne-50/60' : ''
                     }`}
                   >
                     <p className="font-medium text-charcoal">{n.title}</p>
