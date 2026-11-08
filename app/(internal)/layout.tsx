@@ -1,4 +1,5 @@
 import { requireProfile, homeRouteForRole } from '@/lib/auth';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { effectiveCan, isInternalRole, type Module } from '@/lib/permissions';
 import { getBranding, CONTENT_WIDTH_CLASS } from '@/lib/branding';
@@ -48,11 +49,21 @@ export default async function InternalLayout({ children }: { children: React.Rea
     }))
     .filter((it) => (it.children.length > 0 || can(it.module)) && (it.module ? can(it.module) || it.children.length > 0 : true));
 
+  // Activities του χρήστη για σήμερα ή καθυστερημένες (ο κόκκινος μετρητής στο μενού, όπως Pipedrive).
+  let activitiesDue = 0;
+  if (can('leads')) {
+    try {
+      const end = new Date(); end.setHours(23, 59, 59, 999);
+      const { count } = await (await createSupabaseServerClient()).from('follow_up_tasks').select('id', { count: 'exact', head: true })
+        .eq('assigned_to', profile.id).eq('is_done', false).lte('due_at', end.toISOString());
+      activitiesDue = count ?? 0;
+    } catch { /* ο μετρητής δεν είναι κρίσιμος */ }
+  }
   const toItem = (it: (typeof resolved)[number]) => ({
     href: it.href,
     label: navLabel(it.href, it.label),
     icon: navIcon(it.icon),
-    children: it.children.length > 1 ? it.children.map((c) => ({ href: c.href, label: navLabel(c.href, c.label) })) : undefined,
+    children: it.children.length > 1 ? it.children.map((c) => ({ href: c.href, label: navLabel(c.href, c.label), ...(c.href === '/sales/activities' && activitiesDue ? { badge: activitiesDue } : {}) })) : undefined,
   });
   const sections = [
     { items: resolved.filter((it) => it.section === 0).map(toItem) },

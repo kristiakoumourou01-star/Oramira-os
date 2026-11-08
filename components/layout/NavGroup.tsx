@@ -5,7 +5,7 @@ import { usePathname, useSearchParams } from 'next/navigation';
 import { useEffect, useState, type ReactNode } from 'react';
 import { ChevronDown } from 'lucide-react';
 
-export interface NavSubItem { href: string; label: string }
+export interface NavSubItem { href: string; label: string; badge?: number }
 
 /**
  * Collapsible workspace group for the sidebar. The header links to the
@@ -94,8 +94,9 @@ export function NavGroup({ href, label, icon, items: children, compact = false, 
             const deeper = !tab && pathname.startsWith(base + '/') && !children.some((x) => x.href !== c.href && pathname.startsWith(x.href.split('?')[0]) && x.href.split('?')[0].length > base.length);
             const on = (pathname === base && (tab ? currentTab === tab || (!currentTab && firstForBase) : !currentTab)) || deeper;
             return (
-              <Link key={c.href} href={c.href} className={`block rounded-md px-2.5 py-1 text-[12.5px] transition-colors ${on ? 'font-medium text-champagne' : 'text-stone-100/55 hover:bg-white/[0.05] hover:text-stone-100/90'}`}>
-                {c.label}
+              <Link key={c.href} href={c.href} className={`flex items-center justify-between gap-2 rounded-md px-2.5 py-1 text-[12.5px] transition-colors ${on ? 'font-medium text-champagne' : 'text-stone-100/55 hover:bg-white/[0.05] hover:text-stone-100/90'}`}>
+                <span className="truncate">{c.label}</span>
+                {c.badge ? <span className="shrink-0 rounded-full bg-signal-danger px-1.5 text-[10px] font-semibold leading-4 text-white">{c.badge > 99 ? '99+' : c.badge}</span> : null}
               </Link>
             );
           })}
