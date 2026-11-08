@@ -6,6 +6,7 @@ import { Plus, Loader2 } from 'lucide-react';
 import { createParcel } from '@/app/actions/acquisitions';
 import { Modal, ModalBody, ModalFooter } from '@/components/ui/Modal';
 import { useAutoOpen } from '@/lib/use-auto-open';
+import { PhoneInput } from '@/components/ui/PhoneInput';
 
 export interface AgentOpt { id: string; full_name: string | null }
 
@@ -40,7 +41,7 @@ export function NewParcelForm({ agents }: { agents: AgentOpt[] }) {
           <input value={f.reference} onChange={set('reference')} placeholder="Parcel reference (e.g. Plot 12, Kato Paphos)" className="input" />
           <div className="grid grid-cols-2 gap-3">
             <input value={f.ownerName} onChange={set('ownerName')} placeholder="Landowner name" className="input" />
-            <input value={f.ownerPhone} onChange={set('ownerPhone')} placeholder="Phone" className="input" />
+            <PhoneInput value={f.ownerPhone} onChange={(v) => setF((x: any) => ({ ...x, ownerPhone: v }))} placeholder="Phone" />
           </div>
           <input value={f.ownerEmail} onChange={set('ownerEmail')} placeholder="Email (optional)" className="input" />
           <div className="grid grid-cols-2 gap-3">

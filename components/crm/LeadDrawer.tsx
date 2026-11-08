@@ -12,6 +12,7 @@ import { addFollowUp, updateFollowUp } from '@/app/actions/follow-ups';
 import { CompletePanel } from '@/components/crm/CompletePanel';
 import { DeleteLeadDialog } from '@/components/crm/DeleteLeadDialog';
 import { NEXT_PRESETS, snoozeTo, toLocalInput } from '@/lib/follow-ups-shared';
+import { PhoneInput } from '@/components/ui/PhoneInput';
 
 interface Agent { id: string; full_name: string | null }
 
@@ -99,7 +100,7 @@ export function LeadDrawer({ leadId, agents, onClose }: { leadId: string; agents
                     <option value="">Χωρίς υπεύθυνο</option>{agents.map((a) => <option key={a.id} value={a.id}>{a.full_name ?? '—'}</option>)}
                   </select>
                 </Field>
-                <Field label="Τηλέφωνο"><input className="input text-sm" value={form.phone ?? ''} onChange={set('phone')} /></Field>
+                <Field label="Τηλέφωνο"><PhoneInput value={form.phone ?? ''} onChange={(v) => { setForm((f) => ({ ...f, phone: v })); setMsg(null); }} /></Field>
                 <Field label="Email"><input className="input text-sm" type="email" value={form.email ?? ''} onChange={set('email')} /></Field>
                 <Field label="Budget από (€)"><input className="input text-sm" type="number" min={0} value={form.budgetMin ?? ''} onChange={set('budgetMin')} /></Field>
                 <Field label="Budget έως (€)"><input className="input text-sm" type="number" min={0} value={form.budgetMax ?? ''} onChange={set('budgetMax')} /></Field>

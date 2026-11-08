@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Check, Plus, Trash2, Building2 } from 'lucide-react';
 import { saveBusinessSettings } from '@/app/actions/org-settings';
 import type { BusinessSettings, Office } from '@/lib/org-settings-shared';
+import { PhoneInput } from '@/components/ui/PhoneInput';
 
 const EMPTY_OFFICE: Office = { name: '', address: '', phone: '', manager: '', main: false };
 
@@ -28,8 +29,9 @@ export function BusinessSection({ initial, companyName, canEdit }: { initial: Bu
     });
   }
 
-  const Field = ({ label, k, placeholder }: { label: string; k: keyof BusinessSettings; placeholder?: string }) => (
-    <label className="block">
+  // Συνάρτηση (όχι component): αλλιώς το input ξαναφτιάχνεται σε κάθε πλήκτρο και χάνει το focus.
+  const field = (label: string, k: keyof BusinessSettings, placeholder?: string) => (
+    <label className="block" key={k}>
       <span className="eyebrow mb-1 block">{label}</span>
       <input className="input" disabled={!canEdit} value={(b[k] as string) ?? ''} placeholder={placeholder} onChange={(e) => set(k, e.target.value as any)} />
     </label>
@@ -45,11 +47,11 @@ export function BusinessSection({ initial, companyName, canEdit }: { initial: Bu
           <span className="mt-1 block text-xs text-charcoal-600/60">Το όνομα & το λογότυπο ρυθμίζονται στο <strong>Appearance</strong>.</span>
         </label>
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Registration no." k="registrationNo" placeholder="HE 000000" />
-          <Field label="VAT no." k="vatNo" placeholder="CY00000000X" />
-          <Field label="Estate agent licence" k="licence" placeholder="Reg. 000 · Licence 000/E" />
-          <Field label="Invoice email" k="invoiceEmail" placeholder="accounts@company.cy" />
-          <Field label="Website" k="website" placeholder="company.cy" />
+          {field("Registration no.", "registrationNo", "HE 000000")}
+          {field("VAT no.", "vatNo", "CY00000000X")}
+          {field("Estate agent licence", "licence", "Reg. 000 · Licence 000/E")}
+          {field("Invoice email", "invoiceEmail", "accounts@company.cy")}
+          {field("Website", "website", "company.cy")}
         </div>
         <label className="block">
           <span className="eyebrow mb-1 block">Document footer</span>
@@ -68,7 +70,7 @@ export function BusinessSection({ initial, companyName, canEdit }: { initial: Bu
             <div key={i} className="grid grid-cols-[1fr_1.4fr_1fr_auto_auto] items-center gap-2 rounded-lg border border-stone-line p-2">
               <input className="input" disabled={!canEdit} placeholder="City / name" value={o.name} onChange={(e) => setOffice(i, { name: e.target.value })} />
               <input className="input" disabled={!canEdit} placeholder="Address" value={o.address} onChange={(e) => setOffice(i, { address: e.target.value })} />
-              <input className="input" disabled={!canEdit} placeholder="Phone" value={o.phone} onChange={(e) => setOffice(i, { phone: e.target.value })} />
+              <PhoneInput disabled={!canEdit} placeholder="Phone" value={o.phone} onChange={(v) => setOffice(i, { phone: v })} />
               <button onClick={() => makeMain(i)} disabled={!canEdit} className={`badge ${o.main ? 'badge-forest' : 'badge-neutral'}`} title="Main office">{o.main ? 'Main' : 'Set main'}</button>
               {canEdit && <button onClick={() => removeOffice(i)} className="text-signal-danger/70 hover:text-signal-danger"><Trash2 size={15} /></button>}
             </div>

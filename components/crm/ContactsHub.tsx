@@ -12,6 +12,7 @@ import {
 import { LEAD_SOURCES } from '@/lib/lead-automation-shared';
 import { LANGUAGES } from '@/lib/kyc-shared';
 import { formatCurrency, formatDate } from '@/lib/format';
+import { PhoneInput } from '@/components/ui/PhoneInput';
 
 interface Staff { id: string; name: string }
 const PAGE = 100;
@@ -186,7 +187,7 @@ function NewContactDialog({ staff, defaultRole, onClose, onCreated }: { staff: S
         <label className="block"><span className="eyebrow mb-1 block">Ονοματεπώνυμο *</span><input autoFocus className="input" value={name} onChange={(e) => setName(e.target.value)} /></label>
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="block"><span className="eyebrow mb-1 block">Email</span><input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></label>
-          <label className="block"><span className="eyebrow mb-1 block">Τηλέφωνο</span><input className="input" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+357…" /></label>
+          <label className="block"><span className="eyebrow mb-1 block">Τηλέφωνο</span><PhoneInput value={phone} onChange={setPhone} /></label>
         </div>
         <div>
           <p className="eyebrow mb-1.5">Ιδιότητες</p>

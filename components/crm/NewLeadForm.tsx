@@ -8,6 +8,7 @@ import { AREAS } from '@/lib/areas';
 import { Modal, ModalBody, ModalFooter } from '@/components/ui/Modal';
 import { useAutoOpen } from '@/lib/use-auto-open';
 import { formatCurrency } from '@/lib/format';
+import { PhoneInput } from '@/components/ui/PhoneInput';
 
 const BUDGET_MAX = 5_000_000;
 const BUDGET_STEP = 25_000;
@@ -115,7 +116,7 @@ export function NewLeadForm({ projects, agents = [], required = [], pipelines = 
           <div className="grid grid-cols-2 gap-3">
             <input name="fullName" required placeholder="Full name" className="input col-span-2" autoFocus />
             <input name="email" type="email" required placeholder="Email" className="input col-span-2" />
-            <input name="phone" required={req('phone')} placeholder={req('phone') ? 'Phone *' : 'Phone'} className="input" />
+            <PhoneInput name="phone" required={req('phone')} placeholder={req('phone') ? 'Phone *' : 'Phone'} />
             <select name="source" required className="input capitalize">
               {SOURCES.map((s) => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
             </select>

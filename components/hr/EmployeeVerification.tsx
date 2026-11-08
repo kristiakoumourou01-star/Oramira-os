@@ -7,6 +7,7 @@ import { createEmployeeInvite } from '@/app/actions/users';
 import { INTERNAL_ROLES, ROLE_LABEL, type AppRole } from '@/lib/permissions';
 import { UserPlus, IdCard, ShieldCheck, CalendarClock, FileText, Send, ChevronLeft, ChevronRight, Check, Paperclip } from 'lucide-react';
 import { formatCurrency } from '@/lib/format';
+import { PhoneInput } from '@/components/ui/PhoneInput';
 
 const MODULES = [
   { key: 'leads', label: 'Sales' },
@@ -211,7 +212,7 @@ export function EmployeeVerification() {
                   </Card>
                   <Card title="Additional details (optional)">
                     <div className="grid grid-cols-2 gap-3">
-                      <Field label="Phone"><input value={s.phone} onChange={(e) => set({ phone: e.target.value })} className="input text-sm" /></Field>
+                      <Field label="Phone"><PhoneInput value={s.phone} onChange={(v) => set({ phone: v })} /></Field>
                       <Field label="ID / Passport"><input value={s.idPassport} onChange={(e) => set({ idPassport: e.target.value })} className="input text-sm" /></Field>
                       <Field label="Address"><input value={s.address} onChange={(e) => set({ address: e.target.value })} className="input text-sm" /></Field>
                       <Field label="Emergency contact"><input value={s.emergencyContact} onChange={(e) => set({ emergencyContact: e.target.value })} className="input text-sm" /></Field>

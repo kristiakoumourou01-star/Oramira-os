@@ -11,6 +11,9 @@ const SHAPES = ['regular', 'irregular', 'narrow', 'triangular'];
 
 /** Edit land attributes, seller profile and valuation. Saving re-drives the
  *  land score + uplift (recomputed server-side on refresh). */
+// Έξω από το component: αλλιώς τα inputs ξαναφτιάχνονται σε κάθε πλήκτρο και χάνουν το focus.
+const Field = ({ label, children }: { label: string; children: React.ReactNode }) => (<label className="block"><span className="mb-1 block text-[11px] font-medium uppercase tracking-wide text-charcoal-600/55">{label}</span>{children}</label>);
+
 export function ParcelEditor({ parcel }: { parcel: ParcelItem }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -40,7 +43,6 @@ export function ParcelEditor({ parcel }: { parcel: ParcelItem }) {
   });
 
   const inp = 'w-full rounded-lg border border-stone-line bg-white px-2.5 py-1.5 text-sm focus-visible:border-forest focus-visible:outline-none';
-  const Field = ({ label, children }: { label: string; children: React.ReactNode }) => (<label className="block"><span className="mb-1 block text-[11px] font-medium uppercase tracking-wide text-charcoal-600/55">{label}</span>{children}</label>);
   const Num = (k: keyof typeof s, ph = '') => <input type="number" value={s[k] as any} onChange={(e) => setS({ ...s, [k]: e.target.value })} placeholder={ph} className={inp} />;
   type BoolKey = 'financial_pressure' | 'inheritance' | 'family_split' | 'relocation' | 'divorce' | 'debt_pressure';
   const Chk = (k: BoolKey, label: string) => (
