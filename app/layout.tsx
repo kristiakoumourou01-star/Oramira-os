@@ -38,6 +38,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       data-dense={settings.layout.denseLists ? 'on' : 'off'}
       data-corners={appearance.corners}
       data-box={appearance.boxStyle}
+      data-boxcolor={appearance.boxColor ?? 'white'}
       data-labels={appearance.labelStyle}
       suppressHydrationWarning
     >

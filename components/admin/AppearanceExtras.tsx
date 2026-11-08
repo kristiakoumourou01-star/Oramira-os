@@ -8,7 +8,7 @@ import { fileToDataUrl } from '@/lib/image-upload';
 import { patchLiveMenu } from '@/lib/brand-live';
 import { saveAppearance } from '@/app/actions/org-settings';
 import { sidebarBackground } from '@/lib/branding-shared';
-import type { AppearanceSettings, BoxStyle, Corners, LabelStyle, SidebarStyle } from '@/lib/org-settings-shared';
+import type { AppearanceSettings, BoxColor, BoxStyle, Corners, LabelStyle, SidebarStyle } from '@/lib/org-settings-shared';
 
 /* ─────────────────────────── image upload helper ────────────────────────── */
 
@@ -60,6 +60,7 @@ const SIDEBAR_STYLES: { v: SidebarStyle; label: string }[] = [
 ];
 const CORNERS: { v: Corners; label: string }[] = [{ v: 'square', label: 'Τετράγωνες' }, { v: 'soft', label: 'Απαλές' }, { v: 'round', label: 'Στρογγυλές' }];
 const BOXES: { v: BoxStyle; label: string }[] = [{ v: 'shadow', label: 'Σκιά' }, { v: 'outline', label: 'Περίγραμμα' }, { v: 'flat', label: 'Επίπεδα' }];
+const BOX_COLORS: { v: BoxColor; label: string; sw: string }[] = [{ v: 'white', label: 'Λευκό', sw: '#FFFFFF' }, { v: 'sand', label: 'Μπεζ (άμμος)', sw: 'rgb(var(--c-box-sand))' }, { v: 'cream', label: 'Κρεμ', sw: 'rgb(var(--c-box-cream))' }];
 const LABELS: { v: LabelStyle; label: string }[] = [{ v: 'soft', label: 'Απαλές' }, { v: 'solid', label: 'Γεμάτες' }, { v: 'outline', label: 'Περίγραμμα' }];
 
 function Choice<T extends string>({ options, value, onChange, disabled }: { options: { v: T; label: string }[]; value: T; onChange: (v: T) => void; disabled?: boolean }) {
@@ -107,9 +108,10 @@ export function AppearanceExtras({
     const d = document.documentElement;
     d.dataset.corners = a.corners;
     d.dataset.box = a.boxStyle;
+    d.dataset.boxcolor = a.boxColor ?? 'white';
     d.dataset.labels = a.labelStyle ?? 'soft';
     patchLiveMenu(a.sidebarStyle, a.sidebarColor);
-  }, [a.corners, a.boxStyle, a.labelStyle, menuBg]);
+  }, [a.corners, a.boxStyle, a.boxColor, a.labelStyle, menuBg]);
   const patch = (p: Partial<AppearanceSettings>) => { setA((prev) => ({ ...prev, ...p })); setMsg({ ok: true, text: 'Προεπισκόπηση — πατήστε «Αποθήκευση» για να μείνει.' }); };
 
   return (
@@ -154,6 +156,18 @@ export function AppearanceExtras({
         <div className="space-y-2">
           <p className="eyebrow">Κουτιά</p>
           <Choice options={BOXES} value={a.boxStyle} onChange={(v) => patch({ boxStyle: v })} disabled={!canEdit} />
+        </div>
+        <div className="space-y-2">
+          <p className="eyebrow">Χρώμα κουτιών</p>
+          <div className="flex flex-wrap gap-2">
+            {BOX_COLORS.map((o) => (
+              <button key={o.v} type="button" disabled={!canEdit} onClick={() => patch({ boxColor: o.v })}
+                className={`flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm ${(a.boxColor ?? 'white') === o.v ? 'border-forest bg-forest/[0.06] text-forest' : 'border-stone-line text-charcoal-600'}`}>
+                <span className="h-4 w-4 rounded border border-stone-line" style={{ background: o.sw }} />{o.label}
+              </button>
+            ))}
+          </div>
+          <p className="text-xs text-charcoal-600/60">Οι αποχρώσεις βγαίνουν από τα χρώματα της εταιρείας (Χρώματα & γραμματοσειρές). Τα πεδία κειμένου μένουν λευκά για να διαβάζονται.</p>
         </div>
         <div className="space-y-2">
           <p className="eyebrow">Ετικέτες κατάστασης</p>

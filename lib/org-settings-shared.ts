@@ -296,6 +296,8 @@ export function menuOverridesFrom(items: ResolvedNavItem[], position: MenuPositi
 export type SidebarStyle = 'brand' | 'charcoal' | 'custom';
 export type Corners = 'square' | 'soft' | 'round';
 export type BoxStyle = 'shadow' | 'outline' | 'flat';
+/** Χρώμα κουτιών: λευκό ή απόχρωση από τα χρώματα της εταιρείας. */
+export type BoxColor = 'white' | 'sand' | 'cream';
 export type LabelStyle = 'soft' | 'solid' | 'outline';
 export interface AppearanceSettings {
   /** Logo for LIGHT backgrounds (login, documents). The main logo is for the dark menu. */
@@ -305,11 +307,12 @@ export interface AppearanceSettings {
   sidebarColor: string;
   corners: Corners;
   boxStyle: BoxStyle;
+  boxColor: BoxColor;
   /** Ετικέτες κατάστασης (badges): απαλές, γεμάτες ή μόνο περίγραμμα. */
   labelStyle: LabelStyle;
 }
 export const DEFAULT_APPEARANCE: AppearanceSettings = {
-  logoOnLight: null, favicon: null, sidebarStyle: 'brand', sidebarColor: '#113124', corners: 'soft', boxStyle: 'shadow', labelStyle: 'soft',
+  logoOnLight: null, favicon: null, sidebarStyle: 'brand', sidebarColor: '#113124', corners: 'soft', boxStyle: 'shadow', boxColor: 'white', labelStyle: 'soft',
 };
 
 export interface OrgSettings {
@@ -584,6 +587,7 @@ export function mergeAppearance(a: any): AppearanceSettings {
     sidebarColor: typeof v.sidebarColor === 'string' && HEX6.test(v.sidebarColor) ? v.sidebarColor.toUpperCase() : DEFAULT_APPEARANCE.sidebarColor,
     corners: ['square', 'soft', 'round'].includes(v.corners) ? v.corners : DEFAULT_APPEARANCE.corners,
     boxStyle: ['shadow', 'outline', 'flat'].includes(v.boxStyle) ? v.boxStyle : DEFAULT_APPEARANCE.boxStyle,
+    boxColor: ['white', 'sand', 'cream'].includes(v.boxColor) ? v.boxColor : DEFAULT_APPEARANCE.boxColor,
     labelStyle: ['soft', 'solid', 'outline'].includes(v.labelStyle) ? v.labelStyle : DEFAULT_APPEARANCE.labelStyle,
   };
 }

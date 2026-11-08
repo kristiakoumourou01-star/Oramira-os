@@ -145,6 +145,9 @@ export function brandCssVars(b: Branding): string {
     '--c-olive': darken(b.colorAccent, 0.2, d.colorAccent),
     '--c-sand': channels(b.colorSecondary, d.colorSecondary),
     '--c-sand-100': lighten(b.colorSecondary, 0.4, d.colorSecondary),
+    // Χρώμα κουτιών (Ρυθμίσεις → Εμφάνιση → Χρώμα κουτιών).
+    '--c-box-sand': lighten(b.colorSecondary, 0.72, d.colorSecondary),
+    '--c-box-cream': lighten(b.colorAccent, 0.45, d.colorAccent),
     '--c-sand-300': darken(b.colorSecondary, 0.12, d.colorSecondary),
     '--c-stone': channels(b.colorBackground, d.colorBackground),
     '--c-stone-200': darken(b.colorBackground, 0.04, d.colorBackground),
