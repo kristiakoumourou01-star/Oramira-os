@@ -33,8 +33,6 @@ export const DEFAULT_NAV: NavDef[] = [
           { href: '/sales/deals', label: 'Deals' },
           { href: '/sales/activities', label: 'Activities' },
           { href: '/sales/insights', label: 'Insights' },
-          { href: '/crm/leads?tab=inbox', label: 'Lead Management' },
-          { href: '/crm/leads?tab=pipeline', label: 'Pipeline' },
           { href: '/crm/leads?tab=followups', label: 'Follow-ups' },
           { href: '/crm/leads?tab=viewings', label: 'Προβολές' },
           { href: '/crm/leads?tab=retargeting', label: 'Retargeting' },

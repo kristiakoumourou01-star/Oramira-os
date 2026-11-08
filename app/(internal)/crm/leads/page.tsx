@@ -6,6 +6,7 @@ import { getRetargetingAudiences } from '@/app/actions/communications';
 import { computeSalesKpis, formatMinutes } from '@/lib/sales-kpi';
 import { buildSalesCommand } from '@/lib/sales-command';
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import { SalesCommandCenter } from '@/components/crm/SalesCommandCenter';
 import { LeadBoard, type Agent } from '@/components/crm/LeadBoard';
 import { FollowUpsBoard } from '@/components/crm/FollowUpsBoard';
@@ -29,6 +30,10 @@ const VIEW_STATUS: Record<string, string> = { scheduled: 'badge-champagne', atte
 /** Sales — one workspace page. Pipeline, follow-ups, viewings, retargeting,
  *  closings, and KPIs are in-page tabs (no extra sidebar routes). */
 export default async function SalesPage({ searchParams }: { searchParams: { tab?: string } }) {
+  // Lead Management και Pipeline έγιναν το Sales → Deals (πίνακας όπως Pipedrive· «Λίστα» = η παλιά λίστα).
+  const tab = searchParams?.tab;
+  if (!tab || tab === 'pipeline') redirect('/sales/deals');
+  if (tab === 'inbox') redirect('/sales/deals?view=list');
   const profile = await requirePermission('leads');
   const supabase = await createSupabaseServerClient();
   const now = Date.now();
@@ -77,25 +82,6 @@ export default async function SalesPage({ searchParams }: { searchParams: { tab?
   ];
 
   const tabs: TabDef[] = [
-    {
-      // Every new lead lands here first (Meta, website, WhatsApp, phone…):
-      // assign it, answer it, then it moves on into the Pipeline.
-      id: 'inbox', label: 'Lead Management', content: (
-        <div className="space-y-6">
-          {unassignedLeads.length > 0 && <UnassignedTriage leads={unassignedLeads} agents={(agents ?? []) as Agent[]} currentUserId={profile.id} />}
-          <LeadManager leads={leads} agents={(agents ?? []) as Agent[]} currentUserId={profile.id} pipelines={pipeCfg} />
-          {pendingLeads.length > 0 && <SpeedToLeadWidget leads={pendingLeads} />}
-        </div>
-      ),
-    },
-    {
-      id: 'pipeline', label: 'Pipeline', content: (
-        <div className="space-y-6">
-          <PipelineInsights cfg={pipeCfg} data={insights} />
-          <LeadBoard leads={leads} agents={(agents ?? []) as Agent[]} currentUserId={profile.id} pipelines={pipeCfg} />
-        </div>
-      ),
-    },
     {
       id: 'followups', label: 'Follow-ups', content: (
         <FollowUpsBoard currentUserId={profile.id} agents={(agents ?? []) as Agent[]} rows={((followUps ?? []) as any[]).map((t) => ({
