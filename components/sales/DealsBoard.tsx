@@ -5,8 +5,9 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   Columns3, List, CircleDollarSign, Archive, Filter, ChevronRight, ChevronDown, AlertTriangle, X, Trophy, ThumbsDown,
-  Trash2, ArrowRightLeft, Plus, Search, Phone, Users, CheckSquare, Flag, Mail, Utensils, Home, ArchiveRestore, Clock,
+  Trash2, ArrowRightLeft, Plus, Search, Phone, Users, CheckSquare, Flag, Mail, Utensils, Home, ArchiveRestore, Clock, Pencil,
 } from 'lucide-react';
+import { StageEditor } from '@/components/sales/StageEditor';
 import type { LeadListItem } from '@/lib/leads-shared';
 import { dealTitle, dealValue } from '@/lib/leads-shared';
 import { CLOSED, LABEL_CLASS, lateBy, pipelineOf, stageOf, type PipelineSettings, type StageDef } from '@/lib/pipeline-shared';
@@ -45,7 +46,7 @@ const MONTHS = ['Ιαν', 'Φεβ', 'Μαρ', 'Απρ', 'Μάι', 'Ιούν', '�
  * κάτω μπάρα Διαγραφή / Lost / Won / Μετακίνηση / Αρχείο, φίλτρα, ταξινόμηση,
  * και προβολές Πίνακας · Λίστα · Forecast · Αρχείο.
  */
-export function DealsBoard({ leads: initial, cfg, agents, currentUserId, initialView = 'board' }: { leads: LeadListItem[]; cfg: PipelineSettings; agents: Agent[]; currentUserId: string; initialView?: View }) {
+export function DealsBoard({ leads: initial, cfg, rawCfg, canEditStages = false, agents, currentUserId, initialView = 'board' }: { leads: LeadListItem[]; cfg: PipelineSettings; rawCfg?: PipelineSettings; canEditStages?: boolean; agents: Agent[]; currentUserId: string; initialView?: View }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [leads, setLeads] = useState(initial);
@@ -67,6 +68,32 @@ export function DealsBoard({ leads: initial, cfg, agents, currentUserId, initial
   const [actFor, setActFor] = useState<LeadListItem | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
+  const [editStages, setEditStages] = useState(false);
+  // Ο πίνακας κυλά δεξιά/αριστερά: (α) όσο σέρνετε deal κοντά στην άκρη, (β) σέρνοντας τον κενό χώρο.
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const edge = useRef<{ v: number; raf: number | null }>({ v: 0, raf: null });
+  const stopEdge = () => { edge.current.v = 0; if (edge.current.raf) cancelAnimationFrame(edge.current.raf); edge.current.raf = null; };
+  const edgeScroll = (clientX: number) => {
+    const el = scrollRef.current; if (!el) return;
+    const r = el.getBoundingClientRect(); const Z = 90;
+    const v = clientX < r.left + Z ? -Math.ceil((r.left + Z - clientX) / 6) : clientX > r.right - Z ? Math.ceil((clientX - (r.right - Z)) / 6) : 0;
+    edge.current.v = Math.max(-24, Math.min(24, v));
+    if (edge.current.v && !edge.current.raf) {
+      const tick = () => { const e = scrollRef.current; if (!e || !edge.current.v) { edge.current.raf = null; return; } e.scrollLeft += edge.current.v; edge.current.raf = requestAnimationFrame(tick); };
+      edge.current.raf = requestAnimationFrame(tick);
+    }
+  };
+  useEffect(() => { if (!drag) stopEdge(); }, [drag]);
+  const pan = useRef<{ x: number; left: number; id: number } | null>(null);
+  const onPanDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType !== 'mouse' || e.button !== 0) return;
+    if ((e.target as HTMLElement).closest('[draggable="true"],button,a,input,select,textarea,label')) return;
+    const el = scrollRef.current; if (!el || el.scrollWidth <= el.clientWidth) return;
+    pan.current = { x: e.clientX, left: el.scrollLeft, id: e.pointerId };
+    el.setPointerCapture(e.pointerId); el.style.cursor = 'grabbing';
+  };
+  const onPanMove = (e: React.PointerEvent<HTMLDivElement>) => { const p = pan.current; const el = scrollRef.current; if (p && el) el.scrollLeft = p.left - (e.clientX - p.x); };
+  const onPanUp = () => { const el = scrollRef.current; if (pan.current && el) { try { el.releasePointerCapture(pan.current.id); } catch { /* */ } el.style.cursor = ''; } pan.current = null; };
   const now = Date.now();
   useEffect(() => { try { const v = localStorage.getItem('oramira:deals'); if (v) { const x = JSON.parse(v); if (x.pipeKey && cfg.pipelines.some((p) => p.key === x.pipeKey)) setPipeKey(x.pipeKey); if (x.sort) setSort(x.sort); if (x.owner) setOwner(x.owner); } } catch { /* */ } }, [cfg.pipelines]);
   useEffect(() => { try { localStorage.setItem('oramira:deals', JSON.stringify({ pipeKey, sort, owner })); } catch { /* */ } }, [pipeKey, sort, owner]);
@@ -189,9 +216,13 @@ export function DealsBoard({ leads: initial, cfg, agents, currentUserId, initial
           <ViewBtn v="forecast" icon={CircleDollarSign} label="Forecast" />
           <ViewBtn v="archive" icon={Archive} label="Αρχείο" />
         </div>
-        <select className="input h-9 w-auto py-1 text-sm font-medium" value={pipe.key} onChange={(e) => setPipeKey(e.target.value)} aria-label="Pipeline" data-no-tr>
-          {cfg.pipelines.map((p) => <option key={p.key} value={p.key}>{p.name}</option>)}
-        </select>
+        <div className="flex items-center">
+          <select className={`input h-9 w-auto py-1 text-sm font-medium ${canEditStages ? 'rounded-r-none' : ''}`} value={pipe.key} onChange={(e) => setPipeKey(e.target.value)} aria-label="Pipeline" data-no-tr>
+            {cfg.pipelines.map((p) => <option key={p.key} value={p.key}>{p.name}</option>)}
+          </select>
+          {canEditStages && <button type="button" onClick={() => setEditStages(true)} title="Επεξεργασία σταδίων" aria-label="Επεξεργασία σταδίων" className="-ml-px flex h-9 items-center rounded-r-lg border border-stone-line bg-white px-2.5 text-charcoal-600 hover:bg-stone hover:text-charcoal"><Pencil size={14} /></button>}
+        </div>
+        {editStages && <StageEditor cfg={rawCfg ?? cfg} pipelineKey={pipe.key} onClose={() => setEditStages(false)} />}
         <select className="input h-9 w-auto py-1 text-sm" value={owner} onChange={(e) => setOwner(e.target.value)} aria-label="Υπεύθυνος">
           <option value="everyone">Όλοι</option>
           <option value="me">Τα δικά μου</option>
@@ -248,15 +279,17 @@ export function DealsBoard({ leads: initial, cfg, agents, currentUserId, initial
       <p className="text-sm text-charcoal-600"><span className="font-semibold text-charcoal">{formatCurrency(total)}</span> · {open.length} deals <span className="text-charcoal-600/60">· σταθμισμένη {formatCurrency(Math.round(weighted))}</span>{msg && <span className="ml-3 text-forest">{msg}</span>}</p>
 
       {view === 'board' && (
-        <div className="-mx-1 overflow-x-auto pb-24">
-          <div className="flex min-w-max gap-2 px-1">
+        <div ref={scrollRef} className="-mx-1 overflow-x-auto pb-24"
+          onDragOver={(e) => { if (drag) edgeScroll(e.clientX); }} onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) stopEdge(); }} onDrop={stopEdge}
+          onPointerDown={onPanDown} onPointerMove={onPanMove} onPointerUp={onPanUp} onPointerCancel={onPanUp}>
+          <div className="flex min-h-[calc(100vh-330px)] min-w-max divide-x divide-stone-line rounded-xl border border-stone-line bg-white/60">
             {preset !== 'won' && preset !== 'lost' && columns.map((st, i) => {
               const items = byStage(st);
               const sum = items.reduce((s, l) => s + dealValue(l), 0);
               return (
                 <div key={st.key} {...dropZone(st.key, (l) => moveTo(l, st))}
-                  className={`flex w-[272px] shrink-0 flex-col rounded-xl bg-stone/50 transition ${over === st.key ? 'ring-2 ring-forest/40' : ''}`}>
-                  <div className="relative rounded-t-xl border-b border-stone-line bg-white px-3 py-2" style={{ clipPath: i < columns.length - 1 ? 'polygon(0 0, calc(100% - 10px) 0, 100% 50%, calc(100% - 10px) 100%, 0 100%)' : undefined }}>
+                  className={`flex w-[272px] shrink-0 flex-col transition ${over === st.key ? 'bg-forest/[0.06]' : 'bg-transparent'}`}>
+                  <div className="relative border-b border-stone-line bg-white px-3 py-2" style={{ clipPath: i < columns.length - 1 ? 'polygon(0 0, calc(100% - 10px) 0, 100% 50%, calc(100% - 10px) 100%, 0 100%)' : undefined }}>
                     <p className="truncate font-semibold text-charcoal" data-no-tr>{st.label}</p>
                     <p className="text-xs text-charcoal-600/70">{formatCurrency(sum)} · {items.length} deals · {st.probability}%</p>
                   </div>
@@ -268,11 +301,11 @@ export function DealsBoard({ leads: initial, cfg, agents, currentUserId, initial
             })}
             {(showClosed || preset === 'won' || preset === 'lost') && (
               <>
-                {preset !== 'lost' && <div className="flex w-[272px] shrink-0 flex-col rounded-xl bg-emerald-50/70">
+                {preset !== 'lost' && <div className="flex w-[272px] shrink-0 flex-col bg-emerald-50/60">
                   <div className="rounded-t-xl border-b border-emerald-200 bg-white px-3 py-2"><p className="font-semibold text-emerald-700">Won</p><p className="text-xs text-charcoal-600/70">{formatCurrency(won.reduce((s, l) => s + dealValue(l), 0))} · {won.length} deals</p></div>
                   <div className="flex flex-col gap-2 p-2">{won.map((l) => card(l))}</div>
                 </div>}
-                {preset !== 'won' && <div className="flex w-[272px] shrink-0 flex-col rounded-xl bg-rose-50/60">
+                {preset !== 'won' && <div className="flex w-[272px] shrink-0 flex-col bg-rose-50/50">
                   <div className="rounded-t-xl border-b border-rose-200 bg-white px-3 py-2"><p className="font-semibold text-signal-danger">Lost</p><p className="text-xs text-charcoal-600/70">{formatCurrency(lost.reduce((s, l) => s + dealValue(l), 0))} · {lost.length} deals</p></div>
                   <div className="flex flex-col gap-2 p-2">{lost.map((l) => card(l))}</div>
                 </div>}
@@ -429,7 +462,7 @@ function Forecast({ deals, pipeName, onMove }: { deals: LeadListItem[]; pipeName
         <span className="text-charcoal-600/70" data-no-tr>{pipeName} · με βάση την αναμενόμενη ημερομηνία κλεισίματος (σύρετε για αλλαγή μήνα)</span>
       </div>
       <div className="-mx-1 overflow-x-auto pb-4">
-        <div className="flex min-w-max gap-2 px-1">
+        <div className="flex min-h-[calc(100vh-360px)] min-w-max divide-x divide-stone-line rounded-xl border border-stone-line bg-white/60">
           {[{ key: null as string | null, label: 'Χωρίς ημερομηνία' }, ...months].map((m) => {
             const items = col(m.key);
             const openSum = items.filter((l) => l.status !== 'won').reduce((s, l) => s + dealValue(l), 0);
@@ -437,7 +470,7 @@ function Forecast({ deals, pipeName, onMove }: { deals: LeadListItem[]; pipeName
             const k = m.key ?? 'none';
             return (
               <div key={k} onDragOver={(e) => { if (drag) { e.preventDefault(); setOver(k); } }} onDrop={(e) => { e.preventDefault(); const l = deals.find((x) => x.id === drag); setDrag(null); setOver(null); if (l && l.status !== 'won') onMove(l, m.key); }}
-                className={`flex w-[260px] shrink-0 flex-col rounded-xl bg-stone/50 ${over === k ? 'ring-2 ring-forest/40' : ''}`}>
+                className={`flex w-[260px] shrink-0 flex-col ${over === k ? 'bg-forest/[0.06]' : ''}`}>
                 <div className="rounded-t-xl border-b border-stone-line bg-white px-3 py-2">
                   <p className="font-semibold text-charcoal">{m.label}</p>
                   <p className="text-xs text-charcoal-600/70">{formatCurrency(openSum)} ανοιχτά{wonSum ? <> · <span className="text-emerald-700">{formatCurrency(wonSum)} won</span></> : null}</p>
