@@ -69,6 +69,7 @@ export const DEFAULT_UNIT_FORMS: UnitFormsSettings = {
   fields: [
     // Κατασκευή
     F({ key: 'construction_stage', el: 'Στάδιο κατασκευής', en: 'Construction stage', type: 'choice', options: ['Σχέδια / άδειες', 'Εκσκαφές & θεμελίωση', 'Σκελετός', 'Τοιχοποιίες', 'Η/Μ εγκαταστάσεις', 'Τελειώματα', 'Ολοκληρωμένο'], section: 'construction', useInMatching: true, types: ['apartment', 'penthouse', 'maisonette', 'house', 'studio'] }),
+    F({ key: 'levels', el: 'Όροφοι κατοικίας', en: 'Storeys', type: 'number', section: 'construction', useInMatching: true, types: ['maisonette', 'house'] }),
     F({ key: 'expected_completion', el: 'Αναμενόμενη παράδοση', en: 'Expected completion', type: 'date', section: 'construction' }),
     F({ key: 'covered_area', el: 'Καλυμμένοι χώροι', en: 'Covered area', type: 'number', suffix: 'm²', section: 'construction', useInMatching: true, types: ['apartment', 'penthouse', 'maisonette', 'house', 'studio'] }),
     F({ key: 'covered_verandas', el: 'Καλυμμένες βεράντες', en: 'Covered verandas', type: 'number', suffix: 'm²', section: 'construction', types: ['apartment', 'penthouse', 'maisonette', 'house', 'studio'] }),

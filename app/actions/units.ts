@@ -89,10 +89,12 @@ export async function updateUnit(
   if (patch.internalSpecs !== undefined) update.internal_specs = patch.internalSpecs;
   update.updated_at = new Date().toISOString();
 
-  await supabase.from('units').update(update).eq('id', unitId);
+  const { error } = await supabase.from('units').update(update).eq('id', unitId);
+  if (error) return { ok: false as const, error: error.message };
   await logActivity({ entityType: 'unit', entityId: unitId, action: 'updated' });
   revalidatePath(`/projects/${projectId}/units/${unitId}`);
   revalidatePath(`/projects/${projectId}`);
+  return { ok: true as const };
 }
 
 export async function updateUnitStatus(
