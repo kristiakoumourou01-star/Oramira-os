@@ -22,6 +22,7 @@ import { AgentPicker } from '@/components/units/AgentPicker';
 import { LocationCard } from '@/components/units/LocationCard';
 import { BookViewingButton, type ViewingContactOption } from '@/components/units/BookViewingButton';
 import { DuplicateUnitButton } from '@/components/units/DuplicateUnitButton';
+import { EditUnitButton } from '@/components/units/EditUnitButton';
 import { UnitFieldsForm } from '@/components/units/UnitFieldsForm';
 import { typeKeyOf, cleanValues, type FieldValue } from '@/lib/unit-forms-shared';
 import { getDocumentUrl } from '@/app/actions/storage';
@@ -91,6 +92,7 @@ export default async function UnitDetailPage({ params, searchParams }: { params:
     supabase.from('profiles').select('id, full_name, role').in('role', ['admin', 'sales', 'management']).order('full_name'),
     getOrgSettings(),
   ]);
+  const { data: unitBuildings } = await supabase.from('buildings').select('id, name').eq('project_id', unit.project_id).order('name');
   const branding = await getBranding();
   const wm = watermarkPlan(settings.watermark, branding.companyName, settings.appearance.logoOnLight ?? branding.logoUrl);
   // Only ship the (possibly large) logo to the browser when it will be drawn.
@@ -160,7 +162,7 @@ export default async function UnitDetailPage({ params, searchParams }: { params:
             {(unit as any).buildings?.name ?? 'Χωρίς κτίριο'}
             {(unit as any).project_phases?.name ? ` · ${(unit as any).project_phases.name}` : ''}
           </p>
-          <h1 className="text-3xl">Μονάδα {unit.unit_number}</h1>
+          <div className="flex flex-wrap items-center gap-2"><h1 className="text-3xl">Μονάδα {unit.unit_number}</h1>{canEdit && <EditUnitButton unit={unit as any} buildings={(unitBuildings ?? []) as any} />}</div>
           <div className="flex flex-wrap items-center gap-3 text-sm text-charcoal-600/80">
             {unit.type && <span>{unit.type}</span>}
             {unit.floor != null && <span className="flex items-center gap-1"><Layers size={13} strokeWidth={1.75} /> Όροφος {unit.floor}</span>}
