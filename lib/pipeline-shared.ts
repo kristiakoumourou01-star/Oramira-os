@@ -50,6 +50,8 @@ export interface PipelineSettings {
   commission: CommissionSettings;
   /** Labels των deals (όπως Pipedrive: Hot / Warm / Cold). */
   dealLabels: DealLabel[];
+  /** Τα εισερχόμενα (φόρμες, Meta, WhatsApp) μπαίνουν πρώτα στο Leads Inbox. */
+  inboxFirst: boolean;
 }
 export type LabelColor = 'red' | 'yellow' | 'green' | 'blue' | 'purple' | 'gray';
 export interface DealLabel { key: string; name: string; color: LabelColor }
@@ -91,6 +93,7 @@ export const DEFAULT_PIPELINE_SETTINGS: PipelineSettings = {
   ],
   commission: { mode: 'prepare', defaultPct: 3, vatRate: null, billTo: 'buyer', fixed: { name: '', vatNo: '', address: '', email: '' } },
   dealLabels: [{ key: 'hot', name: 'Hot', color: 'red' }, { key: 'warm', name: 'Warm', color: 'yellow' }, { key: 'cold', name: 'Cold', color: 'blue' }],
+  inboxFirst: true,
 };
 
 const KEY_RE = /^[a-z0-9_]{1,30}$/;
@@ -172,6 +175,7 @@ export function mergePipelines(x: any): PipelineSettings {
       }
       return out;
     })(),
+    inboxFirst: v.inboxFirst !== false,
   };
 }
 

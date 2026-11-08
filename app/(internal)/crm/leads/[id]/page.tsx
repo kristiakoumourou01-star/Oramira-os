@@ -98,7 +98,7 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
   ]);
   // Deal (0075): πεδία, ολοκληρωμένες activities, changelog.
   const [{ data: dealRow }, { data: openActs }, { data: doneActs }, { data: changes }] = await Promise.all([
-    (supabase as any).from('leads').select('title, value, currency, expected_close_date, labels, followers, archived_at, won_at, lost_at').eq('id', params.id).maybeSingle(),
+    (supabase as any).from('leads').select('title, value, currency, expected_close_date, labels, followers, archived_at, won_at, lost_at, in_inbox').eq('id', params.id).maybeSingle(),
     (supabase as any).from('follow_up_tasks').select('id, due_at, note, type, priority, duration_min, owner:assigned_to(full_name)').eq('lead_id', params.id).eq('is_done', false).order('due_at'),
     (supabase as any).from('follow_up_tasks').select('id, due_at, done_at, note, type, owner:assigned_to(full_name)').eq('lead_id', params.id).eq('is_done', true).order('due_at', { ascending: false }).limit(100),
     (supabase as any).from('lead_changes').select('id, field, old_value, new_value, created_at, actor:actor_id(full_name)').eq('lead_id', params.id).order('created_at', { ascending: false }).limit(200),
@@ -238,7 +238,7 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
     <div className="space-y-4">
       <DealHeader leadId={lead.id} title={dealRow?.title ?? null} fallbackTitle={contact?.full_name ?? 'Deal'} status={lead.status} ownerId={lead.assigned_to ?? null}
         agents={(agents ?? []) as Person[]} followers={dealRow?.followers ?? []} archived={!!dealRow?.archived_at} lostReasons={pipeCfg.lostReasons}
-        wonStageKey={pipeline.stages.find((x) => x.status === 'won')?.key ?? null} contactName={contact?.full_name ?? 'Deal'} />
+        wonStageKey={pipeline.stages.find((x) => x.status === 'won')?.key ?? null} contactName={contact?.full_name ?? 'Deal'} inInbox={!!dealRow?.in_inbox} />
       <div className="flex flex-wrap items-center gap-2">
         <LeadPipelinePicker leadId={lead.id} value={pl?.pipeline ?? null} pipelines={pipeCfg.pipelines} defaultKey={pipeCfg.defaultKey} />
         {pl?.is_returning && <span className="badge-champagne" title="Έχει ξαναγοράσει από εσάς">Επιστρέφων πελάτης</span>}

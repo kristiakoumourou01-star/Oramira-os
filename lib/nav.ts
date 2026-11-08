@@ -29,8 +29,10 @@ export const DEFAULT_NAV: NavDef[] = [
       {
         href: '/crm/leads', label: 'Sales', icon: 'TrendingUp', module: 'leads',
         children: [
+          { href: '/sales/leads', label: 'Leads Inbox' },
           { href: '/sales/deals', label: 'Deals' },
           { href: '/sales/activities', label: 'Activities' },
+          { href: '/sales/insights', label: 'Insights' },
           { href: '/crm/leads?tab=inbox', label: 'Lead Management' },
           { href: '/crm/leads?tab=pipeline', label: 'Pipeline' },
           { href: '/crm/leads?tab=followups', label: 'Follow-ups' },

@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { updateLeadStatus, reassignLead, addNote, logCommunication } from '@/app/actions/leads';
 import { addFollowUp, completeAndNext } from '@/app/actions/follow-ups';
-import { updateDeal, setDealsArchived } from '@/app/actions/sales-deals';
+import { updateDeal, setDealsArchived, setLeadsInbox } from '@/app/actions/sales-deals';
 import { DeleteLeadDialog } from '@/components/crm/DeleteLeadDialog';
 import { ACTIVITY_TYPES, activityLabel } from '@/lib/activity-types';
 import { LABEL_CLASS, daysSince, lateBy, stageIndex, type DealLabel, type LostReason, type PipelineDef } from '@/lib/pipeline-shared';
@@ -22,8 +22,8 @@ const fmtD = (iso: string) => new Date(iso).toLocaleDateString('el-GR', { day: '
 
 /* ---------------------------------------------------------------- Header */
 
-export function DealHeader({ leadId, title, fallbackTitle, status, ownerId, agents, followers, archived, lostReasons, wonStageKey, contactName }: {
-  leadId: string; title: string | null; fallbackTitle: string; status: string; ownerId: string | null; agents: Person[]; followers: string[]; archived: boolean;
+export function DealHeader({ leadId, title, fallbackTitle, status, ownerId, agents, followers, archived, lostReasons, wonStageKey, contactName, inInbox = false }: {
+  leadId: string; title: string | null; fallbackTitle: string; status: string; ownerId: string | null; agents: Person[]; followers: string[]; archived: boolean; inInbox?: boolean;
   lostReasons: LostReason[]; wonStageKey: string | null; contactName: string;
 }) {
   const router = useRouter();
@@ -94,6 +94,7 @@ export function DealHeader({ leadId, title, fallbackTitle, status, ownerId, agen
                 <button type="button" className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm hover:bg-stone" onClick={() => { setMenu(false); run(() => setDealsArchived([leadId], !archived)); }}>
                   {archived ? <><ArchiveRestore size={14} /> Επαναφορά από αρχείο</> : <><Archive size={14} /> Αρχειοθέτηση</>}
                 </button>
+                {!inInbox && <button type="button" className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm hover:bg-stone" onClick={() => { setMenu(false); run(() => setLeadsInbox([leadId], true)); }}><ArchiveRestore size={14} /> Πίσω στο Leads Inbox</button>}
                 <button type="button" className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm text-signal-danger hover:bg-stone" onClick={() => { setMenu(false); setDel(true); }}><Trash2 size={14} /> Διαγραφή</button>
               </div>
             )}
@@ -101,6 +102,12 @@ export function DealHeader({ leadId, title, fallbackTitle, status, ownerId, agen
         </div>
       </div>
       {archived && <p className="rounded-lg bg-stone px-3 py-2 text-sm text-charcoal-600"><Archive size={13} className="mr-1 inline" /> Αυτό το deal είναι στο αρχείο.</p>}
+      {inInbox && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-sm">
+          <span className="text-charcoal">Αυτό είναι lead στο <Link href="/sales/leads" className="font-medium text-forest hover:underline">Leads Inbox</Link> — δεν εμφανίζεται ακόμη στο pipeline.</span>
+          <button type="button" disabled={pending} className="btn-primary text-sm" onClick={() => run(() => setLeadsInbox([leadId], false))}>Μετατροπή σε deal</button>
+        </div>
+      )}
       {lost && (
         <div className="rounded-xl border border-rose-200 bg-rose-50/60 p-3">
           <div className="mb-2 flex items-center justify-between"><p className="text-sm font-semibold text-charcoal">Γιατί χάθηκε;</p><button type="button" onClick={() => setLost(false)} aria-label="Κλείσιμο"><X size={16} /></button></div>

@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import { LABEL_CLASS, LABEL_COLORS } from '@/lib/pipeline-shared';
 import { Check, Plus, Trash2, Star, ChevronDown, ChevronRight, FileText, X, GripVertical } from 'lucide-react';
 import { saveOrgSlice } from '@/app/actions/org-settings';
 import { UndoButton } from '@/components/admin/UndoButton';
@@ -151,6 +152,26 @@ export function PipelineSettingsEditor({ initial, canEdit, vatRates }: { initial
           );
         })}
         {canEdit && <button type="button" onClick={() => patch({ lostReasons: [...v.lostReasons, { key: slugKey('reason', v.lostReasons.map((x) => x.key)), label: 'Νέο αποτέλεσμα', status: 'lost', quick: true }] })} className="btn-ghost text-xs"><Plus size={13} /> Αποτέλεσμα</button>}
+      </div>
+
+      <div className="panel space-y-3 p-5">
+        <h4>Labels deals &amp; Leads Inbox</h4>
+        <p className="text-xs text-charcoal-600/60">Labels (όπως Pipedrive: Hot / Warm / Cold) για leads και deals — φαίνονται στις κάρτες και φιλτράρονται.</p>
+        <div className="space-y-1.5">
+          {v.dealLabels.map((l, i) => (
+            <div key={l.key} className="flex flex-wrap items-center gap-2">
+              <input className="input w-48 py-1 text-sm" disabled={dis} value={l.name} maxLength={30} onChange={(e) => patch({ dealLabels: v.dealLabels.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)) })} />
+              <div className="flex gap-1">{LABEL_COLORS.map((c) => <button key={c} type="button" disabled={dis} title={c} aria-label={c} onClick={() => patch({ dealLabels: v.dealLabels.map((x, j) => (j === i ? { ...x, color: c } : x)) })} className={`h-6 w-6 rounded border ${LABEL_CLASS[c]} ${l.color === c ? 'ring-2 ring-forest' : ''}`} />)}</div>
+              <span className={`rounded border px-2 text-xs ${LABEL_CLASS[l.color]}`}>{l.name || '—'}</span>
+              {canEdit && <button type="button" onClick={() => patch({ dealLabels: v.dealLabels.filter((_, j) => j !== i) })} className="text-charcoal-600/50 hover:text-signal-danger" aria-label="Διαγραφή"><Trash2 size={14} /></button>}
+            </div>
+          ))}
+          {canEdit && <button type="button" onClick={() => patch({ dealLabels: [...v.dealLabels, { key: slugKey('label', v.dealLabels.map((x) => x.key)), name: 'Νέο label', color: 'gray' }] })} className="btn-ghost text-xs"><Plus size={13} /> Label</button>}
+        </div>
+        <label className="flex items-start gap-2 border-t border-stone-line pt-3 text-sm">
+          <input type="checkbox" className="mt-0.5" disabled={dis} checked={v.inboxFirst} onChange={(e) => patch({ inboxFirst: e.target.checked })} />
+          <span><span className="font-medium text-charcoal">Τα νέα εισερχόμενα μπαίνουν πρώτα στο Leads Inbox</span><span className="block text-xs text-charcoal-600/70">Φόρμες, Meta, WhatsApp και κράτηση προβολής περιμένουν στο Sales → Leads Inbox μέχρι να τα «μετατρέψετε σε deal». Ό,τι καταχωρεί το προσωπικό πάει κατευθείαν στο pipeline.</span></span>
+        </label>
       </div>
 
       <div className="panel space-y-2 p-5">
