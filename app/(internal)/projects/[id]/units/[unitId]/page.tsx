@@ -23,6 +23,7 @@ import { LocationCard } from '@/components/units/LocationCard';
 import { BookViewingButton, type ViewingContactOption } from '@/components/units/BookViewingButton';
 import { DuplicateUnitButton } from '@/components/units/DuplicateUnitButton';
 import { EditUnitButton } from '@/components/units/EditUnitButton';
+import { MatchAudienceActions } from '@/components/units/MatchAudienceActions';
 import { UnitFieldsForm } from '@/components/units/UnitFieldsForm';
 import { typeKeyOf, cleanValues, type FieldValue } from '@/lib/unit-forms-shared';
 import { getDocumentUrl } from '@/app/actions/storage';
@@ -380,8 +381,13 @@ export default async function UnitDetailPage({ params, searchParams }: { params:
       {tab === 'matches' && canSeeLeads && (
         <div className="panel overflow-x-auto p-0">
           <div className="border-b border-stone-line px-6 py-4">
-            <h4>Αγοραστές που ταιριάζουν</h4>
-            <p className="text-xs text-charcoal-600/60">Ανοιχτά leads που ταιριάζουν σε αυτή τη μονάδα: προϋπολογισμός, περιοχή που θέλουν (σε σχέση με την τοποθεσία του έργου), έργο που προτιμούν και ό,τι ζητούν στα πεδία της μονάδας (θέα, επίπλωση κ.λπ.){unit.status !== 'available' ? ' (η μονάδα δεν είναι διαθέσιμη — η λίστα δείχνει ποιοι θα ταίριαζαν)' : ''}.</p>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h4>Αγοραστές που ταιριάζουν</h4>
+                <p className="text-xs text-charcoal-600/60">Ανοιχτά leads που ταιριάζουν σε αυτή τη μονάδα: προϋπολογισμός, περιοχή που θέλουν (σε σχέση με την τοποθεσία του έργου), έργο που προτιμούν και ό,τι ζητούν στα πεδία της μονάδας (θέα, επίπλωση κ.λπ.){unit.status !== 'available' ? ' (η μονάδα δεν είναι διαθέσιμη — η λίστα δείχνει ποιοι θα ταίριαζαν)' : ''}.</p>
+              </div>
+              {matches.length > 0 && <MatchAudienceActions contactIds={[...new Set(matches.map((m) => m.contactId))]} name={`${(unit as any).projects?.name ?? ''} ${unit.unit_number}`.trim()} />}
+            </div>
           </div>
           {matches.length === 0 ? (
             <p className="px-6 py-10 text-center text-sm text-charcoal-600/70">Κανένα ανοιχτό lead δεν ταιριάζει ακόμη. Συμπληρώστε προϋπολογισμό στα leads για καλύτερο ταίριασμα.</p>
