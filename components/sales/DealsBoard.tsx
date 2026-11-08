@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState, useTransition, type DragEvent } f
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
-  Columns3, List, CircleDollarSign, Archive, Filter, ChevronRight, ChevronDown, AlertTriangle, X, Trophy, ThumbsDown,
+  Columns3, List, CircleDollarSign, Archive, Filter, ChevronRight, ChevronDown, AlertTriangle, X, Trophy, ThumbsDown, ThumbsUp,
   Trash2, ArrowRightLeft, Plus, Search, Phone, Users, CheckSquare, Flag, Mail, Utensils, Home, ArchiveRestore, Clock, Pencil,
 } from 'lucide-react';
 import { StageEditor } from '@/components/sales/StageEditor';
@@ -19,6 +19,7 @@ import { setDealsArchived, updateDeal } from '@/app/actions/sales-deals';
 import { DeleteLeadDialog } from '@/components/crm/DeleteLeadDialog';
 import { LeadManager } from '@/components/crm/LeadManager';
 import { LeadDrawer } from '@/components/crm/LeadDrawer';
+import { DATE_TAG, currentLocale } from '@/lib/locale-shared';
 
 export interface Agent { id: string; full_name: string | null }
 type View = 'board' | 'list' | 'forecast' | 'archive';
@@ -146,8 +147,14 @@ export function DealsBoard({ leads: initial, cfg, rawCfg, canEditStages = false,
   const live = filtered.filter((l) => !l.archived_at);
   const open = live.filter((l) => !isClosed(l.status));
   const byStage = (st: StageDef) => open.filter((l) => stageOf(pipe, l.status, l.stage)?.key === st.key).sort(sorter);
-  const won = live.filter((l) => l.status === 'won').sort(sorter);
-  const lost = live.filter((l) => isClosed(l.status) && l.status !== 'won').sort(sorter);
+  // Οι στήλες Won / Lost φαίνονται πάντα: τα πρόσφατα (30 μέρες), ή όλα με «Κλειστά deals».
+  const allClosed = showClosed || preset === 'won' || preset === 'lost';
+  const recent = (iso: string | null | undefined, fallback: string) => Date.now() - Date.parse(iso ?? fallback) < 30 * 86400000;
+  const wonAll = live.filter((l) => l.status === 'won');
+  const lostAll = live.filter((l) => isClosed(l.status) && l.status !== 'won');
+  const won = (allClosed ? wonAll : wonAll.filter((l) => recent(l.won_at, l.created_at))).sort(sorter);
+  const lost = (allClosed ? lostAll : lostAll.filter((l) => recent(l.lost_at, l.created_at))).sort(sorter);
+  const dropClosed = (kind: 'won' | 'lost') => { const l = leads.find((x) => x.id === drag); setDrag(null); setOver(null); if (!l || isClosed(l.status)) return; if (kind === 'won') markWon(l); else setLostFor(l); };
   const total = open.reduce((s, l) => s + dealValue(l), 0);
   const weighted = open.reduce((s, l) => s + dealValue(l) * ((stageOf(pipe, l.status, l.stage)?.probability ?? 0) / 100), 0);
   const condCount = Object.entries(cond).filter(([, v]) => v !== '' && v !== false).length;
@@ -178,6 +185,12 @@ export function DealsBoard({ leads: initial, cfg, rawCfg, canEditStages = false,
       <div key={l.id} draggable={!pending} onDragStart={(e) => onCardDragStart(e, l.id)} onDragEnd={() => { setDrag(null); setOver(null); }} onClick={() => setOpenId(l.id)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') setOpenId(l.id); }}
         className={`group relative border-b border-stone-line px-3 py-2.5 text-sm transition last:border-b-0 hover:bg-forest/[0.04] ${rot ? 'border-l-2 border-l-rose-400' : ''} ${drag === l.id ? 'opacity-40' : ''} cursor-grab active:cursor-grabbing`}>
         <p className="block pr-6 font-semibold leading-snug text-charcoal group-hover:text-forest" data-no-tr>{dealTitle(l)}</p>
+        {!isClosed(l.status) && (
+          <span className="absolute right-2 top-2 hidden gap-1 group-hover:flex">
+            <button type="button" onClick={(e) => { e.stopPropagation(); markWon(l); }} title="Won" aria-label="Won" className="flex h-6 items-center rounded-md border border-emerald-300 bg-white px-1.5 text-[11px] font-semibold text-emerald-700 hover:bg-emerald-50"><ThumbsUp size={12} /></button>
+            <button type="button" onClick={(e) => { e.stopPropagation(); setLostFor(l); }} title="Lost" aria-label="Lost" className="flex h-6 items-center rounded-md border border-rose-300 bg-white px-1.5 text-[11px] font-semibold text-signal-danger hover:bg-rose-50"><ThumbsDown size={12} /></button>
+          </span>
+        )}
         {l.title && l.full_name && <p className="truncate text-xs text-charcoal-600/70" data-no-tr>{l.full_name}</p>}
         {(l.labels ?? []).length > 0 && (
           <div className="mt-1 flex flex-wrap gap-1">{(l.labels ?? []).map((k) => { const lb = labelOf(k); return lb ? <span key={k} className={`rounded border px-1.5 text-[10px] font-medium ${LABEL_CLASS[lb.color]}`}>{lb.name}</span> : null; })}</div>
@@ -299,15 +312,21 @@ export function DealsBoard({ leads: initial, cfg, rawCfg, canEditStages = false,
                 </div>
               );
             })}
-            {(showClosed || preset === 'won' || preset === 'lost') && (
+            {(
               <>
-                {preset !== 'lost' && <div className="flex w-[272px] shrink-0 flex-col bg-emerald-50/60">
+                {preset !== 'lost' && <div onDragOver={(e) => { if (drag) { e.preventDefault(); setOver('__won'); } }} onDrop={(e) => { e.preventDefault(); dropClosed('won'); }}
+                  className={`flex w-[272px] shrink-0 flex-col transition ${over === '__won' ? 'bg-emerald-100' : 'bg-emerald-50/60'}`}>
                   <div className="rounded-t-xl border-b border-emerald-200 bg-white px-3 py-2"><p className="font-semibold text-emerald-700">Won</p><p className="text-xs text-charcoal-600/70">{formatCurrency(won.reduce((s, l) => s + dealValue(l), 0))} · {won.length} deals</p></div>
                   <div className="flex flex-col">{won.map((l) => card(l))}</div>
+                  {drag && <p className="m-2 rounded-lg border-2 border-dashed border-emerald-300 py-6 text-center text-xs text-emerald-700">Αφήστε εδώ → Won</p>}
+                  {!allClosed && wonAll.length > won.length && <button type="button" onClick={() => setShowClosed(true)} className="px-3 py-2 text-left text-xs text-charcoal-600/70 hover:text-forest">+{wonAll.length - won.length} παλαιότερα</button>}
                 </div>}
-                {preset !== 'won' && <div className="flex w-[272px] shrink-0 flex-col bg-rose-50/50">
+                {preset !== 'won' && <div onDragOver={(e) => { if (drag) { e.preventDefault(); setOver('__lost'); } }} onDrop={(e) => { e.preventDefault(); dropClosed('lost'); }}
+                  className={`flex w-[272px] shrink-0 flex-col transition ${over === '__lost' ? 'bg-rose-100' : 'bg-rose-50/50'}`}>
                   <div className="rounded-t-xl border-b border-rose-200 bg-white px-3 py-2"><p className="font-semibold text-signal-danger">Lost</p><p className="text-xs text-charcoal-600/70">{formatCurrency(lost.reduce((s, l) => s + dealValue(l), 0))} · {lost.length} deals</p></div>
                   <div className="flex flex-col">{lost.map((l) => card(l))}</div>
+                  {drag && <p className="m-2 rounded-lg border-2 border-dashed border-rose-300 py-6 text-center text-xs text-signal-danger">Αφήστε εδώ → Lost</p>}
+                  {!allClosed && lostAll.length > lost.length && <button type="button" onClick={() => setShowClosed(true)} className="px-3 py-2 text-left text-xs text-charcoal-600/70 hover:text-forest">+{lostAll.length - lost.length} παλαιότερα</button>}
                 </div>}
               </>
             )}
@@ -349,7 +368,7 @@ export function DealsBoard({ leads: initial, cfg, rawCfg, canEditStages = false,
                   <td>{formatCurrency(dealValue(l))}</td>
                   <td data-no-tr>{l.status === 'won' ? 'Won' : isClosed(l.status) ? 'Lost' : stageOf(pipe, l.status, l.stage)?.label ?? '—'}</td>
                   <td>{l.owner_name ?? '—'}</td>
-                  <td>{l.archived_at ? new Date(l.archived_at).toLocaleDateString('el-GR') : ''}</td>
+                  <td>{l.archived_at ? new Date(l.archived_at).toLocaleDateString(DATE_TAG[currentLocale().lang]) : ''}</td>
                   <td className="text-right"><button type="button" className="btn-ghost text-xs" onClick={() => archive([l.id], false)}><ArchiveRestore size={14} /> Επαναφορά</button></td>
                 </tr>
               ))}

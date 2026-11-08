@@ -14,11 +14,12 @@ import { DeleteLeadDialog } from '@/components/crm/DeleteLeadDialog';
 import { ACTIVITY_TYPES, activityLabel } from '@/lib/activity-types';
 import { LABEL_CLASS, daysSince, lateBy, stageIndex, type DealLabel, type LostReason, type PipelineDef } from '@/lib/pipeline-shared';
 import { formatCurrency } from '@/lib/format';
+import { DATE_TAG, currentLocale } from '@/lib/locale-shared';
 
 const ICON: Record<string, any> = { call: Phone, meeting: Users, task: CheckSquare, deadline: Flag, email: Mail, lunch: Utensils, viewing: Home };
 export interface Person { id: string; full_name: string | null }
-const fmtDT = (iso: string) => new Date(iso).toLocaleString('el-GR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
-const fmtD = (iso: string) => new Date(iso).toLocaleDateString('el-GR', { day: '2-digit', month: 'short', year: 'numeric' });
+const fmtDT = (iso: string) => new Date(iso).toLocaleString(DATE_TAG[currentLocale().lang], { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+const fmtD = (iso: string) => new Date(iso).toLocaleDateString(DATE_TAG[currentLocale().lang], { day: '2-digit', month: 'short', year: 'numeric' });
 
 /* ---------------------------------------------------------------- Header */
 
@@ -338,7 +339,7 @@ export function DealHistory({ items }: { items: HistoryItem[] }) {
               <div className={`rounded-xl border p-3 ${i.kind === 'note' ? 'border-amber-200 bg-amber-50/60' : 'border-stone-line bg-white'}`}>
                 <p className="text-sm text-charcoal" data-no-tr={i.kind === 'note' || i.kind === 'comm' ? true : undefined}>{i.title}</p>
                 {i.body && <p className="mt-1 whitespace-pre-wrap text-sm text-charcoal-600" data-no-tr>{i.body}</p>}
-                <p className="mt-1 text-xs text-charcoal-600/60">{fmtD(i.at)} {new Date(i.at).toLocaleTimeString('el-GR', { hour: '2-digit', minute: '2-digit' })}{i.who ? ` · ${i.who}` : ''}</p>
+                <p className="mt-1 text-xs text-charcoal-600/60">{fmtD(i.at)} {new Date(i.at).toLocaleTimeString(DATE_TAG[currentLocale().lang], { hour: '2-digit', minute: '2-digit' })}{i.who ? ` · ${i.who}` : ''}</p>
               </div>
             </li>
           );

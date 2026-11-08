@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Plus, Download, Search, X, Users, UserX, Clock, Check } from 'lucide-react';
+import { Plus, Download, Search, X, Users, UserX, Clock, Check, CalendarDays } from 'lucide-react';
 import { createContact, bulkUpdateContacts } from '@/app/actions/contacts-hub';
 import {
   ALL_ROLES, CONTACT_STATUSES, DEFAULT_FILTERS, ROLE_EL, ROLE_TONE, SOURCE_EL, STATUS_EL, STATUS_TONE,
@@ -95,6 +95,13 @@ export function ContactsHub({ rows, staff, initialRole = '', canCreate, canEdit 
         <Sel value={f.tag} onChange={(v) => set({ tag: v })} options={[['', 'Tag: όλα'], ...tags.map((t) => [t, t] as [string, string])]} />
         <Sel value={f.kyc} onChange={(v) => set({ kyc: v as ContactFilters['kyc'] })} options={[['', 'Ταυτότητα (KYC): όλοι'], ['verified', 'Επαληθευμένοι'], ['pending', 'Σε εκκρεμότητα'], ['none', 'Χωρίς έλεγχο']]} />
         <Sel value={f.sort} onChange={(v) => set({ sort: v as ContactFilters['sort'] })} options={[['recent', 'Νεότερες πρώτα'], ['name', 'Αλφαβητικά'], ['last_contact', 'Παλαιότερη επαφή πρώτα'], ['value', 'Μεγαλύτερη αξία']]} />
+        <div className="flex items-center gap-1.5 sm:col-span-2">
+          <CalendarDays size={15} className="shrink-0 text-charcoal-600/60" />
+          <select value={f.dateField} onChange={(e) => set({ dateField: e.target.value as ContactFilters['dateField'] })} className="input w-auto text-sm" aria-label="Ημερομηνία"><option value="created">Καταχώριση</option><option value="last_contact">Τελευταία επαφή</option></select>
+          <input type="date" value={f.dateFrom} max={f.dateTo || undefined} onChange={(e) => set({ dateFrom: e.target.value })} className="input min-w-0 flex-1 text-sm" aria-label="Από" title="Από" />
+          <span className="text-charcoal-600/60">–</span>
+          <input type="date" value={f.dateTo} min={f.dateFrom || undefined} onChange={(e) => set({ dateTo: e.target.value })} className="input min-w-0 flex-1 text-sm" aria-label="Έως" title="Έως" />
+        </div>
         {groups.length > 0 && <Sel value={f.group} onChange={(v) => set({ group: v })} options={[['', 'Ομάδα: όλες'], ...groups.map((g) => [g, g] as [string, string])]} />}
         {filtered && <button type="button" onClick={() => set({ ...DEFAULT_FILTERS, role: f.role })} className="btn-ghost text-xs"><X size={13} /> Καθαρισμός</button>}
       </div>
@@ -131,7 +138,7 @@ export function ContactsHub({ rows, staff, initialRole = '', canCreate, canEdit 
                     {r.tags.length > 0 && <span className="mt-0.5 block text-[11px] text-charcoal-600/60">{r.tags.slice(0, 4).join(' · ')}</span>}
                   </td>
                   <td><span className="flex flex-wrap gap-1">{r.roles.length ? r.roles.map((x) => <span key={x} className={ROLE_TONE[x]}>{ROLE_EL[x]}</span>) : <span className="text-xs text-charcoal-600/50">—</span>}</span></td>
-                  <td><span className={STATUS_TONE[r.status]}>{STATUS_EL[r.status]}</span>{r.openLeads > 0 && <span className="block text-[11px] text-charcoal-600/60">{r.openLeads} ανοιχτ{r.openLeads === 1 ? 'ό' : 'ά'} lead</span>}</td>
+                  <td><span className={STATUS_TONE[r.status]}>{STATUS_EL[r.status]}</span>{r.openLeads > 0 && <span className="block text-[11px] text-charcoal-600/60">{r.openLeads === 1 ? '1 ανοιχτό lead' : `${r.openLeads} ανοιχτά leads`}</span>}</td>
                   <td className="text-sm">{r.ownerName ?? <span className="text-charcoal-600/50">—</span>}</td>
                   <td className="text-sm text-charcoal-600">{SOURCE_EL[r.source ?? 'manual'] ?? r.source}</td>
                   <td className={`text-sm ${days !== null && days > 30 ? 'text-signal-danger' : 'text-charcoal-600'}`}>{r.lastContactAt ? `${formatDate(r.lastContactAt)}${days !== null && days > 30 ? ` · ${days} μέρες` : ''}` : <span className="text-charcoal-600/50">ποτέ</span>}</td>
