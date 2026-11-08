@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Trash2, ArrowUp, ArrowDown, Check, RotateCcw } from 'lucide-react';
+import { Plus, Trash2, Check, RotateCcw, GripVertical } from 'lucide-react';
+import { useDragSort, moveItem } from '@/components/ui/useDragSort';
 import { saveProjectPlan, saveUnitPlan } from '@/app/actions/pricing';
 import { PLAN_WHEN, DEFAULT_PLAN, planAmounts, planProblem, planTotal, whenText, type PlanStep, type PlanWhen } from '@/lib/pricing-shared';
 import { formatCurrency } from '@/lib/format';
@@ -25,7 +26,7 @@ export function PaymentPlanEditor({ initial, target, price, canEdit, projectPlan
   const amounts = planAmounts(steps, sample);
   const problem = planProblem(steps);
   const set = (i: number, p: Partial<PlanStep>) => { setSteps((s) => s.map((x, j) => (j === i ? { ...x, ...p } : x))); setMsg(null); };
-  const move = (i: number, d: -1 | 1) => setSteps((s) => { const j = i + d; if (j < 0 || j >= s.length) return s; const a = [...s]; [a[i], a[j]] = [a[j], a[i]]; return a; });
+  const dnd = useDragSort((from, to) => setSteps((s) => moveItem(s, from, to)), canEdit, 'plan');
   const fillRest = () => { const rest = Math.round((100 - planTotal(steps)) * 100) / 100; if (rest > 0) setSteps((s) => [...s, { label: 'Υπόλοιπο', pct: rest, when: 'handover' }]); };
 
   const save = () => start(async () => {
@@ -66,8 +67,9 @@ export function PaymentPlanEditor({ initial, target, price, canEdit, projectPlan
     <div className="space-y-3">
       <div className="space-y-2">
         {steps.map((s, i) => (
-          <div key={i} className="space-y-1.5 rounded-md border border-stone-line p-2">
+          <div key={i} {...dnd.item(i)} className={`space-y-1.5 rounded-md border border-stone-line p-2 ${dnd.cls(i)}`}>
             <div className="flex items-center gap-2">
+              {canEdit && <span className="cursor-grab text-charcoal-600/40 active:cursor-grabbing" title="Σύρετε για αλλαγή σειράς"><GripVertical size={14} /></span>}
               <span className="w-5 text-xs text-charcoal-600/60 figure">{i + 1}</span>
               <input className="input min-w-0 flex-1 py-1.5 text-sm" value={s.label} disabled={!canEdit} onChange={(e) => set(i, { label: e.target.value })} placeholder="Ονομασία δόσης" />
               <div className="relative w-20 shrink-0">
@@ -77,8 +79,6 @@ export function PaymentPlanEditor({ initial, target, price, canEdit, projectPlan
               <span className="figure w-24 shrink-0 text-right text-sm">{formatCurrency(amounts[i])}</span>
               {canEdit && (
                 <span className="flex shrink-0 gap-1 text-charcoal-600/60">
-                  <button type="button" title="Πάνω" onClick={() => move(i, -1)} className="hover:text-forest"><ArrowUp size={13} /></button>
-                  <button type="button" title="Κάτω" onClick={() => move(i, 1)} className="hover:text-forest"><ArrowDown size={13} /></button>
                   <button type="button" title="Διαγραφή" onClick={() => setSteps((x) => x.filter((_, j) => j !== i))} className="hover:text-signal-danger"><Trash2 size={13} /></button>
                 </span>
               )}

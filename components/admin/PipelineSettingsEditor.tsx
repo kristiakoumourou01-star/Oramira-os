@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { Check, Plus, Trash2, Star, ChevronDown, ChevronRight, ChevronUp, FileText, X, GripVertical } from 'lucide-react';
+import { Check, Plus, Trash2, Star, ChevronDown, ChevronRight, FileText, X, GripVertical } from 'lucide-react';
 import { saveOrgSlice } from '@/app/actions/org-settings';
 import { UndoButton } from '@/components/admin/UndoButton';
 import { FLOW, STATUS_EL, slugKey, type FlowStatus, type LostReason, type PipelineDef, type PipelineSettings, type StageDef } from '@/lib/pipeline-shared';
@@ -22,11 +22,6 @@ export function PipelineSettingsEditor({ initial, canEdit, vatRates }: { initial
   const setPipe = (key: string, p: Partial<PipelineDef>) => patch({ pipelines: v.pipelines.map((q) => (q.key === key ? { ...q, ...p } : q)) });
   const stagesOf = (key: string) => v.pipelines.find((q) => q.key === key)!.stages;
   const setStage = (key: string, i: number, p: Partial<StageDef>) => setPipe(key, { stages: stagesOf(key).map((s, j) => (j === i ? { ...s, ...p } : s)) });
-  const moveStage = (key: string, i: number, d: -1 | 1) => {
-    const st = [...stagesOf(key)]; const j = i + d;
-    if (j < 0 || j >= st.length || st[i].status === 'won' || st[j].status === 'won') return;
-    [st[i], st[j]] = [st[j], st[i]]; setPipe(key, { stages: st });
-  };
   /** Σύρσιμο: μετακίνηση σταδίου από → σε (το «κλείσιμο» μένει πάντα τελευταίο). */
   const dropStage = (key: string, from: number, to: number) => {
     const st = [...stagesOf(key)];
@@ -75,7 +70,7 @@ export function PipelineSettingsEditor({ initial, canEdit, vatRates }: { initial
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div>
             <h4>Pipelines</h4>
-            <p className="text-xs text-charcoal-600/60">Φτιάξτε όσα στάδια θέλετε, με δικά σας ονόματα και σειρά (σύρετε από τις τελίτσες ⋮⋮ ή με τα βελάκια). Για Lost / Δεν ενδιαφέρεται διαλέξτε στο «Σημαίνει» → «Κλείσιμο χωρίς πώληση». Το «Σημαίνει» λέει στο σύστημα τι είναι το στάδιο (για αυτοματισμούς, αναφορές και προμήθειες). Η πιθανότητα μετρά στις προβλέψεις· αν ένα lead μείνει περισσότερες μέρες από το όριο, φαίνεται «σε καθυστέρηση» και ο υπεύθυνος ειδοποιείται.</p>
+            <p className="text-xs text-charcoal-600/60">Φτιάξτε όσα στάδια θέλετε, με δικά σας ονόματα και σειρά (σύρετε από τις τελίτσες ⋮⋮). Για Lost / Δεν ενδιαφέρεται διαλέξτε στο «Σημαίνει» → «Κλείσιμο χωρίς πώληση». Το «Σημαίνει» λέει στο σύστημα τι είναι το στάδιο (για αυτοματισμούς, αναφορές και προμήθειες). Η πιθανότητα μετρά στις προβλέψεις· αν ένα lead μείνει περισσότερες μέρες από το όριο, φαίνεται «σε καθυστέρηση» και ο υπεύθυνος ειδοποιείται.</p>
           </div>
           {canEdit && v.pipelines.length < 12 && <button type="button" onClick={addPipe} className="btn-secondary px-3 py-1.5 text-xs"><Plus size={13} /> Pipeline</button>}
         </div>
@@ -93,7 +88,7 @@ export function PipelineSettingsEditor({ initial, canEdit, vatRates }: { initial
               {isOpen && (
                 <div className="border-t border-stone-line p-3">
                   <div className="hidden items-center gap-2 text-[11px] text-charcoal-600/70 2xl:flex">
-                    <span className="w-[60px]" /><span className="flex-[2_1_10rem]">Όνομα σταδίου</span><span className="flex-[1_1_9rem]">Σημαίνει</span><span className="w-[88px]">Πιθανότητα</span><span className="w-[88px]">Όριο</span><span className="w-5" />
+                    <span className="w-6" /><span className="flex-[2_1_10rem]">Όνομα σταδίου</span><span className="flex-[1_1_9rem]">Σημαίνει</span><span className="w-[88px]">Πιθανότητα</span><span className="w-[88px]">Όριο</span><span className="w-5" />
                   </div>
                   {p.stages.map((st, i) => {
                     const won = st.status === 'won';
@@ -105,10 +100,8 @@ export function PipelineSettingsEditor({ initial, canEdit, vatRates }: { initial
                         onDrop={(e) => { e.preventDefault(); if (drag?.list === p.key) dropStage(p.key, drag.i, i); setDrag(null); setOver(null); }}
                         onDragEnd={() => { setDrag(null); setOver(null); }}
                         className={`mt-1 flex flex-wrap items-center gap-2 border-b border-stone-line/60 pb-1 last:border-0 2xl:border-0 2xl:pb-0 ${over?.list === p.key && over.i === i && drag?.i !== i ? 'rounded-md ring-2 ring-forest/40' : ''} ${drag?.list === p.key && drag.i === i ? 'opacity-50' : ''}`}>
-                        <span className="flex w-[60px] items-center text-charcoal-600/50">
+                        <span className="flex w-6 items-center text-charcoal-600/50">
                           <span className={won || !canEdit ? 'invisible' : 'cursor-grab active:cursor-grabbing'} title="Σύρετε για αλλαγή σειράς"><GripVertical size={15} /></span>
-                          <button type="button" disabled={dis || i === 0 || won} onClick={() => moveStage(p.key, i, -1)} aria-label="Πάνω" className="disabled:opacity-20 hover:text-forest"><ChevronUp size={15} /></button>
-                          <button type="button" disabled={dis || won || i >= p.stages.length - 2} onClick={() => moveStage(p.key, i, 1)} aria-label="Κάτω" className="disabled:opacity-20 hover:text-forest"><ChevronDown size={15} /></button>
                         </span>
                         <input className="input min-w-0 flex-[2_1_10rem] py-1 text-sm" placeholder="Όνομα σταδίου" aria-label="Όνομα σταδίου" disabled={dis} value={st.label} maxLength={40} onChange={(e) => setStage(p.key, i, { label: e.target.value })} />
                         <select className="input min-w-0 flex-[1_1_9rem] py-1 text-sm" aria-label="Σημαίνει" title="Σημαίνει" disabled={dis || won || lastNew} value={st.status} onChange={(e) => { const x = e.target.value; if (x.startsWith('out:')) toOutcome(p.key, i, x.slice(4) as LostReason['status']); else setStage(p.key, i, { status: x as FlowStatus }); }}>
@@ -135,10 +128,9 @@ export function PipelineSettingsEditor({ initial, canEdit, vatRates }: { initial
       <div className="panel space-y-2 p-5">
         <h4>Κλείσιμο χωρίς πώληση: Lost, Not interested…</h4>
         <p className="text-xs text-charcoal-600/60">Τα αποτελέσματα που μπορεί να έχει ένα lead όταν δεν προχωρά. Με «Κουμπί» εμφανίζεται ως κουμπί ενός κλικ δίπλα στο «Κλείσιμο (Won)»· τα υπόλοιπα είναι στο «Άλλος λόγος…». Στο Lead Management κάθε αποτέλεσμα έχει δική του ενότητα, και μετρά στο «Γιατί χάνονται».</p>
-        <div className="hidden items-center gap-2 text-[11px] text-charcoal-600/70 sm:flex"><span className="w-[60px]" /><span className="flex-1">Όνομα</span><span className="w-[170px]">Σημαίνει</span><span className="w-[72px]">Κουμπί</span><span className="w-5" /></div>
+        <div className="hidden items-center gap-2 text-[11px] text-charcoal-600/70 sm:flex"><span className="w-6" /><span className="flex-1">Όνομα</span><span className="w-[170px]">Σημαίνει</span><span className="w-[72px]">Κουμπί</span><span className="w-5" /></div>
         {v.lostReasons.map((r, i) => {
           const setR = (x: Partial<LostReason>) => patch({ lostReasons: v.lostReasons.map((y, j) => (j === i ? { ...y, ...x } : y)) });
-          const move = (d: number) => { const a = [...v.lostReasons]; const t = a[i + d]; if (!t) return; a[i + d] = a[i]; a[i] = t; patch({ lostReasons: a }); };
           return (
             <div key={r.key} draggable={canEdit}
               onDragStart={(e) => { if ((e.target as HTMLElement).closest('input,select')) { e.preventDefault(); return; } e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', r.key); setDrag({ list: '#out', i }); }}
@@ -146,10 +138,8 @@ export function PipelineSettingsEditor({ initial, canEdit, vatRates }: { initial
               onDrop={(e) => { e.preventDefault(); if (drag?.list === '#out' && drag.i !== i) { const a = [...v.lostReasons]; const [it] = a.splice(drag.i, 1); a.splice(i, 0, it); patch({ lostReasons: a }); } setDrag(null); setOver(null); }}
               onDragEnd={() => { setDrag(null); setOver(null); }}
               className={`flex flex-wrap items-center gap-2 border-b border-stone-line/60 pb-1 last:border-0 sm:flex-nowrap sm:border-0 sm:pb-0 ${over?.list === '#out' && over.i === i && drag?.i !== i ? 'rounded-md ring-2 ring-forest/40' : ''} ${drag?.list === '#out' && drag.i === i ? 'opacity-50' : ''}`}>
-              <span className="flex w-[60px] items-center text-charcoal-600/50">
+              <span className="flex w-6 items-center text-charcoal-600/50">
                 <span className={canEdit ? 'cursor-grab active:cursor-grabbing' : 'invisible'} title="Σύρετε για αλλαγή σειράς"><GripVertical size={15} /></span>
-                <button type="button" disabled={dis || i === 0} onClick={() => move(-1)} aria-label="Πάνω" className="disabled:opacity-20 hover:text-forest"><ChevronUp size={15} /></button>
-                <button type="button" disabled={dis || i === v.lostReasons.length - 1} onClick={() => move(1)} aria-label="Κάτω" className="disabled:opacity-20 hover:text-forest"><ChevronDown size={15} /></button>
               </span>
               <input className="input min-w-0 flex-[1_1_10rem] py-1 text-sm" aria-label="Όνομα" disabled={dis} value={r.label} maxLength={80} onChange={(e) => setR({ label: e.target.value })} />
               <select className="input w-[170px] py-1 text-sm" aria-label="Σημαίνει" disabled={dis} value={r.status} onChange={(e) => setR({ status: e.target.value as LostReason['status'] })}>

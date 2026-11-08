@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { Check, Plus, Trash2, ArrowUp, ArrowDown } from 'lucide-react';
+import { Check, Plus, Trash2, GripVertical } from 'lucide-react';
+import { useDragSort, moveItem } from '@/components/ui/useDragSort';
 import { saveOrgSlice } from '@/app/actions/org-settings';
 import { UndoButton } from '@/components/admin/UndoButton';
 import { DEFAULT_PORTAL, type PortalSettings } from '@/lib/org-settings-shared';
@@ -18,11 +19,7 @@ export function PortalSettingsSection({ initial, canEdit }: { initial: PortalSet
   const [pending, start] = useTransition();
   const patch = (p: Partial<PortalSettings>) => { setV((x) => ({ ...x, ...p })); setMsg(null); };
   const setFaq = (i: number, p: Partial<PortalSettings['faq'][number]>) => patch({ faq: v.faq.map((f, idx) => (idx === i ? { ...f, ...p } : f)) });
-  const move = (i: number, d: -1 | 1) => {
-    const j = i + d;
-    if (j < 0 || j >= v.faq.length) return;
-    const f = [...v.faq]; [f[i], f[j]] = [f[j], f[i]]; patch({ faq: f });
-  };
+  const dnd = useDragSort((from, to) => patch({ faq: moveItem(v.faq, from, to) }), canEdit, 'faq');
   const save = () => start(async () => {
     const r = await saveOrgSlice('portal', v);
     if (r.ok) { setMsg({ ok: true, text: 'Αποθηκεύτηκε.' }); router.refresh(); } else setMsg({ ok: false, text: r.error });
@@ -44,16 +41,15 @@ export function PortalSettingsSection({ initial, canEdit }: { initial: PortalSet
       <div className="panel space-y-3 p-5">
         <div>
           <h4>Συχνές ερωτήσεις (FAQ)</h4>
-          <p className="text-xs text-charcoal-600/60">Ίδιες για όλα τα portals. Η σειρά εδώ είναι η σειρά που βλέπουν.</p>
+          <p className="text-xs text-charcoal-600/60">Ίδιες για όλα τα portals. Η σειρά εδώ είναι η σειρά που βλέπουν — σύρετε για να την αλλάξετε.</p>
         </div>
         {v.faq.map((f, i) => (
-          <div key={i} className="space-y-2 rounded-md border border-stone-line p-3">
+          <div key={i} {...dnd.item(i)} className={`space-y-2 rounded-md border border-stone-line p-3 ${dnd.cls(i)}`}>
             <div className="flex items-center gap-2">
+              {canEdit && <span className="cursor-grab text-charcoal-600/40 active:cursor-grabbing" title="Σύρετε για αλλαγή σειράς"><GripVertical size={15} /></span>}
               <input className="input flex-1" disabled={!canEdit} value={f.q} placeholder="Ερώτηση" onChange={(e) => setFaq(i, { q: e.target.value })} />
               {canEdit && (
                 <>
-                  <button type="button" title="Πάνω" onClick={() => move(i, -1)} className="text-charcoal-600/50 hover:text-forest"><ArrowUp size={14} /></button>
-                  <button type="button" title="Κάτω" onClick={() => move(i, 1)} className="text-charcoal-600/50 hover:text-forest"><ArrowDown size={14} /></button>
                   <button type="button" title="Αφαίρεση" onClick={() => patch({ faq: v.faq.filter((_, idx) => idx !== i) })} className="text-charcoal-600/50 hover:text-signal-danger"><Trash2 size={14} /></button>
                 </>
               )}

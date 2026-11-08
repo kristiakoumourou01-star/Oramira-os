@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowUp, ArrowDown, Eye, EyeOff, ChevronRight, RotateCcw, Lock, GripVertical } from 'lucide-react';
+import { Eye, EyeOff, ChevronRight, RotateCcw, Lock, GripVertical } from 'lucide-react';
 import { saveOrgSlice } from '@/app/actions/org-settings';
 import { DEFAULT_NAV, NAV_ICON_NAMES, allNavTargets } from '@/lib/nav';
 import {
@@ -11,6 +11,7 @@ import {
 } from '@/lib/org-settings-shared';
 import { INTERNAL_ROLES, ROLE_LABEL } from '@/lib/permissions';
 import { NAV_ICONS, navIcon } from '@/components/layout/nav-icons';
+import { moveItem } from '@/components/ui/useDragSort';
 
 const NAV_CARDS: { value: MenuPosition; label: string; hint: string }[] = [
   { value: 'left', label: 'Αριστερό μενού', hint: 'Προεπιλογή' },
@@ -42,13 +43,6 @@ function LayoutCard({ title, hint, active, disabled, art, onClick }: { title: st
   );
 }
 
-function move<T>(list: T[], i: number, dir: -1 | 1): T[] {
-  const j = i + dir;
-  if (j < 0 || j >= list.length) return list;
-  const next = [...list];
-  [next[i], next[j]] = [next[j], next[i]];
-  return next;
-}
 
 /**
  * Settings → Μενού & διάταξη. The admin arranges the menu for everyone:
@@ -72,8 +66,10 @@ export function MenuEditor({ layout, menu, canEdit }: { layout: LayoutSettings; 
   };
   const updateChild = (href: string, childHref: string, patch: { label?: string; hidden?: boolean }) =>
     setItems((prev) => prev.map((it) => (it.href === href ? { ...it, children: it.children.map((c) => (c.href === childHref ? { ...c, ...patch } : c)) } : it)));
-  const moveChild = (href: string, i: number, dir: -1 | 1) =>
-    setItems((prev) => prev.map((it) => (it.href === href ? { ...it, children: move(it.children, i, dir) } : it)));
+  const dropChild = (href: string, from: number, to: number) =>
+    setItems((prev) => prev.map((it) => (it.href === href ? { ...it, children: moveItem(it.children, from, to) } : it)));
+  const [cDrag, setCDrag] = useState<{ href: string; i: number } | null>(null);
+  const [cOver, setCOver] = useState<number | null>(null);
   const toggleRole = (it: ResolvedNavItem, role: string) =>
     update(it.href, { hiddenRoles: it.hiddenRoles.includes(role) ? it.hiddenRoles.filter((r) => r !== role) : [...it.hiddenRoles, role] });
 
@@ -222,9 +218,13 @@ export function MenuEditor({ layout, menu, canEdit }: { layout: LayoutSettings; 
                     {it.children.length > 0 && (
                       <ul className="space-y-1.5">
                         {it.children.map((c, ci) => (
-                          <li key={c.href} className={`flex flex-wrap items-center gap-2 ${c.hidden ? 'opacity-55' : ''}`}>
-                            <button type="button" className="btn-ghost px-1.5" disabled={disabled || ci === 0} onClick={() => moveChild(it.href, ci, -1)} aria-label="Πάνω"><ArrowUp size={13} /></button>
-                            <button type="button" className="btn-ghost px-1.5" disabled={disabled || ci === it.children.length - 1} onClick={() => moveChild(it.href, ci, 1)} aria-label="Κάτω"><ArrowDown size={13} /></button>
+                          <li key={c.href} draggable={!disabled}
+                            onDragStart={(e) => { e.stopPropagation(); if ((e.target as HTMLElement).closest('button,input,select')) { e.preventDefault(); return; } e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', c.href); setCDrag({ href: it.href, i: ci }); }}
+                            onDragOver={(e) => { if (cDrag?.href === it.href) { e.preventDefault(); e.stopPropagation(); setCOver(ci); } }}
+                            onDrop={(e) => { if (cDrag?.href !== it.href) return; e.preventDefault(); e.stopPropagation(); if (cDrag.i !== ci) { dropChild(it.href, cDrag.i, ci); setMsg(null); } setCDrag(null); setCOver(null); }}
+                            onDragEnd={(e) => { e.stopPropagation(); setCDrag(null); setCOver(null); }}
+                            className={`flex flex-wrap items-center gap-2 ${c.hidden ? 'opacity-55' : ''} ${cDrag?.href === it.href && cOver === ci && cDrag.i !== ci ? 'rounded-md ring-2 ring-forest/30' : ''} ${cDrag?.href === it.href && cDrag.i === ci ? 'opacity-50' : ''}`}>
+                            <span className={`px-1 text-charcoal-600/40 ${disabled ? '' : 'cursor-grab active:cursor-grabbing'}`} title="Σύρετε για αλλαγή σειράς"><GripVertical size={14} /></span>
                             <input className="input min-w-[160px] flex-1 py-1 text-sm" disabled={disabled} value={c.label} placeholder={c.defaultLabel} onChange={(e) => updateChild(it.href, c.href, { label: e.target.value })} aria-label="Όνομα υποενότητας" />
                             <button type="button" className="btn-ghost text-xs" disabled={disabled} onClick={() => updateChild(it.href, c.href, { hidden: !c.hidden })}>
                               {c.hidden ? <><EyeOff size={13} /> Κρυφό</> : <><Eye size={13} /> Ορατό</>}

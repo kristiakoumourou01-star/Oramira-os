@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Trash2, ArrowUp, ArrowDown, Check } from 'lucide-react';
+import { Plus, Trash2, Check, GripVertical } from 'lucide-react';
+import { useDragSort, moveItem } from '@/components/ui/useDragSort';
 import { saveOrgSlice } from '@/app/actions/org-settings';
 import type { DepartmentSettings } from '@/lib/org-settings-shared';
 import { Switch } from '@/components/admin/settings-ui';
@@ -28,7 +29,7 @@ export function DepartmentsSettings({ initial, canEdit }: { initial: DepartmentS
     setMsg(r.ok ? { ok: true, text: 'Αποθηκεύτηκε.' } : { ok: false, text: r.error });
     if (r.ok) router.refresh();
   });
-  const move = (i: number, d: -1 | 1) => { const a = [...v.items]; const j = i + d; if (!a[j]) return; [a[i], a[j]] = [a[j], a[i]]; patch({ items: a }); };
+  const dnd = useDragSort((from, to) => patch({ items: moveItem(v.items, from, to) }), !dis, 'dept');
 
   return (
     <div className="space-y-6">
@@ -48,17 +49,14 @@ export function DepartmentsSettings({ initial, canEdit }: { initial: DepartmentS
             </div>
           )}
           <div className="overflow-hidden rounded-xl border border-stone-line">
-            <div className="grid grid-cols-[1fr_90px_110px_80px] gap-2 bg-stone/40 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-charcoal-600/80">
-              <span>Όνομα</span><span>Σειρά</span><span>Κατάσταση</span><span className="text-right">Ενέργειες</span>
+            <div className="grid grid-cols-[24px_1fr_110px_80px] gap-2 bg-stone/40 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-charcoal-600/80">
+              <span /><span>Όνομα</span><span>Κατάσταση</span><span className="text-right">Ενέργειες</span>
             </div>
             {v.items.length === 0 && <p className="px-4 py-4 text-center text-sm text-charcoal-600/70">Δεν υπάρχουν τμήματα ακόμα. Φτιάξτε το πρώτο για να οργανώσετε το ημερολόγιο.</p>}
             {v.items.map((d, i) => (
-              <div key={d.key} className="grid grid-cols-[1fr_90px_110px_80px] items-center gap-2 border-t border-stone-line px-4 py-2">
+              <div key={d.key} {...dnd.item(i)} className={`grid grid-cols-[24px_1fr_110px_80px] items-center gap-2 border-t border-stone-line px-4 py-2 ${dnd.cls(i)}`}>
+                <span className={`text-charcoal-600/40 ${dis ? '' : 'cursor-grab active:cursor-grabbing'}`} title="Σύρετε για αλλαγή σειράς"><GripVertical size={15} /></span>
                 <input className="input py-1 text-sm" disabled={dis} value={d.name} onChange={(e) => patch({ items: v.items.map((x) => (x.key === d.key ? { ...x, name: e.target.value } : x)) })} />
-                <span className="flex text-charcoal-600/60">
-                  <button type="button" disabled={dis || i === 0} onClick={() => move(i, -1)} className="btn-ghost px-1 disabled:opacity-20" aria-label="Πάνω"><ArrowUp size={14} /></button>
-                  <button type="button" disabled={dis || i === v.items.length - 1} onClick={() => move(i, 1)} className="btn-ghost px-1 disabled:opacity-20" aria-label="Κάτω"><ArrowDown size={14} /></button>
-                </span>
                 <span className="flex items-center gap-2 text-xs text-charcoal-600"><Switch checked={d.active} disabled={dis} label="Ενεργό" onChange={(x) => patch({ items: v.items.map((y) => (y.key === d.key ? { ...y, active: x } : y)) })} />{d.active ? 'Ενεργό' : 'Ανενεργό'}</span>
                 <span className="text-right">{canEdit && <button type="button" onClick={() => patch({ items: v.items.filter((x) => x.key !== d.key), rooms: v.rooms.filter((r) => r.dept !== d.key) })} className="text-charcoal-600/50 hover:text-signal-danger" aria-label="Διαγραφή"><Trash2 size={15} /></button>}</span>
               </div>
