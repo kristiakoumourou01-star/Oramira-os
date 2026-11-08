@@ -23,7 +23,7 @@ export const DEFAULT_NAV: NavDef[] = [
         children: [
           { href: '/dashboard', label: 'My Workspace' },
           { href: '/calendar', label: 'Ημερολόγιο' },
-          { href: '/command-center', label: 'Command Center', module: 'leads' },
+          { href: '/command-center', label: 'Command Center', module: 'operations' },
         ],
       },
       {
@@ -100,7 +100,6 @@ export const DEFAULT_NAV: NavDef[] = [
           { href: '/hr?tab=benefits', label: 'Παροχές' },
         ],
       },
-      { href: '/operations', label: 'Operations', icon: 'ClipboardList', module: 'operations' },
       {
         href: '/reports', label: 'Αναφορές', icon: 'FileBarChart', module: 'financials',
         children: [
