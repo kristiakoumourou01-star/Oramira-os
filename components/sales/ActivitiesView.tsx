@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Phone, Users, CheckSquare, Flag, Mail, Utensils, Home, List, CalendarDays, Check, ChevronLeft, ChevronRight, RotateCcw } from 'lucide-react';
 import { ACTIVITY_TYPES, activityLabel } from '@/lib/activity-types';
 import { completeAndNext, updateFollowUp } from '@/app/actions/follow-ups';
+import { useBoardScroll } from '@/components/ui/useBoardScroll';
 
 const ICON: Record<string, any> = { call: Phone, meeting: Users, task: CheckSquare, deadline: Flag, email: Mail, lunch: Utensils, viewing: Home };
 export interface ActivityRow {
@@ -31,6 +32,7 @@ export function ActivitiesView({ rows: initial, agents, currentUserId, initialTy
   const [types, setTypes] = useState<string[]>(initialTypes);
   const [owner, setOwner] = useState<string>(currentUserId);
   const [week, setWeek] = useState(() => weekStart(new Date()));
+  const scroller = useBoardScroll();
   const now = new Date();
   const t0 = dayStart(now), t1 = addDays(t0, 1), t2 = addDays(t0, 2), w0 = weekStart(now), w1 = addDays(w0, 7), w2 = addDays(w0, 14);
 
@@ -132,19 +134,22 @@ export function ActivitiesView({ rows: initial, agents, currentUserId, initialTy
             <span className="font-medium text-charcoal">{week.toLocaleDateString('el-GR', { day: '2-digit', month: 'short' })} – {addDays(week, 6).toLocaleDateString('el-GR', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
             <span className="text-xs text-charcoal-600/60">Σύρετε μια activity σε άλλη μέρα για να τη μεταφέρετε.</span>
           </div>
-          <div className="-mx-1 overflow-x-auto pb-2">
-            <div className="grid min-w-[840px] grid-cols-7 gap-2 px-1">
+          <div {...scroller} className="-mx-1 overflow-x-auto pb-2">
+            <div className="grid min-h-[calc(100vh-330px)] min-w-[980px] grid-cols-7 divide-x divide-stone-line overflow-hidden rounded-xl border border-stone-line bg-white/60">
               {Array.from({ length: 7 }, (_, i) => addDays(week, i)).map((d, i) => {
                 const items = base.filter((r) => { const x = new Date(r.dueAt); return x >= d && x < addDays(d, 1); }).sort((a, b) => a.dueAt.localeCompare(b.dueAt));
                 const today = d.getTime() === t0.getTime();
                 return (
                   <div key={i} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { const id = e.dataTransfer.getData('text/plain'); const r = rows.find((x) => x.id === id); if (r && !r.done && !r.readOnly) move(r, d); }}
-                    className={`min-h-[260px] rounded-xl p-2 ${today ? 'bg-forest/[0.06] ring-1 ring-forest/30' : 'bg-stone/50'}`}>
-                    <p className={`mb-2 text-xs font-semibold ${today ? 'text-forest' : 'text-charcoal-600'}`}>{WD[i]} {d.getDate()}</p>
-                    <div className="space-y-1.5">
+                    className={`stage-col flex min-h-[260px] flex-col ${today ? 'bg-forest/[0.05]' : ''}`}>
+                    <div className={`stage-head border-b border-stone-line px-3 py-2 ${today ? 'bg-forest/10' : 'bg-white'}`}>
+                      <p className={`font-semibold ${today ? 'text-forest' : 'text-charcoal'}`}>{WD[i]} {d.getDate()}</p>
+                      <p className="text-xs text-charcoal-600/70">{items.length} {items.length === 1 ? 'activity' : 'activities'}</p>
+                    </div>
+                    <div className="flex flex-col">
                       {items.map((r) => { const I = ICON[r.type] ?? CheckSquare; const late = !r.done && new Date(r.dueAt) < now; return (
                         <div key={r.id} draggable={!r.done && !r.readOnly} onDragStart={(e) => e.dataTransfer.setData('text/plain', r.id)}
-                          className={`rounded-lg border bg-white p-1.5 text-xs shadow-sm ${r.done ? 'border-stone-line opacity-50' : late ? 'border-rose-300' : 'border-stone-line'} ${r.done ? '' : 'cursor-grab'}`}>
+                          className={`border-b border-stone-line px-3 py-2 text-xs transition last:border-b-0 hover:bg-forest/[0.04] ${r.done ? 'opacity-50' : late ? 'border-l-2 border-l-rose-400' : ''} ${r.done ? '' : 'cursor-grab active:cursor-grabbing'}`}>
                           <p className="flex items-center gap-1 font-medium text-charcoal"><I size={11} /> {time(r.dueAt)}</p>
                           <p className="truncate text-charcoal" data-no-tr>{r.note || activityLabel(r.type)}</p>
                           {r.leadId && <Link href={`/crm/leads/${r.leadId}`} className="block truncate text-forest hover:underline" data-no-tr>{r.dealTitle ?? r.contactName}</Link>}
