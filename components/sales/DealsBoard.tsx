@@ -176,7 +176,7 @@ export function DealsBoard({ leads: initial, cfg, rawCfg, canEditStages = false,
     const Ic = ACT_ICON[l.next_activity_type ?? ''] ?? ChevronRight;
     return (
       <div key={l.id} draggable={!pending} onDragStart={(e) => onCardDragStart(e, l.id)} onDragEnd={() => { setDrag(null); setOver(null); }} onClick={() => setOpenId(l.id)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') setOpenId(l.id); }}
-        className={`box-card group relative rounded-lg border bg-white p-2.5 text-sm shadow-sm transition hover:shadow-md ${rot ? 'border-rose-300 bg-rose-50/60' : 'border-stone-line'} ${drag === l.id ? 'opacity-40' : ''} cursor-grab active:cursor-grabbing`}>
+        className={`group relative border-b border-stone-line px-3 py-2.5 text-sm transition last:border-b-0 hover:bg-forest/[0.04] ${rot ? 'border-l-2 border-l-rose-400' : ''} ${drag === l.id ? 'opacity-40' : ''} cursor-grab active:cursor-grabbing`}>
         <p className="block pr-6 font-semibold leading-snug text-charcoal group-hover:text-forest" data-no-tr>{dealTitle(l)}</p>
         {l.title && l.full_name && <p className="truncate text-xs text-charcoal-600/70" data-no-tr>{l.full_name}</p>}
         {(l.labels ?? []).length > 0 && (
@@ -293,7 +293,7 @@ export function DealsBoard({ leads: initial, cfg, rawCfg, canEditStages = false,
                     <p className="truncate font-semibold text-charcoal" data-no-tr>{st.label}</p>
                     <p className="text-xs text-charcoal-600/70">{formatCurrency(sum)} · {items.length} deals · {st.probability}%</p>
                   </div>
-                  <div className="flex min-h-[120px] flex-1 flex-col gap-2 p-2">
+                  <div className="flex min-h-[120px] flex-1 flex-col">
                     {items.map((l) => card(l))}
                   </div>
                 </div>
@@ -303,11 +303,11 @@ export function DealsBoard({ leads: initial, cfg, rawCfg, canEditStages = false,
               <>
                 {preset !== 'lost' && <div className="flex w-[272px] shrink-0 flex-col bg-emerald-50/60">
                   <div className="rounded-t-xl border-b border-emerald-200 bg-white px-3 py-2"><p className="font-semibold text-emerald-700">Won</p><p className="text-xs text-charcoal-600/70">{formatCurrency(won.reduce((s, l) => s + dealValue(l), 0))} · {won.length} deals</p></div>
-                  <div className="flex flex-col gap-2 p-2">{won.map((l) => card(l))}</div>
+                  <div className="flex flex-col">{won.map((l) => card(l))}</div>
                 </div>}
                 {preset !== 'won' && <div className="flex w-[272px] shrink-0 flex-col bg-rose-50/50">
                   <div className="rounded-t-xl border-b border-rose-200 bg-white px-3 py-2"><p className="font-semibold text-signal-danger">Lost</p><p className="text-xs text-charcoal-600/70">{formatCurrency(lost.reduce((s, l) => s + dealValue(l), 0))} · {lost.length} deals</p></div>
-                  <div className="flex flex-col gap-2 p-2">{lost.map((l) => card(l))}</div>
+                  <div className="flex flex-col">{lost.map((l) => card(l))}</div>
                 </div>}
               </>
             )}
