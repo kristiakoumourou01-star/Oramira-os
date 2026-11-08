@@ -7,6 +7,7 @@ import { isCalendarConnected } from '@/lib/calendar-sync';
 import { listSeries } from '@/lib/invoices';
 import { recentErasures, gdprMissing } from '@/lib/gdpr';
 import { SettingsScreen } from '@/components/admin/SettingsScreen';
+import { requestLocale } from '@/lib/locale-server';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { getMfaStatus } from '@/lib/mfa';
 import type { StartStep } from '@/components/admin/GettingStarted';
@@ -65,11 +66,12 @@ export default async function SettingsPage({ searchParams }: { searchParams: { s
         const main = settings.business.offices.find((o) => o.main) ?? settings.business.offices[0];
         return {
           name: branding.companyName, logo: settings.appearance.logoOnLight ?? branding.logoUrl,
-          address: main?.address ?? '', phone: main?.phone ?? '', vatNo: settings.business.vatNo,
+          address: main?.address || [settings.business.address1, settings.business.city].filter(Boolean).join(', '), phone: main?.phone || settings.business.landline || settings.business.mobile, vatNo: settings.business.vatNo,
           regNo: settings.business.registrationNo, email: settings.business.invoiceEmail, footer: settings.business.footer,
         };
       })()}
       settings={settings}
+      myLocale={requestLocale()}
       agencyName={branding.companyName}
       plan="Professional"
       canEdit={profile.role === 'admin'}

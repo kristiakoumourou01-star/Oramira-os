@@ -12,11 +12,35 @@ import {
 import { INTERNAL_ROLES, ROLE_LABEL } from '@/lib/permissions';
 import { NAV_ICONS, navIcon } from '@/components/layout/nav-icons';
 
-const POSITIONS: { value: MenuPosition; label: string; hint: string }[] = [
-  { value: 'left', label: 'Αριστερά', hint: 'Κλασικό sidebar' },
-  { value: 'top', label: 'Πάνω', hint: 'Οριζόντια μπάρα με αναδυόμενα μενού' },
-  { value: 'right', label: 'Δεξιά', hint: 'Sidebar στη δεξιά πλευρά' },
+const NAV_CARDS: { value: MenuPosition; label: string; hint: string }[] = [
+  { value: 'left', label: 'Αριστερό μενού', hint: 'Προεπιλογή' },
+  { value: 'top', label: 'Μενού πάνω', hint: 'Οριζόντιο' },
+  { value: 'right', label: 'Δεξί μενού', hint: 'Καθρέφτης' },
 ];
+const SIDEBAR_CARDS: { value: LayoutSettings['sidebarDefault']; label: string; hint: string }[] = [
+  { value: 'full', label: 'Ανοιχτό', hint: 'Πλήρες πλάτος' },
+  { value: 'icons', label: 'Στενό', hint: 'Μόνο εικονίδια' },
+  { value: 'auto', label: 'Αυτόματη απόκρυψη', hint: 'Ανοίγει με το ποντίκι' },
+];
+
+/** Κάρτα επιλογής με μικρό σκίτσο της διάταξης (όπως στο demo). */
+function LayoutCard({ title, hint, active, disabled, art, onClick }: { title: string; hint: string; active: boolean; disabled?: boolean; art: string; onClick: () => void }) {
+  const bar = 'rounded-[2px] bg-forest';
+  const line = 'h-[3px] rounded bg-stone-line';
+  const pic = art === 'top'
+    ? <div className="flex h-9 w-14 flex-col gap-1 rounded border border-stone-line bg-white p-1"><div className={`h-1.5 w-full ${bar}`} /><div className={`${line} w-4/5`} /><div className={`${line} w-3/5`} /></div>
+    : <div className={`flex h-9 w-14 gap-1 rounded border border-stone-line bg-white p-1 ${art === 'right' ? 'flex-row-reverse' : ''}`}>
+        <div className={`${bar} ${art === 'icons' ? 'w-1' : art === 'auto' ? 'w-1 opacity-60' : 'w-2.5'}`} />
+        <div className="flex flex-1 flex-col gap-1 pt-0.5"><div className={`${line} w-full`} /><div className={`${line} w-2/3`} /></div>
+      </div>;
+  return (
+    <button type="button" disabled={disabled} onClick={onClick} aria-pressed={active}
+      className={`flex items-center gap-3 rounded-xl border p-3 text-left transition-colors disabled:opacity-50 ${active ? 'border-forest bg-forest/[0.05] ring-1 ring-forest/40' : 'border-stone-line bg-white hover:border-forest/40'}`}>
+      {pic}
+      <span><span className="block text-sm font-medium text-charcoal">{title}</span><span className="text-xs text-charcoal-600/60">{hint}</span></span>
+    </button>
+  );
+}
 
 function move<T>(list: T[], i: number, dir: -1 | 1): T[] {
   const j = i + dir;
@@ -53,6 +77,23 @@ export function MenuEditor({ layout, menu, canEdit }: { layout: LayoutSettings; 
   const toggleRole = (it: ResolvedNavItem, role: string) =>
     update(it.href, { hiddenRoles: it.hiddenRoles.includes(role) ? it.hiddenRoles.filter((r) => r !== role) : [...it.hiddenRoles, role] });
 
+  const [quickMsg, setQuickMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  /** Οι κάρτες αποθηκεύονται αμέσως (μόνο θέση/διάταξη — όχι οι αλλαγές στα στοιχεία του μενού). */
+  function quick(p: { position?: MenuPosition; lay?: LayoutSettings }) {
+    if (p.position) setPosition(p.position);
+    if (p.lay) setLay(p.lay);
+    setQuickMsg(null);
+    start(async () => {
+      const a = p.position ? await saveOrgSlice('menu', { ...menu, position: p.position }) : { ok: true as const };
+      const b = a.ok && p.lay ? await saveOrgSlice('layout', p.lay) : a;
+      if (a.ok && b.ok) {
+        // Η δική σας προσωπική επιλογή (κουμπί πάνω αριστερά) δεν θα έκρυβε την αλλαγή.
+        if (p.lay) document.cookie = 'oramira_sidebar=; path=/; max-age=0; samesite=lax';
+        setQuickMsg({ ok: true, text: 'Εφαρμόστηκε.' }); router.refresh();
+      } else setQuickMsg({ ok: false, text: (!a.ok ? a.error : !b.ok ? (b as any).error : '') || 'Αποτυχία αποθήκευσης.' });
+    });
+  }
+
   function save() {
     start(async () => {
       const a = await saveOrgSlice('menu', menuOverridesFrom(items, position));
@@ -72,42 +113,51 @@ export function MenuEditor({ layout, menu, canEdit }: { layout: LayoutSettings; 
 
   return (
     <div className="space-y-4">
-      {/* Position & behaviour */}
-      <div className="panel space-y-4 p-5">
-        <div>
-          <p className="eyebrow mb-2">Θέση μενού</p>
-          <div className="grid gap-2 sm:grid-cols-3">
-            {POSITIONS.map((p) => (
-              <label key={p.value} className={`flex cursor-pointer items-start gap-2 rounded-lg border p-3 text-sm ${position === p.value ? 'border-forest bg-forest/[0.04]' : 'border-stone-line'}`}>
-                <input type="radio" name="menu-position" checked={position === p.value} disabled={disabled} onChange={() => { setPosition(p.value); setMsg(null); }} className="mt-0.5" />
-                <span><span className="block font-medium text-charcoal">{p.label}</span><span className="text-xs text-charcoal-600/60">{p.hint}</span></span>
-              </label>
-            ))}
-          </div>
+      {/* Όπως στο demo: κάρτες για πλοήγηση και sidebar, σελίδα έναρξης, επαναφορά. Αποθηκεύονται αμέσως. */}
+      <section className="space-y-2">
+        <h3 className="font-display text-xl text-charcoal">Πλοήγηση</h3>
+        <div className="grid gap-3 sm:grid-cols-3">
+          {NAV_CARDS.map((c) => (
+            <LayoutCard key={c.value} title={c.label} hint={c.hint} active={position === c.value} disabled={disabled} art={c.value}
+              onClick={() => quick({ position: c.value })} />
+          ))}
         </div>
-        <div className="grid gap-4 sm:grid-cols-2">
+      </section>
+      <section className="space-y-2">
+        <h3 className="font-display text-xl text-charcoal">Πλαϊνό μενού</h3>
+        <div className="grid gap-3 sm:grid-cols-3">
+          {SIDEBAR_CARDS.map((c) => (
+            <LayoutCard key={c.value} title={c.label} hint={c.hint} active={lay.sidebarDefault === c.value} disabled={disabled || position === 'top'} art={c.value}
+              onClick={() => quick({ lay: { ...lay, sidebarDefault: c.value, sidebarCompact: c.value === 'icons' } })} />
+          ))}
+        </div>
+        {position === 'top' && <p className="text-xs text-charcoal-600/60">Με το μενού πάνω δεν υπάρχει πλαϊνό μενού.</p>}
+      </section>
+      <section className="space-y-2">
+        <h3 className="font-display text-xl text-charcoal">Σελίδα έναρξης</h3>
+        <div className="panel space-y-4 p-5">
           <label className="block">
-            <span className="eyebrow mb-1.5 block">Σελίδα έναρξης (μετά τη σύνδεση)</span>
-            <select className="input" disabled={disabled} value={lay.startScreen} onChange={(e) => setLay({ ...lay, startScreen: e.target.value })}>
+            <span className="eyebrow mb-1.5 block">Πού μπαίνετε μετά τη σύνδεση</span>
+            <select className="input" disabled={disabled} value={lay.startScreen} onChange={(e) => quick({ lay: { ...lay, startScreen: e.target.value } })}>
               {targets.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
             </select>
           </label>
-          <div className="space-y-2 pt-5 text-sm text-charcoal">
+          <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-charcoal">
             <label className="flex items-center gap-2">
-              <input type="checkbox" checked={lay.sidebarCompact} disabled={disabled || position === 'top'} onChange={(e) => setLay({ ...lay, sidebarCompact: e.target.checked })} />
-              Μόνο εικονίδια (στενό μενού)
-            </label>
-            <label className="flex items-center gap-2">
-              <input type="checkbox" checked={lay.denseLists} disabled={disabled} onChange={(e) => setLay({ ...lay, denseLists: e.target.checked })} />
+              <input type="checkbox" checked={lay.denseLists} disabled={disabled} onChange={(e) => quick({ lay: { ...lay, denseLists: e.target.checked } })} />
               Πυκνές λίστες και πίνακες
             </label>
             <label className="flex items-center gap-2">
-              <input type="checkbox" checked={lay.sidebarAccordion !== false} disabled={disabled || position === 'top'} onChange={(e) => setLay({ ...lay, sidebarAccordion: e.target.checked })} />
+              <input type="checkbox" checked={lay.sidebarAccordion !== false} disabled={disabled || position === 'top'} onChange={(e) => quick({ lay: { ...lay, sidebarAccordion: e.target.checked } })} />
               Μία ενότητα ανοιχτή τη φορά στο μενού
             </label>
           </div>
         </div>
-      </div>
+        <div className="flex items-center justify-end gap-3">
+          {quickMsg && <span className={`text-sm ${quickMsg.ok ? 'text-forest' : 'text-signal-danger'}`}>{quickMsg.text}</span>}
+          {canEdit && <button type="button" className="btn-secondary text-sm" disabled={disabled} onClick={() => quick({ position: 'left', lay: { ...lay, sidebarDefault: 'full', sidebarCompact: false, startScreen: '/dashboard', denseLists: false, sidebarAccordion: true } })}>Επαναφορά προεπιλογών</button>}
+        </div>
+      </section>
 
       {/* Entries */}
       <div className="panel p-5">

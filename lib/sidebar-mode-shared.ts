@@ -1,13 +1,14 @@
 /** Per-device sidebar view (cookie, so the server renders it without a flash). */
-export type SidebarMode = 'full' | 'icons' | 'hidden';
+export type SidebarMode = 'full' | 'icons' | 'auto' | 'hidden';
 export const SIDEBAR_COOKIE = 'oramira_sidebar';
 export const SIDEBAR_MODES: { v: SidebarMode; l: string }[] = [
   { v: 'full', l: 'Πλήρες' },
   { v: 'icons', l: 'Μόνο εικονίδια' },
+  { v: 'auto', l: 'Αυτόματη απόκρυψη' },
   { v: 'hidden', l: 'Κρυφό' },
 ];
 export function parseSidebarMode(v: string | undefined | null): SidebarMode | null {
-  return v === 'full' || v === 'icons' || v === 'hidden' ? v : null;
+  return v === 'full' || v === 'icons' || v === 'auto' || v === 'hidden' ? v : null;
 }
 /** Write the cookie (1 year) — or clear it to follow the company default. */
 export function writeSidebarMode(mode: SidebarMode | null) {

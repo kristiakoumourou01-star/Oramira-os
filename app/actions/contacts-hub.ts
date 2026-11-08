@@ -7,6 +7,7 @@ import { logActivity } from '@/lib/activity';
 import { onNewLead } from '@/lib/automation-events';
 import { ALL_ROLES, CONTACT_STATUSES, EXTRA_ROLES, FLAG_COLUMN, FLAG_ROLES, rolesFromRow, rolesToColumns, type ContactRole, type ContactStatus } from '@/lib/contacts-hub-shared';
 import { LEAD_SOURCES } from '@/lib/lead-automation-shared';
+import { applyOptInDefault } from '@/lib/opt-in-default';
 
 type Result = { ok: true; id?: string } | { ok: false; error: string; existingId?: string };
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -51,6 +52,7 @@ export async function createContact(input: NewContactInput): Promise<Result> {
   if (error) return { ok: false, error: missing(error.message) ? MIG : error.message };
 
   const id = data.id as string;
+  await applyOptInDefault(db, id);
   if (input.note?.trim()) await db.from('notes').insert({ entity_type: 'contact', entity_id: id, author_id: me.id, body: input.note.trim().slice(0, 4000) });
   if (input.createLead) {
     const { data: lead } = await db.from('leads').insert({ contact_id: id, source: source ?? 'other', status: 'new', assigned_to: input.ownerId && UUID.test(input.ownerId) ? input.ownerId : null }).select('id').single();

@@ -3,6 +3,7 @@ import { onNewLead } from '@/lib/automation-events';
 import { ensureFirstFollowUp } from '@/lib/lead-followup';
 import { cleanAreas } from '@/lib/areas';
 import { detectBuyerType, detectLanguage, languageForBuyerType, detectProjectInterest } from '@/lib/lead-detect';
+import { applyOptInDefault } from '@/lib/opt-in-default';
 
 /**
  * Website intake chokepoint. Public contact-form and newsletter submissions
@@ -60,6 +61,7 @@ export async function resolveContactFormLead(
     p_phone: p.phone ?? null,
   });
   if (error || !contactId) throw error ?? new Error('Could not resolve contact');
+  await applyOptInDefault(supabase, contactId as any);
 
   await supabase.from('contacts').update({ is_lead: true }).eq('id', contactId);
   await supabase.from('contacts').update({ first_touch_source: source }).eq('id', contactId).is('first_touch_source', null);

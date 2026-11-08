@@ -15,6 +15,7 @@ import { revalidatePath } from 'next/cache';
 import { getOrgSettings } from '@/lib/org-settings';
 import { STAFF_FIELD_OPTIONS } from '@/lib/org-settings-shared';
 import { cleanAreas } from '@/lib/areas';
+import { applyOptInDefault } from '@/lib/opt-in-default';
 
 /**
  * Creates a lead from the internal CRM. Goes through the SAME
@@ -60,6 +61,7 @@ export async function createLead(params: {
     p_phone: params.phone ?? null,
   });
   if (contactError) throw contactError;
+  await applyOptInDefault(supabase, contactId as any);
 
   // Tag as lead + set audience/communication profile (drives the doctrine).
   const profileDef = buyerProfile(params.buyerType);

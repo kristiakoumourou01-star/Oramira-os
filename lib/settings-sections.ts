@@ -9,7 +9,8 @@
 
 export type SettingsKey =
   | 'business' | 'appearance' | 'layout' | 'dashboard' | 'invoices'
-  | 'notifications' | 'security' | 'tags' | 'pipelines' | 'leads' | 'integrations' | 'gdpr' | 'portals' | 'unitforms';
+  | 'notifications' | 'security' | 'tags' | 'pipelines' | 'leads' | 'integrations' | 'gdpr' | 'portals' | 'unitforms'
+  | 'departments' | 'customerFields';
 
 export interface SettingsSection {
   key: SettingsKey;
@@ -31,6 +32,8 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
   { key: 'notifications', label: 'Ειδοποιήσεις', subtitle: 'Ποιος ενημερώνεται, και πώς', group: 'Work', outline: ['Events (new lead, viewing booked, payment failed…)', 'Who gets told (agent / manager / client)', 'Channels: in-app, push, email, SMS', 'Quiet hours'] },
   { key: 'security', label: 'Ασφάλεια', subtitle: 'Σύνδεση, συσκευές, κωδικοί', group: 'Work', outline: ['Two-factor (OTP)', 'Trusted devices & session timeout', 'Password policy (length, symbols, expiry)', 'IP allow-list'] },
   { key: 'tags', label: 'Tags, ομάδες & πεδία', subtitle: 'Για τις επαφές', group: 'Work', outline: ['Contact tags (Cash buyer, Investor, VIP…)', 'Saved groups / segments', 'Custom fields (type, required)'] },
+  { key: 'departments', label: 'Τμήματα', subtitle: 'Γραφεία / ομάδες και αίθουσες συναντήσεων', group: 'Work', ready: true, outline: [] },
+  { key: 'customerFields', label: 'Πεδία πελατών', subtitle: 'Τι είναι υποχρεωτικό για το προσωπικό και στις δημόσιες φόρμες', group: 'Work', ready: true, outline: [] },
   { key: 'pipelines', label: 'Pipelines & φόρμες', subtitle: 'Pipelines, στάδια και όρια, λόγοι απώλειας, προμήθεια, κρατήσεις', group: 'Work', ready: true, outline: ['Πολλαπλά pipelines', 'Στάδια, πιθανότητες, μέγιστες μέρες', 'Λόγοι απώλειας', 'Πηγές leads', 'Τιμολόγιο προμήθειας στο «Won»', 'Κρατήσεις: διάρκεια, προειδοποίηση, αποδέσμευση'] },
   { key: 'leads', label: 'Leads & αυτοματισμοί', subtitle: 'Υπεύθυνος ανά πηγή, round robin, καλωσόρισμα, follow-up, αναπάντητα, ημερήσια σύνοψη', group: 'Work', ready: true, outline: ['Υπεύθυνος ανά πηγή', 'Round robin (με άδειες)', 'Καλωσόρισμα στη γλώσσα του πελάτη', 'Αναπάντητο lead: ειδοποίηση και επαναδιανομή', 'Follow-up sequence', 'Ημερήσια σύνοψη'] },
   { key: 'unitforms', label: 'Φόρμες μονάδων', subtitle: 'Τύποι μονάδων, δικά σας πεδία (EL/EN), υδατογράφημα φωτογραφιών', group: 'Work', ready: true, outline: ['Τύποι μονάδων', 'Πεδία ανά τύπο', 'Ορατό στον πελάτη ή μόνο στο προσωπικό', 'Χρήση στο matching', 'Υδατογράφημα φωτογραφιών'] },
@@ -65,14 +68,12 @@ export const SETTINGS_NAV: SettingsNavGroup[] = [
     { label: 'Μενού & διάταξη', href: '/settings?section=layout', icon: 'layout' },
     { label: 'Dashboard', href: '/settings?section=dashboard', icon: 'dashboard' },
   ] },
-  { label: 'Χρήστες', items: [
-    { label: 'Χρήστες & πρόσβαση', href: '/settings/users', icon: 'users' },
-    { label: 'Ρόλοι & δικαιώματα', href: '/settings/roles', icon: 'roles' },
-    { label: 'Προβολή ως χρήστης', href: '/settings/view-as', icon: 'viewas' },
-  ] },
-  { label: 'Εργασία', items: [
+  { label: 'Λειτουργία', items: [
     { label: 'Ειδοποιήσεις', href: '/settings?section=notifications', icon: 'notifications' },
-    { label: 'Tags, ομάδες & πεδία', href: '/settings?section=tags', icon: 'tags' },
+    { label: 'Ασφάλεια', href: '/settings?section=security', icon: 'security' },
+    { label: 'Tags & πεδία', href: '/settings?section=tags', icon: 'tags' },
+    { label: 'Τμήματα', href: '/settings?section=departments', icon: 'departments' },
+    { label: 'Πεδία πελατών', href: '/settings?section=customerFields', icon: 'customerFields' },
     { label: 'Pipelines & φόρμες', href: '/settings?section=pipelines', icon: 'pipelines' },
     { label: 'Leads & αυτοματισμοί', href: '/settings?section=leads', icon: 'leads' },
     { label: 'Φόρμες μονάδων', href: '/settings?section=unitforms', icon: 'unitforms' },
@@ -80,14 +81,18 @@ export const SETTINGS_NAV: SettingsNavGroup[] = [
     { label: 'Templates', href: '/settings/templates', icon: 'templates', module: 'automation' },
     { label: 'Αυτοματισμοί', href: '/automation', icon: 'automation', module: 'automation' },
   ] },
-  { label: 'Χρήματα', items: [
-    { label: 'Τιμολόγια & ΦΠΑ', href: '/settings?section=invoices', icon: 'invoices' },
+  { label: 'Χρήστες', items: [
+    { label: 'Χρήστες & πρόσβαση', href: '/settings/users', icon: 'users' },
+    { label: 'Ρόλοι & δικαιώματα', href: '/settings/roles', icon: 'roles' },
+    { label: 'Προβολή ως χρήστης', href: '/settings/view-as', icon: 'viewas' },
+  ] },
+  { label: 'Φόροι', items: [
+    { label: 'ΦΠΑ & αποδείξεις', href: '/settings?section=invoices', icon: 'invoices' },
   ] },
   { label: 'Συνδέσεις', items: [
     { label: 'Integrations', href: '/settings?section=integrations', icon: 'integrations' },
   ] },
-  { label: 'Ασφάλεια & δεδομένα', items: [
-    { label: 'Ασφάλεια', href: '/settings?section=security', icon: 'security' },
+  { label: 'Δεδομένα', items: [
     { label: 'GDPR & δεδομένα', href: '/settings?section=gdpr', icon: 'gdpr' },
     { label: 'Audit log', href: '/settings/audit', icon: 'audit' },
   ] },

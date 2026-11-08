@@ -9,7 +9,6 @@ import {
 } from '@/components/admin/SettingsSections';
 import { InvoicesSettings } from '@/components/admin/InvoicesSettings';
 import { GdprSettings } from '@/components/admin/GdprSettings';
-import { RequiredFieldsSettings } from '@/components/admin/RequiredFieldsSettings';
 import { PortalSettingsSection } from '@/components/admin/PortalSettingsSection';
 import type { CompanyInfo } from '@/components/admin/ReceiptPreview';
 import { GettingStarted, type StartStep } from '@/components/admin/GettingStarted';
@@ -25,6 +24,10 @@ import type { DocSeries } from '@/lib/invoices-shared';
 import { MenuEditor } from '@/components/admin/MenuEditor';
 import { DashboardEditor } from '@/components/admin/DashboardEditor';
 import { AppearanceExtras } from '@/components/admin/AppearanceExtras';
+import { AppearanceBasics } from '@/components/admin/AppearanceBasics';
+import { DepartmentsSettings } from '@/components/admin/DepartmentsSettings';
+import { CustomerFieldsSettings } from '@/components/admin/CustomerFieldsSettings';
+import type { LocalePrefs } from '@/lib/locale-shared';
 import { GoogleCalendarConnect } from '@/components/dashboard/GoogleCalendarConnect';
 import type { Branding } from '@/lib/branding-shared';
 import type { OrgSettings } from '@/lib/org-settings-shared';
@@ -47,6 +50,7 @@ export function SettingsScreen({
   company,
   startSteps = [],
   team = [],
+  myLocale = null,
 }: {
   initialSection: SettingsKey;
   branding: Branding;
@@ -64,6 +68,7 @@ export function SettingsScreen({
   team?: TeamMember[];
   company?: CompanyInfo;
   startSteps?: StartStep[];
+  myLocale?: LocalePrefs | null;
 }) {
   // The section comes from the URL (?section=…) — the page is keyed by it, so
   // switching in the Settings menu re-renders with the new section.
@@ -89,12 +94,13 @@ export function SettingsScreen({
 
           {section.key === 'appearance' ? (
             <div className="space-y-5">
+              <AppearanceBasics primary={branding.colorPrimary} secondary={branding.colorSecondary} logoUrl={branding.logoUrl} layout={settings.layout} lang={myLocale?.lang ?? settings.locale.lang} num={myLocale?.num ?? settings.locale.num} canEdit={canEdit} />
               <AppearanceExtras logoUrl={branding.logoUrl} primary={branding.colorPrimary} initial={settings.appearance} canEdit={canEdit} />
               <CompanyLocaleDefault initial={settings.locale} canEdit={canEdit} />
               <BrandingForm initial={branding} />
             </div>
           ) : section.key === 'business' ? (
-            <BusinessSection initial={settings.business} companyName={agencyName} canEdit={canEdit} />
+            <BusinessSection initial={settings.business} companyName={branding.companyName || agencyName} canEdit={canEdit} logoUrl={branding.logoUrl} colorPrimary={branding.colorPrimary} colorSecondary={branding.colorSecondary} />
           ) : section.key === 'invoices' ? (
             <InvoicesSettings initial={settings.invoices} series={series} seriesMissing={seriesMissing} canEdit={canEdit} company={company} />
           ) : section.key === 'notifications' ? (
@@ -102,10 +108,11 @@ export function SettingsScreen({
           ) : section.key === 'security' ? (
             <SecuritySection initial={settings.security} canEdit={canEdit} currentIp={currentIp} />
           ) : section.key === 'tags' ? (
-            <div className="space-y-4">
-              <TagsSection initial={settings.tags} canEdit={canEdit} />
-              <RequiredFieldsSettings initial={settings.fields} canEdit={canEdit} />
-            </div>
+            <TagsSection initial={settings.tags} canEdit={canEdit} />
+          ) : section.key === 'customerFields' ? (
+            <CustomerFieldsSettings initial={settings.fields} canEdit={canEdit} />
+          ) : section.key === 'departments' ? (
+            <DepartmentsSettings initial={settings.departments} canEdit={canEdit} />
           ) : section.key === 'unitforms' ? (
             <div className="space-y-4">
               <UnitFormsEditor initial={settings.unitForms} canEdit={canEdit} />
