@@ -1,6 +1,6 @@
 'use server';
 
-import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { createSupabaseServerClient, createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { homeRouteForRole } from '@/lib/auth';
@@ -102,32 +102,37 @@ export async function logout() {
  * anywhere else in the system; this is the only door in.
  */
 export async function acceptInvite(token: string, password: string) {
-  const supabase = await createSupabaseServerClient();
-
-  const { data: invite, error: inviteError } = await supabase
+  // Ο προσκεκλημένος δεν είναι ακόμα συνδεδεμένος, άρα δεν «βλέπει» τον πίνακα
+  // invites (RLS: μόνο προσωπικό). Ο έλεγχος γίνεται εδώ στον server με το
+  // service client — το token είναι το μυστικό που αποδεικνύει την πρόσκληση.
+  if (!/^[a-f0-9]{32,64}$/i.test(token ?? '')) return { error: 'This invite is invalid or has expired.' };
+  if (!password || password.length < 8) return { error: 'Password must be at least 8 characters.' };
+  const service = createSupabaseServiceRoleClient();
+  const { data: invite } = await service
     .from('invites')
-    .select('email, role')
+    .select('email, role, expires_at')
     .eq('token', token)
     .eq('status', 'pending')
-    .single();
-
-  if (inviteError || !invite) {
+    .maybeSingle();
+  if (!invite || (invite.expires_at && Date.parse(invite.expires_at as string) < Date.now())) {
     return { error: 'This invite is invalid or has expired.' };
   }
 
-  const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-    email: invite.email,
-    password,
-  });
-  if (signUpError || !signUpData.user) {
-    return { error: signUpError?.message ?? 'Could not create account.' };
-  }
+  // Ο λογαριασμός δημιουργείται επιβεβαιωμένος (δεν χρειάζεται email επιβεβαίωσης).
+  let userId: string | null = null;
+  const { data: created, error: createErr } = await service.auth.admin.createUser({ email: invite.email, password, email_confirm: true });
+  if (created?.user) userId = created.user.id;
+  else if (createErr && !/already|registered|exists/i.test(createErr.message)) return { error: createErr.message };
 
-  const { error: rpcError } = await supabase.rpc('accept_invite', {
-    invite_token: token,
-    new_user_id: signUpData.user.id,
-  });
-  if (rpcError) {
+  const supabase = await createSupabaseServerClient();
+  const { data: signIn, error: signInErr } = await supabase.auth.signInWithPassword({ email: invite.email, password });
+  if (signInErr || !signIn.user) {
+    return { error: userId ? 'Account created, but sign-in failed. Please try logging in.' : 'An account with this email already exists. Log in with its password, or ask an admin to reset it.' };
+  }
+  userId = signIn.user.id;
+
+  const { error: rpcError } = await service.rpc('accept_invite', { invite_token: token, new_user_id: userId });
+  if (rpcError && !/duplicate key|already exists/i.test(rpcError.message)) {
     return { error: rpcError.message };
   }
 
