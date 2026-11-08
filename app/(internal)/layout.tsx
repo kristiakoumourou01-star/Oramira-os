@@ -21,8 +21,6 @@ import { PerfReporter } from '@/components/layout/PerfReporter';
 import { Suspense } from 'react';
 import { SIDEBAR_COOKIE, parseSidebarMode } from '@/lib/sidebar-mode-shared';
 
-const ADMIN_ORDER = ['/account', '/settings', '/settings/mobile-app', '/settings/users'];
-
 /**
  * Shell for every internal (staff) route. Open to all internal roles
  * (admin/sales/management/finance/construction/viewer); the nav and each page
@@ -58,14 +56,7 @@ export default async function InternalLayout({ children }: { children: React.Rea
   });
   const sections = [
     { items: resolved.filter((it) => it.section === 0).map(toItem) },
-    {
-      // Admin: πάντα My account → Settings → Mobile app → Staff (και μετά ό,τι άλλο).
-      label: 'Admin',
-      items: resolved.filter((it) => it.section !== 0)
-        .map((it, i) => ({ it, r: ADMIN_ORDER.indexOf(it.href), i }))
-        .sort((a, b) => (a.r < 0 ? 99 : a.r) - (b.r < 0 ? 99 : b.r) || a.i - b.i)
-        .map(({ it }) => toItem(it)),
-    },
+    { label: 'Admin', items: resolved.filter((it) => it.section !== 0).map(toItem) },
   ].filter((sct) => sct.items.length > 0);
 
   const signOut = (
