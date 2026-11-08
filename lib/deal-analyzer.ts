@@ -50,6 +50,8 @@ export interface DealInputs {
   vatRate: number;           // e.g. 0.19
   salePricePerSqm: number;   // blended VAT-inclusive price, used when no unit mix
   durationMonths: number;
+  /** true = οι τιμές πώλησης δίνονται ΧΩΡΙΣ ΦΠΑ (π.χ. «€3.500/m² + ΦΠΑ»). */
+  pricesExVat?: boolean;
 }
 
 export interface CashflowPeriod {
@@ -82,6 +84,12 @@ export interface DealOutputs {
   buildableSqm: number;
   greenAreaSqm: number;
   sellableSqm: number;
+  /** m² που πουλιούνται (unit mix: Σ μονάδες × m²· αλλιώς το sellable). */
+  soldSqm: number;
+  /** m² που κατασκευάζονται (με unit mix: πωλούμενα ÷ efficiency, μέχρι το buildable). */
+  constructedSqm: number;
+  /** Οι τιμές δόθηκαν χωρίς ΦΠΑ. */
+  exVat: boolean;
   estimatedUnits: number;
   effectivePricePerSqm: number;
   // costs
@@ -152,11 +160,15 @@ function computeCore(inp: DealInputs) {
   const estimatedUnits = hasMix
     ? inp.unitMix.reduce((s, u) => s + u.count, 0)
     : Math.floor(safeDiv(sellableSqm, inp.avgUnitSqm));
-  const effectivePricePerSqm = safeDiv(grossRevenueInclVat, sellableSqm);
+  // Με unit mix χτίζονται/πουλιούνται τα m² των μονάδων, όχι όλο το επιτρεπόμενο.
+  const soldSqm = hasMix ? inp.unitMix.reduce((s, u) => s + u.count * u.avgSqm, 0) : sellableSqm;
+  const constructedSqm = hasMix ? Math.min(buildableSqm, safeDiv(soldSqm, inp.efficiencyRatio || 1)) : buildableSqm;
+  const effectivePricePerSqm = safeDiv(grossRevenueInclVat, soldSqm);
 
-  const netRevenue = grossRevenueInclVat / (1 + inp.vatRate);
+  // Τιμές «+ ΦΠΑ» → ο developer κρατά όλο το ποσό· τιμές «με ΦΠΑ» → αφαιρείται ο ΦΠΑ.
+  const netRevenue = inp.pricesExVat ? grossRevenueInclVat : grossRevenueInclVat / (1 + inp.vatRate);
 
-  const constructionCost = buildableSqm * inp.constructionCostPerSqm;
+  const constructionCost = constructedSqm * inp.constructionCostPerSqm;
   const contingency = constructionCost * inp.contingencyRate;
   const professionalFees = constructionCost * inp.professionalFeesRate;
   const marketingCost = netRevenue * inp.marketingRate;
@@ -177,7 +189,7 @@ function computeCore(inp: DealInputs) {
   const profitMargin = safeDiv(netProfit, netRevenue);
 
   return {
-    buildableSqm, sellableSqm, estimatedUnits, effectivePricePerSqm,
+    buildableSqm, sellableSqm, soldSqm, constructedSqm, estimatedUnits, effectivePricePerSqm,
     grossRevenueInclVat, netRevenue, constructionCost, contingency, professionalFees,
     marketingCost, totalDevelopmentCost, grossProfit, netProfit, roi, profitMargin,
   };
@@ -269,15 +281,19 @@ function sensitivity(inp: DealInputs): SensitivityRow[] {
 export function analyzeDeal(inp: DealInputs): DealOutputs {
   const c = computeCore(inp);
   const greenAreaSqm = inp.plotSizeSqm * inp.greenAreaPct;
-  const costPerBuildableSqm = safeDiv(c.totalDevelopmentCost, c.buildableSqm);
+  const costPerBuildableSqm = safeDiv(c.totalDevelopmentCost, c.constructedSqm);
+  const vatMult = inp.pricesExVat ? 1 : 1 + inp.vatRate;
   const revenuePerUnit = safeDiv(c.netRevenue, c.estimatedUnits);
-  const breakEvenPricePerSqm = safeDiv(c.totalDevelopmentCost * (1 + inp.vatRate), c.sellableSqm);
-  const breakEvenSellableSqm = safeDiv(c.totalDevelopmentCost * (1 + inp.vatRate), c.effectivePricePerSqm || inp.salePricePerSqm);
+  const breakEvenPricePerSqm = safeDiv(c.totalDevelopmentCost * vatMult, c.soldSqm);
+  const breakEvenSellableSqm = safeDiv(c.totalDevelopmentCost * vatMult, c.effectivePricePerSqm || inp.salePricePerSqm);
 
   return {
     buildableSqm: c.buildableSqm,
     greenAreaSqm,
     sellableSqm: c.sellableSqm,
+    soldSqm: c.soldSqm,
+    constructedSqm: c.constructedSqm,
+    exVat: !!inp.pricesExVat,
     estimatedUnits: c.estimatedUnits,
     effectivePricePerSqm: c.effectivePricePerSqm,
     constructionCost: c.constructionCost,

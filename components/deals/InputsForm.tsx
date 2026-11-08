@@ -124,6 +124,10 @@ export function InputsForm({
           {num('marketingRate', 'Marketing', { step: 0.005, suffix: '×rev' })}
           {num('contingencyRate', 'Contingency', { step: 0.01, suffix: '×constr' })}
           {num('vatRate', 'VAT rate', { step: 0.01 })}
+          <label className="col-span-2 flex items-center gap-2 text-sm text-charcoal">
+            <input type="checkbox" checked={!!inputs.pricesExVat} onChange={(e) => onChange({ pricesExVat: e.target.checked })} />
+            Οι τιμές πώλησης είναι <b>+ ΦΠΑ</b> (π.χ. «€3.500/m² + ΦΠΑ»)
+          </label>
           {num('durationMonths', 'Duration', { suffix: 'mo' })}
         </div>
       </section>

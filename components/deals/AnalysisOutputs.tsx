@@ -19,6 +19,7 @@ function Metric({ label, value, accent, hint }: { label: string; value: string; 
  * margin) lead.
  */
 export function AnalysisOutputs({ outputs }: { outputs: DealOutputs }) {
+  const vatHint = outputs.exVat ? '+ VAT' : 'incl. VAT';
   const o = outputs;
   const maxAbs = Math.max(1, ...o.cashflow.map((p) => Math.abs(p.cumulative)));
 
@@ -56,9 +57,11 @@ export function AnalysisOutputs({ outputs }: { outputs: DealOutputs }) {
         <div className="grid grid-cols-3 gap-3">
           <Metric label="Buildable" value={`${formatNumber(Math.round(o.buildableSqm))} m²`} />
           <Metric label="Sellable" value={`${formatNumber(Math.round(o.sellableSqm))} m²`} />
+          <Metric label="Constructed" value={`${formatNumber(Math.round(o.constructedSqm))} m²`} hint="cost basis" />
+          <Metric label="Sold (unit mix)" value={`${formatNumber(Math.round(o.soldSqm))} m²`} />
           <Metric label="Estimated units" value={String(o.estimatedUnits)} />
-          <Metric label="Effective price" value={`${eur(o.effectivePricePerSqm)}/m²`} hint="incl. VAT" />
-          <Metric label="Break-even price" value={`${eur(o.breakEvenPricePerSqm)}/m²`} accent hint="incl. VAT" />
+          <Metric label="Effective price" value={`${eur(o.effectivePricePerSqm)}/m²`} hint={vatHint} />
+          <Metric label="Break-even price" value={`${eur(o.breakEvenPricePerSqm)}/m²`} accent hint={vatHint} />
           <Metric label="Green area" value={`${formatNumber(Math.round(o.greenAreaSqm))} m²`} />
         </div>
       </section>
@@ -66,12 +69,12 @@ export function AnalysisOutputs({ outputs }: { outputs: DealOutputs }) {
       <section className="panel p-6">
         <h4 className="mb-4">Financials</h4>
         <div className="grid grid-cols-3 gap-3">
-          <Metric label="Gross revenue (GDV)" value={eur(o.grossRevenueInclVat, { compact: true })} hint="incl. VAT" />
+          <Metric label="Gross revenue (GDV)" value={eur(o.grossRevenueInclVat, { compact: true })} hint={vatHint} />
           <Metric label="Net revenue" value={eur(o.netRevenue, { compact: true })} />
           <Metric label="Total dev cost" value={eur(o.totalDevelopmentCost, { compact: true })} />
           <Metric label="Gross profit" value={eur(o.grossProfit, { compact: true })} />
           <Metric label="Revenue / unit" value={eur(o.revenuePerUnit, { compact: true })} />
-          <Metric label="Cost / buildable m²" value={`${eur(o.costPerBuildableSqm)}`} />
+          <Metric label="Cost / built m²" value={`${eur(o.costPerBuildableSqm)}`} />
         </div>
 
         <div className="mt-5">
