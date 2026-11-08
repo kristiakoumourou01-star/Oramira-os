@@ -17,6 +17,7 @@ import { addFollowUp } from '@/app/actions/follow-ups';
 import { setDealsArchived, updateDeal } from '@/app/actions/sales-deals';
 import { DeleteLeadDialog } from '@/components/crm/DeleteLeadDialog';
 import { LeadManager } from '@/components/crm/LeadManager';
+import { LeadDrawer } from '@/components/crm/LeadDrawer';
 
 export interface Agent { id: string; full_name: string | null }
 type View = 'board' | 'list' | 'forecast' | 'archive';
@@ -65,6 +66,7 @@ export function DealsBoard({ leads: initial, cfg, agents, currentUserId, initial
   const [delFor, setDelFor] = useState<LeadListItem | null>(null);
   const [actFor, setActFor] = useState<LeadListItem | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
+  const [openId, setOpenId] = useState<string | null>(null);
   const now = Date.now();
   useEffect(() => { try { const v = localStorage.getItem('oramira:deals'); if (v) { const x = JSON.parse(v); if (x.pipeKey && cfg.pipelines.some((p) => p.key === x.pipeKey)) setPipeKey(x.pipeKey); if (x.sort) setSort(x.sort); if (x.owner) setOwner(x.owner); } } catch { /* */ } }, [cfg.pipelines]);
   useEffect(() => { try { localStorage.setItem('oramira:deals', JSON.stringify({ pipeKey, sort, owner })); } catch { /* */ } }, [pipeKey, sort, owner]);
@@ -146,9 +148,9 @@ export function DealsBoard({ leads: initial, cfg, agents, currentUserId, initial
     const rot = rottenDays(l);
     const Ic = ACT_ICON[l.next_activity_type ?? ''] ?? ChevronRight;
     return (
-      <div key={l.id} draggable={!pending} onDragStart={(e) => onCardDragStart(e, l.id)} onDragEnd={() => { setDrag(null); setOver(null); }}
+      <div key={l.id} draggable={!pending} onDragStart={(e) => onCardDragStart(e, l.id)} onDragEnd={() => { setDrag(null); setOver(null); }} onClick={() => setOpenId(l.id)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') setOpenId(l.id); }}
         className={`group relative rounded-lg border bg-white p-2.5 text-sm shadow-sm transition hover:shadow-md ${rot ? 'border-rose-300 bg-rose-50/60' : 'border-stone-line'} ${drag === l.id ? 'opacity-40' : ''} cursor-grab active:cursor-grabbing`}>
-        <Link href={`/crm/leads/${l.id}`} className="block pr-6 font-semibold leading-snug text-charcoal hover:text-forest" data-no-tr>{dealTitle(l)}</Link>
+        <p className="block pr-6 font-semibold leading-snug text-charcoal group-hover:text-forest" data-no-tr>{dealTitle(l)}</p>
         {l.title && l.full_name && <p className="truncate text-xs text-charcoal-600/70" data-no-tr>{l.full_name}</p>}
         {(l.labels ?? []).length > 0 && (
           <div className="mt-1 flex flex-wrap gap-1">{(l.labels ?? []).map((k) => { const lb = labelOf(k); return lb ? <span key={k} className={`rounded border px-1.5 text-[10px] font-medium ${LABEL_CLASS[lb.color]}`}>{lb.name}</span> : null; })}</div>
@@ -161,7 +163,7 @@ export function DealsBoard({ leads: initial, cfg, agents, currentUserId, initial
           {l.status === 'won' ? <span className="rounded bg-emerald-600 px-1.5 text-[10px] font-semibold uppercase text-white">Won</span>
             : isClosed(l.status) ? <span className="rounded bg-signal-danger px-1.5 text-[10px] font-semibold uppercase text-white">Lost</span>
             : (
-              <button type="button" onClick={() => setActFor(l)} title={STATE_STYLE[st].title} aria-label={STATE_STYLE[st].title}
+              <button type="button" onClick={(e) => { e.stopPropagation(); setActFor(l); }} title={STATE_STYLE[st].title} aria-label={STATE_STYLE[st].title}
                 className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${st === 'none' ? '' : STATE_STYLE[st].cls}`}>
                 {st === 'none' ? <AlertTriangle size={15} className={STATE_STYLE.none.cls} /> : <Ic size={11} strokeWidth={2.5} />}
               </button>
@@ -342,6 +344,7 @@ export function DealsBoard({ leads: initial, cfg, agents, currentUserId, initial
         </Modal>
       )}
       {delFor && <DeleteLeadDialog ids={[delFor.id]} names={[dealTitle(delFor)]} onClose={() => setDelFor(null)} onDeleted={() => { setLeads((xs) => xs.filter((x) => x.id !== delFor.id)); setDelFor(null); }} />}
+      {openId && <LeadDrawer leadId={openId} agents={agents} onClose={() => { setOpenId(null); router.refresh(); }} />}
       {actFor && <QuickActivity deal={actFor} onClose={() => setActFor(null)} onSaved={(due, type) => { patchLocal(actFor.id, { next_follow_up: due, next_activity_type: type }); setActFor(null); router.refresh(); }} />}
     </div>
   );

@@ -11,6 +11,7 @@ import { activityState } from '@/lib/activity-types';
 import { formatCurrency } from '@/lib/format';
 import { setDealsArchived, setLeadsInbox, updateDeal } from '@/app/actions/sales-deals';
 import { reassignLead } from '@/app/actions/leads';
+import { LeadDrawer } from '@/components/crm/LeadDrawer';
 
 const SRC: Record<string, string> = { website: 'Website', meta: 'Meta', google: 'Google', organic: 'Organic', referral: 'Σύσταση', whatsapp: 'WhatsApp', walk_in: 'Walk-in', other: 'Άλλο' };
 const ago = (iso: string) => {
@@ -32,6 +33,7 @@ export function LeadsInbox({ leads: initial, cfg, agents }: { leads: LeadListIte
   const [sel, setSel] = useState<string[]>([]);
   const [pipe, setPipe] = useState(cfg.defaultKey);
   const [msg, setMsg] = useState<string | null>(null);
+  const [openId, setOpenId] = useState<string | null>(null);
 
   const rows = useMemo(() => {
     const t = q.trim().toLowerCase();
@@ -76,6 +78,7 @@ export function LeadsInbox({ leads: initial, cfg, agents }: { leads: LeadListIte
         </div>
       )}
       {msg && <p className="text-sm text-forest">{msg}</p>}
+      {openId && <LeadDrawer leadId={openId} agents={agents} onClose={() => { setOpenId(null); router.refresh(); }} />}
       <div className="panel overflow-x-auto">
         <table className="table-base w-full min-w-[880px]">
           <thead><tr>
@@ -90,7 +93,7 @@ export function LeadsInbox({ leads: initial, cfg, agents }: { leads: LeadListIte
                 <tr key={l.id} className={sel.includes(l.id) ? 'bg-forest/[0.04]' : ''}>
                   <td><input type="checkbox" checked={sel.includes(l.id)} onChange={(e) => setSel((s) => (e.target.checked ? [...s, l.id] : s.filter((x) => x !== l.id)))} aria-label="Επιλογή" /></td>
                   <td>
-                    <Link href={`/crm/leads/${l.id}`} className="font-medium text-charcoal hover:text-forest" data-no-tr>{dealTitle(l)}</Link>
+                    <button type="button" onClick={() => setOpenId(l.id)} className="text-left font-medium text-charcoal hover:text-forest" data-no-tr>{dealTitle(l)}</button>
                     <p className="text-xs text-charcoal-600/70" data-no-tr>{[l.phone, l.email].filter(Boolean).join(' · ')}</p>
                   </td>
                   <td>

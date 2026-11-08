@@ -11,6 +11,8 @@ const ICON: Record<string, any> = { call: Phone, meeting: Users, task: CheckSqua
 export interface ActivityRow {
   id: string; dueAt: string; doneAt: string | null; done: boolean; note: string | null; type: string; priority: string | null; durationMin: number | null;
   leadId: string | null; dealTitle: string | null; contactName: string | null; phone: string | null; ownerId: string | null; ownerName: string | null;
+  /** Προβολή ακινήτου (πίνακας viewings) — ολοκληρώνεται από την καρτέλα της. */
+  readOnly?: boolean; statusLabel?: string | null;
 }
 type Period = 'todo' | 'overdue' | 'today' | 'tomorrow' | 'week' | 'next' | 'done' | 'all';
 const PERIODS: [Period, string][] = [['todo', 'Για να γίνουν'], ['overdue', 'Καθυστερημένες'], ['today', 'Σήμερα'], ['tomorrow', 'Αύριο'], ['week', 'Αυτή την εβδομάδα'], ['next', 'Επόμενη εβδομάδα'], ['done', 'Ολοκληρωμένες'], ['all', 'Όλες']];
@@ -20,13 +22,13 @@ const weekStart = (d: Date) => addDays(dayStart(d), -((d.getDay() + 6) % 7));
 const WD = ['Δευ', 'Τρί', 'Τετ', 'Πέμ', 'Παρ', 'Σάβ', 'Κυρ'];
 
 /** Sales → Activities: όλες οι κινήσεις (όπως Pipedrive) σε λίστα ή εβδομαδιαίο ημερολόγιο. */
-export function ActivitiesView({ rows: initial, agents, currentUserId }: { rows: ActivityRow[]; agents: { id: string; full_name: string | null }[]; currentUserId: string }) {
+export function ActivitiesView({ rows: initial, agents, currentUserId, initialTypes = [] }: { rows: ActivityRow[]; agents: { id: string; full_name: string | null }[]; currentUserId: string; initialTypes?: string[] }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [rows, setRows] = useState(initial);
   const [view, setView] = useState<'list' | 'calendar'>('list');
   const [period, setPeriod] = useState<Period>('todo');
-  const [types, setTypes] = useState<string[]>([]);
+  const [types, setTypes] = useState<string[]>(initialTypes);
   const [owner, setOwner] = useState<string>(currentUserId);
   const [week, setWeek] = useState(() => weekStart(new Date()));
   const now = new Date();
@@ -50,7 +52,7 @@ export function ActivitiesView({ rows: initial, agents, currentUserId }: { rows:
   const overdueCount = base.filter((r) => !r.done && new Date(r.dueAt) < now).length;
 
   const toggleDone = (r: ActivityRow) => {
-    if (r.done) return;
+    if (r.done || r.readOnly) return;
     setRows((xs) => xs.map((x) => (x.id === r.id ? { ...x, done: true, doneAt: new Date().toISOString() } : x)));
     start(async () => { await completeAndNext(r.id); router.refresh(); });
   };
@@ -104,8 +106,8 @@ export function ActivitiesView({ rows: initial, agents, currentUserId }: { rows:
                   const late = !r.done && new Date(r.dueAt) < now;
                   return (
                     <tr key={r.id} className={r.done ? 'opacity-60' : ''}>
-                      <td><button type="button" disabled={pending || r.done} onClick={() => toggleDone(r)} aria-label="Ολοκλήρωση" className={`flex h-5 w-5 items-center justify-center rounded-full border-2 ${r.done ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-stone-300 hover:border-emerald-600'}`}>{r.done && <Check size={11} />}</button></td>
-                      <td><span className="flex items-center gap-2"><I size={14} className="shrink-0 text-charcoal-600" /><span className={r.done ? 'line-through' : 'font-medium text-charcoal'} data-no-tr>{r.note || activityLabel(r.type)}</span>{r.priority === 'high' && <span className="text-xs text-signal-danger">⚑</span>}</span></td>
+                      <td><button type="button" disabled={pending || r.done || r.readOnly} title={r.readOnly ? 'Ολοκληρώνεται από την καρτέλα του deal' : undefined} onClick={() => toggleDone(r)} aria-label="Ολοκλήρωση" className={`flex h-5 w-5 items-center justify-center rounded-full border-2 ${r.done ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-stone-300 hover:border-emerald-600'}`}>{r.done && <Check size={11} />}</button></td>
+                      <td><span className="flex items-center gap-2"><I size={14} className="shrink-0 text-charcoal-600" /><span className={r.done ? 'line-through' : 'font-medium text-charcoal'} data-no-tr>{r.note || activityLabel(r.type)}</span>{r.priority === 'high' && <span className="text-xs text-signal-danger">⚑</span>}{r.statusLabel && <span className="badge-neutral text-[10px]">{r.statusLabel}</span>}</span></td>
                       <td>{r.leadId ? <Link href={`/crm/leads/${r.leadId}`} className="text-forest hover:underline" data-no-tr>{r.dealTitle ?? 'Deal'}</Link> : '—'}</td>
                       <td data-no-tr>{r.contactName ?? '—'}</td>
                       <td>{r.phone ? <a href={`tel:${r.phone}`} className="text-forest hover:underline">{r.phone}</a> : '—'}</td>
@@ -136,12 +138,12 @@ export function ActivitiesView({ rows: initial, agents, currentUserId }: { rows:
                 const items = base.filter((r) => { const x = new Date(r.dueAt); return x >= d && x < addDays(d, 1); }).sort((a, b) => a.dueAt.localeCompare(b.dueAt));
                 const today = d.getTime() === t0.getTime();
                 return (
-                  <div key={i} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { const id = e.dataTransfer.getData('text/plain'); const r = rows.find((x) => x.id === id); if (r && !r.done) move(r, d); }}
+                  <div key={i} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { const id = e.dataTransfer.getData('text/plain'); const r = rows.find((x) => x.id === id); if (r && !r.done && !r.readOnly) move(r, d); }}
                     className={`min-h-[260px] rounded-xl p-2 ${today ? 'bg-forest/[0.06] ring-1 ring-forest/30' : 'bg-stone/50'}`}>
                     <p className={`mb-2 text-xs font-semibold ${today ? 'text-forest' : 'text-charcoal-600'}`}>{WD[i]} {d.getDate()}</p>
                     <div className="space-y-1.5">
                       {items.map((r) => { const I = ICON[r.type] ?? CheckSquare; const late = !r.done && new Date(r.dueAt) < now; return (
-                        <div key={r.id} draggable={!r.done} onDragStart={(e) => e.dataTransfer.setData('text/plain', r.id)}
+                        <div key={r.id} draggable={!r.done && !r.readOnly} onDragStart={(e) => e.dataTransfer.setData('text/plain', r.id)}
                           className={`rounded-lg border bg-white p-1.5 text-xs shadow-sm ${r.done ? 'border-stone-line opacity-50' : late ? 'border-rose-300' : 'border-stone-line'} ${r.done ? '' : 'cursor-grab'}`}>
                           <p className="flex items-center gap-1 font-medium text-charcoal"><I size={11} /> {time(r.dueAt)}</p>
                           <p className="truncate text-charcoal" data-no-tr>{r.note || activityLabel(r.type)}</p>
