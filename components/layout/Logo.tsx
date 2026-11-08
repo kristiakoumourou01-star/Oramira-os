@@ -48,7 +48,7 @@ export function Logo({
         <img src={logoUrl} alt={companyName} className="h-7 w-auto max-w-[160px] object-contain" />
       ) : (
         <span>
-          {companyName} <span className="text-champagne">OS</span>
+          {companyName}
         </span>
       )}
     </Link>

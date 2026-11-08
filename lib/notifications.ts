@@ -45,7 +45,7 @@ export async function deliverNotification(
           triggerType: p.event ?? 'notification',
           recipientEmail: email,
           subject: p.title,
-          body: `<p>${escapeHtml(p.body ?? p.title)}</p>${url ? `<p><a href="${url}">Άνοιγμα στο Oramira OS</a></p>` : ''}`,
+          body: `<p>${escapeHtml(p.body ?? p.title)}</p>${url ? `<p><a href="${url}">Άνοιγμα στο Oramira</a></p>` : ''}`,
         });
       }
     } catch { /* email is best-effort; the in-app copy is the record */ }

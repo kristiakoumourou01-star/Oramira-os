@@ -135,7 +135,7 @@ export async function exportAllZip(): Promise<{ zip: Uint8Array; tables: { name:
     tables.push({ name: t, rows: rows.length });
   }
   const readme = [
-    'Oramira OS — εξαγωγή δεδομένων',
+    'Oramira — εξαγωγή δεδομένων',
     `Ημερομηνία: ${new Date().toISOString()}`,
     '',
     'Ένα αρχείο CSV ανά πίνακα (UTF-8). Ανοίγει στο Excel.',

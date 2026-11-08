@@ -164,7 +164,7 @@ function Shell({ agent, initials, children }: { agent: Agent; initials: string; 
           </div>
           {children}
         </div>
-        <p className="mt-4 text-center text-[11px] text-charcoal-600/40">Powered by Oramira OS</p>
+        <p className="mt-4 text-center text-[11px] text-charcoal-600/40">Powered by Oramira</p>
       </div>
     </div>
   );

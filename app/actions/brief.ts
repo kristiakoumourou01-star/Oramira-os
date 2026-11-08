@@ -30,7 +30,7 @@ export async function emailMorningBrief(): Promise<{ ok: boolean; error?: string
       <h2 style="color:#1F4D3A;margin:0 0 4px">Good morning, ${first}</h2>
       <p style="color:#5b5750;margin:0 0 16px">${brief.summary}</p>
       ${rows ? `<table style="border-collapse:collapse;font-family:Arial,sans-serif;font-size:14px">${rows}</table>` : ''}
-      <p style="margin:20px 0 0;font-size:12px;color:#9a958c">Sent from Oramira OS · your daily brief</p>
+      <p style="margin:20px 0 0;font-size:12px;color:#9a958c">Sent from Oramira · your daily brief</p>
     </div>`;
 
   await queueNotificationEmail({
