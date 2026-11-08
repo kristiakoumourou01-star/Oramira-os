@@ -127,7 +127,6 @@ export const DEFAULT_NAV: NavDef[] = [
           { href: '/settings/users', label: 'Χρήστες & πρόσβαση' },
           { href: '/settings/roles', label: 'Ρόλοι & δικαιώματα' },
           { href: '/settings/view-as', label: 'Προβολή ως χρήστης' },
-          { href: '/settings/audit', label: 'Audit log' },
         ],
       },
     ],

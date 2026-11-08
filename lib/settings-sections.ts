@@ -97,6 +97,5 @@ export const SETTINGS_NAV: SettingsNavGroup[] = [
   ] },
   { label: 'Δεδομένα', items: [
     { label: 'GDPR & δεδομένα', href: '/settings?section=gdpr', icon: 'gdpr' },
-    { label: 'Audit log', href: '/settings/audit', icon: 'audit' },
   ] },
 ];
