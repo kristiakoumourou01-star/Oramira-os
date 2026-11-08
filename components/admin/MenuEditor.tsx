@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useTransition } from 'react';
+import { Fragment, useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Eye, EyeOff, ChevronRight, RotateCcw, Lock, GripVertical } from 'lucide-react';
 import { saveOrgSlice } from '@/app/actions/org-settings';
@@ -169,8 +169,11 @@ export function MenuEditor({ layout, menu, canEdit }: { layout: LayoutSettings; 
           {items.map((it, i) => {
             const Icon = navIcon(it.icon);
             const expanded = open === it.href;
+            const adminStart = it.section !== 0 && (i === 0 || items[i - 1].section === 0);
             return (
-              <li key={it.href} draggable={!disabled}
+              <Fragment key={it.href}>
+              {adminStart && <li className="pt-4 text-[11px] font-semibold uppercase tracking-wide text-charcoal-600/60">Admin</li>}
+              <li draggable={!disabled}
                 onDragStart={(e) => { if ((e.target as HTMLElement).closest('button,input,select')) { e.preventDefault(); return; } e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', it.href); setDragI(i); }}
                 onDragOver={(e) => { if (dragI !== null) { e.preventDefault(); setOverI(i); } }}
                 onDrop={(e) => { e.preventDefault(); if (dragI !== null && dragI !== i) { const n = [...items]; const [x] = n.splice(dragI, 1); n.splice(i, 0, x); setItems(n); setMsg(null); } setDragI(null); setOverI(null); }}
@@ -236,6 +239,7 @@ export function MenuEditor({ layout, menu, canEdit }: { layout: LayoutSettings; 
                   </div>
                 )}
               </li>
+              </Fragment>
             );
           })}
         </ul>
