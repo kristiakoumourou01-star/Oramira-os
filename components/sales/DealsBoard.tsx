@@ -57,6 +57,7 @@ export function DealsBoard({ leads: initial, cfg, agents, currentUserId, initial
   const [q, setQ] = useState('');
   const [cond, setCond] = useState<Cond>(NO_COND);
   const [filterOpen, setFilterOpen] = useState(false);
+  const [preset, setPreset] = useState<'all' | 'rotten' | 'noact' | 'closepast' | 'old3m' | 'won' | 'lost'>('all');
   const [drag, setDrag] = useState<string | null>(null);
   const [over, setOver] = useState<string | null>(null);
   const [lostFor, setLostFor] = useState<LeadListItem | null>(null);
@@ -94,10 +95,14 @@ export function DealsBoard({ leads: initial, cfg, agents, currentUserId, initial
       if (vmax !== null && v > vmax) return false;
       if (cond.closeFrom && (!l.expected_close_date || l.expected_close_date < cond.closeFrom)) return false;
       if (cond.closeTo && (!l.expected_close_date || l.expected_close_date > cond.closeTo)) return false;
+      if (preset === 'rotten' && !(rottenDays(l) ?? 0)) return false;
+      if (preset === 'noact' && (isClosed(l.status) || activityState(nextOf(l)) !== 'none')) return false;
+      if (preset === 'closepast' && (isClosed(l.status) || !l.expected_close_date || l.expected_close_date >= new Date().toISOString().slice(0, 10))) return false;
+      if (preset === 'old3m' && (isClosed(l.status) || Date.now() - Date.parse(l.created_at) < 90 * 86400000)) return false;
       return true;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [leads, pipe.key, owner, q, cond, currentUserId]);
+  }, [leads, pipe.key, owner, q, cond, currentUserId, preset]);
 
   const sorter = (a: LeadListItem, b: LeadListItem) => {
     switch (sort) {
@@ -195,6 +200,16 @@ export function DealsBoard({ leads: initial, cfg, agents, currentUserId, initial
           <Search size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-charcoal-600/50" />
           <input className="input h-9 w-48 py-1 pl-8 text-sm" placeholder="Αναζήτηση deal…" value={q} onChange={(e) => setQ(e.target.value)} />
         </label>
+        <select className={`input h-9 w-auto py-1 text-sm ${preset !== 'all' ? 'border-forest text-forest' : ''}`} value={preset} aria-label="Αποθηκευμένα φίλτρα"
+          onChange={(e) => { const v = e.target.value as typeof preset; setPreset(v); if (v === 'won' || v === 'lost') { setShowClosed(true); setView('board'); } }}>
+          <option value="all">Όλα τα ανοιχτά deals</option>
+          <option value="rotten">«Σάπια» deals</option>
+          <option value="noact">Χωρίς προγραμματισμένη activity</option>
+          <option value="closepast">Αναμ. κλείσιμο στο παρελθόν</option>
+          <option value="old3m">Πάνω από 3 μήνες</option>
+          <option value="won">Won deals</option>
+          <option value="lost">Lost deals</option>
+        </select>
         <div className="relative">
           <button type="button" onClick={() => setFilterOpen((x) => !x)} className={`btn-secondary h-9 text-sm ${condCount ? 'border-forest text-forest' : ''}`}><Filter size={14} /> Add condition{condCount ? ` (${condCount})` : ''}</button>
           {filterOpen && (
@@ -233,7 +248,7 @@ export function DealsBoard({ leads: initial, cfg, agents, currentUserId, initial
       {view === 'board' && (
         <div className="-mx-1 overflow-x-auto pb-24">
           <div className="flex min-w-max gap-2 px-1">
-            {columns.map((st, i) => {
+            {preset !== 'won' && preset !== 'lost' && columns.map((st, i) => {
               const items = byStage(st);
               const sum = items.reduce((s, l) => s + dealValue(l), 0);
               return (
@@ -249,16 +264,16 @@ export function DealsBoard({ leads: initial, cfg, agents, currentUserId, initial
                 </div>
               );
             })}
-            {showClosed && (
+            {(showClosed || preset === 'won' || preset === 'lost') && (
               <>
-                <div className="flex w-[272px] shrink-0 flex-col rounded-xl bg-emerald-50/70">
+                {preset !== 'lost' && <div className="flex w-[272px] shrink-0 flex-col rounded-xl bg-emerald-50/70">
                   <div className="rounded-t-xl border-b border-emerald-200 bg-white px-3 py-2"><p className="font-semibold text-emerald-700">Won</p><p className="text-xs text-charcoal-600/70">{formatCurrency(won.reduce((s, l) => s + dealValue(l), 0))} · {won.length} deals</p></div>
                   <div className="flex flex-col gap-2 p-2">{won.map((l) => card(l))}</div>
-                </div>
-                <div className="flex w-[272px] shrink-0 flex-col rounded-xl bg-rose-50/60">
+                </div>}
+                {preset !== 'won' && <div className="flex w-[272px] shrink-0 flex-col rounded-xl bg-rose-50/60">
                   <div className="rounded-t-xl border-b border-rose-200 bg-white px-3 py-2"><p className="font-semibold text-signal-danger">Lost</p><p className="text-xs text-charcoal-600/70">{formatCurrency(lost.reduce((s, l) => s + dealValue(l), 0))} · {lost.length} deals</p></div>
                   <div className="flex flex-col gap-2 p-2">{lost.map((l) => card(l))}</div>
-                </div>
+                </div>}
               </>
             )}
           </div>

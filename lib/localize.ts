@@ -44,6 +44,7 @@ export function settingsNames(s: OrgSettings): string[] {
   const add = (x?: string) => { const t = (x ?? '').trim(); if (t && !D[t] && t.length <= 120) out.add(t); };
   for (const p of s.pipelines.pipelines) { add(p.name); p.stages.forEach((st) => add(st.label)); }
   s.pipelines.lostReasons.forEach((r) => add(r.label));
+  (s.pipelines.dealLabels ?? []).forEach((l) => add(l.name));
   s.departments.items.forEach((d) => add(d.name));
   s.departments.rooms.forEach((r) => add(r.name));
   for (const f of s.tags.fields) add(f.name); // οι επιλογές (Choice) είναι τιμές που αποθηκεύονται — δεν μεταφράζονται
@@ -65,6 +66,7 @@ export function localizeSettings(s: OrgSettings, lang: Lang, map: LabelMap = {})
       ...p,
       pipelines: p.pipelines.map((pl) => ({ ...pl, name: n(pl.name), stages: pl.stages.map((st) => ({ ...st, label: n(st.label) })) })),
       lostReasons: p.lostReasons.map((r) => ({ ...r, label: n(r.label) })),
+      dealLabels: (p.dealLabels ?? []).map((l) => ({ ...l, name: n(l.name) })),
     },
     departments: { ...s.departments, items: s.departments.items.map((d) => ({ ...d, name: n(d.name) })), rooms: s.departments.rooms.map((r) => ({ ...r, name: n(r.name) })) },
     tags: { ...s.tags, fields: s.tags.fields.map((f) => ({ ...f, name: n(f.name) })) },
