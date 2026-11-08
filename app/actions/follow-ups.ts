@@ -31,7 +31,8 @@ export async function completeAndNext(id: string, next?: { dueAt: string; note: 
   const me = await requireRole(['admin', 'sales', 'management']);
   if (!UUID.test(id ?? '')) return { ok: false, error: 'Άγνωστο follow-up.' };
   const supabase = await createSupabaseServerClient();
-  const { data: ft, error } = await supabase.from('follow_up_tasks').update({ is_done: true }).eq('id', id).select('lead_id, contact_id, assigned_to, note').single();
+  let { data: ft, error } = await (supabase as any).from('follow_up_tasks').update({ is_done: true, done_at: new Date().toISOString() }).eq('id', id).select('lead_id, contact_id, assigned_to, note').single();
+  if (error) ({ data: ft, error } = await supabase.from('follow_up_tasks').update({ is_done: true }).eq('id', id).select('lead_id, contact_id, assigned_to, note').single()); // πριν το 0075
   if (error) return { ok: false, error: error.message };
   if (outcome?.trim() && ft?.lead_id) {
     await supabase.from('notes').insert({ entity_type: 'lead', entity_id: ft.lead_id, author_id: me.id, body: `✓ ${ft.note ?? 'Follow-up'}: ${outcome.trim().slice(0, 1000)}` });

@@ -9,12 +9,12 @@ import { effectiveCan } from '@/lib/permissions';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Phone, Mail, User } from 'lucide-react';
+import { DealHeader, StageBar, DealSummary, DealComposer, FocusList, DealHistory, type HistoryItem, type Person } from '@/components/sales/DealParts';
+import { activityLabel } from '@/lib/activity-types';
 import { StatusPipeline } from '@/components/crm/StatusPipeline';
 import { LeadPipelinePicker } from '@/components/crm/LeadPipelinePicker';
-import { pipelineOf, stageOf, STATUS_EL } from '@/lib/pipeline-shared';
+import { pipelineOf, stageOf, STATUS_EL, daysSince } from '@/lib/pipeline-shared';
 import { AIInsightPanel } from '@/components/crm/AIInsightPanel';
-import { ContactTimeline, type TimelineEntry } from '@/components/crm/ContactTimeline';
 import { LeadQuickActions } from '@/components/crm/LeadQuickActions';
 import { ConvertToReservation, type AvailableUnit } from '@/components/crm/ConvertToReservation';
 import { PriorityBadge } from '@/components/crm/PriorityBadge';
@@ -34,7 +34,7 @@ import { getSourceConversionMap } from '@/lib/learning-loop';
 import { PredictiveScore } from '@/components/crm/PredictiveScore';
 import { analyzeSalesStrategy } from '@/lib/sales-assistant';
 import { AssistantStrategy } from '@/components/crm/AssistantStrategy';
-import { formatDate, formatDateTime, formatNumber, formatCurrency } from '@/lib/format';
+import { formatDate, formatNumber, formatCurrency } from '@/lib/format';
 
 const SOURCE_LABEL: Record<string, string> = {
   website: 'Website', meta: 'Meta', google: 'Google', organic: 'Organic',
@@ -96,13 +96,20 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
     (supabase as any).from('leads').select('pipeline, stage_entered_at, lost_reason, lost_note, is_returning, commission_invoice_id').eq('id', params.id).maybeSingle(),
     (supabase as any).from('leads').select('stage').eq('id', params.id).maybeSingle(), // 0072 — χωρίς αυτό: null
   ]);
+  // Deal (0075): πεδία, ολοκληρωμένες activities, changelog.
+  const [{ data: dealRow }, { data: openActs }, { data: doneActs }, { data: changes }] = await Promise.all([
+    (supabase as any).from('leads').select('title, value, currency, expected_close_date, labels, followers, archived_at, won_at, lost_at').eq('id', params.id).maybeSingle(),
+    (supabase as any).from('follow_up_tasks').select('id, due_at, note, type, priority, duration_min, owner:assigned_to(full_name)').eq('lead_id', params.id).eq('is_done', false).order('due_at'),
+    (supabase as any).from('follow_up_tasks').select('id, due_at, done_at, note, type, owner:assigned_to(full_name)').eq('lead_id', params.id).eq('is_done', true).order('due_at', { ascending: false }).limit(100),
+    (supabase as any).from('lead_changes').select('id, field, old_value, new_value, created_at, actor:actor_id(full_name)').eq('lead_id', params.id).order('created_at', { ascending: false }).limit(200),
+  ]);
   const pipeline = pipelineOf(pipeCfg, pl?.pipeline ?? null);
 
   const contact = (lead as any).contacts;
   const ownerName = (lead as any).owner?.full_name ?? null;
   const assignerName = (lead as any).assigner?.full_name ?? null;
 
-  const [{ data: followUps }, { data: notes }, { data: comms }, { data: units }, { data: history }, { data: viewings }, { data: negotiations }, { data: agents }] = await pMain;
+  const [{ data: followUps }, { data: notes }, { data: comms }, { data: units }, { data: history2 }, { data: viewings }, { data: negotiations }, { data: agents }] = await pMain;
 
   const nextFollowUp = (followUps ?? [])[0]?.due_at ?? null;
   const { score, reasons } = computePriority({
@@ -137,10 +144,7 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
     lastInboundText: (comms ?? []).find((c: any) => c.direction === 'inbound')?.summary ?? null,
   });
 
-  const timeline: TimelineEntry[] = [
-    ...(notes ?? []).map((n: any) => ({ id: n.id, kind: 'note' as const, body: n.body, author: n.profiles?.full_name, occurred_at: n.created_at })),
-    ...(comms ?? []).map((c: any) => ({ id: c.id, kind: 'communication' as const, body: c.summary, channel: c.channel, direction: c.direction, status: c.status, ai_generated: c.ai_generated, author: c.profiles?.full_name, occurred_at: c.occurred_at })),
-  ].sort((a, b) => new Date(b.occurred_at).getTime() - new Date(a.occurred_at).getTime());
+
 
   const availableUnits: AvailableUnit[] = (units ?? []).map((u: any) => ({
     id: u.id,
@@ -189,121 +193,133 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
   const budget = lead.budget_min || lead.budget_max ? `${formatCurrency(Number(lead.budget_min ?? 0))}–${formatNumber(Number(lead.budget_max ?? 0))}` : '—';
 
   const dupes = await pDupes;
+  const canEdit = effectiveCan(profile.role, profile.moduleAccess, 'leads', 'edit', profile.permissions);
+  const curStage = stageOf(pipeline, lead.status, stRow?.stage ?? null);
+  const dealVal = dealRow?.value != null ? Number(dealRow.value) : null;
+  const budgetVal = lead.budget_max != null ? Number(lead.budget_max) : lead.budget_min != null ? Number(lead.budget_min) : null;
+  const closed = lead.status === 'won' || ['lost', 'nurture', 'no_response', 'retargeting', 'reactivation'].includes(lead.status);
+  const agentName = new Map(((agents ?? []) as any[]).map((a) => [a.id, a.full_name]));
+  const stageName = (k: string | null) => (k ? pipeline.stages.find((x) => x.key === k)?.label ?? k : '—');
+  const FIELD: Record<string, string> = { title: 'Τίτλος', value: 'Αξία', status: 'Κατάσταση', stage: 'Στάδιο', pipeline: 'Pipeline', assigned_to: 'Υπεύθυνος', expected_close_date: 'Αναμ. κλείσιμο', labels: 'Labels', budget_min: 'Budget από', budget_max: 'Budget έως', source: 'Πηγή', lost_reason: 'Λόγος', preferred_project_id: 'Έργο', archived_at: 'Αρχείο' };
+  const showVal = (f: string, v: string | null) => {
+    if (v == null || v === '') return '—';
+    if (f === 'assigned_to') return agentName.get(v) ?? '—';
+    if (f === 'stage') return stageName(v);
+    if (f === 'status') return STATUS_EL[v] ?? v;
+    if (f === 'pipeline') return pipeCfg.pipelines.find((x) => x.key === v)?.name ?? v;
+    if (f === 'value' || f === 'budget_min' || f === 'budget_max') return formatCurrency(Number(v));
+    if (f === 'lost_reason') return pipeCfg.lostReasons.find((x) => x.key === v)?.label ?? v;
+    if (f === 'labels') return v.replace(/[{}]/g, '').split(',').filter(Boolean).map((k) => pipeCfg.dealLabels.find((x) => x.key === k)?.name ?? k).join(', ') || '—';
+    if (f === 'archived_at') return 'ναι';
+    if (f === 'expected_close_date') return formatDate(v);
+    return v;
+  };
+  const history: HistoryItem[] = [
+    ...(notes ?? []).map((n: any) => ({ id: n.id, kind: 'note' as const, at: n.created_at, who: n.profiles?.full_name ?? null, title: 'Σημείωση', body: n.body })),
+    ...(comms ?? []).map((c: any) => ({ id: c.id, kind: 'comm' as const, at: c.occurred_at, who: c.profiles?.full_name ?? null, title: `${c.channel === 'phone' ? 'Κλήση' : c.channel === 'whatsapp' ? 'WhatsApp' : c.channel === 'email' ? 'Email' : c.channel} · ${c.direction === 'inbound' ? 'εισερχόμενο' : 'εξερχόμενο'}`, body: c.summary })),
+    ...((doneActs ?? []) as any[]).map((a) => ({ id: a.id, kind: 'activity' as const, at: a.done_at ?? a.due_at, who: a.owner?.full_name ?? null, title: `✓ ${a.note || activityLabel(a.type)}`, icon: a.type ?? 'task' })),
+    ...((changes ?? []) as any[]).map((c) => ({ id: c.id, kind: 'change' as const, at: c.created_at, who: c.actor?.full_name ?? 'Σύστημα', title: `${FIELD[c.field] ?? c.field}: ${showVal(c.field, c.old_value)} → ${showVal(c.field, c.new_value)}` })),
+    { id: 'created', kind: 'change' as const, at: lead.created_at, who: null, title: 'Το deal δημιουργήθηκε' },
+  ].sort((a, b) => b.at.localeCompare(a.at));
+  const ageDays = daysSince(lead.created_at) ?? 0;
+  const lastTouch = [lead.last_contacted_at, ...((doneActs ?? []) as any[]).map((a) => a.done_at ?? a.due_at)].filter(Boolean).sort().at(-1) ?? lead.created_at;
+  const inactiveDays = daysSince(lastTouch) ?? 0;
+  const typeCount = new Map<string, number>();
+  for (const a of (doneActs ?? []) as any[]) typeCount.set(a.type ?? 'task', (typeCount.get(a.type ?? 'task') ?? 0) + 1);
+  const totalDone = [...typeCount.values()].reduce((x, y) => x + y, 0);
+  const userCount = new Map<string, number>();
+  for (const h of history) if (h.who && h.kind !== 'change') userCount.set(h.who, (userCount.get(h.who) ?? 0) + 1);
+  const Box = ({ title, children }: { title: string; children: React.ReactNode }) => (
+    <section className="panel p-4"><p className="mb-3 text-xs font-semibold uppercase tracking-wide text-charcoal-600/70">{title}</p>{children}</section>
+  );
+  const Row = ({ k, v }: { k: string; v: React.ReactNode }) => <div className="flex justify-between gap-3 py-1 text-sm"><span className="text-charcoal-600/70">{k}</span><span className="text-right text-charcoal">{v}</span></div>;
+
   return (
-    <div className="space-y-6">
-      <Link href="/crm/leads" className="inline-flex items-center gap-1 text-sm text-charcoal-600/70 hover:text-forest">
-        <ArrowLeft size={14} strokeWidth={1.75} /> Leads
-      </Link>
-
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <div className="mb-1 flex items-center gap-2">
-            <PriorityBadge score={score} />
-            <span className="badge-neutral">{stageOf(pipeline, lead.status, stRow?.stage ?? null)?.label ?? STATUS_EL[lead.status] ?? lead.status}</span>
-            {pl?.is_returning && <span className="badge-champagne" title="Έχει ξαναγοράσει από εσάς">Επιστρέφων πελάτης</span>}
-          </div>
-          <h1 className="text-3xl">{contact?.full_name ?? 'Unnamed lead'}</h1>
-          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-charcoal-600/80">
-            {contact?.phone && <span className="flex items-center gap-1"><Phone size={13} strokeWidth={1.75} /> {contact.phone}</span>}
-            {contact?.email && <span className="flex items-center gap-1"><Mail size={13} strokeWidth={1.75} /> {contact.email}</span>}
-            <span className="flex items-center gap-1"><User size={13} strokeWidth={1.75} /> {ownerName ?? 'Unassigned'}</span>
-          </div>
-        </div>
-        <div className="flex flex-col items-end gap-3">
-          <LeadQuickActions lead={quickLead} size="md" />
-          <ConvertToReservation
-            leadId={lead.id}
-            contactId={lead.contact_id}
-            units={availableUnits}
-            alreadyReserved={lead.status === 'reserved' || lead.status === 'won'}
-          />
-        </div>
+    <div className="space-y-4">
+      <DealHeader leadId={lead.id} title={dealRow?.title ?? null} fallbackTitle={contact?.full_name ?? 'Deal'} status={lead.status} ownerId={lead.assigned_to ?? null}
+        agents={(agents ?? []) as Person[]} followers={dealRow?.followers ?? []} archived={!!dealRow?.archived_at} lostReasons={pipeCfg.lostReasons}
+        wonStageKey={pipeline.stages.find((x) => x.status === 'won')?.key ?? null} contactName={contact?.full_name ?? 'Deal'} />
+      <div className="flex flex-wrap items-center gap-2">
+        <LeadPipelinePicker leadId={lead.id} value={pl?.pipeline ?? null} pipelines={pipeCfg.pipelines} defaultKey={pipeCfg.defaultKey} />
+        {pl?.is_returning && <span className="badge-champagne" title="Έχει ξαναγοράσει από εσάς">Επιστρέφων πελάτης</span>}
+        <PriorityBadge score={score} />
       </div>
+      {closed
+        ? <StatusPipeline leadId={lead.id} currentStatus={lead.status} currentStage={stRow?.stage ?? null} pipeline={pipeline} lostReasons={pipeCfg.lostReasons} stageEnteredAt={pl?.stage_entered_at ?? null}
+            lostReason={pl?.lost_reason ?? null} lostNote={pl?.lost_note ?? null} commissionInvoiceId={pl?.commission_invoice_id ?? null} />
+        : <StageBar leadId={lead.id} pipeline={pipeline} status={lead.status} stage={stRow?.stage ?? null} enteredAt={pl?.stage_entered_at ?? null} />}
 
-      {/* The one authoritative "what to do now" — always-fresh deterministic
-          recommendation, one click from execution. */}
       <DuplicateBanner contactId={lead.contact_id} matches={dupes} canMerge={['admin', 'management', 'sales'].includes(profile.role)} />
 
-      <LeadNextAction nba={leadScore.nba} source="heuristic" phone={contact?.phone ?? null} />
-
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="space-y-6 lg:col-span-2">
-          <div className="panel p-6">
-            <div className="mb-4 flex items-center justify-between gap-2"><h4>Πορεία πώλησης</h4><LeadPipelinePicker leadId={lead.id} value={pl?.pipeline ?? null} pipelines={pipeCfg.pipelines} defaultKey={pipeCfg.defaultKey} /></div>
-            <StatusPipeline leadId={lead.id} currentStatus={lead.status} currentStage={stRow?.stage ?? null} pipeline={pipeline} lostReasons={pipeCfg.lostReasons} stageEnteredAt={pl?.stage_entered_at ?? null}
-              lostReason={pl?.lost_reason ?? null} lostNote={pl?.lost_note ?? null} commissionInvoiceId={pl?.commission_invoice_id ?? null} />
-            <div className="mt-5 grid grid-cols-3 gap-4 text-sm">
-              <div><p className="eyebrow">Budget</p><p className="figure text-charcoal">{budget}</p></div>
-              <div><p className="eyebrow">Source</p><p className="text-charcoal">{SOURCE_LABEL[lead.source] ?? lead.source}</p></div>
-              <div><p className="eyebrow">Timeline to buy</p><p className="text-charcoal">{lead.timeline_to_buy ?? '—'}</p></div>
-              <div><p className="eyebrow">Interested project</p><p className="text-charcoal">{(lead as any).projects?.name ?? '—'}</p></div>
-              <div><p className="eyebrow">Last contacted</p><p className="text-charcoal">{lead.last_contacted_at ? formatDate(lead.last_contacted_at) : 'Never'}</p></div>
-              <div><p className="eyebrow">Next follow-up</p><p className={`text-charcoal ${nextFollowUp && new Date(nextFollowUp).getTime() <= Date.now() ? 'text-signal-danger' : ''}`}>{nextFollowUp ? formatDate(nextFollowUp) : '—'}</p></div>
-              <div><p className="eyebrow">Next action</p><p className="text-charcoal capitalize">{lead.next_action_type ? `${lead.next_action_type.replace('_', ' ')}${lead.next_action_date ? ` · ${formatDate(lead.next_action_date)}` : ''}` : '—'}</p></div>
-            </div>
-          </div>
-
-          <div className="grid gap-6 xl:grid-cols-2">
-            <LeadAreasEditor leadId={lead.id} initial={leadAreas} canEdit={effectiveCan(profile.role, profile.moduleAccess, 'leads', 'edit', profile.permissions)} />
-            <LeadRequirementsEditor leadId={lead.id} fields={unitFields} initial={leadReq} canEdit={effectiveCan(profile.role, profile.moduleAccess, 'leads', 'edit', profile.permissions)} />
-          </div>
-
-          <RecommendedProperties matches={propertyMatches} mapHref={`/map?lead=${lead.id}`} />
-
-          <ViewingScheduler leadId={lead.id} contactId={lead.contact_id} units={unitOptions} agents={agentOptions} viewings={viewingRows} />
-
-          <NegotiationTracker leadId={lead.id} entries={negotiationRows} />
-
-          <ContactTimeline contactId={lead.contact_id} leadId={lead.id} entries={timeline} />
-        </div>
-
-        <div className="space-y-6">
-          <ContactMetaPanel
-            contactId={lead.contact_id}
-            initial={contactMeta}
-            defs={tagDefs}
-            canEdit={effectiveCan(profile.role, profile.moduleAccess, 'leads', 'edit', profile.permissions)}
-          />
-
-          <div className="panel p-6">
-            <h4 className="mb-3">Assignment</h4>
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between"><span className="text-charcoal-600/70">Owner</span><span className="font-medium text-charcoal">{ownerName ?? 'Unassigned'}</span></div>
-              <div className="flex justify-between"><span className="text-charcoal-600/70">Assigned by</span><span className="text-charcoal">{assignerName ?? '—'}</span></div>
-              <div className="flex justify-between"><span className="text-charcoal-600/70">Assigned</span><span className="figure text-charcoal-600">{lead.assigned_at ? formatDate(lead.assigned_at) : '—'}</span></div>
-            </div>
-            {(history ?? []).length > 0 && (
-              <div className="mt-4 border-t border-stone-line pt-3">
-                <p className="eyebrow mb-2">History</p>
-                <ul className="space-y-1.5">
-                  {(history ?? []).map((h: any) => (
-                    <li key={h.id} className="text-xs text-charcoal-600/80">
-                      → <span className="text-charcoal">{h.to?.full_name ?? 'Unassigned'}</span>
-                      {h.by?.full_name ? ` by ${h.by.full_name}` : ''} · {formatDate(h.created_at)}
-                    </li>
-                  ))}
-                </ul>
+      <div className="grid items-start gap-4 lg:grid-cols-[minmax(300px,380px)_1fr]">
+        {/* Αριστερά: Summary, Details, Πρόσωπο, Overview — όπως Pipedrive */}
+        <div className="space-y-4">
+          <Box title="Summary">
+            <DealSummary leadId={lead.id} value={dealVal} budgetFallback={budgetVal} currency={dealRow?.currency ?? 'EUR'} expectedClose={dealRow?.expected_close_date ?? null}
+              labels={dealRow?.labels ?? []} allLabels={pipeCfg.dealLabels} probability={curStage?.probability ?? (lead.status === 'won' ? 100 : 0)} weighted={(dealVal ?? budgetVal ?? 0) * ((curStage?.probability ?? 0) / 100)} />
+          </Box>
+          <Box title="Πρόσωπο">
+            <Link href={`/crm/${lead.contact_id}`} className="font-semibold text-charcoal hover:text-forest" data-no-tr>{contact?.full_name ?? '—'}</Link>
+            {contact?.phone && <Row k="Τηλέφωνο" v={<a href={`tel:${contact.phone}`} className="text-forest hover:underline">{contact.phone}</a>} />}
+            {contact?.email && <Row k="Email" v={<a href={`mailto:${contact.email}`} className="break-all text-forest hover:underline">{contact.email}</a>} />}
+            {contact?.nationality && <Row k="Υπηκοότητα" v={contact.nationality} />}
+            {contact?.preferred_language && <Row k="Γλώσσα" v={contact.preferred_language} />}
+            <div className="mt-2"><LeadQuickActions lead={quickLead} size="sm" /></div>
+          </Box>
+          <Box title="Details">
+            <Row k="Budget" v={budget} />
+            <Row k="Πηγή" v={SOURCE_LABEL[lead.source] ?? lead.source} />
+            <Row k="Πότε θέλει να αγοράσει" v={lead.timeline_to_buy ?? '—'} />
+            <Row k="Έργο ενδιαφέροντος" v={(lead as any).projects?.name ?? '—'} />
+            <Row k="Τελευταία επικοινωνία" v={lead.last_contacted_at ? formatDate(lead.last_contacted_at) : '—'} />
+            {lead.message && <p className="mt-2 rounded-lg bg-stone/60 p-2 text-sm text-charcoal-600" data-no-tr>{lead.message}</p>}
+          </Box>
+          <ContactMetaPanel contactId={lead.contact_id} initial={contactMeta} defs={tagDefs} canEdit={canEdit} />
+          <Box title="Overview">
+            <Row k="Ηλικία deal" v={ageDays < 1 ? '< 1 μέρα' : `${ageDays} μέρες`} />
+            <Row k="Αδράνεια (μέρες)" v={inactiveDays} />
+            <Row k="Δημιουργήθηκε" v={formatDate(lead.created_at)} />
+            {dealRow?.won_at && <Row k="Won" v={formatDate(dealRow.won_at)} />}
+            {dealRow?.lost_at && <Row k="Lost" v={formatDate(dealRow.lost_at)} />}
+            {totalDone > 0 && (
+              <div className="mt-3 border-t border-stone-line pt-2">
+                <p className="mb-1 text-xs font-medium text-charcoal-600/70">Top activities</p>
+                {[...typeCount.entries()].sort((a, b) => b[1] - a[1]).map(([t, n]) => <Row key={t} k={activityLabel(t)} v={`${n} · ${Math.round((n / totalDone) * 100)}%`} />)}
               </div>
             )}
-          </div>
-
-          <div className="panel p-6">
-            <h4 className="mb-3">Upcoming follow-ups</h4>
-            {(followUps ?? []).length === 0 ? (
-              <p className="text-sm text-charcoal-600/70">None scheduled. Use the calendar action above to add one.</p>
-            ) : (
-              <ul className="divide-y divide-stone-line">
-                {(followUps ?? []).map((f: any) => (
-                  <li key={f.id} className="py-2.5">
-                    <p className="figure text-sm text-charcoal">{formatDateTime(f.due_at)}</p>
-                    {f.note && <p className="text-xs text-charcoal-600/70">{f.note}</p>}
-                  </li>
-                ))}
+            {userCount.size > 0 && (
+              <div className="mt-3 border-t border-stone-line pt-2">
+                <p className="mb-1 text-xs font-medium text-charcoal-600/70">Πιο ενεργοί χρήστες</p>
+                {[...userCount.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4).map(([u, n]) => <Row key={u} k={u} v={n} />)}
+              </div>
+            )}
+          </Box>
+          <Box title="Ανάθεση">
+            <Row k="Υπεύθυνος" v={ownerName ?? '—'} />
+            <Row k="Ανατέθηκε από" v={assignerName ?? '—'} />
+            <Row k="Ανατέθηκε" v={lead.assigned_at ? formatDate(lead.assigned_at) : '—'} />
+            {(history2 ?? []).length > 0 && (
+              <ul className="mt-2 space-y-1 border-t border-stone-line pt-2">
+                {(history2 ?? []).map((h: any) => <li key={h.id} className="text-xs text-charcoal-600/80">→ <span className="text-charcoal">{h.to?.full_name ?? '—'}</span>{h.by?.full_name ? ` · ${h.by.full_name}` : ''} · {formatDate(h.created_at)}</li>)}
               </ul>
             )}
+          </Box>
+          <div className="grid gap-4">
+            <LeadAreasEditor leadId={lead.id} initial={leadAreas} canEdit={canEdit} />
+            <LeadRequirementsEditor leadId={lead.id} fields={unitFields} initial={leadReq} canEdit={canEdit} />
           </div>
+        </div>
 
-          {/* Έξυπνος βοηθός: κλειστό από προεπιλογή, για να μη γεμίζει η σελίδα. */}
+        {/* Δεξιά: composer, Focus, ακίνητα/προβολές/διαπραγμάτευση, ιστορικό */}
+        <div className="min-w-0 space-y-4">
+          <DealComposer leadId={lead.id} contactId={lead.contact_id} phone={contact?.phone ?? null} email={contact?.email ?? null} agents={(agents ?? []) as Person[]} ownerId={lead.assigned_to ?? null} filesHref={`/crm/${lead.contact_id}?tab=documents`} />
+          <LeadNextAction nba={leadScore.nba} source="heuristic" phone={contact?.phone ?? null} />
+          <FocusList items={((openActs ?? []) as any[]).map((a) => ({ id: a.id, due_at: a.due_at, note: a.note, type: a.type ?? null, priority: a.priority ?? null, duration_min: a.duration_min ?? null, owner: a.owner?.full_name ?? null }))} />
+          <div className="flex flex-wrap justify-end"><ConvertToReservation leadId={lead.id} contactId={lead.contact_id} units={availableUnits} alreadyReserved={lead.status === 'reserved' || lead.status === 'won'} /></div>
+          <RecommendedProperties matches={propertyMatches} mapHref={`/map?lead=${lead.id}`} />
+          <ViewingScheduler leadId={lead.id} contactId={lead.contact_id} units={unitOptions} agents={agentOptions} viewings={viewingRows} />
+          <NegotiationTracker leadId={lead.id} entries={negotiationRows} />
+          <div className="panel p-4"><DealHistory items={history} /></div>
           <details className="panel group p-0">
             <summary className="flex cursor-pointer list-none items-center justify-between gap-2 p-5 text-sm font-medium text-charcoal">
               <span>Έξυπνος βοηθός <span className="font-normal text-charcoal-600/60">· AI, πιθανότητα, στρατηγική, μήνυμα</span></span>
@@ -311,26 +327,8 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
             </summary>
             <div className="space-y-5 border-t border-stone-line p-5">
               <PredictiveScore score={leadScore} />
-              <AIInsightPanel
-                leadId={lead.id}
-                score={lead.ai_score}
-                reasoning={lead.ai_score_reasoning}
-                summary={lead.ai_summary}
-                nextSteps={lead.ai_next_steps}
-                generatedAt={lead.ai_summary_generated_at}
-              />
-              <SalesCoach
-                signals={{
-                  status: lead.status,
-                  buyerType: contact?.buyer_type,
-                  language: contact?.preferred_language,
-                  createdAt: lead.created_at,
-                  lastContactedAt: lead.last_contacted_at,
-                  firstResponseAt: lead.first_response_at,
-                  aiScore: lead.ai_score,
-                  priority: score,
-                }}
-              />
+              <AIInsightPanel leadId={lead.id} score={lead.ai_score} reasoning={lead.ai_score_reasoning} summary={lead.ai_summary} nextSteps={lead.ai_next_steps} generatedAt={lead.ai_summary_generated_at} />
+              <SalesCoach signals={{ status: lead.status, buyerType: contact?.buyer_type, language: contact?.preferred_language, createdAt: lead.created_at, lastContactedAt: lead.last_contacted_at, firstResponseAt: lead.first_response_at, aiScore: lead.ai_score, priority: score }} />
               <AssistantStrategy strategy={strategy} />
               <LeadAssistant leadId={lead.id} hasPhone={!!contact?.phone} hasEmail={!!contact?.email} />
             </div>
