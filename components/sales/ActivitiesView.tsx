@@ -7,6 +7,7 @@ import { Phone, Users, CheckSquare, Flag, Mail, Utensils, Home, List, CalendarDa
 import { ACTIVITY_TYPES, activityLabel } from '@/lib/activity-types';
 import { completeAndNext, updateFollowUp } from '@/app/actions/follow-ups';
 import { useBoardScroll } from '@/components/ui/useBoardScroll';
+import { DATE_TAG, currentLocale } from '@/lib/locale-shared';
 
 const ICON: Record<string, any> = { call: Phone, meeting: Users, task: CheckSquare, deadline: Flag, email: Mail, lunch: Utensils, viewing: Home };
 export interface ActivityRow {
@@ -20,7 +21,6 @@ const PERIODS: [Period, string][] = [['todo', 'Για να γίνουν'], ['ove
 const dayStart = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 const addDays = (d: Date, n: number) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
 const weekStart = (d: Date) => addDays(dayStart(d), -((d.getDay() + 6) % 7));
-const WD = ['Δευ', 'Τρί', 'Τετ', 'Πέμ', 'Παρ', 'Σάβ', 'Κυρ'];
 
 /** Sales → Activities: όλες οι κινήσεις (όπως Pipedrive) σε λίστα ή εβδομαδιαίο ημερολόγιο. */
 export function ActivitiesView({ rows: initial, agents, currentUserId, initialTypes = [] }: { rows: ActivityRow[]; agents: { id: string; full_name: string | null }[]; currentUserId: string; initialTypes?: string[] }) {
@@ -64,8 +64,8 @@ export function ActivitiesView({ rows: initial, agents, currentUserId, initialTy
     setRows((xs) => xs.map((x) => (x.id === r.id ? { ...x, dueAt: d.toISOString() } : x)));
     start(async () => { await updateFollowUp(r.id, { dueAt: d.toISOString() }); router.refresh(); });
   };
-  const time = (iso: string) => new Date(iso).toLocaleTimeString('el-GR', { hour: '2-digit', minute: '2-digit' });
-  const date = (iso: string) => new Date(iso).toLocaleDateString('el-GR', { weekday: 'short', day: '2-digit', month: 'short' });
+  const time = (iso: string) => new Date(iso).toLocaleTimeString(DATE_TAG[currentLocale().lang], { hour: '2-digit', minute: '2-digit' });
+  const date = (iso: string) => new Date(iso).toLocaleDateString(DATE_TAG[currentLocale().lang], { weekday: 'short', day: '2-digit', month: 'short' });
 
   return (
     <div className="space-y-3">
@@ -131,7 +131,7 @@ export function ActivitiesView({ rows: initial, agents, currentUserId, initialTy
             <button type="button" className="btn-secondary px-2 py-1" onClick={() => setWeek((w) => addDays(w, -7))} aria-label="Προηγούμενη εβδομάδα"><ChevronLeft size={15} /></button>
             <button type="button" className="btn-secondary px-2 py-1" onClick={() => setWeek(weekStart(new Date()))}><RotateCcw size={13} /> Σήμερα</button>
             <button type="button" className="btn-secondary px-2 py-1" onClick={() => setWeek((w) => addDays(w, 7))} aria-label="Επόμενη εβδομάδα"><ChevronRight size={15} /></button>
-            <span className="font-medium text-charcoal">{week.toLocaleDateString('el-GR', { day: '2-digit', month: 'short' })} – {addDays(week, 6).toLocaleDateString('el-GR', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+            <span className="font-medium text-charcoal">{week.toLocaleDateString(DATE_TAG[currentLocale().lang], { day: '2-digit', month: 'short' })} – {addDays(week, 6).toLocaleDateString(DATE_TAG[currentLocale().lang], { day: '2-digit', month: 'short', year: 'numeric' })}</span>
             <span className="text-xs text-charcoal-600/60">Σύρετε μια activity σε άλλη μέρα για να τη μεταφέρετε.</span>
           </div>
           <div {...scroller} className="-mx-1 overflow-x-auto pb-2">
@@ -143,7 +143,7 @@ export function ActivitiesView({ rows: initial, agents, currentUserId, initialTy
                   <div key={i} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { const id = e.dataTransfer.getData('text/plain'); const r = rows.find((x) => x.id === id); if (r && !r.done && !r.readOnly) move(r, d); }}
                     className={`stage-col flex min-h-[260px] flex-col ${today ? 'bg-forest/[0.05]' : ''}`}>
                     <div className={`stage-head border-b border-stone-line px-3 py-2 ${today ? 'bg-forest/10' : 'bg-white'}`}>
-                      <p className={`font-semibold ${today ? 'text-forest' : 'text-charcoal'}`}>{WD[i]} {d.getDate()}</p>
+                      <p className={`font-semibold ${today ? 'text-forest' : 'text-charcoal'}`}>{d.toLocaleDateString(DATE_TAG[currentLocale().lang], { weekday: 'short', day: 'numeric' })}</p>
                       <p className="text-xs text-charcoal-600/70">{items.length} {items.length === 1 ? 'activity' : 'activities'}</p>
                     </div>
                     <div className="flex flex-col">
@@ -151,7 +151,7 @@ export function ActivitiesView({ rows: initial, agents, currentUserId, initialTy
                         <div key={r.id} draggable={!r.done && !r.readOnly} onDragStart={(e) => e.dataTransfer.setData('text/plain', r.id)}
                           className={`border-b border-stone-line px-3 py-2 text-xs transition last:border-b-0 hover:bg-forest/[0.04] ${r.done ? 'opacity-50' : late ? 'border-l-2 border-l-rose-400' : ''} ${r.done ? '' : 'cursor-grab active:cursor-grabbing'}`}>
                           <p className="flex items-center gap-1 font-medium text-charcoal"><I size={11} /> {time(r.dueAt)}</p>
-                          <p className="truncate text-charcoal" data-no-tr>{r.note || activityLabel(r.type)}</p>
+                          {r.note ? <p className="truncate text-charcoal" data-no-tr>{r.note}</p> : <p className="truncate text-charcoal">{activityLabel(r.type)}</p>}
                           {r.leadId && <Link href={`/crm/leads/${r.leadId}`} className="block truncate text-forest hover:underline" data-no-tr>{r.dealTitle ?? r.contactName}</Link>}
                         </div>
                       ); })}

@@ -12,6 +12,7 @@ import { PersonalDisplay } from '@/components/account/PersonalDisplay';
 import { NotificationPrefs } from '@/components/account/NotificationPrefs';
 import { AuditLogView } from '@/components/admin/AuditLogView';
 import { getAuditLog } from '@/lib/audit';
+import { DATE_TAG, currentLocale } from '@/lib/locale-shared';
 
 export const dynamic = 'force-dynamic';
 
@@ -38,7 +39,7 @@ const NEWS: { date: string; title: string; text: string }[] = [
 ];
 
 function fmt(d: string) {
-  return new Date(d).toLocaleString('el-GR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Nicosia' });
+  return new Date(d).toLocaleString(DATE_TAG[currentLocale().lang], { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Nicosia' });
 }
 
 /** Ο λογαριασμός μου — όπως το My Account του demo, χωριστά από τις ρυθμίσεις εταιρείας. */

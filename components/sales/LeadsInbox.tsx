@@ -12,6 +12,7 @@ import { formatCurrency } from '@/lib/format';
 import { setDealsArchived, setLeadsInbox, updateDeal } from '@/app/actions/sales-deals';
 import { reassignLead } from '@/app/actions/leads';
 import { LeadDrawer } from '@/components/crm/LeadDrawer';
+import { DATE_TAG, currentLocale } from '@/lib/locale-shared';
 
 const SRC: Record<string, string> = { website: 'Website', meta: 'Meta', google: 'Google', organic: 'Organic', referral: 'Σύσταση', whatsapp: 'WhatsApp', walk_in: 'Walk-in', other: 'Άλλο' };
 const ago = (iso: string) => {
@@ -113,7 +114,7 @@ export function LeadsInbox({ leads: initial, cfg, agents }: { leads: LeadListIte
                     </select>
                   </td>
                   <td className="whitespace-nowrap text-charcoal-600">{ago(l.created_at)}</td>
-                  <td>{st === 'none' ? <span className="inline-flex items-center gap-1 text-xs text-amber-600"><AlertTriangle size={13} /> καμία</span> : <span className={`text-xs ${st === 'overdue' ? 'font-medium text-signal-danger' : 'text-charcoal-600'}`}>{new Date((l.next_follow_up ?? l.next_action_date)!).toLocaleDateString('el-GR', { day: '2-digit', month: 'short' })}</span>}</td>
+                  <td>{st === 'none' ? <span className="inline-flex items-center gap-1 text-xs text-amber-600"><AlertTriangle size={13} /> καμία</span> : <span className={`text-xs ${st === 'overdue' ? 'font-medium text-signal-danger' : 'text-charcoal-600'}`}>{new Date((l.next_follow_up ?? l.next_action_date)!).toLocaleDateString(DATE_TAG[currentLocale().lang], { day: '2-digit', month: 'short' })}</span>}</td>
                   <td className="whitespace-nowrap text-right">
                     {tab === 'inbox'
                       ? <><button type="button" disabled={pending} className="btn-secondary px-2 py-1 text-xs" onClick={() => convert([l.id])} title="Μετατροπή σε deal"><ArrowRightCircle size={13} /> Σε deal</button>

@@ -69,9 +69,13 @@ export interface ContactFilters {
   source: string;
   kyc: '' | 'verified' | 'pending' | 'none';
   quietDays: number; // 0 = όλοι · 30 = χωρίς επαφή 30+ μέρες
+  /** Φίλτρο ημερομηνίας: ποια ημερομηνία και διάστημα (YYYY-MM-DD, κενό = χωρίς όριο). */
+  dateField: 'created' | 'last_contact';
+  dateFrom: string;
+  dateTo: string;
   sort: 'recent' | 'name' | 'last_contact' | 'value';
 }
-export const DEFAULT_FILTERS: ContactFilters = { q: '', role: '', status: '', owner: '', tag: '', group: '', source: '', kyc: '', quietDays: 0, sort: 'recent' };
+export const DEFAULT_FILTERS: ContactFilters = { q: '', role: '', status: '', owner: '', tag: '', group: '', source: '', kyc: '', quietDays: 0, dateField: 'created', dateFrom: '', dateTo: '', sort: 'recent' };
 
 const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 
@@ -96,6 +100,13 @@ export function filterContacts(rows: ContactListRow[], f: ContactFilters, now = 
     if (f.kyc === 'verified' && r.kycStatus !== 'verified') return false;
     if (f.kyc === 'pending' && !(r.kycStatus && r.kycStatus !== 'verified')) return false;
     if (f.kyc === 'none' && r.kycStatus) return false;
+    if (f.dateFrom || f.dateTo) {
+      const iso = f.dateField === 'last_contact' ? r.lastContactAt : r.createdAt;
+      if (!iso) return false;
+      const d = new Date(iso); const day = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      if (f.dateFrom && day < f.dateFrom) return false;
+      if (f.dateTo && day > f.dateTo) return false;
+    }
     if (f.quietDays > 0) {
       const last = r.lastContactAt ? Date.parse(r.lastContactAt) : Date.parse(r.createdAt);
       if (now - last < f.quietDays * 86_400_000) return false;
