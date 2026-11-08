@@ -21,6 +21,7 @@ import { CommissionCalculator } from '@/components/units/CommissionCalculator';
 import { AgentPicker } from '@/components/units/AgentPicker';
 import { LocationCard } from '@/components/units/LocationCard';
 import { BookViewingButton, type ViewingContactOption } from '@/components/units/BookViewingButton';
+import { DuplicateUnitButton } from '@/components/units/DuplicateUnitButton';
 import { UnitFieldsForm } from '@/components/units/UnitFieldsForm';
 import { typeKeyOf, cleanValues, type FieldValue } from '@/lib/unit-forms-shared';
 import { getDocumentUrl } from '@/app/actions/storage';
@@ -173,7 +174,10 @@ export default async function UnitDetailPage({ params, searchParams }: { params:
           <UnitStatusBadge status={unit.status} />
           <p className="figure flex items-center justify-end gap-2 text-2xl text-forest">{price != null ? formatCurrency(price) : '—'} <PriceHistory unitId={unit.id} /></p>
           {perSqm != null && <p className="figure text-sm text-charcoal-600">{formatCurrency(perSqm)} / m²</p>}
-          {canBook && <BookViewingButton unitId={unit.id} projectId={unit.project_id} contacts={viewingContacts} agents={agents} defaultAgent={unitExtra.responsible_agent_id ?? null} />}
+          <div className="flex flex-wrap justify-end gap-2">
+            {canEdit && <DuplicateUnitButton unitId={unit.id} projectId={unit.project_id} unitNumber={unit.unit_number} />}
+            {canBook && <BookViewingButton unitId={unit.id} projectId={unit.project_id} contacts={viewingContacts} agents={agents} defaultAgent={unitExtra.responsible_agent_id ?? null} />}
+          </div>
         </div>
       </div>
 
