@@ -102,7 +102,7 @@ export function BusinessSection({ initial, companyName, canEdit, logoUrl = null,
           </label>
           {field('ΑΦΜ / VAT ID', 'vatNo', 'CY00000000X')}
           {field('Αριθμός εγγραφής', 'registrationNo', 'HE 000000')}
-          {field('Άδεια κτηματομεσίτη', 'licence', 'Reg. 000 · Licence 000/E')}
+          {field('Άδεια / μητρώο (προαιρετικό)', 'licence', 'π.χ. αρ. μητρώου εργολήπτη — κενό αν δεν ισχύει')}
         </div>
         <div>
           <FieldLabel>Logo</FieldLabel>
