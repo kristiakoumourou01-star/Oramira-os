@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { requireRole } from '@/lib/auth';
 import { logActivity } from '@/lib/activity';
+import { ACTIVITY_KEYS } from '@/lib/activity-types';
 
 type Result = { ok: true } | { ok: false; error: string };
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -48,7 +49,7 @@ export async function completeAndNext(id: string, next?: { dueAt: string; note: 
 }
 
 /** Νέα κίνηση για ένα lead (από το πλαϊνό παράθυρο ή τη λίστα). */
-export async function addFollowUp(leadId: string, dueAt: string, note: string, assignedTo?: string | null): Promise<Result> {
+export async function addFollowUp(leadId: string, dueAt: string, note: string, assignedTo?: string | null, opts?: { type?: string; priority?: string | null; durationMin?: number | null; location?: string | null }): Promise<Result> {
   const me = await requireRole(['admin', 'sales', 'management']);
   if (!UUID.test(leadId ?? '')) return { ok: false, error: 'Άγνωστο lead.' };
   const t = Date.parse(dueAt);
@@ -56,7 +57,16 @@ export async function addFollowUp(leadId: string, dueAt: string, note: string, a
   const supabase = await createSupabaseServerClient();
   const { data: lead } = await supabase.from('leads').select('contact_id, assigned_to').eq('id', leadId).single();
   if (!lead) return { ok: false, error: 'Το lead δεν βρέθηκε.' };
-  const { error } = await supabase.from('follow_up_tasks').insert({ lead_id: leadId, contact_id: lead.contact_id, assigned_to: assignedTo ?? lead.assigned_to ?? me.id, due_at: new Date(t).toISOString(), note: note.trim().slice(0, 300) || 'Follow-up' });
+  const row: Record<string, unknown> = { lead_id: leadId, contact_id: lead.contact_id, assigned_to: assignedTo ?? lead.assigned_to ?? me.id, due_at: new Date(t).toISOString(), note: note.trim().slice(0, 300) || 'Follow-up' };
+  if (opts?.type && ACTIVITY_KEYS.includes(opts.type)) row.type = opts.type;
+  if (opts?.priority && ['low', 'normal', 'high'].includes(opts.priority)) row.priority = opts.priority;
+  if (opts?.durationMin && Number.isFinite(opts.durationMin)) row.duration_min = Math.min(1440, Math.max(5, Math.round(opts.durationMin)));
+  if (opts?.location) row.location = opts.location.trim().slice(0, 200) || null;
+  let { error } = await (supabase as any).from('follow_up_tasks').insert(row);
+  if (error && opts) { // πριν το migration 0075
+    delete row.type; delete row.priority; delete row.duration_min; delete row.location;
+    ({ error } = await (supabase as any).from('follow_up_tasks').insert(row));
+  }
   if (error) return { ok: false, error: error.message };
   await logActivity({ entityType: 'lead', entityId: leadId, action: 'follow_up_scheduled', metadata: { due_at: new Date(t).toISOString() } });
   refresh(leadId);

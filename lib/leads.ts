@@ -46,23 +46,28 @@ export async function getEnrichedLeads(): Promise<LeadListItem[]> {
 
   const [leads, { data: followUps }] = await Promise.all([
     selectResilient(
-      scoped(supabase.from('leads').select(`${FULL}, stage, lost_reason`)).order('created_at', { ascending: false }),
+      scoped(supabase.from('leads').select(`${FULL}, stage, lost_reason, title, value, currency, expected_close_date, labels, won_at, lost_at, archived_at, in_inbox`)).order('created_at', { ascending: false }),
       () => selectResilient(
+        scoped(supabase.from('leads').select(`${FULL}, stage, lost_reason`)).order('created_at', { ascending: false }),
+        () => selectResilient(
         scoped(supabase.from('leads').select(FULL)).order('created_at', { ascending: false }),
         () => scoped(supabase.from('leads').select(BASE)).order('created_at', { ascending: false }),
         'getEnrichedLeads',
       ).then((data) => ({ data, error: null })),
       'getEnrichedLeads+stage',
+      ).then((data) => ({ data, error: null })),
+      'getEnrichedLeads+deal',
     ),
-    supabase.from('follow_up_tasks').select('lead_id, due_at').eq('is_done', false),
+    (supabase as any).from('follow_up_tasks').select('lead_id, due_at, type').eq('is_done', false),
   ]);
 
   // Earliest open follow-up per lead
   const nextByLead = new Map<string, string>();
-  for (const f of followUps ?? []) {
+  const typeByLead = new Map<string, string>();
+  for (const f of (followUps ?? []) as { lead_id: string | null; due_at: string; type?: string }[]) {
     if (!f.lead_id) continue;
     const cur = nextByLead.get(f.lead_id);
-    if (!cur || new Date(f.due_at).getTime() < new Date(cur).getTime()) nextByLead.set(f.lead_id, f.due_at);
+    if (!cur || new Date(f.due_at).getTime() < new Date(cur).getTime()) { nextByLead.set(f.lead_id, f.due_at); typeByLead.set(f.lead_id, f.type ?? 'task'); }
   }
 
   const items: LeadListItem[] = (leads ?? []).map((l) => {
@@ -101,6 +106,16 @@ export async function getEnrichedLeads(): Promise<LeadListItem[]> {
       stage: (l as any).stage ?? null,
       lost_reason: (l as any).lost_reason ?? null,
       is_returning: !!(l as any).is_returning,
+      title: (l as any).title ?? null,
+      value: (l as any).value != null ? Number((l as any).value) : null,
+      currency: (l as any).currency ?? 'EUR',
+      expected_close_date: (l as any).expected_close_date ?? null,
+      labels: (l as any).labels ?? [],
+      won_at: (l as any).won_at ?? null,
+      lost_at: (l as any).lost_at ?? null,
+      archived_at: (l as any).archived_at ?? null,
+      in_inbox: !!(l as any).in_inbox,
+      next_activity_type: typeByLead.get(l.id) ?? null,
       needs_action: deriveNeedsAction(l.status, l.last_contacted_at, l.created_at, (l as any).next_action_date ?? nextFollowUp),
     };
   });
