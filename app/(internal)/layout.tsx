@@ -33,8 +33,8 @@ export default async function InternalLayout({ children }: { children: React.Rea
   const [{ contentWidth }, { layout: layoutPrefs, menu }] = await Promise.all([getBranding(), getOrgSettings()]);
   // Company default (Settings → Μενού & διάταξη), overridden per device by the
   // user's own choice (button in the top bar / Εμφάνιση → «Η δική μου προβολή»).
-  const sidebarMode = parseSidebarMode((await cookies()).get(SIDEBAR_COOKIE)?.value) ?? (layoutPrefs.sidebarCompact ? 'icons' : 'full');
-  const compact = sidebarMode === 'icons';
+  const sidebarMode = parseSidebarMode((await cookies()).get(SIDEBAR_COOKIE)?.value) ?? layoutPrefs.sidebarDefault ?? (layoutPrefs.sidebarCompact ? 'icons' : 'full');
+  const compact = sidebarMode === 'icons' || sidebarMode === 'auto';
   const can = (m?: Module) => !m || effectiveCan(profile.role, profile.moduleAccess, m, 'view', profile.permissions);
 
   // The menu as the admin arranged it (Settings → Μενού & διάταξη): order,
@@ -68,6 +68,15 @@ export default async function InternalLayout({ children }: { children: React.Rea
     </form>
   );
 
+  const signOutFull = (
+    <form action={logout}>
+      <button type="submit" title={t('signOut')} className="flex w-full items-center gap-3 rounded px-3 py-2 text-sm text-stone-100/65 hover:bg-white/5 hover:text-stone-100">
+        <LogOut size={16} strokeWidth={1.75} />
+        {t('signOut')}
+      </button>
+    </form>
+  );
+
   const content = (
     <div className="min-w-0 flex-1">
       {profile.impersonator && <ImpersonationBanner name={profile.fullName} role={profile.role} />}
@@ -96,7 +105,15 @@ export default async function InternalLayout({ children }: { children: React.Rea
 
   return (
     <div className={`flex ${menu.position === 'right' ? 'flex-row-reverse' : ''}`}>
-      {sidebarMode !== 'hidden' && <Sidebar sections={sections} compact={compact} accordion={layoutPrefs.sidebarAccordion !== false} footer={signOut} />}
+      {sidebarMode === 'auto' ? (
+        // Αυτόματη απόκρυψη: στενό μενού με εικονίδια, ανοίγει ολόκληρο με το ποντίκι από πάνω.
+        <div className="group/sb sticky top-0 z-30 h-screen w-[72px] shrink-0 self-start">
+          <div className="group-hover/sb:invisible"><Sidebar sections={sections} compact accordion={layoutPrefs.sidebarAccordion !== false} footer={signOut} /></div>
+          <div className={`invisible absolute top-0 shadow-overlay group-hover/sb:visible ${menu.position === 'right' ? 'right-0' : 'left-0'}`}>
+            <Sidebar sections={sections} compact={false} accordion={layoutPrefs.sidebarAccordion !== false} footer={signOutFull} />
+          </div>
+        </div>
+      ) : sidebarMode !== 'hidden' && <Sidebar sections={sections} compact={compact} accordion={layoutPrefs.sidebarAccordion !== false} footer={signOut} />}
       {content}
       <CommandPalette />
     </div>

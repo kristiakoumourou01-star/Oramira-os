@@ -2,7 +2,9 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowUp, ArrowDown, Eye, EyeOff, RotateCcw, Copy } from 'lucide-react';
+import { ArrowUp, ArrowDown, RotateCcw, Copy, LayoutGrid } from 'lucide-react';
+import Link from 'next/link';
+import { Switch } from '@/components/admin/settings-ui';
 import { saveOrgSlice } from '@/app/actions/org-settings';
 import {
   DASHBOARD_CATALOG, SIZE_LABEL, defaultLayout, normalizeLayout,
@@ -74,6 +76,11 @@ export function DashboardEditor({ initial, roles, canEdit }: { initial: Dashboar
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
         <div className="panel p-5">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <p className="flex items-baseline gap-2 font-display text-xl text-charcoal">Κουτιά dashboard <span className="font-sans text-[11px] font-semibold uppercase tracking-wide text-charcoal-600/60">εμφάνιση / απόκρυψη</span></p>
+            <Link href="/dashboard" className="btn-secondary text-xs"><LayoutGrid size={13} /> Δείτε το dashboard</Link>
+          </div>
+          <p className="mb-2 text-sm text-charcoal-600/70">Με τον διακόπτη εμφανίζετε ή κρύβετε ένα κουτί. Τα βελάκια αλλάζουν σειρά και τα ⅓ ½ ⅔ το μέγεθος.</p>
           <ul className="divide-y divide-stone-line">
             {list.map((b, i) => {
               const def = DASHBOARD_CATALOG.find((d) => d.key === b.key)!;
@@ -95,9 +102,7 @@ export function DashboardEditor({ initial, roles, canEdit }: { initial: Dashboar
                       </button>
                     ))}
                   </div>
-                  <button type="button" className="btn-ghost text-xs" disabled={!canEdit} onClick={() => patch(b.key, { visible: !b.visible })}>
-                    {b.visible ? <><Eye size={13} /> Ορατό</> : <><EyeOff size={13} /> Κρυφό</>}
-                  </button>
+                  <Switch checked={b.visible} disabled={!canEdit} label={`${def.label} ορατό`} onChange={(x) => patch(b.key, { visible: x })} />
                 </li>
               );
             })}

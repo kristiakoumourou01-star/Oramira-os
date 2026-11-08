@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Upload, Trash2, Sun, Moon, Monitor } from 'lucide-react';
 import { saveLogo } from '@/app/actions/branding';
+import { fileToDataUrl } from '@/lib/image-upload';
 import { saveAppearance } from '@/app/actions/org-settings';
 import { sidebarBackground } from '@/lib/branding-shared';
 import { SIDEBAR_COOKIE, SIDEBAR_MODES, parseSidebarMode, writeSidebarMode, type SidebarMode } from '@/lib/sidebar-mode-shared';
@@ -39,7 +40,7 @@ function PersonalDisplay() {
     setSb(parseSidebarMode(m?.split('=')[1]));
   }, []);
   const setSidebar = (m: SidebarMode | null) => { setSb(m); writeSidebarMode(m); router.refresh(); };
-  const set = (patch: Partial<DisplayPrefs>) => { const next = { ...p, ...patch }; setP(next); applyPrefs(next); };
+  const set = (patch: Partial<DisplayPrefs>) => { const next = { ...readPrefs(), ...patch }; setP(next); applyPrefs(next); };
   const THEMES: { v: Theme; label: string; icon: React.ReactNode }[] = [
     { v: 'light', label: 'Ανοιχτό', icon: <Sun size={14} /> },
     { v: 'dark', label: 'Σκούρο (beta)', icon: <Moon size={14} /> },
@@ -59,14 +60,6 @@ function PersonalDisplay() {
           </button>
         ))}
       </div>
-      <label className="block max-w-sm">
-        <span className="eyebrow mb-1.5 flex justify-between"><span>Μέγεθος κειμένου</span><span>{p.scale}%</span></span>
-        <input type="range" min={85} max={130} step={5} value={p.scale} onChange={(e) => set({ scale: Number(e.target.value) })} className="w-full" />
-      </label>
-      <label className="flex items-center gap-2 text-sm text-charcoal">
-        <input type="checkbox" checked={p.reduceMotion} onChange={(e) => set({ reduceMotion: e.target.checked })} />
-        Λιγότερη κίνηση (τα παράθυρα ανοίγουν αμέσως, χωρίς animation)
-      </label>
       <label className="flex items-center gap-2 text-sm text-charcoal">
         <input type="checkbox" checked={p.highContrast} onChange={(e) => set({ highContrast: e.target.checked })} />
         Έντονη αντίθεση (πιο σκούρα γράμματα και γραμμές)
@@ -89,36 +82,6 @@ function PersonalDisplay() {
 
 /* ─────────────────────────── image upload helper ────────────────────────── */
 
-/** Read an image file as a data URL, shrinking raster images to `maxPx` on the long side. */
-async function fileToDataUrl(file: File, maxPx: number, square = false): Promise<string> {
-  const raw: string = await new Promise((res, rej) => {
-    const r = new FileReader();
-    r.onload = () => res(String(r.result));
-    r.onerror = () => rej(new Error('Το αρχείο δεν διαβάστηκε.'));
-    r.readAsDataURL(file);
-  });
-  if (file.type === 'image/svg+xml' && !square) return raw; // vectors stay sharp at any size
-  const img = await new Promise<HTMLImageElement>((res, rej) => {
-    const i = new Image();
-    i.onload = () => res(i);
-    i.onerror = () => rej(new Error('Η εικόνα δεν αναγνωρίστηκε.'));
-    i.src = raw;
-  });
-  const ratio = Math.min(1, maxPx / Math.max(img.width, img.height));
-  const w = square ? maxPx : Math.max(1, Math.round(img.width * ratio));
-  const h = square ? maxPx : Math.max(1, Math.round(img.height * ratio));
-  const canvas = document.createElement('canvas');
-  canvas.width = w; canvas.height = h;
-  const ctx = canvas.getContext('2d')!;
-  if (square) {
-    const s = Math.min(w / img.width, h / img.height);
-    const dw = img.width * s, dh = img.height * s;
-    ctx.drawImage(img, (w - dw) / 2, (h - dh) / 2, dw, dh);
-  } else {
-    ctx.drawImage(img, 0, 0, w, h);
-  }
-  return canvas.toDataURL('image/png');
-}
 
 function ImagePicker({
   label, hint, value, background, onPick, onRemove, busy, square = false, maxPx,

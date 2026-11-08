@@ -12,7 +12,7 @@ import { mergeReservations } from '@/lib/pricing-shared';
 import { mergeAml } from '@/lib/kyc-shared';
 import { mergePipelines } from '@/lib/pipeline-shared';
 import { mergeLeadAutomation } from '@/lib/lead-automation-shared';
-import { mergeOrgSettings, mergeAppearance, mergeTags, mergeNotifications, mergeInvoices, mergeGdpr, mergeFieldRules, mergePortal, type AppearanceSettings, type BusinessSettings, type Office } from '@/lib/org-settings-shared';
+import { mergeOrgSettings, mergeAppearance, mergeTags, mergeNotifications, mergeInvoices, mergeGdpr, mergeFieldRules, mergePortal, mergeDepartments, type AppearanceSettings, type BusinessSettings, type Office } from '@/lib/org-settings-shared';
 
 export type SaveResult = { ok: true } | { ok: false; error: string };
 
@@ -25,6 +25,9 @@ export async function saveOrgSlice(slice: string, value: unknown): Promise<SaveR
   if (slice === 'gdpr') return saveSlice(slice, mergeGdpr(value));
   if (slice === 'fields') return saveSlice(slice, mergeFieldRules(value));
   if (slice === 'portal') return saveSlice(slice, mergePortal(value));
+  if (slice === 'departments') return saveSlice(slice, mergeDepartments(value));
+  if (slice === 'layout') { const r = await saveSlice(slice, mergeOrgSettings({ layout: value }).layout); if (r.ok) revalidatePath('/', 'layout'); return r; }
+  if (slice === 'menu') { const r = await saveSlice(slice, mergeOrgSettings({ menu: value }).menu); if (r.ok) revalidatePath('/', 'layout'); return r; }
   if (slice === 'unitForms') return saveSlice(slice, mergeOrgSettings({ unitForms: value }).unitForms);
   if (slice === 'pipelines') return saveSlice(slice, mergePipelines(value));
   if (slice === 'leadAutomation') return saveSlice(slice, mergeLeadAutomation(value));
@@ -72,6 +75,9 @@ async function saveSlice(slice: string, value: unknown): Promise<SaveResult> {
   }
 }
 
+const t = (x: unknown, n: number) => (typeof x === 'string' ? x.trim().slice(0, n) : '');
+const coord = (x: unknown, lim: number) => { const n = Number(x); return x !== '' && x != null && Number.isFinite(n) && Math.abs(n) <= lim ? String(Math.round(n * 1e6) / 1e6) : ''; };
+
 export async function saveBusinessSettings(input: BusinessSettings): Promise<SaveResult> {
   const offices: Office[] = Array.isArray(input.offices)
     ? input.offices
@@ -89,6 +95,11 @@ export async function saveBusinessSettings(input: BusinessSettings): Promise<Sav
     website: (input.website || '').trim(),
     footer: (input.footer || '').trim(),
     offices,
+    officialName: t(input.officialName, 160), tradingName: t(input.tradingName, 160),
+    address1: t(input.address1, 200), address2: t(input.address2, 200), city: t(input.city, 80), region: t(input.region, 80),
+    postalCode: t(input.postalCode, 20), country: /^[A-Z]{2}$/.test(input.country ?? '') ? input.country : 'CY',
+    landline: t(input.landline, 40), mobile: t(input.mobile, 40),
+    lat: coord(input.lat, 90), lng: coord(input.lng, 180),
   };
   // Validate against the merged shape to catch anything unexpected.
   mergeOrgSettings({ business: clean });
@@ -132,4 +143,16 @@ export async function undoOrgSlice(slice: string): Promise<SaveResult> {
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'Η αναίρεση απέτυχε.' };
   }
+}
+
+/** Πεδία πελατών → «Ενεργοποίηση για όλους»: συγκατάθεση email/SMS/push σε κάθε υπάρχουσα επαφή. */
+export async function optInAllContacts(): Promise<{ ok: true; updated: number } | { ok: false; error: string }> {
+  const profile = await requireRole(['admin']);
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await (supabase as any).from('contacts')
+    .update({ marketing_opt_in: true, marketing_opt_in_at: new Date().toISOString() })
+    .or('marketing_opt_in.is.null,marketing_opt_in.eq.false').is('anonymized_at', null).select('id');
+  if (error) return { ok: false, error: error.message };
+  await logActivity({ entityType: 'org_settings', entityId: 'org', action: 'marketing_opt_in_all', metadata: { by: profile.id, count: data?.length ?? 0 } });
+  return { ok: true, updated: data?.length ?? 0 };
 }

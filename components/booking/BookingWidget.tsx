@@ -14,7 +14,7 @@ export interface ConsentWording { consent: string; marketing: string; required: 
  * enter contact details, done. Premium Oramira identity (forest/champagne/ivory),
  * fully self-contained so it renders on the auth-free /book route.
  */
-export function BookingWidget({ agent, days, totalSlots, project, consentWording }: { agent: Agent; days: DaySlots[]; totalSlots: number; project: { id: string; name: string } | null; consentWording?: ConsentWording }) {
+export function BookingWidget({ agent, days, totalSlots, project, consentWording, fields = { shown: ['name', 'phone', 'email', 'message'], required: [] } }: { agent: Agent; days: DaySlots[]; totalSlots: number; project: { id: string; name: string } | null; consentWording?: ConsentWording; fields?: { shown: string[]; required: string[] } }) {
   const [activeDay, setActiveDay] = useState(0);
   const [slot, setSlot] = useState<string | null>(null);
   const [meetingType, setMeetingType] = useState<'in_person' | 'video'>('in_person');
@@ -30,6 +30,8 @@ export function BookingWidget({ agent, days, totalSlots, project, consentWording
 
   async function confirm() {
     if (!slot || (!form.phone && !form.email)) { setError('Add a phone or email so we can confirm.'); return; }
+    const miss = fields.required.filter((k) => !String((form as any)[k] ?? '').trim());
+    if (miss.length) { setError(`Please fill in your ${miss.join(', ')}.`); return; }
     if (consentWording?.required && !consent) { setError('Please tick the consent box to continue.'); return; }
     setStatus('saving'); setError(null);
     try {
@@ -122,7 +124,7 @@ export function BookingWidget({ agent, days, totalSlots, project, consentWording
               <PhoneInput value={form.phone} onChange={(v) => setForm((f: any) => ({ ...f, phone: v }))} placeholder="Phone (WhatsApp)" />
               <input value={form.email} onChange={set('email')} type="email" placeholder="Email" className="input" />
             </div>
-            <textarea value={form.message} onChange={set('message')} placeholder="Anything we should know? (optional)" className="input min-h-[64px]" />
+            {fields.shown.includes('message') && <textarea value={form.message} onChange={set('message')} placeholder={fields.required.includes('message') ? 'Anything we should know? *' : 'Anything we should know? (optional)'} className="input min-h-[64px]" />}
             {consentWording && (
               <div className="space-y-1.5 text-[12px] leading-snug text-charcoal-600/80">
                 <label className="flex items-start gap-2"><input type="checkbox" className="mt-0.5" checked={consent} onChange={(e) => setConsent(e.target.checked)} /><span>{consentWording.consent}{consentWording.required ? ' *' : ''}</span></label>

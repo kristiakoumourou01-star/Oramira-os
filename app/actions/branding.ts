@@ -110,3 +110,28 @@ export async function saveBranding(input: SaveBrandingInput): Promise<SaveBrandi
     return { ok: false, error: e instanceof Error ? e.message : 'Αποτυχία αποθήκευσης.' };
   }
 }
+
+/** Μόνο όνομα (εμπορική ονομασία) και κύριο/δεύτερο χρώμα — από τα Στοιχεία εταιρείας και την Εμφάνιση. */
+export async function saveBrandBasics(input: { companyName?: string; colorPrimary?: string; colorSecondary?: string }): Promise<SaveBrandingResult> {
+  try {
+    const profile = await requireRole(['admin']);
+    const supabase = await createSupabaseServerClient();
+    const patch: Record<string, unknown> = { updated_at: new Date().toISOString(), updated_by: profile.id };
+    if (input.companyName !== undefined) {
+      const n = input.companyName.trim().slice(0, 120);
+      if (!n) return { ok: false, error: 'Η εμπορική ονομασία είναι υποχρεωτική.' };
+      patch.company_name = n;
+    }
+    if (input.colorPrimary !== undefined) patch.color_primary = cleanColor(input.colorPrimary, 'Κύριο χρώμα');
+    if (input.colorSecondary !== undefined) patch.color_secondary = cleanColor(input.colorSecondary, 'Δεύτερο χρώμα');
+    const { data, error } = await supabase.from('org_branding').update(patch as any).eq('id', 'org').select('id');
+    if (error) return { ok: false, error: error.message };
+    if (!data?.length) return { ok: false, error: 'Δεν βρέθηκαν ρυθμίσεις εμφάνισης — αποθηκεύστε μία φορά από την Εμφάνιση.' };
+    await logActivity({ entityType: 'branding', entityId: 'org', action: 'branding_updated', metadata: { fields: Object.keys(patch) } });
+    revalidateTag(BRANDING_TAG);
+    revalidatePath('/', 'layout');
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Αποτυχία αποθήκευσης.' };
+  }
+}

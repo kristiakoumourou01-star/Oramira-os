@@ -21,6 +21,11 @@ export interface Office { name: string; address: string; phone: string; manager:
 export interface BusinessSettings {
   registrationNo: string; vatNo: string; licence: string;
   invoiceEmail: string; website: string; footer: string; offices: Office[];
+  /** Ταυτότητα: επίσημη επωνυμία και εμπορική ονομασία. */
+  officialName: string; tradingName: string;
+  /** Διεύθυνση & επικοινωνία (με αναζήτηση στον χάρτη). */
+  address1: string; address2: string; city: string; region: string; postalCode: string; country: string;
+  landline: string; mobile: string; lat: string; lng: string;
 }
 
 /* ---- Invoices and VAT ---- */
@@ -48,7 +53,13 @@ export interface InvoiceSettings {
  * (name + email for staff; email or phone for the public). `staff` = the
  * "New lead" form in the CRM; `public` = website form and booking page.
  */
-export interface FieldRules { staff: string[]; public: string[] }
+export interface FieldRules {
+  staff: string[]; public: string[];
+  /** Ποια πεδία εμφανίζονται στη δημόσια φόρμα (κράτηση προβολής). */
+  publicShown: string[];
+  /** Νέοι πελάτες ξεκινούν με συγκατάθεση για email/SMS/push. */
+  optInDefault: boolean;
+}
 export const STAFF_FIELD_OPTIONS: { key: string; label: string }[] = [
   { key: 'phone', label: 'Τηλέφωνο' },
   { key: 'budget', label: 'Προϋπολογισμός' },
@@ -65,11 +76,15 @@ export const PUBLIC_FIELD_OPTIONS: { key: string; label: string }[] = [
   { key: 'email', label: 'Email' },
   { key: 'message', label: 'Μήνυμα' },
 ];
-export const DEFAULT_FIELD_RULES: FieldRules = { staff: [], public: [] };
+export const DEFAULT_FIELD_RULES: FieldRules = { staff: [], public: [], publicShown: ['name', 'phone', 'email', 'message'], optInDefault: false };
 export function mergeFieldRules(x: any): FieldRules {
   const v = x && typeof x === 'object' ? x : {};
   const pick = (a: any, opts: { key: string }[], fb: string[]) => (Array.isArray(a) ? opts.map((o) => o.key).filter((k) => a.includes(k)) : fb);
-  return { staff: pick(v.staff, STAFF_FIELD_OPTIONS, DEFAULT_FIELD_RULES.staff), public: pick(v.public, PUBLIC_FIELD_OPTIONS, DEFAULT_FIELD_RULES.public) };
+  const shown = pick(v.publicShown, PUBLIC_FIELD_OPTIONS, DEFAULT_FIELD_RULES.publicShown);
+  const pub = pick(v.public, PUBLIC_FIELD_OPTIONS, DEFAULT_FIELD_RULES.public);
+  // Ό,τι είναι υποχρεωτικό εμφανίζεται πάντα· όνομα/email/τηλέφωνο μένουν πάντα στη φόρμα.
+  const shownAll = PUBLIC_FIELD_OPTIONS.map((o) => o.key).filter((k) => shown.includes(k) || pub.includes(k) || k !== 'message');
+  return { staff: pick(v.staff, STAFF_FIELD_OPTIONS, DEFAULT_FIELD_RULES.staff), public: pub, publicShown: shownAll, optInDefault: v.optInDefault === true };
 }
 
 /* ---- Client portals: terms & FAQ ---- */
@@ -165,6 +180,10 @@ export interface GdprSettings {
 /* ---- Layout ---- */
 export interface LayoutSettings {
   startScreen: string; sidebarCompact: boolean; denseLists: boolean;
+  /** Προεπιλογή πλαϊνού μενού για όλους: πλήρες, μόνο εικονίδια ή αυτόματη απόκρυψη (ανοίγει με hover). */
+  sidebarDefault: 'full' | 'icons' | 'auto';
+  /** Πρώτη μέρα της εβδομάδας στα ημερολόγια. */
+  weekStart: 'monday' | 'sunday' | 'saturday';
   /** Πλαϊνό μενού: ανοίγει μία ενότητα τη φορά (οι άλλες κλείνουν). */
   sidebarAccordion: boolean;
 }
@@ -314,10 +333,12 @@ export interface OrgSettings {
   aml: AmlSettings;
   /** Settings → Leads & αυτοματισμοί: υπεύθυνος ανά πηγή, round robin, καλωσόρισμα, follow-up, σύνοψη. */
   leadAutomation: LeadAutomationSettings;
+  /** Settings → Τμήματα: γραφεία/ομάδες και αίθουσες. */
+  departments: DepartmentSettings;
 }
 
 /* ---- Defaults (prototype values where applicable) ---- */
-export const DEFAULT_BUSINESS: BusinessSettings = { registrationNo: '', vatNo: '', licence: '', invoiceEmail: '', website: '', footer: '', offices: [] };
+export const DEFAULT_BUSINESS: BusinessSettings = { registrationNo: '', vatNo: '', licence: '', invoiceEmail: '', website: '', footer: '', offices: [], officialName: '', tradingName: '', address1: '', address2: '', city: '', region: '', postalCode: '', country: 'CY', landline: '', mobile: '', lat: '', lng: '' };
 
 export const DEFAULT_INVOICES: InvoiceSettings = {
   defaultVat: 19,
@@ -436,7 +457,32 @@ export function mergeGdpr(g: any): GdprSettings {
   };
 }
 
-export const DEFAULT_LAYOUT: LayoutSettings = { startScreen: '/dashboard', sidebarCompact: false, denseLists: false, sidebarAccordion: true };
+export const DEFAULT_LAYOUT: LayoutSettings = { startScreen: '/dashboard', sidebarCompact: false, denseLists: false, sidebarAccordion: true, sidebarDefault: 'full', weekStart: 'monday' };
+
+/* ---- Departments & rooms (γραφεία/ομάδες και αίθουσες συναντήσεων) ---- */
+export interface Department { key: string; name: string; active: boolean }
+export interface Room { key: string; name: string; dept: string }
+export interface DepartmentSettings { showOnCalendar: boolean; items: Department[]; rooms: Room[] }
+export const DEFAULT_DEPARTMENTS: DepartmentSettings = { showOnCalendar: false, items: [], rooms: [] };
+export function mergeDepartments(x: any): DepartmentSettings {
+  const v = x && typeof x === 'object' ? x : {};
+  const str = (t: any, n: number) => (typeof t === 'string' ? t.trim().slice(0, n) : '');
+  const items: Department[] = [];
+  for (const d of Array.isArray(v.items) ? v.items : []) {
+    const name = str(d?.name, 60); if (!name) continue;
+    const key = /^[a-z0-9_]{1,40}$/.test(d?.key) && !items.some((y) => y.key === d.key) ? d.key : `d${items.length + 1}_${Date.now().toString(36)}`;
+    items.push({ key, name, active: d?.active !== false });
+    if (items.length >= 50) break;
+  }
+  const rooms: Room[] = [];
+  for (const r of Array.isArray(v.rooms) ? v.rooms : []) {
+    const name = str(r?.name, 60); if (!name || !items.some((d) => d.key === r?.dept)) continue;
+    const key = /^[a-z0-9_]{1,40}$/.test(r?.key) && !rooms.some((y) => y.key === r.key) ? r.key : `r${rooms.length + 1}_${Date.now().toString(36)}`;
+    rooms.push({ key, name, dept: r.dept });
+    if (rooms.length >= 100) break;
+  }
+  return { showOnCalendar: v.showOnCalendar === true && items.length > 0, items, rooms };
+}
 
 export const DEFAULT_ORG_SETTINGS: OrgSettings = {
   business: DEFAULT_BUSINESS, invoices: DEFAULT_INVOICES, notifications: DEFAULT_NOTIFICATIONS,
@@ -452,6 +498,7 @@ export const DEFAULT_ORG_SETTINGS: OrgSettings = {
   aml: DEFAULT_AML,
   leadAutomation: DEFAULT_LEAD_AUTOMATION,
   roles: DEFAULT_ROLES,
+  departments: DEFAULT_DEPARTMENTS,
 };
 
 const arr = <T,>(v: any, fallback: T[]): T[] => (Array.isArray(v) ? v : fallback);
@@ -477,7 +524,11 @@ export function mergeOrgSettings(data: any): OrgSettings {
     tags: mergeTags(d.tags),
     pipelines: mergePipelines(d.pipelines),
     gdpr: mergeGdpr(d.gdpr),
-    layout: { ...DEFAULT_LAYOUT, ...(d.layout ?? {}) },
+    layout: (() => {
+      const l = { ...DEFAULT_LAYOUT, ...(d.layout ?? {}) };
+      return { ...l, sidebarDefault: ['full', 'icons', 'auto'].includes(l.sidebarDefault) ? l.sidebarDefault : (l.sidebarCompact ? 'icons' : 'full'), weekStart: ['monday', 'sunday', 'saturday'].includes(l.weekStart) ? l.weekStart : 'monday' };
+    })(),
+    departments: mergeDepartments(d.departments),
     dashboard: mergeDashboard(d.dashboard),
     appearance: mergeAppearance(d.appearance),
     roles: mergeRoles(d.roles),
