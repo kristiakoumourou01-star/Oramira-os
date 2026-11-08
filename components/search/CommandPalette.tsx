@@ -19,7 +19,7 @@ const COMMANDS: PaletteCmd[] = [
   { id: 'nav-prop', label: 'Property', icon: Home, href: '/property', keywords: 'projects owners maintenance' },
   { id: 'nav-fin', label: 'Finance', icon: TrendingUp, href: '/financials', keywords: 'cashflow revenue' },
   { id: 'nav-hr', label: 'HR', icon: UserCog, href: '/hr', keywords: 'employees payroll leave' },
-  { id: 'nav-ops', label: 'Operations', icon: ClipboardList, href: '/operations', keywords: 'tasks notifications' },
+  { id: 'nav-ops', label: 'Command Center', icon: ClipboardList, href: '/command-center', keywords: 'operations tasks notifications health' },
   { id: 'nav-deal', label: 'Deal Analyzer', icon: Calculator, href: '/deal-analyzer', keywords: 'roi scenario' },
   { id: 'nav-reports', label: 'Reports & Intelligence', icon: FileBarChart, href: '/reports', keywords: 'board investor knowledge memory' },
   { id: 'nav-cc', label: 'Command Center', icon: Command, href: '/command-center', keywords: 'priorities risks' },
