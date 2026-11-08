@@ -28,7 +28,7 @@ export async function buildCommandCenter(supabase: Client): Promise<CommandCente
   const [leads, { data: tasks }, { data: approvals }, { data: tickets }, { data: schedules }, { data: payments }, { data: reservations }, { data: empContracts }, { data: buyerContracts }, { data: profiles }, forecast, learning] = await Promise.all([
     getEnrichedLeads(),
     supabase.from('tasks').select('id, title, due_at, assigned_to, related_entity_type, related_entity_id').eq('is_done', false),
-    supabase.from('leave_requests').select('id, leave_type, created_at, profiles(full_name)').eq('status', 'pending'),
+    supabase.from('leave_requests').select('id, leave_type, created_at, profiles!leave_requests_profile_id_fkey(full_name)').eq('status', 'pending'),
     supabase.from('maintenance_tickets').select('id, title, priority, status, created_at').in('status', ['open', 'acknowledged', 'in_progress', 'awaiting_parts', 'reopened']),
     supabase.from('payment_schedules').select('id, amount, due_date').not('due_date', 'is', null),
     supabase.from('payments').select('payment_schedule_id, amount_paid'),

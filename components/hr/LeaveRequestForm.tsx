@@ -6,7 +6,7 @@ import { CalendarPlus } from 'lucide-react';
 import { requestLeave } from '@/app/actions/hr';
 import { Modal, ModalBody, ModalFooter } from '@/components/ui/Modal';
 
-const TYPES = ['annual', 'sick', 'unpaid'];
+const TYPES = ['annual', 'sick', 'unpaid', 'maternity', 'paternity', 'other'];
 
 /** Employee-facing leave request modal (Dashboard → Leave). */
 export function LeaveRequestForm() {
@@ -19,12 +19,13 @@ export function LeaveRequestForm() {
     const endDate = String(formData.get('end'));
     if (!startDate || !endDate) return;
     startTransition(async () => {
-      await requestLeave({
+      const r = await requestLeave({
         leaveType: String(formData.get('type')),
         startDate,
         endDate,
         reason: String(formData.get('reason') || '') || undefined,
       });
+      if (!r.ok) { alert(r.error); return; }
       setOpen(false);
       router.refresh();
     });
