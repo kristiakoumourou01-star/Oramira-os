@@ -9,6 +9,7 @@ import Link from 'next/link';
 import { SalesCommandCenter } from '@/components/crm/SalesCommandCenter';
 import { LeadBoard, type Agent } from '@/components/crm/LeadBoard';
 import { FollowUpsBoard } from '@/components/crm/FollowUpsBoard';
+import { LeadManager } from '@/components/crm/LeadManager';
 import { PipelineInsights } from '@/components/crm/PipelineInsights';
 import { loadPipelineInsights } from '@/lib/pipeline-insights';
 import { NewLeadForm } from '@/components/crm/NewLeadForm';
@@ -80,8 +81,9 @@ export default async function SalesPage({ searchParams }: { searchParams: { tab?
       // assign it, answer it, then it moves on into the Pipeline.
       id: 'inbox', label: 'Lead Management', content: (
         <div className="space-y-6">
-          <UnassignedTriage leads={unassignedLeads} agents={(agents ?? []) as Agent[]} currentUserId={profile.id} />
-          <SpeedToLeadWidget leads={pendingLeads} />
+          {unassignedLeads.length > 0 && <UnassignedTriage leads={unassignedLeads} agents={(agents ?? []) as Agent[]} currentUserId={profile.id} />}
+          <LeadManager leads={leads} agents={(agents ?? []) as Agent[]} currentUserId={profile.id} pipelines={pipeCfg} />
+          {pendingLeads.length > 0 && <SpeedToLeadWidget leads={pendingLeads} />}
         </div>
       ),
     },
