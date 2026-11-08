@@ -14,6 +14,7 @@ import { CompletePanel } from '@/components/crm/CompletePanel';
 import { DeleteLeadDialog } from '@/components/crm/DeleteLeadDialog';
 import { NEXT_PRESETS, snoozeTo, toLocalInput } from '@/lib/follow-ups-shared';
 import { PhoneInput } from '@/components/ui/PhoneInput';
+import { parseAmount } from '@/lib/amount';
 
 interface Agent { id: string; full_name: string | null }
 
@@ -56,7 +57,7 @@ export function LeadDrawer({ leadId, agents, onClose }: { leadId: string; agents
       budgetMin: form.budgetMin === '' ? null : Number(form.budgetMin), budgetMax: form.budgetMax === '' ? null : Number(form.budgetMax),
       timeline: form.timeline, nextActionDate: form.nextActionDate || null, nextActionType: form.nextActionType || null,
     });
-    const r2 = r.ok ? await updateDeal(leadId, { title: form.dealTitle ?? '', value: form.dealValue === '' || form.dealValue == null ? null : Number(form.dealValue), expectedCloseDate: form.expectedClose || null }) : r;
+    const r2 = r.ok ? await updateDeal(leadId, { title: form.dealTitle ?? '', value: form.dealValue === '' || form.dealValue == null ? null : (parseAmount(form.dealValue) ?? null), expectedCloseDate: form.expectedClose || null }) : r;
     setMsg(r2.ok ? { ok: true, text: 'Αποθηκεύτηκε.' } : { ok: false, text: r2.error });
     if (r2.ok) { router.refresh(); void load(); }
   });
@@ -98,7 +99,7 @@ export function LeadDrawer({ leadId, agents, onClose }: { leadId: string; agents
 
               <section className="panel grid gap-3 p-4 sm:grid-cols-2">
                 <Field label="Τίτλος deal"><input className="input text-sm" value={form.dealTitle ?? ''} placeholder={form.name || 'π.χ. Διαμέρισμα A12'} onChange={set('dealTitle')} /></Field>
-                <Field label="Αξία deal (€)"><input className="input text-sm" type="number" min={0} value={form.dealValue ?? ''} placeholder={form.budgetMax || ''} onChange={set('dealValue')} /></Field>
+                <Field label="Αξία deal (€)"><input className="input text-sm" inputMode="decimal" value={form.dealValue ?? ''} placeholder={form.budgetMax || ''} onChange={set('dealValue')} /></Field>
                 <Field label="Αναμενόμενο κλείσιμο"><input className="input text-sm" type="date" value={form.expectedClose ?? ''} onChange={set('expectedClose')} /></Field>
                 <Field label="Ονοματεπώνυμο"><input className="input text-sm" value={form.name ?? ''} onChange={set('name')} /></Field>
                 <Field label="Υπεύθυνος">
