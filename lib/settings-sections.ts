@@ -24,7 +24,7 @@ export interface SettingsSection {
 }
 
 export const SETTINGS_SECTIONS: SettingsSection[] = [
-  { key: 'business', label: 'Στοιχεία εταιρείας', subtitle: 'Επωνυμία, άδεια, γραφεία, logo', group: 'Account', outline: ['Company name, registration no., VAT no.', 'Estate agent licence & registration council', 'Invoice email and website', 'Offices (address, phone, manager)', 'Document footer'] },
+  { key: 'business', label: 'Στοιχεία εταιρείας', subtitle: 'Επωνυμία, ΑΦΜ, γραφεία, logo', group: 'Account', outline: ['Company name, registration no., VAT no.', 'Licence or registry (optional)', 'Invoice email and website', 'Offices (address, phone, manager)', 'Document footer'] },
   { key: 'appearance', label: 'Εμφάνιση', subtitle: 'Logo, χρώματα, γραμματοσειρές, μέγεθος κειμένου', group: 'Account', ready: true, outline: ['Logo & company name', 'Brand colours', 'Heading & body fonts', 'Content width & density'] },
   { key: 'layout', label: 'Μενού & διάταξη', subtitle: 'Μενού, sidebar, οθόνη έναρξης, λίστες', group: 'Account', outline: ['Menu & sidebar arrangement', 'Start screen', 'Default list columns & sorting'] },
   { key: 'dashboard', label: 'Dashboard', subtitle: 'Ποια κουτιά εμφανίζονται και με ποια σειρά', group: 'Account', outline: ['Pick which cards appear', 'Reorder the dashboard blocks', 'Show commissions / rankings'] },
