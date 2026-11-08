@@ -18,7 +18,7 @@ const PORTAL_PREFIX_TO_ROLE: Record<string, string> = {
   '/contractor': 'contractor',
 };
 
-const PUBLIC_PATHS = ['/login', '/invite', '/reset-password', '/book', '/auth/signout', '/selection/'];
+const PUBLIC_PATHS = ['/login', '/invite', '/reset-password', '/book', '/auth/signout', '/selection/', '/manifest.webmanifest'];
 
 /** Times the guard; slow runs (sign-in check + role lookup) show up in the logs as «[perf] middleware …». */
 export async function middleware(request: NextRequest) {

@@ -126,6 +126,8 @@ const NAV: Record<string, Tr> = {
   '/reports?tab=knowledge': { el: 'Knowledge graph', en: 'Knowledge graph', ru: 'Граф знаний' },
   '/reports?tab=memory': { el: 'Executive memory', en: 'Executive memory', ru: 'Память руководства' },
   '/settings': { el: 'Ρυθμίσεις', en: 'Settings', ru: 'Настройки' },
+  '/account': { el: 'Ο λογαριασμός μου', en: 'My account', ru: 'Мой аккаунт' },
+  '/settings/mobile-app': { el: 'Mobile app', en: 'Mobile app', ru: 'Мобильное приложение' },
   // Settings menu
   'settings:Λογαριασμός': { el: 'Λογαριασμός', en: 'Account', ru: 'Аккаунт' },
   'settings:Χρήστες': { el: 'Χρήστες', en: 'Users', ru: 'Пользователи' },
@@ -141,7 +143,8 @@ const NAV: Record<string, Tr> = {
   '/settings/roles': { el: 'Ρόλοι & δικαιώματα', en: 'Roles & permissions', ru: 'Роли и права' },
   '/settings/view-as': { el: 'Προβολή ως χρήστης', en: 'View as user', ru: 'Просмотр от имени' },
   '/settings?section=notifications': { el: 'Ειδοποιήσεις', en: 'Notifications', ru: 'Уведомления' },
-  '/settings?section=tags': { el: 'Tags & πεδία', en: 'Tags & fields', ru: 'Теги и поля' },
+  '/settings?section=tags': { el: 'Tags & ομάδες', en: 'Tags & groups', ru: 'Теги и группы' },
+  '/settings?section=communication': { el: 'Επικοινωνία', en: 'Communication', ru: 'Связь' },
   '/settings?section=departments': { el: 'Τμήματα', en: 'Departments', ru: 'Отделы' },
   '/settings?section=customerFields': { el: 'Πεδία πελατών', en: 'Customer fields', ru: 'Поля клиентов' },
   '/settings?section=pipelines': { el: 'Pipelines & φόρμες', en: 'Pipelines & forms', ru: 'Воронки и формы' },

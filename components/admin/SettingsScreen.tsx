@@ -28,6 +28,7 @@ import { AppearanceBasics } from '@/components/admin/AppearanceBasics';
 import { LivePreview } from '@/components/admin/LivePreview';
 import { DepartmentsSettings } from '@/components/admin/DepartmentsSettings';
 import { CustomerFieldsSettings } from '@/components/admin/CustomerFieldsSettings';
+import { CommunicationSettingsForm } from '@/components/admin/CommunicationSettings';
 import type { LocalePrefs } from '@/lib/locale-shared';
 import { GoogleCalendarConnect } from '@/components/dashboard/GoogleCalendarConnect';
 import type { Branding } from '@/lib/branding-shared';
@@ -52,6 +53,7 @@ export function SettingsScreen({
   startSteps = [],
   team = [],
   myLocale = null,
+  emailConnected = false,
 }: {
   initialSection: SettingsKey;
   branding: Branding;
@@ -70,6 +72,7 @@ export function SettingsScreen({
   company?: CompanyInfo;
   startSteps?: StartStep[];
   myLocale?: LocalePrefs | null;
+  emailConnected?: boolean;
 }) {
   // The section comes from the URL (?section=…) — the page is keyed by it, so
   // switching in the Settings menu re-renders with the new section.
@@ -121,7 +124,9 @@ export function SettingsScreen({
           ) : section.key === 'tags' ? (
             <TagsSection initial={settings.tags} canEdit={canEdit} />
           ) : section.key === 'customerFields' ? (
-            <CustomerFieldsSettings initial={settings.fields} canEdit={canEdit} />
+            <CustomerFieldsSettings initial={settings.fields} tags={settings.tags} canEdit={canEdit} />
+          ) : section.key === 'communication' ? (
+            <CommunicationSettingsForm initial={settings.communication} canEdit={canEdit} emailConnected={emailConnected} />
           ) : section.key === 'departments' ? (
             <DepartmentsSettings initial={settings.departments} canEdit={canEdit} />
           ) : section.key === 'unitforms' ? (

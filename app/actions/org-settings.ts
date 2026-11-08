@@ -12,7 +12,7 @@ import { mergeReservations } from '@/lib/pricing-shared';
 import { mergeAml } from '@/lib/kyc-shared';
 import { mergePipelines } from '@/lib/pipeline-shared';
 import { mergeLeadAutomation } from '@/lib/lead-automation-shared';
-import { mergeOrgSettings, mergeAppearance, mergeTags, mergeNotifications, mergeInvoices, mergeGdpr, mergeFieldRules, mergePortal, mergeDepartments, type AppearanceSettings, type BusinessSettings, type Office } from '@/lib/org-settings-shared';
+import { mergeOrgSettings, mergeAppearance, mergeTags, mergeNotifications, mergeInvoices, mergeGdpr, mergeFieldRules, mergePortal, mergeDepartments, mergeCommunication, type AppearanceSettings, type BusinessSettings, type Office } from '@/lib/org-settings-shared';
 
 export type SaveResult = { ok: true } | { ok: false; error: string };
 
@@ -26,6 +26,7 @@ export async function saveOrgSlice(slice: string, value: unknown): Promise<SaveR
   if (slice === 'fields') return saveSlice(slice, mergeFieldRules(value));
   if (slice === 'portal') return saveSlice(slice, mergePortal(value));
   if (slice === 'departments') return saveSlice(slice, mergeDepartments(value));
+  if (slice === 'communication') return saveSlice(slice, mergeCommunication(value));
   if (slice === 'layout') { const r = await saveSlice(slice, mergeOrgSettings({ layout: value }).layout); if (r.ok) revalidatePath('/', 'layout'); return r; }
   if (slice === 'menu') { const r = await saveSlice(slice, mergeOrgSettings({ menu: value }).menu); if (r.ok) revalidatePath('/', 'layout'); return r; }
   if (slice === 'unitForms') return saveSlice(slice, mergeOrgSettings({ unitForms: value }).unitForms);

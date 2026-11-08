@@ -13,6 +13,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: companyName,
     description: `${companyName} — CRM, deal analysis and client portals.`,
+    appleWebApp: { capable: true, title: companyName, statusBarStyle: 'default' },
     ...(appearance.favicon ? { icons: { icon: appearance.favicon } } : {}),
   };
 }

@@ -72,6 +72,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: { s
       })()}
       settings={settings}
       myLocale={requestLocale()}
+      emailConnected={!!process.env.RESEND_API_KEY}
       agencyName={branding.companyName}
       plan="Professional"
       canEdit={profile.role === 'admin'}
