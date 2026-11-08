@@ -1,7 +1,8 @@
 import { cache } from 'react';
 import { unstable_cache } from 'next/cache';
 import { createSupabaseServiceRoleClient, } from '@/lib/supabase/server';
-import { localizeSettings } from '@/lib/localize';
+import { localizeSettings, settingsNames, scriptLang } from '@/lib/localize';
+import { getLabelMap, ensureLabelTranslations } from '@/lib/label-tr';
 import { requestLocale } from '@/lib/locale-server';
 import { DEFAULT_ORG_SETTINGS, DEFAULT_APPEARANCE, mergeAppearance, mergeOrgSettings, type AppearanceSettings, type OrgSettings } from '@/lib/org-settings-shared';
 
@@ -44,7 +45,17 @@ export const getOrgSettingsRaw = cache(async function getOrgSettingsRaw(): Promi
  * γλώσσα του χρήστη. Όποιος αποθηκεύει ή τις επεξεργάζεται → getOrgSettingsRaw.
  */
 export const getOrgSettings = cache(async function getOrgSettings(): Promise<OrgSettings> {
-  return localizeSettings(await getOrgSettingsRaw(), requestLocale().lang);
+  const raw = await getOrgSettingsRaw();
+  const lang = requestLocale().lang;
+  try {
+    const map = { ...(await getLabelMap()) };
+    // Ό,τι δεν έχει ακόμη μετάφραση στη γλώσσα αυτή: δοκιμάζουμε γρήγορα (μία φορά).
+    const need = settingsNames(raw).filter((t) => scriptLang(t) !== lang && !map[t]?.[lang]);
+    if (need.length) await ensureLabelTranslations(need, map, 2500).catch(() => false);
+    return localizeSettings(raw, lang, map);
+  } catch {
+    return localizeSettings(raw, lang);
+  }
 });
 
 /**

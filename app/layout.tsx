@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import './fonts';
 import './globals.css';
+import { DomTranslator } from '@/components/i18n/DomTranslator';
 import { getBranding, brandCssVars, sidebarBackground } from '@/lib/branding';
 import { getOrgSettings, getPublicAppearance } from '@/lib/org-settings';
 import { requestLocale } from '@/lib/locale-server';
@@ -47,7 +48,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         {/* Unlayered :root override from org_branding — wins over globals.css
             @layer base defaults regardless of source order. */}
         <style dangerouslySetInnerHTML={{ __html: brandCssVars(branding) + `:root{--sidebar-bg:${sidebarBg};}` }} />
+        {/* Μέχρι να φορτώσει η μετάφραση (EN/RU) η σελίδα μένει κρυφή — όχι πάνω από 2,5″. */}
+        {loc.lang !== 'el' && <style dangerouslySetInnerHTML={{ __html: 'html:not([data-tr]) body{visibility:hidden}' }} />}
+        {loc.lang !== 'el' && <script dangerouslySetInnerHTML={{ __html: "setTimeout(function(){document.documentElement.setAttribute('data-tr','1')},2500)" }} />}
         {children}
+        <DomTranslator lang={loc.lang} />
       </body>
     </html>
   );
