@@ -1,6 +1,7 @@
 import { requirePermission } from '@/lib/auth';
 import { effectiveCan } from '@/lib/permissions';
 import { ProjectsBoard } from '@/components/projects/ProjectsBoard';
+import { getOrgSettings, getOrgSettingsRaw } from '@/lib/org-settings';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { Building2 } from 'lucide-react';
 import { NewProjectForm } from '@/components/projects/NewProjectForm';
@@ -46,7 +47,7 @@ export default async function ProjectsPage() {
           action={<NewProjectForm />}
         />
       ) : (
-        <ProjectsBoard canEdit={canEdit} projects={projects.map((p: any) => { const st = statsByProject[p.id] ?? { total: 0, available: 0, by: {} }; return { id: p.id, name: p.name, location: p.location ?? null, status: p.status ?? null, description: p.description ?? null, delivery_date: p.delivery_date ?? null, lat: p.latitude != null ? Number(p.latitude) : null, lng: p.longitude != null ? Number(p.longitude) : null, ...st }; })} />
+        <ProjectsBoard canEdit={canEdit} stages={(await getOrgSettings()).projectStages} rawStages={(await getOrgSettingsRaw()).projectStages} canEditStages={profile.role === 'admin'} projects={projects.map((p: any) => { const st = statsByProject[p.id] ?? { total: 0, available: 0, by: {} }; return { id: p.id, name: p.name, location: p.location ?? null, status: p.status ?? null, description: p.description ?? null, delivery_date: p.delivery_date ?? null, lat: p.latitude != null ? Number(p.latitude) : null, lng: p.longitude != null ? Number(p.longitude) : null, ...st }; })} />
       )}
     </div>
   );

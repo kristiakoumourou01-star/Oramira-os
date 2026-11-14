@@ -143,7 +143,7 @@ export default async function ProjectDetailPage({ params }: { params: { id: stri
         <div className="flex flex-col items-end gap-3 text-right">
           <div>
             <p className="eyebrow mb-1">Status</p>
-            <ProjectStatusControl projectId={project.id} status={project.status} />
+            <ProjectStatusControl projectId={project.id} status={project.status} stages={(await getOrgSettings()).projectStages} />
           </div>
           <div className="flex gap-2">
             <Link href={`/projects/${project.id}/prices`} className="btn-secondary text-sm">

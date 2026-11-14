@@ -6,7 +6,8 @@ import { updateProjectStatus } from '@/app/actions/projects';
 import { PROJECT_STATUSES } from './NewProjectForm';
 
 /** Inline project status selector — quiet, not a colorful dropdown of badges. */
-export function ProjectStatusControl({ projectId, status }: { projectId: string; status: string }) {
+export function ProjectStatusControl({ projectId, status, stages }: { projectId: string; status: string; stages?: { key: string; label: string }[] }) {
+  const opts = stages?.length ? stages : PROJECT_STATUSES.map((k) => ({ key: k, label: k.replace(/_/g, ' ') }));
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
@@ -23,8 +24,9 @@ export function ProjectStatusControl({ projectId, status }: { projectId: string;
       }}
       className="input max-w-[200px] capitalize"
     >
-      {PROJECT_STATUSES.map((s) => (
-        <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>
+      {!opts.some((o) => o.key === status) && <option value={status}>{status.replace(/_/g, ' ')}</option>}
+      {opts.map((o) => (
+        <option key={o.key} value={o.key}>{o.label}</option>
       ))}
     </select>
   );

@@ -346,6 +346,20 @@ export interface OrgSettings {
   departments: DepartmentSettings;
   /** Settings → Επικοινωνία: όνομα αποστολέα SMS, email αποστολής/απάντησης, push. */
   communication: CommunicationSettings;
+  /** Έργα → Στήλες: οι καταστάσεις έργων (προσθήκη / μετονομασία / διαγραφή). */
+  projectStages: ProjectStage[];
+}
+
+export interface ProjectStage { key: string; label: string }
+export const DEFAULT_PROJECT_STAGES: ProjectStage[] = [
+  { key: 'planning', label: 'Σχεδιασμός' }, { key: 'permitting', label: 'Αδειοδότηση' }, { key: 'under_construction', label: 'Υπό κατασκευή' },
+  { key: 'selling', label: 'Σε πώληση' }, { key: 'completed', label: 'Ολοκληρωμένο' }, { key: 'on_hold', label: 'Σε αναμονή' },
+];
+export function mergeProjectStages(v: unknown): ProjectStage[] {
+  if (!Array.isArray(v)) return DEFAULT_PROJECT_STAGES;
+  const seen = new Set<string>();
+  const out = v.filter((x: any) => x && typeof x.key === 'string' && /^[a-z0-9_]{1,40}$/.test(x.key) && typeof x.label === 'string' && x.label.trim() && !seen.has(x.key) && seen.add(x.key)).map((x: any) => ({ key: x.key, label: String(x.label).trim().slice(0, 40) }));
+  return out.length ? out.slice(0, 20) : DEFAULT_PROJECT_STAGES;
 }
 
 /* ---- Defaults (prototype values where applicable) ---- */
@@ -507,6 +521,7 @@ export function mergeDepartments(x: any): DepartmentSettings {
 }
 
 export const DEFAULT_ORG_SETTINGS: OrgSettings = {
+  projectStages: DEFAULT_PROJECT_STAGES,
   business: DEFAULT_BUSINESS, invoices: DEFAULT_INVOICES, notifications: DEFAULT_NOTIFICATIONS,
   security: DEFAULT_SECURITY, tags: DEFAULT_TAGS, pipelines: DEFAULT_PIPELINES, gdpr: DEFAULT_GDPR,
   layout: DEFAULT_LAYOUT, dashboard: DEFAULT_DASHBOARD, menu: DEFAULT_MENU,
@@ -554,6 +569,7 @@ export function mergeOrgSettings(data: any): OrgSettings {
     })(),
     departments: mergeDepartments(d.departments),
     communication: mergeCommunication(d.communication),
+    projectStages: mergeProjectStages(d.projectStages),
     dashboard: mergeDashboard(d.dashboard),
     appearance: mergeAppearance(d.appearance),
     roles: mergeRoles(d.roles),
