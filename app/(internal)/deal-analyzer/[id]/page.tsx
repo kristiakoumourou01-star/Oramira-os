@@ -9,7 +9,7 @@ import { DEFAULT_DEAL_INPUTS, type DealInputs, type DealOutputs } from '@/lib/de
 import type { DealAdvisory } from '@/lib/ai';
 
 export default async function DealDetailPage({ params }: { params: { id: string } }) {
-  await requirePermission('deals');
+  const me = await requirePermission('deals');
   const supabase = await createSupabaseServerClient();
 
   const { data: deal } = await supabase
@@ -52,6 +52,7 @@ export default async function DealDetailPage({ params }: { params: { id: string 
         <ArrowLeft size={14} strokeWidth={1.75} /> Deal Analyzer
       </Link>
       <DealWorkbench
+        canApprove={me.role === 'admin' || me.role === 'management'}
         dealId={deal.id}
         dealName={deal.name}
         status={deal.status}

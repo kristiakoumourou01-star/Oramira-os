@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
-import { Crosshair, Send, Route, Users, X, Copy, MessageCircle, Mail, AlertTriangle, MapPin } from 'lucide-react';
+import { Crosshair, Send, Route, Users, X, Copy, MessageCircle, Mail, AlertTriangle, MapPin, ChevronRight, ArrowUpRight } from 'lucide-react';
 import { scorePropertyMatch, type MatchResult } from '@/lib/matching';
 import type { UnitField } from '@/lib/unit-forms-shared';
 import { directionsUrl, legBetween, type DayStop, type MapLead, type MapProject, type MapUnit } from '@/lib/map-shared';
@@ -54,6 +54,8 @@ export function MapWorkspace({ projects, unplaced, units, leads, fields, agents,
   const [leadQ, setLeadQ] = useState(() => { const l = leads.find((x) => x.leadId === presetLead); return l ? leadLabel(l) : ''; });
   const [onlyAvailable, setOnlyAvailable] = useState(true);
   const [onlyVisible, setOnlyVisible] = useState(false);
+  const [openProj, setOpenProj] = useState<Set<string>>(new Set());
+  const toggleProj = (id: string) => setOpenProj((x) => { const n = new Set(x); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const [bounds, setBounds] = useState<{ s: number; w: number; n: number; e: number } | null>(null);
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [err, setErr] = useState<string | null>(null);
@@ -80,6 +82,12 @@ export function MapWorkspace({ projects, unplaced, units, leads, fields, agents,
       .filter((s) => !onlyVisible || !bounds || (s.project && s.project.lat >= bounds.s && s.project.lat <= bounds.n && s.project.lng >= bounds.w && s.project.lng <= bounds.e));
     return lead ? list.sort((a, b) => (b.match?.score ?? 0) - (a.match?.score ?? 0)) : list.sort((a, b) => (a.project?.name ?? '').localeCompare(b.project?.name ?? '') || a.unit.unitNumber.localeCompare(b.unit.unitNumber, undefined, { numeric: true }));
   }, [units, onlyAvailable, onlyVisible, bounds, lead, fields, projById]);
+  // Λίστα δεξιά: ομαδοποίηση ανά έργο (κλειστά — ανοίγουν με κλικ).
+  const groups = useMemo(() => {
+    const m = new Map<string, Scored[]>();
+    for (const x of scored) { const k = x.unit.projectId; m.set(k, [...(m.get(k) ?? []), x]); }
+    return [...m.entries()];
+  }, [scored]);
 
   /* ── day plan ── */
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Nicosia' }).format(new Date());
@@ -152,6 +160,16 @@ export function MapWorkspace({ projects, unplaced, units, leads, fields, agents,
     }
     ptsRef.current = pts;
   }, [ready, mode, scored, projects, stops, lead, onlyAvailable]);
+
+  // Πρώτο άνοιγμα: ζουμ ώστε να φαίνονται όλα τα έργα (όχι όλη η Μεσόγειος).
+  const fitted = useRef(false);
+  useEffect(() => {
+    const m = mapRef.current; const L = (window as any).L;
+    if (!ready || !m || !L || fitted.current || mode !== 'match' || !projects.length) return;
+    fitted.current = true;
+    const pts = projects.map((p) => [p.lat, p.lng] as [number, number]);
+    if (pts.length === 1) m.setView(pts[0], 13); else m.fitBounds(pts, { padding: [40, 40], maxZoom: 14 });
+  }, [ready, mode, projects]);
 
   // Zoom to the buyer's matches / the day's route — only when THOSE change (not on every pan).
   useEffect(() => {
@@ -232,8 +250,24 @@ export function MapWorkspace({ projects, unplaced, units, leads, fields, agents,
 
               <div className="panel max-h-[calc(100vh-380px)] min-h-[200px] divide-y divide-stone-line overflow-y-auto p-0">
                 {scored.length === 0 && <p className="p-6 text-center text-sm text-charcoal-600/70">Καμία μονάδα με αυτά τα φίλτρα.</p>}
-                {scored.map((s) => (
-                  <div key={s.unit.id} className="flex items-start gap-2 px-3 py-2.5">
+                {groups.map(([pid, list]) => {
+                  const pr = list[0].project; const isOpen = openProj.has(pid) || (!!lead && list.some((x) => x.match));
+                  const best = list.reduce((a, x) => Math.max(a, x.match?.score ?? 0), 0);
+                  return (
+                    <div key={pid}>
+                      <div className="flex items-center gap-2 bg-stone/40 px-3 py-2.5">
+                        <button type="button" onClick={() => toggleProj(pid)} className="flex min-w-0 flex-1 items-center gap-2 text-left" aria-expanded={isOpen}>
+                          <ChevronRight size={15} className={`shrink-0 text-charcoal-600/60 transition-transform ${isOpen ? 'rotate-90' : ''}`} />
+                          <span className="min-w-0">
+                            <span className="block truncate text-sm font-semibold text-charcoal" data-no-tr>{pr?.name ?? 'Έργο'}</span>
+                            <span className="block truncate text-[11px] text-charcoal-600/70">{list.length} μονάδες{pr?.location ? ` · ${pr.location}` : ''}</span>
+                          </span>
+                        </button>
+                        {best > 0 && <span className="figure shrink-0 rounded bg-forest px-1.5 py-0.5 text-[11px] font-medium text-white">{best}%</span>}
+                        <Link href={`/projects/${pid}`} className="shrink-0 rounded p-1 text-charcoal-600/60 hover:bg-stone hover:text-forest" title="Άνοιγμα έργου" aria-label="Άνοιγμα έργου"><ArrowUpRight size={15} /></Link>
+                      </div>
+                      {isOpen && list.map((s) => (
+                  <div key={s.unit.id} className="flex items-start gap-2 py-2.5 pl-9 pr-3">
                     {canLeads && <input type="checkbox" className="mt-1" checked={picked.has(s.unit.id)} onChange={() => togglePick(s.unit.id)} />}
                     <div className="min-w-0 flex-1">
                       <div className="flex items-start justify-between gap-2">
@@ -254,7 +288,10 @@ export function MapWorkspace({ projects, unplaced, units, leads, fields, agents,
                       )}
                     </div>
                   </div>
-                ))}
+                      ))}
+                    </div>
+                  );
+                })}
               </div>
               {unplaced.length > 0 && (
                 <p className="text-[11px] text-charcoal-600/70">Δεν φαίνονται στον χάρτη (λείπει η θέση): {unplaced.map((p, i) => <span key={p.id}>{i ? ', ' : ''}<Link href={`/projects/${p.id}`} className="text-forest hover:underline">{p.name}</Link></span>)}. Ορίστε τη θέση από τη σελίδα μιας μονάδας του έργου → «Τοποθεσία».</p>
