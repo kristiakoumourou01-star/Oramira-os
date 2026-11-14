@@ -8,6 +8,8 @@ import { EditProjectForm } from '@/components/projects/EditProjectForm';
 import { ProjectInfoForm } from '@/components/property/ProjectInfoForm';
 import { StructureManager } from '@/components/projects/StructureManager';
 import { ProjectTimeline } from '@/components/projects/ProjectTimeline';
+import { LocationCard } from '@/components/units/LocationCard';
+import { geocodeText } from '@/lib/geocode';
 import { ContractorAssignment } from '@/components/projects/ContractorAssignment';
 import { ProjectGalleryPanel, ProjectDocumentsPanel } from '@/components/projects/ProjectFiles';
 import { NewUnitForm } from '@/components/units/NewUnitForm';
@@ -28,7 +30,7 @@ export default async function ProjectDetailPage({ params }: { params: { id: stri
 
   const { data: project } = await supabase
     .from('projects')
-    .select('id, name, location, description, status, delivery_date, common_areas, maintenance_schedule, management_contact, emergency_contact')
+    .select('id, name, location, description, status, delivery_date, common_areas, maintenance_schedule, management_contact, emergency_contact, latitude, longitude')
     .eq('id', params.id)
     .single();
   if (!project) notFound();
@@ -174,6 +176,8 @@ export default async function ProjectDetailPage({ params }: { params: { id: stri
         </div>
 
         <div className="space-y-6">
+          <LocationCard projectId={project.id} projectName={project.name} location={project.location ?? null} lat={(project as any).latitude != null ? Number((project as any).latitude) : null} lng={(project as any).longitude != null ? Number((project as any).longitude) : null}
+            approx={(project as any).latitude == null ? await geocodeText(project.location) : null} canEdit={canImport} back={`/projects/${project.id}`} />
           <ProjectTimeline projectId={project.id} milestones={(milestones ?? []) as any} />
           <ContractorAssignment projectId={project.id} assignments={assignmentRows} />
           <ProjectInfoForm
