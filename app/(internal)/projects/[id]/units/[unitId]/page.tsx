@@ -18,6 +18,7 @@ import { loadUpdates } from '@/lib/construction';
 import { UnitGallery } from '@/components/units/UnitGallery';
 import { RoomsEditor } from '@/components/units/RoomsEditor';
 import { CommissionCalculator } from '@/components/units/CommissionCalculator';
+import { agenciesForUnit } from '@/lib/agencies';
 import { AgentPicker } from '@/components/units/AgentPicker';
 import { LocationCard } from '@/components/units/LocationCard';
 import { geocodeText } from '@/lib/geocode';
@@ -363,7 +364,7 @@ export default async function UnitDetailPage({ params, searchParams }: { params:
               contacts={(contacts ?? []) as any[]}
               contractStatus={contract?.status ?? null}
              defaultHoldDays={settings.reservations.holdDays} />
-            <CommissionCalculator unitId={unit.id} projectId={unit.project_id} price={price} initialPct={unitExtra.commission_pct != null ? Number(unitExtra.commission_pct) : null} vatRate={settings.invoices.defaultVat} canEdit={canEdit} />
+            <CommissionCalculator unitId={unit.id} projectId={unit.project_id} price={price} initialPct={unitExtra.commission_pct != null ? Number(unitExtra.commission_pct) : null} vatRate={settings.invoices.defaultVat} canEdit={canEdit} agencies={await agenciesForUnit(supabase, unit.project_id, unit.id)} />
             <LocationCard projectId={unit.project_id} projectName={project.name ?? ''} location={project.location ?? null} lat={geoRow.latitude != null ? Number(geoRow.latitude) : null} lng={geoRow.longitude != null ? Number(geoRow.longitude) : null} approx={geoRow.latitude == null ? await geocodeText(project.location) : null} canEdit={canEdit} back={here} />
             <HandoverControl
               unitId={unit.id}
