@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { ChevronDown } from 'lucide-react';
 
 export interface NavSubItem { href: string; label: string; badge?: number }
@@ -24,6 +24,16 @@ export function NavGroup({ href, label, icon, items: children, compact = false, 
   const active = pathname === href || pathname.startsWith(href + '/') || bases.some((b) => pathname === b || pathname.startsWith(b + '/'));
   const [open, setOpen] = useState(active); // SSR-safe default (matches server render)
   const key = `nav:${label}`;
+  const headRef = useRef<HTMLDivElement>(null);
+  // Όταν ανοίγει/κλείνει μια ενότητα (και κλείνουν οι άλλες), η γραμμή που πατήθηκε
+  // μένει στο ίδιο σημείο της οθόνης — δεν «πηδάει» το μενού.
+  const keepInPlace = () => {
+    const el = headRef.current; const nav = el?.closest('nav'); if (!el || !nav) return;
+    const before = el.getBoundingClientRect().top;
+    const fix = () => { const after = el.getBoundingClientRect().top; if (Math.abs(after - before) > 1) nav.scrollTop += after - before; };
+    requestAnimationFrame(() => { fix(); requestAnimationFrame(fix); });
+    setTimeout(fix, 260); // μετά από το re-render της πλοήγησης
+  };
 
   // «Μία ενότητα ανοιχτή τη φορά»: opening a group tells the others to close.
   const announce = () => {
@@ -49,6 +59,7 @@ export function NavGroup({ href, label, icon, items: children, compact = false, 
   useEffect(() => { if (active) { setOpen(true); announce(); } // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active]);
   const toggle = () => {
+    keepInPlace();
     const n = !open;
     setOpen(n);
     if (accordion) {
@@ -71,8 +82,8 @@ export function NavGroup({ href, label, icon, items: children, compact = false, 
 
   return (
     <div>
-      <div className={`group flex items-center rounded-lg pr-1 transition-colors ${active ? 'bg-white/[0.06]' : 'hover:bg-white/[0.05]'}`}>
-        <Link href={href} onClick={() => { if (!open) { setOpen(true); announce(); } }} className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-3 py-1.5 text-[13px] transition-colors ${active ? 'font-medium text-champagne' : 'text-stone-100/65 hover:text-stone-100'}`}>
+      <div ref={headRef} className={`group flex items-center rounded-lg pr-1 transition-colors ${active ? 'bg-white/[0.06]' : 'hover:bg-white/[0.05]'}`}>
+        <Link href={href} onClick={() => { keepInPlace(); if (!open) { setOpen(true); announce(); } }} className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-3 py-1.5 text-[13px] transition-colors ${active ? 'font-medium text-champagne' : 'text-stone-100/65 hover:text-stone-100'}`}>
           <span className={active ? 'text-champagne' : 'text-stone-100/60 group-hover:text-stone-100'}>{icon}</span>
           <span className="truncate">{label}</span>
         </Link>
@@ -94,7 +105,7 @@ export function NavGroup({ href, label, icon, items: children, compact = false, 
             const deeper = !tab && pathname.startsWith(base + '/') && !children.some((x) => x.href !== c.href && pathname.startsWith(x.href.split('?')[0]) && x.href.split('?')[0].length > base.length);
             const on = (pathname === base && (tab ? currentTab === tab || (!currentTab && firstForBase) : !currentTab)) || deeper;
             return (
-              <Link key={c.href} href={c.href} className={`flex items-center justify-between gap-2 rounded-md px-2.5 py-1 text-[12.5px] transition-colors ${on ? 'font-medium text-champagne' : 'text-stone-100/55 hover:bg-white/[0.05] hover:text-stone-100/90'}`}>
+              <Link key={c.href} href={c.href} onClick={keepInPlace} className={`flex items-center justify-between gap-2 rounded-md px-2.5 py-1 text-[12.5px] transition-colors ${on ? 'font-medium text-champagne' : 'text-stone-100/55 hover:bg-white/[0.05] hover:text-stone-100/90'}`}>
                 <span className="truncate">{c.label}</span>
                 {c.badge ? <span className="shrink-0 rounded-full bg-signal-danger px-1.5 text-[10px] font-semibold leading-4 text-white">{c.badge > 99 ? '99+' : c.badge}</span> : null}
               </Link>
