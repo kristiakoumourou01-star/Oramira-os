@@ -10,6 +10,8 @@ import { StructureManager } from '@/components/projects/StructureManager';
 import { ProjectTimeline } from '@/components/projects/ProjectTimeline';
 import { LocationCard } from '@/components/units/LocationCard';
 import { geocodeText } from '@/lib/geocode';
+import { loadProjectAgencies } from '@/lib/agencies';
+import { ProjectAgencies } from '@/components/projects/ProjectAgencies';
 import { ContractorAssignment } from '@/components/projects/ContractorAssignment';
 import { ProjectGalleryPanel, ProjectDocumentsPanel } from '@/components/projects/ProjectFiles';
 import { NewUnitForm } from '@/components/units/NewUnitForm';
@@ -110,6 +112,7 @@ export default async function ProjectDetailPage({ params }: { params: { id: stri
   const wm = watermarkPlan(orgSettings.watermark, branding.companyName, orgSettings.appearance.logoOnLight ?? branding.logoUrl);
   const watermark = { ...wm, logoUrl: wm.mode === 'logo' ? wm.logoUrl : null, logo: null };
   const canImport = effectiveCan(profile.role, profile.moduleAccess, 'projects', 'edit', profile.permissions);
+  const ag = await loadProjectAgencies(supabase, project.id);
   const buildingOpts = (buildings ?? []).map((b) => ({ id: b.id, name: b.name }));
   const phaseOpts = (phases ?? []).map((p) => ({ id: p.id, name: p.name }));
 
@@ -179,6 +182,7 @@ export default async function ProjectDetailPage({ params }: { params: { id: stri
           <LocationCard projectId={project.id} projectName={project.name} location={project.location ?? null} lat={(project as any).latitude != null ? Number((project as any).latitude) : null} lng={(project as any).longitude != null ? Number((project as any).longitude) : null}
             approx={(project as any).latitude == null ? await geocodeText(project.location) : null} canEdit={canImport} back={`/projects/${project.id}`} />
           <ProjectTimeline projectId={project.id} milestones={(milestones ?? []) as any} />
+          <ProjectAgencies projectId={project.id} canEdit={canImport} agencies={ag.agencies as any} listings={ag.listings as any} units={((units ?? []) as any[]).map((u) => ({ id: u.id, unit_number: u.unit_number })).sort((x, y) => String(x.unit_number).localeCompare(String(y.unit_number), undefined, { numeric: true }))} />
           <ContractorAssignment projectId={project.id} assignments={assignmentRows} />
           <ProjectInfoForm
             projectId={project.id}
