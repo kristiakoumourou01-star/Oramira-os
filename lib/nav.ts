@@ -36,13 +36,8 @@ export const DEFAULT_NAV: NavDef[] = [
         ],
       },
       {
+        // Μία λίστα· αγοραστές / επενδυτές / ιδιοκτήτες κ.λπ. ξεχωρίζουν με το φίλτρο «Ιδιότητα».
         href: '/crm/customers', label: 'Πελάτες', icon: 'Contact', module: 'leads',
-        children: [
-          { href: '/crm/customers', label: 'Όλες οι επαφές' },
-          { href: '/crm/buyers', label: 'Αγοραστές' },
-          { href: '/crm/investors', label: 'Επενδυτές' },
-          { href: '/property?tab=owners', label: 'Ιδιοκτήτες', module: 'property' },
-        ],
       },
       {
         href: '/projects', label: 'Έργα & μονάδες', icon: 'Building2', module: 'projects',

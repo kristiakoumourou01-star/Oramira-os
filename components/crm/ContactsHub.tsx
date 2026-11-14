@@ -68,7 +68,7 @@ export function ContactsHub({ rows, staff, initialRole = '', canCreate, canEdit 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap gap-1.5">
           <Chip on={!f.role} onClick={() => set({ role: '' })}>Όλες <b>{counts.all ?? 0}</b></Chip>
-          {ALL_ROLES.filter((r) => counts[r] || f.role === r).map((r) => (
+          {ALL_ROLES.filter((r) => ['lead', 'buyer', 'investor', 'homeowner'].includes(r) || counts[r] || f.role === r).map((r) => (
             <Chip key={r} on={f.role === r} onClick={() => set({ role: f.role === r ? '' : r })}>{ROLE_EL[r]} <b>{counts[r] ?? 0}</b></Chip>
           ))}
         </div>
