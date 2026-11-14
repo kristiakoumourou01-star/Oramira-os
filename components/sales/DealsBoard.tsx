@@ -47,6 +47,13 @@ const MONTHS = ['Ιαν', 'Φεβ', 'Μαρ', 'Απρ', 'Μάι', 'Ιούν', '�
  * κάτω μπάρα Διαγραφή / Lost / Won / Μετακίνηση / Αρχείο, φίλτρα, ταξινόμηση,
  * και προβολές Πίνακας · Λίστα · Forecast · Αρχείο.
  */
+/** Απαλό χρώμα ανά στάδιο: από άμμο → φασκόμηλο → πράσινο Oramira (RGB χωρίς κόμματα για rgb(… / a)). */
+const STAGE_TONES = ['191 171 136', '201 160 99', '184 146 92', '150 160 110', '110 150 112', '74 134 104', '47 110 84', '17 49 36'];
+function stageTone(i: number, n: number): string {
+  if (n <= 1) return STAGE_TONES[STAGE_TONES.length - 1];
+  return STAGE_TONES[Math.round((i / (n - 1)) * (STAGE_TONES.length - 1))];
+}
+
 export function DealsBoard({ leads: initial, cfg, rawCfg, canEditStages = false, agents, currentUserId, initialView = 'board' }: { leads: LeadListItem[]; cfg: PipelineSettings; rawCfg?: PipelineSettings; canEditStages?: boolean; agents: Agent[]; currentUserId: string; initialView?: View }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -183,7 +190,7 @@ export function DealsBoard({ leads: initial, cfg, rawCfg, canEditStages = false,
     const Ic = ACT_ICON[l.next_activity_type ?? ''] ?? ChevronRight;
     return (
       <div key={l.id} draggable={!pending} onDragStart={(e) => onCardDragStart(e, l.id)} onDragEnd={() => { setDrag(null); setOver(null); }} onClick={() => setOpenId(l.id)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') setOpenId(l.id); }}
-        className={`group relative border-b border-stone-line px-3 py-2.5 text-sm transition last:border-b-0 hover:bg-forest/[0.04] ${rot ? 'border-l-2 border-l-rose-400' : ''} ${drag === l.id ? 'opacity-40' : ''} cursor-grab active:cursor-grabbing`}>
+        className={`group relative border-b border-stone-line bg-white/85 px-3 py-2.5 text-sm transition last:border-b-0 hover:bg-forest/[0.04] ${rot ? 'border-l-2 border-l-rose-400' : ''} ${drag === l.id ? 'opacity-40' : ''} cursor-grab active:cursor-grabbing`}>
         <p className="block pr-6 font-semibold leading-snug text-charcoal group-hover:text-forest" data-no-tr>{dealTitle(l)}</p>
         {!isClosed(l.status) && (
           <span className="absolute right-2 top-2 hidden gap-1 group-hover:flex">
@@ -301,10 +308,12 @@ export function DealsBoard({ leads: initial, cfg, rawCfg, canEditStages = false,
               const sum = items.reduce((s, l) => s + dealValue(l), 0);
               return (
                 <div key={st.key} {...dropZone(st.key, (l) => moveTo(l, st))}
-                  className={`stage-col flex w-[272px] shrink-0 flex-col transition ${over === st.key ? 'bg-forest/[0.06]' : 'bg-transparent'}`}>
-                  <div className="stage-head relative border-b border-stone-line bg-white px-3 py-2" style={{ clipPath: i < columns.length - 1 ? 'polygon(0 0, calc(100% - 10px) 0, 100% 50%, calc(100% - 10px) 100%, 0 100%)' : undefined }}>
-                    <p className="truncate font-semibold text-charcoal" data-no-tr>{st.label}</p>
-                    <p className="text-xs text-charcoal-600/70">{formatCurrency(sum)} · {items.length} deals · {st.probability}%</p>
+                  style={{ backgroundColor: over === st.key ? `rgb(${stageTone(i, columns.length)} / 0.2)` : `rgb(${stageTone(i, columns.length)} / 0.08)` }}
+                  className="stage-col flex w-[272px] shrink-0 flex-col transition">
+                  <div className="stage-head relative overflow-hidden border-b border-stone-line px-3 py-2" style={{ backgroundColor: `rgb(${stageTone(i, columns.length)} / 0.22)`, borderTop: `3px solid rgb(${stageTone(i, columns.length)})`, clipPath: i < columns.length - 1 ? 'polygon(0 0, calc(100% - 10px) 0, 100% 50%, calc(100% - 10px) 100%, 0 100%)' : undefined }}>
+                    <p className="flex items-center gap-1.5 truncate font-semibold text-charcoal"><span className="inline-block h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: `rgb(${stageTone(i, columns.length)})` }} /><span className="truncate" data-no-tr>{st.label}</span></p>
+                    <p className="text-xs text-charcoal-600/80">{formatCurrency(sum)} · {items.length} deals · {st.probability}%</p>
+                    <div className="mt-1.5 h-1 w-full rounded-full bg-white/70"><div className="h-1 rounded-full" style={{ width: `${Math.max(4, Math.min(100, st.probability))}%`, backgroundColor: `rgb(${stageTone(i, columns.length)})` }} /></div>
                   </div>
                   <div className="flex min-h-[120px] flex-1 flex-col">
                     {items.map((l) => card(l))}
