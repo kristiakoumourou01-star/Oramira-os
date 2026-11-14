@@ -14,13 +14,13 @@ import { mergeReservations } from '@/lib/pricing-shared';
 import { mergeAml } from '@/lib/kyc-shared';
 import { mergePipelines } from '@/lib/pipeline-shared';
 import { mergeLeadAutomation } from '@/lib/lead-automation-shared';
-import { mergeOrgSettings, mergeAppearance, mergeTags, mergeNotifications, mergeInvoices, mergeGdpr, mergeFieldRules, mergePortal, mergeDepartments, mergeCommunication, type AppearanceSettings, type BusinessSettings, type Office } from '@/lib/org-settings-shared';
+import { mergeOrgSettings, mergeAppearance, mergeTags, mergeNotifications, mergeInvoices, mergeGdpr, mergeFieldRules, mergePortal, mergeDepartments, mergeCommunication, mergeProjectStages, type AppearanceSettings, type BusinessSettings, type Office } from '@/lib/org-settings-shared';
 
 export type SaveResult = { ok: true } | { ok: false; error: string };
 
 /** Merge one settings slice into the singleton org_settings.data JSONB. */
 /** Μετά την αποθήκευση: αυτόματη μετάφραση των νέων ονομάτων (στάδια, τμήματα, πεδία, μενού, ρόλοι). */
-const NAMED_SLICES = ['pipelines', 'departments', 'tags', 'menu', 'roles'];
+const NAMED_SLICES = ['pipelines', 'departments', 'tags', 'menu', 'roles', 'projectStages'];
 export async function saveOrgSlice(slice: string, value: unknown): Promise<SaveResult> {
   const r = await saveOrgSliceInner(slice, value);
   if (r.ok && NAMED_SLICES.includes(slice)) {
@@ -45,6 +45,7 @@ async function saveOrgSliceInner(slice: string, value: unknown): Promise<SaveRes
   if (slice === 'communication') return saveSlice(slice, mergeCommunication(value));
   if (slice === 'layout') { const r = await saveSlice(slice, mergeOrgSettings({ layout: value }).layout); if (r.ok) revalidatePath('/', 'layout'); return r; }
   if (slice === 'menu') { const r = await saveSlice(slice, mergeOrgSettings({ menu: value }).menu); if (r.ok) revalidatePath('/', 'layout'); return r; }
+  if (slice === 'projectStages') { const r = await saveSlice(slice, mergeProjectStages(value)); if (r.ok) revalidatePath('/projects'); return r; }
   if (slice === 'unitForms') return saveSlice(slice, mergeOrgSettings({ unitForms: value }).unitForms);
   if (slice === 'pipelines') return saveSlice(slice, mergePipelines(value));
   if (slice === 'leadAutomation') return saveSlice(slice, mergeLeadAutomation(value));

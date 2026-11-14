@@ -6,6 +6,8 @@ export type LabelMap = Record<string, Partial<Record<Lang, string>>>;
 
 /** Έτοιμες μεταφράσεις για τα προεπιλεγμένα ονόματα (δεν χρειάζονται υπηρεσία). */
 const D: Record<string, [string, string]> = {
+  'Σχεδιασμός': ['Planning', 'Планирование'], 'Αδειοδότηση': ['Permitting', 'Разрешения'], 'Υπό κατασκευή': ['Under construction', 'Строится'],
+  'Σε πώληση': ['Selling', 'В продаже'], 'Ολοκληρωμένο': ['Completed', 'Завершено'], 'Σε αναμονή': ['On hold', 'Приостановлено'],
   'Νέο': ['New', 'Новый'], 'Επικοινωνία': ['Contacted', 'Контакт'], 'Ενδιαφέρον': ['Interested', 'Интерес'],
   'Κατάλληλο': ['Qualified', 'Квалифицирован'], 'Αναμονή': ['On hold', 'Ожидание'], 'Προβολή': ['Viewing', 'Просмотр'],
   'Προσφορά': ['Offer', 'Предложение'], 'Διαπραγμάτευση': ['Negotiation', 'Переговоры'], 'Κράτηση': ['Reservation', 'Бронь'],
@@ -50,6 +52,7 @@ export function settingsNames(s: OrgSettings): string[] {
   for (const f of s.tags.fields) add(f.name); // οι επιλογές (Choice) είναι τιμές που αποθηκεύονται — δεν μεταφράζονται
   for (const it of s.menu.items) { add(it.label); (it.children ?? []).forEach((c) => add(c.label)); }
   s.roles.custom.forEach((r) => add(r.name));
+  (s.projectStages ?? []).forEach((st) => add(st.label));
   return [...out];
 }
 
@@ -79,5 +82,6 @@ export function localizeSettings(s: OrgSettings, lang: Lang, map: LabelMap = {})
       })),
     },
     roles: { ...s.roles, custom: s.roles.custom.map((r) => ({ ...r, name: n(r.name) })) },
+    projectStages: (s.projectStages ?? []).map((st) => ({ ...st, label: n(st.label) })),
   };
 }

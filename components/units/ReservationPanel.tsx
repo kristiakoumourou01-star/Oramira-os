@@ -42,6 +42,8 @@ export function ReservationPanel({
   contacts,
   contractStatus,
   defaultHoldDays = 14,
+  price = null,
+  vatRate = 19,
 }: {
   unitId: string;
   projectId: string;
@@ -50,7 +52,18 @@ export function ReservationPanel({
   contacts: ContactOption[];
   contractStatus: string | null;
   defaultHoldDays?: number;
+  price?: number | null;
+  vatRate?: number;
 }) {
+  const [vat, setVat] = useState(vatRate);
+  const [depPct, setDepPct] = useState('');
+  const [depAmt, setDepAmt] = useState('');
+  const [base, setBase] = useState<'net' | 'gross'>('net');
+  const net = Number(price ?? 0); const vatAmt = Math.round(net * vat) / 100; const gross = net + vatAmt;
+  const baseVal = base === 'net' ? net : gross;
+  const onPct = (v: string) => { setDepPct(v); const n = Number(v.replace(',', '.')); if (baseVal && Number.isFinite(n)) setDepAmt(Math.round(baseVal * n / 100).toLocaleString('de-DE')); };
+  const onAmt = (v: string) => { setDepAmt(v); const n = parseAmount(v) ?? 0; if (baseVal) setDepPct(n ? String(Math.round((n / baseVal) * 10000) / 100) : ''); };
+  const depN = parseAmount(depAmt) ?? 0;
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
@@ -85,7 +98,7 @@ export function ReservationPanel({
                 unitId,
                 buyerContactId,
                 depositAmount: parseAmount(formData.get('depositAmount')) || undefined,
-                holdDays: Number(formData.get('holdDays')) || undefined,
+                holdDays: Math.max(0, Number(formData.get('holdDays')) || 0),
               })
             );
           }}
@@ -95,15 +108,32 @@ export function ReservationPanel({
             <label className="eyebrow">Buyer (CRM contact)</label>
             <ContactPicker name="buyerContactId" required contacts={contacts} />
           </div>
+          {net > 0 && (
+            <div className="space-y-1 rounded-lg border border-stone-line p-3 text-sm">
+              <div className="flex justify-between text-charcoal-600"><span>Τιμή (χωρίς ΦΠΑ)</span><span className="figure">{formatCurrency(net)}</span></div>
+              <div className="flex items-center justify-between text-charcoal-600"><span className="flex items-center gap-1">ΦΠΑ
+                <select className="rounded border border-stone-line bg-white px-1 py-0 text-xs" value={vat} onChange={(e) => { setVat(Number(e.target.value)); setDepPct(''); setDepAmt(''); }}><option value={19}>19%</option><option value={5}>5%</option><option value={0}>0%</option></select></span><span className="figure">{formatCurrency(vatAmt)}</span></div>
+              <div className="flex justify-between border-t border-stone-line pt-1 font-semibold text-charcoal"><span>Συνολικό κόστος αγοράς</span><span className="figure">{formatCurrency(gross)}</span></div>
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="eyebrow">Deposit (€)</label>
-              <input name="depositAmount" inputMode="decimal" className="input mt-1" placeholder="e.g. 5.000" />
+              <label className="eyebrow">Προκαταβολή %</label>
+              <input inputMode="decimal" className="input mt-1" placeholder="π.χ. 10" value={depPct} onChange={(e) => onPct(e.target.value)} disabled={!net} />
             </div>
             <div>
-              <label className="eyebrow">Hold (days)</label>
-              <input name="holdDays" type="number" className="input mt-1" placeholder={String(defaultHoldDays)} />
+              <label className="eyebrow">Deposit (€)</label>
+              <input name="depositAmount" inputMode="decimal" className="input mt-1" placeholder="e.g. 5.000" value={depAmt} onChange={(e) => onAmt(e.target.value)} />
             </div>
+            {net > 0 && <label className="col-span-2 flex items-center gap-3 text-xs text-charcoal-600"><span>Το % υπολογίζεται επί:</span>
+              <label className="flex items-center gap-1"><input type="radio" checked={base === 'net'} onChange={() => { setBase('net'); setDepPct(''); setDepAmt(''); }} /> τιμής χωρίς ΦΠΑ</label>
+              <label className="flex items-center gap-1"><input type="radio" checked={base === 'gross'} onChange={() => { setBase('gross'); setDepPct(''); setDepAmt(''); }} /> συνόλου με ΦΠΑ</label></label>}
+            {net > 0 && depN > 0 && <p className="col-span-2 text-xs text-charcoal-600">Υπόλοιπο μετά την προκαταβολή: <b className="figure text-charcoal">{formatCurrency(Math.max(0, gross - depN))}</b></p>}
+            <div>
+              <label className="eyebrow">Hold (days)</label>
+              <input name="holdDays" type="number" min={0} className="input mt-1" placeholder="0" defaultValue={defaultHoldDays || ''} />
+            </div>
+            <p className="col-span-2 text-[11px] text-charcoal-600/70">Αν αφήσετε το «Hold» κενό ή 0, η κράτηση δεν λήγει (χωρίς όριο ημερών) μέχρι να την ακυρώσετε ή να γίνει συμβόλαιο.</p>
           </div>
           <button type="submit" disabled={isPending} className="btn-primary w-full">
             <CalendarClock size={15} strokeWidth={1.75} /> {isPending ? 'Reserving…' : 'Reserve unit'}
@@ -155,7 +185,7 @@ export function ReservationPanel({
         <div className="flex justify-between">
           <span className="text-charcoal-600/70">Hold expires</span>
           <span className={`figure ${lapsed ? 'text-signal-danger' : 'text-charcoal'}`}>
-            {expiresAt ? formatDate(expiresAt) : '—'}
+            {expiresAt ? formatDate(expiresAt) : 'Χωρίς λήξη'}
             {daysLeft != null && (lapsed ? ' · lapsed' : ` · ${daysLeft}d left`)}
           </span>
         </div>

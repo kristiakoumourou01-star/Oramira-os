@@ -42,9 +42,9 @@ export async function createReservation(params: {
 
   // Default hold comes from Settings → Pipelines → Κρατήσεις.
   const { reservations: rs } = await getOrgSettingsRaw();
-  const expiresAt = new Date(
-    Date.now() + (params.holdDays ?? rs.holdDays) * 24 * 60 * 60 * 1000
-  ).toISOString();
+  // holdDays 0 (ή κενό στη φόρμα) = κράτηση χωρίς λήξη.
+  const days = params.holdDays ?? rs.holdDays;
+  const expiresAt = days && days > 0 ? new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString() : null;
 
   const { data: reservation, error } = await supabase
     .from('reservations')
