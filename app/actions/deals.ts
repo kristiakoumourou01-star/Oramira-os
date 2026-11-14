@@ -6,6 +6,7 @@ import { logActivity } from '@/lib/activity';
 import { analyzeDeal, DEFAULT_DEAL_INPUTS, type DealInputs, type DealOutputs } from '@/lib/deal-analyzer';
 import { runDealAdvisory } from '@/lib/ai';
 import { revalidatePath } from 'next/cache';
+import { notifyUser } from '@/lib/notifications';
 
 /**
  * Deal Analyzer — Server Actions. Internal-only: deals/deal_scenarios are
@@ -170,6 +171,19 @@ export async function convertDealToProject(dealId: string) {
     .single();
   if (pErr) throw pErr;
 
+  // Μονάδες από το unit mix της ανάλυσης (τιμή χωρίς ΦΠΑ = m² × €/m²).
+  const inp = (deal.inputs ?? {}) as any;
+  const mix: any[] = Array.isArray(inp.unitMix) ? inp.unitMix : [];
+  const houseLike = Number(inp.efficiencyRatio ?? 0.82) >= 0.95;
+  const rows: any[] = []; let n = 0;
+  for (const m of mix) for (let i = 0; i < Math.min(200, Number(m.count ?? 0)); i++) {
+    n++;
+    const sqm = Number(m.avgSqm ?? 0) || null; const ppm = Number(m.pricePerSqm ?? inp.salePricePerSqm ?? 0) || null;
+    const beds = Number.parseInt(String(m.type ?? ''), 10);
+    rows.push({ project_id: project.id, unit_number: `${houseLike ? 'Κατοικία' : 'Μονάδα'} ${n}`, type: houseLike ? 'house' : 'apartment', sqm, price: sqm && ppm ? Math.round(sqm * ppm) : null, bedrooms: Number.isFinite(beds) ? beds : null, status: 'available' });
+  }
+  if (rows.length) await (supabase as any).from('units').insert(rows);
+
   await supabase.from('deals').update({ project_id: project.id, status: 'acquired' }).eq('id', dealId);
   await logActivity({ entityType: 'deal', entityId: dealId, action: 'converted_to_project', metadata: { projectId: project.id } });
   await logActivity({ entityType: 'project', entityId: project.id, action: 'created_from_deal', metadata: { dealId } });
@@ -207,4 +221,36 @@ export async function runDealAI(dealId: string) {
   await logActivity({ entityType: 'deal', entityId: dealId, action: 'ai_advisory_generated' });
   revalidatePath(`/deal-analyzer/${dealId}`);
   return advisory;
+}
+
+/**
+ * «Αποστολή για έγκριση»: τρέχει την ανάλυση (AI advisory) και βάζει την ανάλυση
+ * σε «Σε αναμονή έγκρισης»· ειδοποιεί admin / management.
+ */
+export async function submitDealForApproval(dealId: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  const me = await requireRole(STAFF);
+  const supabase = await createSupabaseServerClient();
+  try { await runDealAI(dealId); } catch { /* η ανάλυση αριθμών υπάρχει ήδη· το AI είναι προαιρετικό */ }
+  const { data: d, error } = await supabase.from('deals').update({ status: 'reviewing' }).eq('id', dealId).select('name').single();
+  if (error) return { ok: false, error: error.message };
+  await logActivity({ entityType: 'deal', entityId: dealId, action: 'submitted_for_approval' });
+  const { data: approvers } = await supabase.from('profiles').select('id').in('role', ['admin', 'management']);
+  for (const a of approvers ?? []) if (a.id !== me.id) await notifyUser({ userId: a.id, title: 'Deal για έγκριση', body: `«${d?.name ?? ''}» περιμένει έγκριση στο Deal Analyzer.`, link: `/deal-analyzer/${dealId}`, event: 'deal_approval' }).catch(() => {});
+  revalidatePath(`/deal-analyzer/${dealId}`); revalidatePath('/deal-analyzer');
+  return { ok: true };
+}
+
+/** Απόφαση admin / management. Η έγκριση δημιουργεί αυτόματα το έργο (με τις μονάδες του unit mix). */
+export async function decideDeal(dealId: string, decision: 'approved' | 'rejected' | 'on_hold'): Promise<{ ok: true; projectId?: string } | { ok: false; error: string }> {
+  await requireRole(['admin', 'management']);
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.from('deals').update({ status: decision }).eq('id', dealId);
+  if (error) return { ok: false, error: error.message };
+  await logActivity({ entityType: 'deal', entityId: dealId, action: `decision_${decision}` });
+  let projectId: string | undefined;
+  if (decision === 'approved') {
+    try { projectId = await convertDealToProject(dealId); } catch (e) { return { ok: false, error: e instanceof Error ? e.message : 'Το έργο δεν δημιουργήθηκε.' }; }
+  }
+  revalidatePath(`/deal-analyzer/${dealId}`); revalidatePath('/deal-analyzer');
+  return { ok: true, projectId };
 }

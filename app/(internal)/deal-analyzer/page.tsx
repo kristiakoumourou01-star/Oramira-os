@@ -59,7 +59,7 @@ export default async function DealAnalyzerPage() {
                     <td>
                       <Link href={`/deal-analyzer/${d.id}`} className="font-medium text-forest hover:underline">{d.name}</Link>
                     </td>
-                    <td><span className={STATUS_CLASS[d.status] ?? 'badge-neutral'}>{d.status?.replace(/_/g, ' ')}</span></td>
+                    <td><span className={STATUS_CLASS[d.status] ?? 'badge-neutral'}>{({ draft: 'Πρόχειρο', reviewing: 'Σε αναμονή έγκρισης', approved: 'Εγκρίθηκε', rejected: 'Απορρίφθηκε', on_hold: 'Σε αναμονή', acquired: 'Έγινε έργο' } as Record<string, string>)[d.status] ?? d.status?.replace(/_/g, ' ')}</span></td>
                     <td className="figure text-charcoal-600">{d.estimated_units ?? '—'}</td>
                     <td className="figure">{d.net_profit != null ? eur(d.net_profit, { compact: true }) : '—'}</td>
                     <td className="figure">{d.roi != null ? pct(d.roi) : '—'}</td>
