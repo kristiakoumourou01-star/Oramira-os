@@ -111,7 +111,7 @@ export default async function UnitDetailPage({ params, searchParams }: { params:
         ? supabase.from('payments').select('id, amount_paid, paid_at, method').eq('contract_id', contract.id).order('paid_at', { ascending: false })
         : Promise.resolve({ data: [] as any[] }),
       supabase.from('maintenance_tickets').select('id, title, status, priority, created_at').eq('unit_id', unit.id).order('created_at', { ascending: false }),
-      supabase.from('contacts').select('id, full_name, email').or('is_lead.eq.true,is_buyer.eq.true').order('full_name').limit(500),
+      supabase.from('contacts').select('id, full_name, email, phone, nationality, preferred_language, tags, groups, custom_fields, is_lead, is_buyer, is_investor, is_homeowner').is('anonymized_at', null).order('full_name').limit(3000),
       supabase.from('documents').select('id, title, category, storage_path, bucket, created_at').eq('entity_type', 'unit').eq('entity_id', unit.id),
       supabase.from('unit_ownership_history').select('id, transfer_date, note, created_at, prev:previous_contact_id(full_name), next:new_contact_id(full_name)').eq('unit_id', unit.id).order('created_at', { ascending: false }),
       supabase.from('viewings').select('id, scheduled_at, status, notes, contact_id, lead_id, agent_id, contacts(full_name, phone, email)').eq('unit_id', unit.id).order('scheduled_at', { ascending: false }),

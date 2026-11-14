@@ -12,6 +12,7 @@ import {
 } from '@/app/actions/reservations';
 import { formatDate, formatCurrency } from '@/lib/format';
 import { parseAmount } from '@/lib/amount';
+import { ContactPicker, type PickerContact } from '@/components/crm/ContactPicker';
 
 export interface ReservationView {
   id: string;
@@ -24,7 +25,7 @@ export interface ReservationView {
   converted_contract_id: string | null;
 }
 
-export interface ContactOption { id: string; full_name: string | null; email: string }
+export type ContactOption = PickerContact;
 
 /**
  * The reservation lifecycle on a unit: reserve from the CRM (pick a contact),
@@ -92,12 +93,7 @@ export function ReservationPanel({
         >
           <div>
             <label className="eyebrow">Buyer (CRM contact)</label>
-            <select name="buyerContactId" required className="input mt-1">
-              <option value="">Select a contact…</option>
-              {contacts.map((c) => (
-                <option key={c.id} value={c.id}>{c.full_name ?? c.email} · {c.email}</option>
-              ))}
-            </select>
+            <ContactPicker name="buyerContactId" required contacts={contacts} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
