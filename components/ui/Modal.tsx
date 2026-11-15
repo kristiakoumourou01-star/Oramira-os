@@ -48,6 +48,11 @@ export function Modal({
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
   const titleId = useRef(`modal-${Math.random().toString(36).slice(2, 9)}`).current;
+  // Το onClose αλλάζει σε κάθε render (inline συνάρτηση). Το κρατάμε σε ref ώστε
+  // το effect να τρέχει μόνο όταν ανοίγει/κλείνει — αλλιώς σε κάθε πλήκτρο το
+  // focus γύριζε στο πρώτο στοιχείο και δεν μπορούσατε να γράψετε συνεχόμενα.
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
 
   useEffect(() => {
     if (!open) return;
@@ -60,7 +65,7 @@ export function Modal({
     (first ?? panel)?.focus();
 
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') { e.stopPropagation(); onClose(); return; }
+      if (e.key === 'Escape') { e.stopPropagation(); closeRef.current(); return; }
       if (e.key !== 'Tab' || !panel) return;
       const items = Array.from(panel.querySelectorAll<HTMLElement>(FOCUSABLE)).filter((el) => el.offsetParent !== null);
       if (items.length === 0) { e.preventDefault(); return; }
@@ -75,7 +80,7 @@ export function Modal({
       unlockScroll();
       previouslyFocused?.focus?.();
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open || typeof document === 'undefined') return null;
 
