@@ -350,7 +350,7 @@ export interface OrgSettings {
   projectStages: ProjectStage[];
 }
 
-export interface ProjectStage { key: string; label: string }
+export interface ProjectStage { key: string; label: string; /** Χρώμα στήλης (#rrggbb, προαιρετικό). */ color?: string }
 export const DEFAULT_PROJECT_STAGES: ProjectStage[] = [
   { key: 'planning', label: 'Σχεδιασμός' }, { key: 'permitting', label: 'Αδειοδότηση' }, { key: 'under_construction', label: 'Υπό κατασκευή' },
   { key: 'selling', label: 'Σε πώληση' }, { key: 'completed', label: 'Ολοκληρωμένο' }, { key: 'on_hold', label: 'Σε αναμονή' },
@@ -358,7 +358,7 @@ export const DEFAULT_PROJECT_STAGES: ProjectStage[] = [
 export function mergeProjectStages(v: unknown): ProjectStage[] {
   if (!Array.isArray(v)) return DEFAULT_PROJECT_STAGES;
   const seen = new Set<string>();
-  const out = v.filter((x: any) => x && typeof x.key === 'string' && /^[a-z0-9_]{1,40}$/.test(x.key) && typeof x.label === 'string' && x.label.trim() && !seen.has(x.key) && seen.add(x.key)).map((x: any) => ({ key: x.key, label: String(x.label).trim().slice(0, 40) }));
+  const out = v.filter((x: any) => x && typeof x.key === 'string' && /^[a-z0-9_]{1,40}$/.test(x.key) && typeof x.label === 'string' && x.label.trim() && !seen.has(x.key) && seen.add(x.key)).map((x: any) => ({ key: x.key, label: String(x.label).trim().slice(0, 40), ...(typeof x.color === 'string' && /^#[0-9a-f]{6}$/i.test(x.color) ? { color: x.color.toLowerCase() } : {}) }));
   return out.length ? out.slice(0, 20) : DEFAULT_PROJECT_STAGES;
 }
 

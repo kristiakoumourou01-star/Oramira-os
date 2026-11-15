@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useTransition } from 'react';
 import Link from 'next/link';
+import { BoardLane, laneRow } from '@/components/ui/BoardLane';
 import { useRouter } from 'next/navigation';
 import { Phone, Users, CheckSquare, Flag, Mail, Utensils, Home, List, CalendarDays, Check, ChevronLeft, ChevronRight, RotateCcw } from 'lucide-react';
 import { ACTIVITY_TYPES, activityLabel } from '@/lib/activity-types';
@@ -135,28 +136,25 @@ export function ActivitiesView({ rows: initial, agents, currentUserId, initialTy
             <span className="text-xs text-charcoal-600/60">Σύρετε μια activity σε άλλη μέρα για να τη μεταφέρετε.</span>
           </div>
           <div {...scroller} className="-mx-1 overflow-x-auto pb-2">
-            <div className="grid min-h-[calc(100vh-330px)] min-w-[980px] grid-cols-7 divide-x divide-stone-line overflow-hidden rounded-xl border border-stone-line bg-white/60">
+            <div className="grid min-h-[calc(100vh-330px)] min-w-[1050px] grid-cols-7 gap-3">
               {Array.from({ length: 7 }, (_, i) => addDays(week, i)).map((d, i) => {
                 const items = base.filter((r) => { const x = new Date(r.dueAt); return x >= d && x < addDays(d, 1); }).sort((a, b) => a.dueAt.localeCompare(b.dueAt));
                 const today = d.getTime() === t0.getTime();
+                const tone = today ? '17 49 36' : d.getDay() === 0 || d.getDay() === 6 ? '191 171 136' : '74 134 104';
                 return (
-                  <div key={i} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { const id = e.dataTransfer.getData('text/plain'); const r = rows.find((x) => x.id === id); if (r && !r.done && !r.readOnly) move(r, d); }}
-                    className={`stage-col flex min-h-[260px] flex-col ${today ? 'bg-forest/[0.05]' : ''}`}>
-                    <div className={`stage-head border-b border-stone-line px-3 py-2 ${today ? 'bg-forest/10' : 'bg-white'}`}>
-                      <p className={`font-semibold ${today ? 'text-forest' : 'text-charcoal'}`}>{d.toLocaleDateString(DATE_TAG[currentLocale().lang], { weekday: 'short', day: 'numeric' })}</p>
-                      <p className="text-xs text-charcoal-600/70">{items.length} {items.length === 1 ? 'activity' : 'activities'}</p>
-                    </div>
-                    <div className="flex flex-col">
+                  <BoardLane key={i} tone={tone} highlight={today} width="w-auto" count={items.length} empty="—"
+                    title={<span className={today ? 'text-forest' : ''}>{d.toLocaleDateString(DATE_TAG[currentLocale().lang], { weekday: 'short', day: 'numeric' })}{today && <span className="ml-1.5 rounded-full bg-forest px-1.5 py-px align-middle text-[10px] font-semibold text-white">Σήμερα</span>}</span>}
+                    meta={`${items.length} ${items.length === 1 ? 'activity' : 'activities'}`}
+                    onDragOver={(e) => e.preventDefault()} onDrop={(e) => { const id = e.dataTransfer.getData('text/plain'); const r = rows.find((x) => x.id === id); if (r && !r.done && !r.readOnly) move(r, d); }}>
                       {items.map((r) => { const I = ICON[r.type] ?? CheckSquare; const late = !r.done && new Date(r.dueAt) < now; return (
                         <div key={r.id} draggable={!r.done && !r.readOnly} onDragStart={(e) => e.dataTransfer.setData('text/plain', r.id)}
-                          className={`border-b border-stone-line px-3 py-2 text-xs transition last:border-b-0 hover:bg-forest/[0.04] ${r.done ? 'opacity-50' : late ? 'border-l-2 border-l-rose-400' : ''} ${r.done ? '' : 'cursor-grab active:cursor-grabbing'}`}>
-                          <p className="flex items-center gap-1 font-medium text-charcoal"><I size={11} /> {time(r.dueAt)}</p>
-                          {r.note ? <p className="truncate text-charcoal" data-no-tr>{r.note}</p> : <p className="truncate text-charcoal">{activityLabel(r.type)}</p>}
+                          className={`${laneRow} !px-2.5 !py-2 text-xs ${r.done ? 'opacity-50' : ''} ${late ? 'shadow-[inset_3px_0_0_0_rgb(251_113_133)]' : ''} ${r.done ? '' : 'cursor-grab active:cursor-grabbing'}`}>
+                          <p className="flex items-center gap-1.5 font-semibold text-charcoal"><span className={`flex h-5 w-5 items-center justify-center rounded-full ${late ? 'bg-rose-100 text-signal-danger' : 'bg-forest/10 text-forest'}`}><I size={11} /></span> {time(r.dueAt)}</p>
+                          {r.note ? <p className="mt-0.5 truncate text-charcoal" data-no-tr>{r.note}</p> : <p className="mt-0.5 truncate text-charcoal">{activityLabel(r.type)}</p>}
                           {r.leadId && <Link href={`/crm/leads/${r.leadId}`} className="block truncate text-forest hover:underline" data-no-tr>{r.dealTitle ?? r.contactName}</Link>}
                         </div>
                       ); })}
-                    </div>
-                  </div>
+                  </BoardLane>
                 );
               })}
             </div>
