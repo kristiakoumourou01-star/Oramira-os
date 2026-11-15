@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { UserPlus, X, Mail, Eye, KeyRound, ShieldCheck, Copy, RefreshCw, UserX, UserCheck } from 'lucide-react';
+import { UserPlus, X, Mail, Eye, KeyRound, ShieldCheck, Copy, RefreshCw, UserX, UserCheck, History } from 'lucide-react';
 import {
   inviteUser, assignRole, setUserActive, revokeInvite,
-  createUserWithPassword, setUserPermissions, setUserPassword,
+  createUserWithPassword, setUserPermissions, setUserPassword, getUserHistory,
 } from '@/app/actions/users';
 import { startImpersonation } from '@/app/actions/impersonation';
 import { resetUserMfa } from '@/app/actions/mfa';
@@ -316,7 +316,9 @@ export function UsersAdmin({
   portalUsers = [],
   canImpersonate = false,
   roles = DEFAULT_ROLES,
+  mode = 'employees',
 }: {
+  mode?: 'employees' | 'external';
   users: AdminUser[];
   invites: AdminInvite[];
   currentUserId: string;
@@ -331,6 +333,8 @@ export function UsersAdmin({
   const [isPending, startTransition] = useTransition();
   const [impErr, setImpErr] = useState<string | null>(null);
   const [roleMsg, setRoleMsg] = useState<{ id: string; text: string } | null>(null);
+  const [historyFor, setHistoryFor] = useState<AdminUser | null>(null);
+  const [extCat, setExtCat] = useState<string>('');
   const router = useRouter();
 
   function run(fn: () => Promise<unknown>) {
@@ -352,22 +356,22 @@ export function UsersAdmin({
       <div className="flex items-center justify-between">
         <div>
           <p className="eyebrow mb-1">Admin</p>
-          <h1 className="text-3xl">Χρήστες & πρόσβαση</h1>
+          <h1 className="text-3xl">{mode === 'external' ? 'Ιδιοκτήτες & συνεργάτες' : 'Υπάλληλοι'}</h1>
         </div>
-        <div className="flex gap-2">
+        {mode === 'employees' && <div className="flex gap-2">
           <button onClick={() => setShowInvite(true)} className="btn-ghost">
             <Mail size={15} strokeWidth={1.75} /> Πρόσκληση με email
           </button>
           <button onClick={() => setShowCreate(true)} className="btn-primary">
             <UserPlus size={15} strokeWidth={1.75} /> Νέος χρήστης
           </button>
-        </div>
+        </div>}
       </div>
 
       {impErr && <p className="rounded-md bg-signal-danger/10 px-4 py-2 text-sm text-signal-danger">{impErr}</p>}
 
       {/* Users */}
-      <div className="panel overflow-x-auto">
+      {mode === 'employees' && <div className="panel overflow-x-auto">
         <table className="table-base w-full min-w-[820px]">
           <thead><tr><th>Όνομα</th><th>Ρόλος</th><th>Πρόσβαση</th><th>Κατάσταση</th><th className="text-right">Ενέργειες</th></tr></thead>
           <tbody>
@@ -418,6 +422,7 @@ export function UsersAdmin({
                         <IconBtn label="Νέος κωδικός" onClick={() => setPasswordFor(u)} disabled={isPending}><KeyRound size={16} strokeWidth={1.75} /></IconBtn>
                         <IconBtn label="Μηδενισμός 2FA" disabled={isPending} onClick={() => { if (window.confirm('Μηδενισμός 2FA: σβήνεται η εφαρμογή επαλήθευσης και οι εμπιστευμένες συσκευές του. Στην επόμενη σύνδεση το ρυθμίζει ξανά. Συνέχεια;')) run(() => resetUserMfa(u.id)); }}><RefreshCw size={16} strokeWidth={1.75} /></IconBtn>
                         {canImpersonate && <IconBtn label="Προβολή ως χρήστης" onClick={() => viewAs(u.id)} disabled={isPending}><Eye size={16} strokeWidth={1.75} /></IconBtn>}
+                        <IconBtn label="Ιστορικό" onClick={() => setHistoryFor(u)} disabled={isPending}><History size={16} strokeWidth={1.75} /></IconBtn>
                         <IconBtn label={u.is_active ? 'Απενεργοποίηση' : 'Ενεργοποίηση'} danger={u.is_active} disabled={isPending}
                           onClick={() => { if (!u.is_active || window.confirm(`Απενεργοποίηση του χρήστη «${u.full_name ?? ''}»; Δεν θα μπορεί να συνδεθεί μέχρι να τον ενεργοποιήσετε ξανά.`)) run(() => setUserActive(u.id, !u.is_active)); }}>
                           {u.is_active ? <UserX size={16} strokeWidth={1.75} /> : <UserCheck size={16} strokeWidth={1.75} />}
@@ -430,36 +435,50 @@ export function UsersAdmin({
             })}
           </tbody>
         </table>
-      </div>
+      </div>}
 
       {/* Portal & client accounts — read-only here, but impersonable so an
           admin can see exactly what a buyer/homeowner/investor/contractor sees. */}
-      {canImpersonate && portalUsers.length > 0 && (
-        <div className="panel overflow-hidden">
-          <div className="flex items-center gap-2 px-4 pt-4">
-            <h4>Portal & client accounts</h4>
-            <span className="badge-neutral">{portalUsers.length}</span>
+      {mode === 'external' && (
+        <div className="space-y-3">
+          <div className="flex flex-wrap gap-1.5">
+            {[['', 'Όλοι'], ['homeowner', 'Ιδιοκτήτες'], ['buyer', 'Αγοραστές'], ['investor', 'Επενδυτές'], ['contractor', 'Συνεργάτες / εργολάβοι']].map(([k, l]) => (
+              <button key={k} type="button" onClick={() => setExtCat(k)} className={`rounded-full px-3 py-1.5 text-xs font-medium ring-1 ring-inset transition ${extCat === k ? 'bg-forest text-white ring-forest' : 'bg-white text-charcoal-600 ring-stone-line hover:ring-forest/40'}`}>
+                {l} <span className="opacity-70">{k ? portalUsers.filter((u) => u.role === k).length : portalUsers.length}</span>
+              </button>
+            ))}
           </div>
-          <table className="table-base mt-2 w-full">
-            <thead><tr><th>Όνομα</th><th>Τύπος</th><th>Κατάσταση</th><th className="text-right">Ενέργειες</th></tr></thead>
-            <tbody>
-              {portalUsers.map((u) => (
-                <tr key={u.id} className="hover:bg-stone/60">
-                  <td className="font-medium text-charcoal">{u.full_name ?? 'Unnamed'}</td>
-                  <td><span className="badge-neutral">{PORTAL_ROLE_LABEL[u.role] ?? u.role}</span></td>
-                  <td><span className={u.is_active ? 'badge-forest' : 'badge-neutral'}>{u.is_active ? 'Ενεργός' : 'Ανενεργός'}</span></td>
-                  <td className="text-right">
-                    <IconBtn label="Προβολή ως χρήστης" onClick={() => viewAs(u.id)} disabled={isPending}><Eye size={16} strokeWidth={1.75} /></IconBtn>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="overflow-x-auto rounded-2xl border border-stone-line bg-white">
+            <table className="table-base w-full min-w-[640px]">
+              <thead><tr><th>Όνομα</th><th>Κατηγορία</th><th>Κατάσταση</th><th className="text-right">Ενέργειες</th></tr></thead>
+              <tbody>
+                {portalUsers.filter((u) => !extCat || u.role === extCat).length === 0 && <tr><td colSpan={4} className="py-10 text-center text-sm text-charcoal-600/70">Κανένας λογαριασμός σε αυτή την κατηγορία.</td></tr>}
+                {portalUsers.filter((u) => !extCat || u.role === extCat).map((u) => (
+                  <tr key={u.id} className="hover:bg-stone/60">
+                    <td><p className="font-medium text-charcoal">{u.full_name ?? 'Unnamed'}</p>{u.email && <p className="text-xs text-charcoal-600/60">{u.email}</p>}</td>
+                    <td><span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${u.role === 'homeowner' ? 'bg-forest/[0.08] text-forest' : u.role === 'contractor' ? 'bg-amber-50 text-amber-800' : u.role === 'investor' ? 'bg-violet-50 text-violet-700' : 'bg-sky-50 text-sky-700'}`}>{PORTAL_ROLE_LABEL[u.role] ?? u.role}</span></td>
+                    <td><span className={u.is_active ? 'badge-forest' : 'badge-neutral'}>{u.is_active ? 'Ενεργός' : 'Ανενεργός'}</span></td>
+                    <td className="text-right">
+                      <div className="flex justify-end gap-0.5">
+                        {canImpersonate && <IconBtn label="Προβολή ως χρήστης" onClick={() => viewAs(u.id)} disabled={isPending}><Eye size={16} strokeWidth={1.75} /></IconBtn>}
+                        <IconBtn label="Ιστορικό" onClick={() => setHistoryFor(u)} disabled={isPending}><History size={16} strokeWidth={1.75} /></IconBtn>
+                        <IconBtn label={u.is_active ? 'Απενεργοποίηση' : 'Ενεργοποίηση'} danger={u.is_active} disabled={isPending}
+                          onClick={() => { if (!u.is_active || window.confirm(`Απενεργοποίηση του λογαριασμού «${u.full_name ?? ''}»;`)) run(() => setUserActive(u.id, !u.is_active)); }}>
+                          {u.is_active ? <UserX size={16} strokeWidth={1.75} /> : <UserCheck size={16} strokeWidth={1.75} />}
+                        </IconBtn>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="text-xs text-charcoal-600/60">Οι λογαριασμοί ιδιοκτητών, αγοραστών, επενδυτών και συνεργατών δημιουργούνται από την καρτέλα του πελάτη (πρόσβαση στην πλατφόρμα τους).</p>
         </div>
       )}
 
       {/* Pending invites */}
-      <div className="panel p-6">
+      {mode === 'employees' && <div className="panel p-6">
         <h4 className="mb-4">Pending invites</h4>
         {invites.length === 0 ? (
           <p className="text-sm text-charcoal-600/70">No pending invites.</p>
@@ -477,8 +496,9 @@ export function UsersAdmin({
             ))}
           </ul>
         )}
-      </div>
+      </div>}
 
+      {historyFor && <HistoryDrawer user={historyFor} onClose={() => setHistoryFor(null)} />}
       {showCreate && <CreateUserModal roles={roles} onClose={() => setShowCreate(false)} onDone={() => router.refresh()} />}
       {permsFor && <PermissionsModal roles={roles} user={permsFor} onClose={() => setPermsFor(null)} onDone={() => router.refresh()} />}
       {passwordFor && <PasswordModal user={passwordFor} onClose={() => setPasswordFor(null)} onDone={() => router.refresh()} />}
@@ -546,5 +566,43 @@ function IconBtn({ label, onClick, disabled, danger, children }: { label: string
       className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-charcoal-600 transition-colors hover:bg-stone disabled:opacity-40 ${danger ? 'hover:text-signal-danger' : 'hover:text-forest'}`}>
       {children}
     </button>
+  );
+}
+
+
+const ACT: Record<string, string> = { login: 'Σύνδεση', logout: 'Αποσύνδεση', login_failed: 'Αποτυχημένη σύνδεση', created: 'Δημιουργία', updated: 'Αλλαγή', deleted: 'Διαγραφή', status_changed: 'Αλλαγή σταδίου', assigned: 'Ανάθεση', reassigned: 'Ανάθεση', note_added: 'Σημείωση', completed: 'Ολοκλήρωση', document_uploaded: 'Ανέβασμα εγγράφου', impersonation_started: 'Προβολή ως χρήστης', impersonation_stopped: 'Τέλος προβολής' };
+const ENT: Record<string, string> = { lead: 'Lead', deal: 'Deal', contact: 'Επαφή', auth: 'Λογαριασμός', profile: 'Προφίλ', unit: 'Μονάδα', project: 'Έργο', invoice: 'Τιμολόγιο', ticket: 'Αίτημα', task: 'Εργασία', land_parcel: 'Οικόπεδο' };
+
+/** Ιστορικό ενεργειών χρήστη (πλαϊνό πάνελ). */
+function HistoryDrawer({ user, onClose }: { user: AdminUser; onClose: () => void }) {
+  const [rows, setRows] = useState<{ id: string; at: string; action: string; entity: string; details: string }[] | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  useEffect(() => { void getUserHistory(user.id).then((r) => (r.ok ? setRows(r.rows) : setErr(r.error))); }, [user.id]);
+  return (
+    <div className="fixed inset-0 z-50 flex justify-end bg-charcoal/30" onClick={onClose}>
+      <aside className="flex h-full w-full max-w-md flex-col bg-white shadow-overlay" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-start justify-between border-b border-stone-line px-5 py-4">
+          <div><p className="text-[11px] font-semibold uppercase tracking-wide text-forest">Ιστορικό</p><h3 className="text-xl text-charcoal">{user.full_name ?? user.email ?? 'Χρήστης'}</h3></div>
+          <button type="button" onClick={onClose} aria-label="Κλείσιμο" className="text-charcoal-600/60 hover:text-charcoal"><X size={18} /></button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-5">
+          {err && <p className="text-sm text-signal-danger">{err}</p>}
+          {!rows && !err && <p className="text-sm text-charcoal-600/60">Φόρτωση…</p>}
+          {rows && rows.length === 0 && <p className="text-sm text-charcoal-600/60">Δεν υπάρχει ακόμη ιστορικό.</p>}
+          {rows && rows.length > 0 && (
+            <ol className="relative space-y-4 border-l-2 border-forest/15 pl-4">
+              {rows.map((r) => (
+                <li key={r.id} className="relative">
+                  <span className={`absolute -left-[23px] top-1 h-3 w-3 rounded-full ring-2 ring-white ${r.action === 'login_failed' || r.action.includes('delet') ? 'bg-rose-500' : r.action === 'login' ? 'bg-forest' : 'bg-[#c9a063]'}`} />
+                  <p className="text-sm font-medium text-charcoal">{ACT[r.action] ?? r.action.replace(/_/g, ' ')} <span className="font-normal text-charcoal-600/60">· {ENT[r.entity] ?? r.entity}</span></p>
+                  <p className="text-xs tabular-nums text-charcoal-600/70">{new Date(r.at).toLocaleString('el-GR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Nicosia' })}</p>
+                  {r.details && <p className="text-xs text-charcoal-600/60" data-no-tr>{r.details}</p>}
+                </li>
+              ))}
+            </ol>
+          )}
+        </div>
+      </aside>
+    </div>
   );
 }

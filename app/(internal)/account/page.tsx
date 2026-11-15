@@ -65,22 +65,22 @@ export default async function AccountPage({ searchParams }: { searchParams: { ta
       { icon: Bell, title: 'Προτιμήσεις ειδοποιήσεων', text: 'Ήχος και ειδοποιήσεις στην οθόνη.', href: '/account?tab=notifications', cta: 'Διαχείριση' },
     ];
     body = (
-      <div className="space-y-5">
+      <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
         <AccountProfile readOnly={!!me.impersonator} initial={{ fullName: row?.full_name ?? me.fullName ?? '', email: auth.user?.email ?? '', phone: row?.phone ?? '', jobTitle: row?.job_title ?? '', avatarUrl: row?.avatar_url ?? null, roleName: me.roleName, department: row?.department ?? '' }} />
-        <div className="panel overflow-hidden">
-          <div className="border-b border-stone-line px-5 py-3.5"><p className="font-semibold text-charcoal">Ασφάλεια</p></div>
+        <div className="overflow-hidden rounded-2xl border border-stone-line bg-white shadow-[0_1px_2px_rgba(17,49,36,0.04)] xl:sticky xl:top-[72px]">
+          <div className="flex items-center gap-2.5 border-b border-stone-line bg-forest/[0.04] px-4 py-3.5"><span className="flex h-8 w-8 items-center justify-center rounded-lg bg-forest text-white"><ShieldCheck size={15} /></span><p className="font-semibold text-charcoal">Ασφάλεια</p></div>
           <ul className="divide-y divide-stone-line">
             {sec.map((s) => (
-              <li key={s.title} className="flex items-center gap-4 px-5 py-4">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-stone text-charcoal-600"><s.icon size={17} /></span>
-                <span className="min-w-0 flex-1"><span className="block font-medium text-charcoal">{s.title}</span><span className="text-sm text-charcoal-600/75">{s.text}</span></span>
-                <Link href={s.href} className="btn-secondary shrink-0 text-sm">{s.cta}</Link>
+              <li key={s.title} className="flex items-center gap-3 px-4 py-3">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-forest/[0.07] text-forest"><s.icon size={15} /></span>
+                <span className="min-w-0 flex-1"><span className="block text-sm font-medium text-charcoal">{s.title}</span><span className="block text-xs leading-snug text-charcoal-600/70">{s.text}</span></span>
+                <Link href={s.href} className="shrink-0 rounded-full border border-forest/30 px-3 py-1 text-xs font-medium text-forest transition hover:bg-forest hover:text-white">{s.cta}</Link>
               </li>
             ))}
-            <li className="flex items-center gap-4 px-5 py-4">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-stone text-charcoal-600"><LogOut size={17} /></span>
-              <span className="min-w-0 flex-1"><span className="block font-medium text-charcoal">Αποσύνδεση από παντού</span><span className="text-sm text-charcoal-600/75">Αν χάσατε κινητό ή συνδεθήκατε σε ξένο υπολογιστή.</span></span>
-              <form action={signOutEverywhere}><button className="btn-secondary shrink-0 text-sm text-signal-danger">Αποσύνδεση όλων</button></form>
+            <li className="flex items-center gap-3 px-4 py-3">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-rose-50 text-signal-danger"><LogOut size={15} /></span>
+              <span className="min-w-0 flex-1"><span className="block text-sm font-medium text-charcoal">Αποσύνδεση από παντού</span><span className="block text-xs leading-snug text-charcoal-600/70">Αν χάσατε κινητό ή συνδεθήκατε σε ξένο υπολογιστή.</span></span>
+              <form action={signOutEverywhere}><button className="shrink-0 rounded-full border border-rose-200 px-3 py-1 text-xs font-medium text-signal-danger transition hover:bg-signal-danger hover:text-white">Όλες</button></form>
             </li>
           </ul>
         </div>

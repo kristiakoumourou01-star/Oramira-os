@@ -3,6 +3,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { getOrgSettingsRaw } from '@/lib/org-settings';
 import { INTERNAL_ROLES } from '@/lib/permissions';
 import { RolesAdmin } from '@/components/admin/RolesAdmin';
+import { StaffTabs } from '@/components/admin/StaffTabs';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,5 +24,10 @@ export default async function RolesPage() {
     counts[key] = (counts[key] ?? 0) + 1;
   }
 
-  return <RolesAdmin roles={roles} counts={counts} migrationMissing={!!crError} />;
+  return (
+    <div className="space-y-5">
+      <StaffTabs active="roles" />
+      <RolesAdmin roles={roles} counts={counts} migrationMissing={!!crError} />
+    </div>
+  );
 }
