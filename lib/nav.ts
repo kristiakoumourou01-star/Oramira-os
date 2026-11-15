@@ -98,13 +98,6 @@ export const DEFAULT_NAV: NavDef[] = [
       },
       {
         href: '/reports', label: 'Αναφορές', icon: 'FileBarChart', module: 'financials',
-        children: [
-          { href: '/reports?tab=board', label: 'Board pack' },
-          { href: '/reports?tab=investor', label: 'Investor report' },
-          { href: '/reports?tab=strategy', label: 'Strategy' },
-          { href: '/reports?tab=knowledge', label: 'Knowledge graph' },
-          { href: '/reports?tab=memory', label: 'Executive memory' },
-        ],
       },
     ],
   },
