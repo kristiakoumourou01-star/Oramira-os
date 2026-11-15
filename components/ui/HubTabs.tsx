@@ -1,10 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Users, Plane, Wallet, FileSignature, FolderOpen, Gift, BarChart3, ShieldAlert, UserPlus, Receipt, Settings, User, Lock, Bell, Palette, LayoutGrid, Building2, Mail, ListChecks, Globe, KeyRound, ScrollText, Smartphone, type LucideIcon } from 'lucide-react';
+import { History, Sparkles, ScrollText as Scroll2, Users, Plane, Wallet, FileSignature, FolderOpen, Gift, BarChart3, ShieldAlert, UserPlus, Receipt, Settings, User, Lock, Bell, Palette, LayoutGrid, Building2, Mail, ListChecks, Globe, KeyRound, ScrollText, Smartphone, type LucideIcon } from 'lucide-react';
 import { HubCards } from '@/components/ui/HubCards';
 
-const ICONS: Record<string, LucideIcon> = { Users, Plane, Wallet, FileSignature, FolderOpen, Gift, BarChart3, ShieldAlert, UserPlus, Receipt, Settings, User, Lock, Bell, Palette, LayoutGrid, Building2, Mail, ListChecks, Globe, KeyRound, ScrollText, Smartphone };
+const ICONS: Record<string, LucideIcon> = { History, Sparkles, Scroll2, Users, Plane, Wallet, FileSignature, FolderOpen, Gift, BarChart3, ShieldAlert, UserPlus, Receipt, Settings, User, Lock, Bell, Palette, LayoutGrid, Building2, Mail, ListChecks, Globe, KeyRound, ScrollText, Smartphone };
 
 export interface HubTabDef { id: string; label: string; icon: string; value?: React.ReactNode; sub?: string; content: React.ReactNode }
 
@@ -23,4 +23,9 @@ export function HubTabs({ tabs, initial, cols = 3 }: { tabs: HubTabDef[]; initia
       <div>{current?.content}</div>
     </div>
   );
+}
+
+/** Κάρτες-σύνδεσμοι (για σελίδες που αλλάζουν ενότητα με ?tab= από τον server). Τα εικονίδια δίνονται με όνομα. */
+export function HubLinks({ cards, active, cols = 3 }: { cards: { key: string; icon: string; title: string; value?: React.ReactNode; sub?: string; href: string }[]; active?: string; cols?: 2 | 3 | 4 }) {
+  return <HubCards cols={cols} active={active} cards={cards.map((c) => ({ ...c, icon: ICONS[c.icon] ?? LayoutGrid }))} />;
 }

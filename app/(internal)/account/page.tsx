@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ScrollText, KeyRound, ShieldCheck, MonitorSmartphone, Bell, ChevronRight, User, History, Palette, LogOut, Sparkles, LifeBuoy } from 'lucide-react';
+import { KeyRound, ShieldCheck, MonitorSmartphone, Bell, LogOut, LifeBuoy } from 'lucide-react';
 import { requireProfile } from '@/lib/auth';
 import { createSupabaseServerClient, createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import { listTrustedDevices, listTotpFactors } from '@/lib/mfa';
@@ -14,15 +14,12 @@ import { AuditLogView } from '@/components/admin/AuditLogView';
 import { LogsView, type LogRow } from '@/components/account/LogsView';
 import { getAuditLog } from '@/lib/audit';
 import { DATE_TAG, currentLocale } from '@/lib/locale-shared';
+import { HubLinks } from '@/components/ui/HubTabs';
+import { WorkspaceHeader } from '@/components/ui/WorkspaceHeader';
 
 export const dynamic = 'force-dynamic';
 
 type Tab = 'info' | 'logs' | 'audit' | 'display' | 'notifications' | 'news';
-const TABS: { group: string; items: { key: Tab; label: string; icon: typeof User }[] }[] = [
-  { group: 'Προφίλ', items: [{ key: 'info', label: 'Πληροφορίες', icon: User }, { key: 'logs', label: 'Logs', icon: History }, { key: 'audit', label: 'Audit log', icon: ScrollText }] },
-  { group: 'Υποστήριξη', items: [{ key: 'news', label: 'Τι νέο', icon: Sparkles }] },
-  { group: 'Λογαριασμός', items: [{ key: 'display', label: 'Εμφάνιση', icon: Palette }, { key: 'notifications', label: 'Ειδοποιήσεις', icon: Bell }] },
-];
 
 const ACTION_LABEL: Record<string, string> = {
   login: 'Σύνδεση', login_failed: 'Αποτυχημένη σύνδεση', logout: 'Αποσύνδεση', impersonation_started: 'Προβολή ως χρήστης', impersonation_stopped: 'Τέλος προβολής ως χρήστης', reassigned: 'Ανάθεση', completed: 'Ολοκλήρωση', created_from_deal: 'Δημιουργία από Deal Analyzer', converted_to_project: 'Μετατροπή σε έργο', prices_changed: 'Αλλαγή τιμών', role_changed: 'Αλλαγή ρόλου', permissions_changed: 'Αλλαγή δικαιωμάτων', follow_up_done: 'Follow-up ολοκληρώθηκε', milestone_added: 'Νέο στάδιο κατασκευής', contacts_merged: 'Συγχώνευση επαφών', communication_logged: 'Καταγραφή επικοινωνίας', password_changed: 'Αλλαγή κωδικού', logout_everywhere: 'Αποσύνδεση από όλες τις συσκευές', profile_updated: 'Ενημέρωση προφίλ',
@@ -68,7 +65,7 @@ export default async function AccountPage({ searchParams }: { searchParams: { ta
       <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
         <AccountProfile readOnly={!!me.impersonator} initial={{ fullName: row?.full_name ?? me.fullName ?? '', email: auth.user?.email ?? '', phone: row?.phone ?? '', jobTitle: row?.job_title ?? '', avatarUrl: row?.avatar_url ?? null, roleName: me.roleName, department: row?.department ?? '' }} />
         <div className="overflow-hidden rounded-2xl border border-stone-line bg-white shadow-[0_1px_2px_rgba(17,49,36,0.04)] xl:sticky xl:top-[72px]">
-          <div className="flex items-center gap-2.5 border-b border-stone-line bg-forest/[0.04] px-4 py-3.5"><span className="flex h-8 w-8 items-center justify-center rounded-lg bg-forest text-white"><ShieldCheck size={15} /></span><p className="font-semibold text-charcoal">Ασφάλεια</p></div>
+          <div className="flex items-center gap-2.5 border-b border-stone-line px-4 py-3.5"><span className="flex h-8 w-8 items-center justify-center rounded-lg bg-forest/[0.09] text-forest"><ShieldCheck size={15} /></span><p className="font-semibold text-charcoal">Ασφάλεια</p></div>
           <ul className="divide-y divide-stone-line">
             {sec.map((s) => (
               <li key={s.title} className="flex items-center gap-3 px-4 py-3">
@@ -130,35 +127,17 @@ export default async function AccountPage({ searchParams }: { searchParams: { ta
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center gap-4 rounded-2xl border border-stone-line bg-gradient-to-r from-forest/[0.07] via-white to-white px-5 py-4 shadow-[0_1px_2px_rgba(17,49,36,0.04)]">
-        <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-forest text-white shadow-sm"><User size={26} /></span>
-        <div>
-          <h1 className="font-display text-2xl italic text-charcoal">Ο λογαριασμός μου</h1>
-          <p className="text-sm text-charcoal-600/75">Τα δικά σας στοιχεία, ασφάλεια, logs και προτιμήσεις. Οι ρυθμίσεις της εταιρείας είναι στο Settings.</p>
-        </div>
-      </div>
-      <div className="grid items-start gap-5 lg:grid-cols-[230px_1fr]">
-        <nav className="space-y-4 rounded-2xl border border-stone-line bg-white p-3 shadow-[0_1px_2px_rgba(17,49,36,0.04)] lg:sticky lg:top-[72px]">
-          {TABS.map((g) => (
-            <div key={g.group}>
-              <p className="px-2 pb-1 text-[11px] font-semibold uppercase tracking-wide text-charcoal-600/60">{g.group}</p>
-              {g.items.filter((t) => t.key !== 'audit' || isAdmin).map((t) => (
-                <Link key={t.key} href={`/account?tab=${t.key}`} aria-current={tab === t.key ? 'page' : undefined}
-                  className={`flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm transition ${tab === t.key ? 'bg-forest font-medium text-white shadow-sm' : 'text-charcoal hover:bg-forest/[0.06]'}`}>
-                  <t.icon size={15} /> <span className="flex-1">{t.label}</span>{tab === t.key && <ChevronRight size={14} />}
-                </Link>
-              ))}
-              {g.group === 'Υποστήριξη' && (
-                <a href="mailto:info@oramiraltd.com" className="flex items-center gap-2 rounded-lg px-2 py-2 text-sm text-charcoal hover:bg-stone"><LifeBuoy size={15} /> Βοήθεια</a>
-              )}
-              {g.group === 'Λογαριασμός' && (
-                <form action={logout}><button className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-signal-danger hover:bg-stone"><LogOut size={15} /> Αποσύνδεση</button></form>
-              )}
-            </div>
-          ))}
-        </nav>
-        <div className="min-w-0">{body}</div>
-      </div>
+      <WorkspaceHeader eyebrow="Admin" title="My account" description="Τα δικά σας στοιχεία, ασφάλεια, logs και προτιμήσεις. Οι ρυθμίσεις της εταιρείας είναι στο Settings."
+        action={<span className="flex gap-2"><a href="mailto:info@oramiraltd.com" className="inline-flex items-center gap-1.5 rounded-lg border border-stone-line bg-white px-3 py-2 text-sm text-charcoal hover:border-forest/40"><LifeBuoy size={15} /> Βοήθεια</a><form action={logout}><button className="inline-flex items-center gap-1.5 rounded-lg border border-stone-line bg-white px-3 py-2 text-sm text-signal-danger hover:border-signal-danger/40"><LogOut size={15} /> Αποσύνδεση</button></form></span>} />
+      <HubLinks active={tab} cards={[
+        { key: 'info', icon: 'User', title: 'Πληροφορίες', sub: 'Προφίλ και ασφάλεια', href: '/account?tab=info' },
+        { key: 'logs', icon: 'History', title: 'Logs', sub: 'Συνδέσεις και ενέργειες (30 ημ.)', href: '/account?tab=logs' },
+        ...(isAdmin ? [{ key: 'audit', icon: 'Scroll2', title: 'Audit log', sub: 'Όλοι οι χρήστες', href: '/account?tab=audit' }] : []),
+        { key: 'display', icon: 'Palette', title: 'Εμφάνιση', sub: 'Γλώσσα, αριθμοί, θέμα', href: '/account?tab=display' },
+        { key: 'notifications', icon: 'Bell', title: 'Ειδοποιήσεις', sub: 'Ήχος και ειδοποιήσεις οθόνης', href: '/account?tab=notifications' },
+        { key: 'news', icon: 'Sparkles', title: 'Τι νέο', sub: 'Οι τελευταίες αλλαγές', href: '/account?tab=news' },
+      ]} />
+      <div className="min-w-0">{body}</div>
     </div>
   );
 }
