@@ -19,7 +19,7 @@ export const DEFAULT_NAV: NavDef[] = [
   {
     items: [
       {
-        href: '/dashboard', label: 'Αρχική', icon: 'LayoutDashboard',
+        href: '/dashboard', label: 'Dashboard', icon: 'LayoutDashboard',
         children: [
           { href: '/dashboard', label: 'My Workspace' },
           { href: '/calendar', label: 'Ημερολόγιο' },
