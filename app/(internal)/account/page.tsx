@@ -11,6 +11,7 @@ import { AccountProfile } from '@/components/account/AccountProfile';
 import { PersonalDisplay } from '@/components/account/PersonalDisplay';
 import { NotificationPrefs } from '@/components/account/NotificationPrefs';
 import { AuditLogView } from '@/components/admin/AuditLogView';
+import { LogsView, type LogRow } from '@/components/account/LogsView';
 import { getAuditLog } from '@/lib/audit';
 import { DATE_TAG, currentLocale } from '@/lib/locale-shared';
 
@@ -18,16 +19,16 @@ export const dynamic = 'force-dynamic';
 
 type Tab = 'info' | 'logs' | 'audit' | 'display' | 'notifications' | 'news';
 const TABS: { group: string; items: { key: Tab; label: string; icon: typeof User }[] }[] = [
-  { group: 'Προφίλ', items: [{ key: 'info', label: 'Πληροφορίες', icon: User }, { key: 'logs', label: 'Ιστορικό', icon: History }, { key: 'audit', label: 'Audit log', icon: ScrollText }] },
+  { group: 'Προφίλ', items: [{ key: 'info', label: 'Πληροφορίες', icon: User }, { key: 'logs', label: 'Logs', icon: History }, { key: 'audit', label: 'Audit log', icon: ScrollText }] },
   { group: 'Υποστήριξη', items: [{ key: 'news', label: 'Τι νέο', icon: Sparkles }] },
   { group: 'Λογαριασμός', items: [{ key: 'display', label: 'Εμφάνιση', icon: Palette }, { key: 'notifications', label: 'Ειδοποιήσεις', icon: Bell }] },
 ];
 
 const ACTION_LABEL: Record<string, string> = {
-  login: 'Σύνδεση', logout: 'Αποσύνδεση', password_changed: 'Αλλαγή κωδικού', logout_everywhere: 'Αποσύνδεση από όλες τις συσκευές', profile_updated: 'Ενημέρωση προφίλ',
+  login: 'Σύνδεση', login_failed: 'Αποτυχημένη σύνδεση', logout: 'Αποσύνδεση', impersonation_started: 'Προβολή ως χρήστης', impersonation_stopped: 'Τέλος προβολής ως χρήστης', reassigned: 'Ανάθεση', completed: 'Ολοκλήρωση', created_from_deal: 'Δημιουργία από Deal Analyzer', converted_to_project: 'Μετατροπή σε έργο', prices_changed: 'Αλλαγή τιμών', role_changed: 'Αλλαγή ρόλου', permissions_changed: 'Αλλαγή δικαιωμάτων', follow_up_done: 'Follow-up ολοκληρώθηκε', milestone_added: 'Νέο στάδιο κατασκευής', contacts_merged: 'Συγχώνευση επαφών', communication_logged: 'Καταγραφή επικοινωνίας', password_changed: 'Αλλαγή κωδικού', logout_everywhere: 'Αποσύνδεση από όλες τις συσκευές', profile_updated: 'Ενημέρωση προφίλ',
   created: 'Δημιουργία', updated: 'Αλλαγή', deleted: 'Διαγραφή', status_changed: 'Αλλαγή σταδίου', assigned: 'Ανάθεση', note_added: 'Σημείωση',
 };
-const ENTITY_LABEL: Record<string, string> = { lead: 'Lead', contact: 'Επαφή', auth: 'Λογαριασμός', profile: 'Προφίλ', unit: 'Μονάδα', project: 'Έργο', invoice: 'Τιμολόγιο', follow_up: 'Follow-up', org_settings: 'Ρυθμίσεις' };
+const ENTITY_LABEL: Record<string, string> = { deal: 'Deal', task: 'Εργασία', impersonation: 'Admin', invite: 'Πρόσκληση', lead: 'Lead', contact: 'Επαφή', auth: 'Λογαριασμός', profile: 'Προφίλ', unit: 'Μονάδα', project: 'Έργο', invoice: 'Τιμολόγιο', follow_up: 'Follow-up', org_settings: 'Ρυθμίσεις' };
 const pretty = (s: string) => s.replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase());
 
 const NEWS: { date: string; title: string; text: string }[] = [
@@ -86,22 +87,21 @@ export default async function AccountPage({ searchParams }: { searchParams: { ta
       </div>
     );
   } else if (tab === 'logs') {
-    const { data: logs } = await svc.from('activity_log').select('id, entity_type, action, created_at').eq('actor_id', me.id).order('created_at', { ascending: false }).limit(100);
-    body = (
-      <div className="panel overflow-hidden">
-        <div className="border-b border-stone-line px-5 py-3.5"><p className="font-semibold text-charcoal">Ιστορικό</p><p className="text-sm text-charcoal-600/75">Οι τελευταίες 100 ενέργειές σας.</p></div>
-        {(logs ?? []).length === 0
-          ? <p className="p-5 text-sm text-charcoal-600/75">Δεν υπάρχει ακόμη ιστορικό.</p>
-          : <ul className="divide-y divide-stone-line text-sm">
-              {(logs as any[]).map((l) => (
-                <li key={l.id} className="flex flex-wrap items-center justify-between gap-2 px-5 py-2.5">
-                  <span className="text-charcoal">{ACTION_LABEL[l.action] ?? pretty(l.action)} <span className="text-charcoal-600/60">· {ENTITY_LABEL[l.entity_type] ?? pretty(l.entity_type)}</span></span>
-                  <span className="tabular-nums text-charcoal-600/70">{fmt(l.created_at)}</span>
-                </li>
-              ))}
-            </ul>}
-      </div>
-    );
+    const since = new Date(Date.now() - 30 * 864e5).toISOString();
+    let qy = svc.from('activity_log').select('id, entity_type, action, actor_id, metadata, created_at').gte('created_at', since).order('created_at', { ascending: false }).limit(2000);
+    if (!isAdmin) qy = qy.or(`actor_id.eq.${me.id},and(action.eq.login_failed,metadata->>email.eq."${(auth.user?.email ?? '').toLowerCase()}")`);
+    const { data: logs } = await qy;
+    const ids = Array.from(new Set(((logs ?? []) as any[]).map((l) => l.actor_id).filter(Boolean)));
+    const { data: people } = ids.length ? await svc.from('profiles').select('id, full_name').in('id', ids) : { data: [] };
+    const nameOf = new Map(((people ?? []) as any[]).map((p) => [p.id, p.full_name as string]));
+    const device = (ua?: string) => !ua ? '' : `${/iPhone|iPad/.test(ua) ? 'iOS' : /Android/.test(ua) ? 'Android' : /Mac OS/.test(ua) ? 'Mac' : /Windows/.test(ua) ? 'Windows' : 'Συσκευή'} · ${/Edg\//.test(ua) ? 'Edge' : /Chrome\//.test(ua) ? 'Chrome' : /Safari\//.test(ua) ? 'Safari' : /Firefox\//.test(ua) ? 'Firefox' : 'Browser'}`;
+    const rows: LogRow[] = ((logs ?? []) as any[]).map((l) => {
+      const m = (l.metadata ?? {}) as Record<string, any>;
+      const extra = Object.entries(m).filter(([k, v]) => !['ip', 'ua', 'email', 'reason', 'role'].includes(k) && v != null && typeof v !== 'object').slice(0, 3).map(([k, v]) => `${pretty(k)}: ${String(v).slice(0, 40)}`);
+      const details = [l.action === 'login_failed' ? m.email : null, l.action === 'login_failed' && m.reason ? m.reason : null, ...extra, m.ip ? `IP ${m.ip}` : null, device(m.ua) || null].filter(Boolean).join(' · ');
+      return { id: l.id, at: l.created_at, actor: l.actor_id ? (nameOf.get(l.actor_id) ?? '—') : (m.email ?? 'Άγνωστος'), action: l.action, actionLabel: ACTION_LABEL[l.action] ?? pretty(l.action), entity: ENTITY_LABEL[l.entity_type] ?? pretty(l.entity_type), details };
+    });
+    body = <LogsView rows={rows} showActor={isAdmin} lang={DATE_TAG[currentLocale().lang]} />;
   } else if (tab === 'audit') {
     const rows = await getAuditLog(500);
     body = (
@@ -130,18 +130,21 @@ export default async function AccountPage({ searchParams }: { searchParams: { ta
 
   return (
     <div className="space-y-5">
-      <div className="panel px-5 py-4">
-        <h1 className="font-display text-2xl text-charcoal">Ο λογαριασμός μου</h1>
-        <p className="text-sm text-charcoal-600/75">Τα δικά σας στοιχεία και προτιμήσεις. Οι ρυθμίσεις της εταιρείας είναι στο Settings.</p>
+      <div className="flex items-center gap-4 rounded-2xl border border-stone-line bg-gradient-to-r from-forest/[0.07] via-white to-white px-5 py-4 shadow-[0_1px_2px_rgba(17,49,36,0.04)]">
+        <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-forest text-white shadow-sm"><User size={26} /></span>
+        <div>
+          <h1 className="font-display text-2xl italic text-charcoal">Ο λογαριασμός μου</h1>
+          <p className="text-sm text-charcoal-600/75">Τα δικά σας στοιχεία, ασφάλεια, logs και προτιμήσεις. Οι ρυθμίσεις της εταιρείας είναι στο Settings.</p>
+        </div>
       </div>
       <div className="grid items-start gap-5 lg:grid-cols-[230px_1fr]">
-        <nav className="panel space-y-4 p-3 lg:sticky lg:top-[72px]">
+        <nav className="space-y-4 rounded-2xl border border-stone-line bg-white p-3 shadow-[0_1px_2px_rgba(17,49,36,0.04)] lg:sticky lg:top-[72px]">
           {TABS.map((g) => (
             <div key={g.group}>
               <p className="px-2 pb-1 text-[11px] font-semibold uppercase tracking-wide text-charcoal-600/60">{g.group}</p>
               {g.items.filter((t) => t.key !== 'audit' || isAdmin).map((t) => (
                 <Link key={t.key} href={`/account?tab=${t.key}`} aria-current={tab === t.key ? 'page' : undefined}
-                  className={`flex items-center gap-2 rounded-lg px-2 py-2 text-sm ${tab === t.key ? 'bg-forest/10 font-medium text-forest' : 'text-charcoal hover:bg-stone'}`}>
+                  className={`flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm transition ${tab === t.key ? 'bg-forest font-medium text-white shadow-sm' : 'text-charcoal hover:bg-forest/[0.06]'}`}>
                   <t.icon size={15} /> <span className="flex-1">{t.label}</span>{tab === t.key && <ChevronRight size={14} />}
                 </Link>
               ))}

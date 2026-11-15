@@ -45,3 +45,19 @@ export async function logActivity(params: {
     metadata: { ...(params.metadata ?? {}), ...ctx },
   });
 }
+
+/**
+ * Αποτυχημένη σύνδεση: δεν υπάρχει ακόμη χρήστης, οπότε γράφεται με τον
+ * service-role client (χωρίς actor), με το email + IP + συσκευή στα metadata.
+ */
+export async function logFailedLogin(email: string, reason: string) {
+  try {
+    const { createSupabaseServiceRoleClient } = await import('@/lib/supabase/server');
+    const svc = createSupabaseServiceRoleClient() as any;
+    const ctx = await requestContext();
+    await svc.from('activity_log').insert({
+      entity_type: 'auth', entity_id: crypto.randomUUID(), actor_id: null, action: 'login_failed',
+      metadata: { email: email.toLowerCase().slice(0, 200), reason: reason.slice(0, 200), ...ctx },
+    });
+  } catch { /* best effort */ }
+}

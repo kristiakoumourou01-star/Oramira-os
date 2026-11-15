@@ -2,6 +2,7 @@ import { NotificationBell } from '@/components/ui/NotificationBell';
 import { CommandKButton } from '@/components/search/CommandKButton';
 import type { CurrentProfile } from '@/lib/auth';
 import { LocaleSwitcher } from '@/components/layout/LocaleSwitcher';
+import { ThemeMenu } from '@/components/layout/ThemeMenu';
 import { t, type TKey } from '@/lib/i18n';
 import { isInternalRole } from '@/lib/permissions';
 import type { ReactNode } from 'react';
@@ -30,6 +31,7 @@ export function TopBar({ profile, showSearch = false, start }: { profile: Curren
       <div className="flex items-center">{start}{showSearch ? <CommandKButton /> : null}</div>
       <div className="flex items-center gap-3">
         <LocaleSwitcher />
+        <ThemeMenu />
         <NotificationBell userId={profile.id} />
         <a href={isInternalRole(profile.role) ? '/account' : '/account/password'} title="Ο λογαριασμός μου" className="flex items-center gap-2.5 rounded-lg border-l border-forest/10 py-1 pl-3.5 pr-2 hover:bg-forest/[0.04]">
           <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-forest to-[#0E2C20] text-[13px] font-medium text-champagne shadow-[0_2px_8px_rgba(31,77,58,0.2)] ring-1 ring-champagne/20">
