@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Plus, Download, Search, X, Users, UserX, Clock, Check, CalendarDays } from 'lucide-react';
 import { createContact, bulkUpdateContacts, updateContactBasics, deleteContact } from '@/app/actions/contacts-hub';
-import { Eye, Pencil, Trash2 } from 'lucide-react';
+import { Eye, Pencil, Trash2, History } from 'lucide-react';
 import {
   ALL_ROLES, CONTACT_STATUSES, DEFAULT_FILTERS, ROLE_EL, ROLE_TONE, SOURCE_EL, STATUS_EL, STATUS_TONE,
   contactsCsv, filterContacts, roleCounts, type ContactFilters, type ContactListRow, type ContactRole, type ContactStatus,
@@ -136,7 +136,7 @@ export function ContactsHub({ rows, staff, initialRole = '', canCreate, canEdit 
             <tr>
               {canEdit && <th className="w-8"><input type="checkbox" checked={allOnPage} onChange={() => setSel(allOnPage ? new Set() : new Set(page.map((r) => r.id)))} aria-label="Επιλογή όλων" /></th>}
               <th>Επαφή</th><th>Ιδιότητες</th><th>Κατάσταση</th><th>Υπεύθυνος</th><th>Πηγή</th><th>Τελευταία επαφή</th><th className="text-right">Αξία</th>
-              <th className="sticky right-0 z-[1] w-[112px] bg-white text-right shadow-[-8px_0_12px_-10px_rgba(17,49,36,0.25)]">Ενέργειες</th>
+              <th className="sticky right-0 z-[1] w-[148px] bg-white text-right shadow-[-8px_0_12px_-10px_rgba(17,49,36,0.25)]">Ενέργειες</th>
             </tr>
           </thead>
           <tbody>
@@ -159,6 +159,7 @@ export function ContactsHub({ rows, staff, initialRole = '', canCreate, canEdit 
                   <td className={`sticky right-0 z-[1] shadow-[-8px_0_12px_-10px_rgba(17,49,36,0.25)] ${sel.has(r.id) ? 'bg-[#f4f6f2]' : 'bg-white'}`}>
                     <span className="flex justify-end gap-1">
                       <Link href={`/crm/${r.id}`} title="Προβολή" aria-label="Προβολή" className="flex h-8 w-8 items-center justify-center rounded-full text-charcoal-600 transition hover:bg-forest/10 hover:text-forest"><Eye size={16} /></Link>
+                      <Link href={`/crm/${r.id}?tab=activity`} title="Ιστορικό" aria-label="Ιστορικό" className="flex h-8 w-8 items-center justify-center rounded-full text-charcoal-600 transition hover:bg-forest/10 hover:text-forest"><History size={15} /></Link>
                       {canEdit && <button type="button" onClick={() => setEditRow(r)} title="Επεξεργασία" aria-label="Επεξεργασία" className="flex h-8 w-8 items-center justify-center rounded-full text-charcoal-600 transition hover:bg-forest/10 hover:text-forest"><Pencil size={15} /></button>}
                       {canEdit && <button type="button" onClick={() => remove(r)} disabled={pending} title="Διαγραφή" aria-label="Διαγραφή" className="flex h-8 w-8 items-center justify-center rounded-full text-charcoal-600 transition hover:bg-rose-50 hover:text-signal-danger"><Trash2 size={15} /></button>}
                     </span>
