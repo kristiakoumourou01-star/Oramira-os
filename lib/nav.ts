@@ -31,13 +31,10 @@ export const DEFAULT_NAV: NavDef[] = [
         children: [
           { href: '/sales/leads', label: 'Leads Inbox' },
           { href: '/sales/deals', label: 'Deals' },
+          { href: '/crm/customers', label: 'Πελάτες' },
           { href: '/sales/activities', label: 'Activities' },
           { href: '/sales/insights', label: 'Insights' },
         ],
-      },
-      {
-        // Μία λίστα· αγοραστές / επενδυτές / ιδιοκτήτες κ.λπ. ξεχωρίζουν με το φίλτρο «Ιδιότητα».
-        href: '/crm/customers', label: 'Πελάτες', icon: 'Contact', module: 'leads',
       },
       {
         href: '/projects', label: 'Έργα & μονάδες', icon: 'Building2', module: 'projects',
