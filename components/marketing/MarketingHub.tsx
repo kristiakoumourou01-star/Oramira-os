@@ -41,7 +41,7 @@ export function MarketingHub({ campaigns, groups, contacts, tags, prefill, sourc
 
   const go = (k: string) => {
     if (k === 'reports') { router.push('/reports'); return; }
-    if (k === 'benefits') { router.push('/hr?tab=benefits'); return; }
+    if (k === 'benefits') { router.push('/benefits'); return; }
     setTab(k);
   };
   const del = (c: CampaignRow) => {

@@ -66,7 +66,6 @@ export default async function UsersSettingsPage({ searchParams }: { searchParams
     return (
       <div className="space-y-5">
         <StaffTabs active="leave" counts={counts} />
-        <div><p className="eyebrow mb-1">Staff</p><h1 className="text-3xl">Άδειες</h1></div>
         <LeaveManager me={profile.id} canEdit={canEditHr} employees={((users ?? []) as any[]).map((u) => ({ id: u.id, full_name: u.full_name })) as any}
           balances={((balances ?? []) as any[]).map((b) => ({ ...b, total_days: Number(b.total_days ?? 0), used_days: Number(b.used_days ?? 0) }))}
           requests={((allLeave ?? []) as any[]).map((r) => ({ ...r, employee: r.profiles?.full_name ?? null }))} />

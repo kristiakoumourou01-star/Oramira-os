@@ -1,7 +1,7 @@
 import { getCurrentProfile } from '@/lib/auth';
 import { effectiveCan } from '@/lib/permissions';
 import { SETTINGS_NAV } from '@/lib/settings-sections';
-import { SettingsNav } from '@/components/admin/SettingsNav';
+import { SettingsHubNav } from '@/components/admin/SettingsHubNav';
 
 /**
  * Frame for every Settings page: one header and one grouped menu on the left,
@@ -22,17 +22,8 @@ export async function SettingsShell({ children }: { children: React.ReactNode })
 
   return (
     <div className="space-y-5">
-      <div className="panel p-5">
-        <p className="eyebrow mb-1">Admin</p>
-        <h1 className="text-3xl">Settings</h1>
-        <p className="text-sm text-charcoal-600/70">Όλες οι ρυθμίσεις της εταιρείας σε ένα μέρος: εμφάνιση, χρήστες, κανόνες, χρήματα και συνδέσεις.</p>
-      </div>
-      <div className="grid gap-6 md:grid-cols-[230px_minmax(0,1fr)]">
-        <aside className="md:sticky md:top-20 md:self-start">
-          <SettingsNav groups={groups} />
-        </aside>
-        <div className="min-w-0">{children}</div>
-      </div>
+      <SettingsHubNav groups={groups} />
+      <div className="min-w-0">{children}</div>
     </div>
   );
 }
