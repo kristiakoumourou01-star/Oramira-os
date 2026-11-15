@@ -4,7 +4,8 @@ import { useMemo, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Plus, Download, Search, X, Users, UserX, Clock, Check, CalendarDays } from 'lucide-react';
-import { createContact, bulkUpdateContacts } from '@/app/actions/contacts-hub';
+import { createContact, bulkUpdateContacts, updateContactBasics, deleteContact } from '@/app/actions/contacts-hub';
+import { Eye, Pencil, Trash2 } from 'lucide-react';
 import {
   ALL_ROLES, CONTACT_STATUSES, DEFAULT_FILTERS, ROLE_EL, ROLE_TONE, SOURCE_EL, STATUS_EL, STATUS_TONE,
   contactsCsv, filterContacts, roleCounts, type ContactFilters, type ContactListRow, type ContactRole, type ContactStatus,
@@ -28,6 +29,18 @@ export function ContactsHub({ rows, staff, initialRole = '', canCreate, canEdit 
   const [shown, setShown] = useState(PAGE);
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [adding, setAdding] = useState(false);
+  const [editRow, setEditRow] = useState<ContactListRow | null>(null);
+  const [gone, setGone] = useState<Set<string>>(new Set());
+  const remove = (r: ContactListRow) => {
+    if (!confirm(`Διαγραφή της επαφής «${r.name}»;\n\nΑν συνδέεται με deals, κρατήσεις ή συμβόλαια, θα αρχειοθετηθεί αντί να διαγραφεί, για να μη χαθεί το ιστορικό.`)) return;
+    start(async () => {
+      const res = await deleteContact(r.id);
+      if (!res.ok) { setMsg({ ok: false, text: res.error }); return; }
+      setGone((g) => new Set(g).add(r.id));
+      setMsg({ ok: true, text: res.archived ? `Η «${r.name}» αρχειοθετήθηκε (έχει συνδεδεμένα στοιχεία).` : `Η «${r.name}» διαγράφηκε.` });
+      router.refresh();
+    });
+  };
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [pending, start] = useTransition();
   const set = (p: Partial<ContactFilters>) => { setF((x) => ({ ...x, ...p })); setShown(PAGE); setSel(new Set()); };
@@ -93,7 +106,6 @@ export function ContactsHub({ rows, staff, initialRole = '', canCreate, canEdit 
         <Sel value={f.owner} onChange={(v) => set({ owner: v })} options={[['', 'Υπεύθυνος: όλοι'], ['none', 'Χωρίς υπεύθυνο'], ...staff.map((s) => [s.id, s.name] as [string, string])]} />
         <Sel value={f.source} onChange={(v) => set({ source: v })} options={[['', 'Πηγή: όλες'], ...[...LEAD_SOURCES, 'manual'].map((s) => [s, SOURCE_EL[s] ?? s] as [string, string])]} />
         <Sel value={f.tag} onChange={(v) => set({ tag: v })} options={[['', 'Tag: όλα'], ...tags.map((t) => [t, t] as [string, string])]} />
-        <Sel value={f.kyc} onChange={(v) => set({ kyc: v as ContactFilters['kyc'] })} options={[['', 'Ταυτότητα (KYC): όλοι'], ['verified', 'Επαληθευμένοι'], ['pending', 'Σε εκκρεμότητα'], ['none', 'Χωρίς έλεγχο']]} />
         <Sel value={f.sort} onChange={(v) => set({ sort: v as ContactFilters['sort'] })} options={[['recent', 'Νεότερες πρώτα'], ['name', 'Αλφαβητικά'], ['last_contact', 'Παλαιότερη επαφή πρώτα'], ['value', 'Μεγαλύτερη αξία']]} />
         <div className="flex items-center gap-1.5 sm:col-span-2">
           <CalendarDays size={15} className="shrink-0 text-charcoal-600/60" />
@@ -124,10 +136,11 @@ export function ContactsHub({ rows, staff, initialRole = '', canCreate, canEdit 
             <tr>
               {canEdit && <th className="w-8"><input type="checkbox" checked={allOnPage} onChange={() => setSel(allOnPage ? new Set() : new Set(page.map((r) => r.id)))} aria-label="Επιλογή όλων" /></th>}
               <th>Επαφή</th><th>Ιδιότητες</th><th>Κατάσταση</th><th>Υπεύθυνος</th><th>Πηγή</th><th>Τελευταία επαφή</th><th className="text-right">Αξία</th>
+              <th className="sticky right-0 z-[1] w-[112px] bg-white text-right shadow-[-8px_0_12px_-10px_rgba(17,49,36,0.25)]">Ενέργειες</th>
             </tr>
           </thead>
           <tbody>
-            {page.map((r) => {
+            {page.filter((r) => !gone.has(r.id)).map((r) => {
               const days = r.lastContactAt ? Math.floor((now - Date.parse(r.lastContactAt)) / 86_400_000) : null;
               return (
                 <tr key={r.id} className={sel.has(r.id) ? 'bg-forest/[0.03]' : ''}>
@@ -143,17 +156,61 @@ export function ContactsHub({ rows, staff, initialRole = '', canCreate, canEdit 
                   <td className="text-sm text-charcoal-600">{SOURCE_EL[r.source ?? 'manual'] ?? r.source}</td>
                   <td className={`text-sm ${days !== null && days > 30 ? 'text-signal-danger' : 'text-charcoal-600'}`}>{r.lastContactAt ? `${formatDate(r.lastContactAt)}${days !== null && days > 30 ? ` · ${days} μέρες` : ''}` : <span className="text-charcoal-600/50">ποτέ</span>}</td>
                   <td className="figure text-right text-sm">{r.value ? formatCurrency(r.value) : '—'}</td>
+                  <td className={`sticky right-0 z-[1] shadow-[-8px_0_12px_-10px_rgba(17,49,36,0.25)] ${sel.has(r.id) ? 'bg-[#f4f6f2]' : 'bg-white'}`}>
+                    <span className="flex justify-end gap-1">
+                      <Link href={`/crm/${r.id}`} title="Προβολή" aria-label="Προβολή" className="flex h-8 w-8 items-center justify-center rounded-full text-charcoal-600 transition hover:bg-forest/10 hover:text-forest"><Eye size={16} /></Link>
+                      {canEdit && <button type="button" onClick={() => setEditRow(r)} title="Επεξεργασία" aria-label="Επεξεργασία" className="flex h-8 w-8 items-center justify-center rounded-full text-charcoal-600 transition hover:bg-forest/10 hover:text-forest"><Pencil size={15} /></button>}
+                      {canEdit && <button type="button" onClick={() => remove(r)} disabled={pending} title="Διαγραφή" aria-label="Διαγραφή" className="flex h-8 w-8 items-center justify-center rounded-full text-charcoal-600 transition hover:bg-rose-50 hover:text-signal-danger"><Trash2 size={15} /></button>}
+                    </span>
+                  </td>
                 </tr>
               );
             })}
-            {list.length === 0 && <tr><td colSpan={8} className="py-8 text-center text-sm text-charcoal-600/70">Καμία επαφή με αυτά τα φίλτρα.</td></tr>}
+            {list.length === 0 && <tr><td colSpan={9} className="py-8 text-center text-sm text-charcoal-600/70">Καμία επαφή με αυτά τα φίλτρα.</td></tr>}
           </tbody>
         </table>
         {list.length > shown && <div className="border-t border-stone-line p-3 text-center"><button type="button" className="btn-ghost text-sm" onClick={() => setShown((n) => n + PAGE)}>Περισσότερες ({list.length - shown})</button></div>}
       </div>
 
+      {editRow && <EditContactDialog row={editRow} staff={staff} onClose={() => setEditRow(null)} onSaved={(t) => { setEditRow(null); setMsg({ ok: true, text: t }); router.refresh(); }} />}
       {adding && <NewContactDialog staff={staff} defaultRole={f.role || 'lead'} onClose={() => setAdding(false)} onCreated={(id) => { setAdding(false); router.push(`/crm/${id}`); }} />}
       {pending && <span className="sr-only">Αποθήκευση…</span>}
+    </div>
+  );
+}
+
+function EditContactDialog({ row, staff, onClose, onSaved }: { row: ContactListRow; staff: Staff[]; onClose: () => void; onSaved: (msg: string) => void }) {
+  const [name, setName] = useState(row.name);
+  const [email, setEmail] = useState(row.email ?? '');
+  const [phone, setPhone] = useState(row.phone ?? '');
+  const [status, setStatus] = useState<ContactStatus>(row.status);
+  const [owner, setOwner] = useState(row.ownerId ?? '');
+  const [err, setErr] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+  const save = () => start(async () => {
+    const r = await updateContactBasics(row.id, { name, email, phone, status, ownerId: owner || null });
+    if (!r.ok) { setErr(r.error); return; }
+    onSaved(`Αποθηκεύτηκε: ${name}`);
+  });
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-charcoal/30 sm:items-center sm:p-4" onClick={onClose}>
+      <div className="w-full max-w-lg rounded-t-2xl bg-white shadow-overlay sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between border-b border-stone-line px-5 py-3.5"><p className="font-semibold text-charcoal">Επεξεργασία επαφής</p><button type="button" onClick={onClose} aria-label="Κλείσιμο" className="text-charcoal-600/60 hover:text-charcoal">✕</button></div>
+        <div className="space-y-3 p-5">
+          <label className="block"><span className="text-xs font-medium text-charcoal-600">Ονοματεπώνυμο</span><input className="input mt-1" value={name} onChange={(e) => setName(e.target.value)} /></label>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="block"><span className="text-xs font-medium text-charcoal-600">Email</span><input className="input mt-1" type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></label>
+            <label className="block"><span className="text-xs font-medium text-charcoal-600">Τηλέφωνο</span><input className="input mt-1" value={phone} onChange={(e) => setPhone(e.target.value)} /></label>
+            <label className="block"><span className="text-xs font-medium text-charcoal-600">Κατάσταση</span>
+              <select className="input mt-1" value={status} onChange={(e) => setStatus(e.target.value as ContactStatus)}>{CONTACT_STATUSES.map((st) => <option key={st} value={st}>{STATUS_EL[st]}</option>)}</select></label>
+            <label className="block"><span className="text-xs font-medium text-charcoal-600">Υπεύθυνος</span>
+              <select className="input mt-1" value={owner} onChange={(e) => setOwner(e.target.value)}><option value="">Κανένας</option>{staff.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</select></label>
+          </div>
+          <p className="text-xs text-charcoal-600/60">Ιδιότητες, προτιμήσεις, έγγραφα κ.λπ. αλλάζουν στο πλήρες προφίλ (👁).</p>
+          {err && <p className="text-sm text-signal-danger">{err}</p>}
+        </div>
+        <div className="flex justify-end gap-2 border-t border-stone-line px-5 py-3"><button type="button" className="btn-ghost" onClick={onClose}>Άκυρο</button><button type="button" className="btn-primary" disabled={pending} onClick={save}>{pending ? 'Αποθήκευση…' : 'Αποθήκευση'}</button></div>
+      </div>
     </div>
   );
 }

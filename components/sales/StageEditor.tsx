@@ -13,7 +13,7 @@ const SWATCHES = ['#bfab88', '#c9a063', '#d98b5f', '#e0b84c', '#8fae6e', '#4a866
 const AUTO = ['#bfab88', '#c9a063', '#b8925c', '#96a06e', '#6e9670', '#4a8668', '#2f6e54', '#113124'];
 const autoColor = (i: number, n: number) => (n <= 1 ? AUTO[AUTO.length - 1] : AUTO[Math.round((i / (n - 1)) * (AUTO.length - 1))]);
 
-function ColorPick({ value, auto, onChange }: { value?: string; auto: string; onChange: (c: string | undefined) => void }) {
+export function ColorPick({ value, auto, onChange }: { value?: string; auto: string; onChange: (c: string | undefined) => void }) {
   const [open, setOpen] = useState(false);
   const cur = value ?? auto;
   return (

@@ -166,6 +166,12 @@
   .badge-neutral {
     @apply badge border-stone-line bg-sand-100 text-charcoal-600;
   }
+
+  /* Lead: δικό του χρυσαφί, ευανάγνωστο σε κάθε στυλ ετικετών. */
+  .badge-lead {
+    @apply badge;
+    background-color: #f6e9cf; color: #7a5518; border-color: #e2c48c;
+  }
 }
 
 /* Premium micro-interactions — modal fade + panel pop (180ms ease). */
@@ -281,7 +287,10 @@ html[data-boxcolor]:not([data-theme='dark']) .input { background-color: rgb(255 
 
 /* Status labels (badges) */
 html[data-labels='solid'] .badge-forest { background-color: rgb(var(--c-forest)); color: #fff; border-color: transparent; }
-html[data-labels='solid'] .badge-champagne { background-color: rgb(var(--c-champagne)); color: #fff; border-color: transparent; }
+html[data-labels='solid'] .badge-champagne { background-color: rgb(var(--c-champagne-50)); color: rgb(var(--c-charcoal)); border-color: rgb(var(--c-champagne-600) / 0.55); }
+html[data-labels='solid'] .badge-lead { background-color: #b07d22; color: #fff; border-color: transparent; }
+html[data-labels='outline'] .badge-lead { background-color: transparent; color: #8a6420; border-color: #c9a063; }
+html[data-theme='dark'] .badge-lead { background-color: rgb(176 125 34 / 0.25); color: #f3d79c; border-color: rgb(201 160 99 / 0.5); }
 html[data-labels='solid'] .badge-neutral { background-color: rgb(var(--c-charcoal-600)); color: #fff; border-color: transparent; }
 html[data-labels='outline'] .badge-forest,
 html[data-labels='outline'] .badge-champagne,

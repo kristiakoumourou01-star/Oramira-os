@@ -16,7 +16,7 @@ export const ROLE_EL: Record<string, string> = {
   seller: 'Πωλητής γης/ακινήτου', partner: 'Συνεργάτης / μεσίτης', tenant: 'Ενοικιαστής', supplier: 'Προμηθευτής',
 };
 export const ROLE_TONE: Record<string, string> = {
-  lead: 'badge-champagne', buyer: 'badge-forest', investor: 'badge-forest', homeowner: 'badge-forest',
+  lead: 'badge-lead', buyer: 'badge-forest', investor: 'badge-forest', homeowner: 'badge-forest',
   newsletter: 'badge-neutral', seller: 'badge-neutral', partner: 'badge-neutral', tenant: 'badge-neutral', supplier: 'badge-neutral',
 };
 export const FLAG_COLUMN: Record<FlagRole, string> = {

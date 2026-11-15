@@ -141,3 +141,44 @@ export async function createLeadForContact(contactId: string, source: string): P
   revalidatePath('/crm/leads');
   return { ok: true, id: data.id };
 }
+
+/** Γρήγορη επεξεργασία από τη λίστα: όνομα, email, τηλέφωνο, κατάσταση, υπεύθυνος. */
+export async function updateContactBasics(contactId: string, p: { name: string; email?: string; phone?: string; status?: ContactStatus; ownerId?: string | null }): Promise<Result> {
+  await requirePermission('leads', 'edit');
+  if (!UUID.test(contactId ?? '')) return { ok: false, error: 'Άγνωστη επαφή.' };
+  const name = (p.name ?? '').trim().slice(0, 160);
+  if (!name) return { ok: false, error: 'Το όνομα είναι υποχρεωτικό.' };
+  const email = (p.email ?? '').trim().toLowerCase().slice(0, 200);
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { ok: false, error: 'Το email δεν είναι έγκυρο.' };
+  const patch: Record<string, unknown> = { full_name: name, email: email || null, phone: (p.phone ?? '').trim().slice(0, 40) || null, updated_at: new Date().toISOString() };
+  if (p.status && (CONTACT_STATUSES as readonly string[]).includes(p.status)) patch.status = p.status;
+  if (p.ownerId !== undefined) patch.owner_id = p.ownerId && UUID.test(p.ownerId) ? p.ownerId : null;
+  const supabase = await createSupabaseServerClient();
+  const { error } = await (supabase as any).from('contacts').update(patch).eq('id', contactId);
+  if (error) return { ok: false, error: error.message };
+  await logActivity({ entityType: 'contact', entityId: contactId, action: 'updated' });
+  refresh(contactId);
+  return { ok: true };
+}
+
+/**
+ * Διαγραφή επαφής. Αν η επαφή συνδέεται με deals, κρατήσεις, συμβόλαια κ.λπ.
+ * (η βάση δεν επιτρέπει διαγραφή), αρχειοθετείται — ώστε να μη χαθεί ιστορικό.
+ */
+export async function deleteContact(contactId: string): Promise<Result & { archived?: boolean }> {
+  await requirePermission('leads', 'edit');
+  if (!UUID.test(contactId ?? '')) return { ok: false, error: 'Άγνωστη επαφή.' };
+  const supabase = await createSupabaseServerClient();
+  const { error } = await (supabase as any).from('contacts').delete().eq('id', contactId);
+  if (error) {
+    if (!/foreign key|violates|23503/i.test(error.message + (error.code ?? ''))) return { ok: false, error: error.message };
+    const { error: e2 } = await (supabase as any).from('contacts').update({ status: 'archived', updated_at: new Date().toISOString() }).eq('id', contactId);
+    if (e2) return { ok: false, error: e2.message };
+    await logActivity({ entityType: 'contact', entityId: contactId, action: 'archived' });
+    refresh(contactId);
+    return { ok: true, archived: true };
+  }
+  await logActivity({ entityType: 'contact', entityId: contactId, action: 'deleted' });
+  refresh();
+  return { ok: true };
+}
