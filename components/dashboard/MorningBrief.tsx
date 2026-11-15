@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import { Sunrise } from 'lucide-react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@/types/database.types';
 import { buildMorningBrief } from '@/lib/morning-brief';
@@ -37,7 +36,6 @@ export async function MorningBrief({ supabase, profileId, name, action }: {
 
       <div className="relative flex flex-wrap items-start justify-between gap-4">
         <div className="flex items-start gap-4">
-          <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-forest to-[#0E2C20] text-champagne shadow-[0_8px_20px_rgba(31,77,58,0.28)] ring-1 ring-forest/25"><Sunrise size={26} strokeWidth={1.7} /></span>
           <div>
             <p className="figure text-[11px] font-semibold uppercase tracking-[0.16em] text-forest/70">{formatWeekdayLongDate(new Date())}</p>
             <h3 className="font-display text-[30px] leading-[1.1] tracking-tight text-forest">{greeting}, {first}</h3>

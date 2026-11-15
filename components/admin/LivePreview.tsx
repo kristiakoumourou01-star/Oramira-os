@@ -21,7 +21,7 @@ export function LivePreview({ branding, logoUrl, sidebar }: { branding: Branding
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const nav = [
-    { icon: LayoutDashboard, label: 'Αρχική', active: false },
+    { icon: LayoutDashboard, label: 'Dashboard', active: false },
     { icon: TrendingUp, label: 'Πωλήσεις', active: true },
     { icon: Contact, label: 'Πελάτες', active: false },
     { icon: Building2, label: 'Έργα & μονάδες', active: false },
