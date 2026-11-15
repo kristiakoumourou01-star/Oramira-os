@@ -1,4 +1,7 @@
 import { requirePermission } from '@/lib/auth';
+import { effectiveCan } from '@/lib/permissions';
+import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
+import { PropertyDocuments, type PropertyDoc } from '@/components/property/PropertyDocuments';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import Link from 'next/link';
 import { Map as MapIcon, Home, Users, Wrench, FileText, ShieldCheck, History, Building2 } from 'lucide-react';
@@ -20,8 +23,28 @@ const Empty = ({ text }: { text: string }) => <p className="text-sm text-charcoa
  * Ownership History as in-page tabs. A development selector keeps it scalable
  * across multiple developments.
  */
+async function loadPropertyDocs(supabase: any, projectId: string): Promise<{ data: PropertyDoc[] }> {
+  const { data: us } = await supabase.from('units').select('id').eq('project_id', projectId);
+  const unitIds = ((us ?? []) as { id: string }[]).map((u) => u.id);
+  const svc = createSupabaseServiceRoleClient() as any;
+  const cols = 'id, title, category, description, notes, bucket, storage_path, created_at, entity_type, entity_id, uploaded_by';
+  const [{ data: a }, { data: b }] = await Promise.all([
+    svc.from('documents').select(cols).eq('entity_type', 'project').eq('entity_id', projectId),
+    unitIds.length ? svc.from('documents').select(cols).eq('entity_type', 'unit').in('entity_id', unitIds) : Promise.resolve({ data: [] }),
+  ]);
+  const rows = [...(a ?? []), ...(b ?? [])] as any[];
+  const ids = Array.from(new Set(rows.map((r) => r.uploaded_by).filter(Boolean)));
+  const { data: ppl } = ids.length ? await svc.from('profiles').select('id, full_name').in('id', ids) : { data: [] };
+  const name = new Map(((ppl ?? []) as any[]).map((p) => [p.id, p.full_name]));
+  return { data: rows.sort((x, y) => y.created_at.localeCompare(x.created_at)).map((r) => ({
+    id: r.id, title: r.title, category: r.category, description: r.description ?? null, notes: r.notes ?? null, bucket: r.bucket, storage_path: r.storage_path,
+    created_at: r.created_at, unitId: r.entity_type === 'unit' ? r.entity_id : null, uploader: r.uploaded_by ? name.get(r.uploaded_by) ?? null : null,
+  })) };
+}
+
 export default async function PropertyManagementPage({ searchParams }: { searchParams: { dev?: string; tab?: string; city?: string } }) {
-  await requirePermission('property');
+  const me = await requirePermission('property');
+  const canEditProperty = effectiveCan(me.role, me.moduleAccess, 'property', 'edit', me.permissions);
   const supabase = await createSupabaseServerClient();
 
   const { data: projects } = await supabase.from('projects').select('id, name, location').order('name');
@@ -53,7 +76,7 @@ export default async function PropertyManagementPage({ searchParams }: { searchP
     loadDevelopmentMapData(selected.id),
     loadSignedProjectMedia(selected.id),
     supabase.from('units').select('id, unit_number, status, occupancy_status, buyer_contact_id, owner:buyer_contact_id(full_name)').eq('project_id', selected.id).order('unit_number'),
-    supabase.from('documents').select('id, title, category, created_at').eq('entity_type', 'project').eq('entity_id', selected.id).limit(20),
+    loadPropertyDocs(supabase, selected.id),
   ]);
 
   const unitIds = (units ?? []).map((u) => u.id);
@@ -117,17 +140,9 @@ export default async function PropertyManagementPage({ searchParams }: { searchP
       ),
     },
     {
-      id: 'documents', label: 'Documents', content: (
-        <Panel>{(documents ?? []).length === 0 ? <Empty text="No development documents." /> : (
-          <ul className="divide-y divide-stone-line">
-            {(documents ?? []).map((d: any) => (
-              <li key={d.id} className="flex items-center justify-between py-2.5 text-sm">
-                <span className="text-charcoal">{d.title ?? d.category}</span>
-                <span className="text-xs capitalize text-charcoal-600/50">{d.category}</span>
-              </li>
-            ))}
-          </ul>
-        )}</Panel>
+      id: 'documents', label: `Documents (${documents.length})`, content: (
+        <PropertyDocuments projectId={selected.id} canEdit={canEditProperty} docs={documents}
+          units={(units ?? []).map((u: any) => ({ id: u.id, label: u.unit_number ?? 'Μονάδα' }))} />
       ),
     },
     {
