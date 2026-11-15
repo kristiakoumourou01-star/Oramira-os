@@ -1,11 +1,11 @@
 import Link from 'next/link';
 import { ContactRolesPanel, ContactHistory } from '@/components/crm/ContactRolesPanel';
 import { loadContactEvents, loadStaff } from '@/lib/contacts-hub';
-import { rolesFromRow, type ContactStatus } from '@/lib/contacts-hub-shared';
+import { rolesFromRow, ROLE_EL, type ContactStatus } from '@/lib/contacts-hub-shared';
 import { loadContactDuplicates } from '@/lib/duplicates';
 import { DuplicateBanner } from '@/components/crm/DuplicateBanner';
 import { notFound } from 'next/navigation';
-import { Languages, MessageCircle, Clock, ShieldCheck, ShieldAlert } from 'lucide-react';
+import { Languages, MessageCircle, Clock, ShieldCheck, ShieldAlert, CalendarDays, Mail, Home, Pencil } from 'lucide-react';
 import { requirePermission, hasRight } from '@/lib/auth';
 import { effectiveCan } from '@/lib/permissions';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
@@ -84,58 +84,45 @@ export default async function ContactDetailPage({ params, searchParams }: { para
   const kycStatus = KYC_STATUS[kyc?.status ?? 'not_started'];
   const reviewOverdue = kyc?.review_due && kyc.review_due < new Date().toISOString().slice(0, 10);
 
+  const { data: myContracts } = await db.from('contracts').select('id, total_price, status').eq('buyer_contact_id', contact.id).neq('status', 'cancelled');
+  const cIds = ((myContracts ?? []) as any[]).map((x) => x.id);
+  const { data: myPays } = cIds.length ? await db.from('payments').select('amount_paid').in('contract_id', cIds) : { data: [] };
+  const contractValue = ((myContracts ?? []) as any[]).reduce((n, x) => n + Number(x.total_price ?? 0), 0);
+  const paidSum = ((myPays ?? []) as any[]).reduce((n, x) => n + Number(x.amount_paid ?? 0), 0);
+  const balance = Math.max(0, contractValue - paidSum);
+  const STATUS_LABEL: Record<string, string> = { active: 'Ενεργός', inactive: 'Ανενεργός', do_not_contact: 'Όχι επικοινωνία', archived: 'Αρχειοθετημένος' };
+  const joined = contact.created_at ? new Date(contact.created_at).toLocaleDateString('el-GR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';
+  const interest = lead?.projects?.name ?? (lead ? (LEAD[lead.status] ?? lead.status) : null);
   const counts: Partial<Record<TabKey, number>> = { properties: viewCount ?? 0, documents: docCount ?? 0, people: relCount ?? 0, deals: (leads ?? []).length };
 
   return (
     <div className="space-y-5">
-      <div className="rounded-2xl border border-stone-line bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-        <div className="flex flex-wrap items-start gap-4 p-5">
-          <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-forest/[0.09] font-display text-2xl text-forest">{(contact.full_name ?? '?').split(' ').map((x: string) => x[0]).slice(0, 2).join('')}</span>
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="font-display text-3xl text-charcoal" data-no-tr>{contact.full_name ?? 'Χωρίς όνομα'}</h1>
-              <LifecycleBadges isLead={contact.is_lead} isBuyer={contact.is_buyer} isInvestor={contact.is_investor} isHomeowner={contact.is_homeowner} isNewsletter={contact.is_newsletter_subscriber} />
-            </div>
-            <p className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-[14px] text-charcoal-600" data-no-tr>
-              {contact.email && <a href={`mailto:${contact.email}`} className="hover:text-forest">{contact.email}</a>}
-              {contact.phone && <a href={`tel:${contact.phone}`} className="hover:text-forest">{contact.phone}</a>}
-              {contact.nationality && <span>{contact.nationality}</span>}
-            </p>
-            <p className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px] text-charcoal-600">
-              {c.preferred_language && <span className="flex items-center gap-1"><Languages size={13} /> {label(LANGUAGES, c.preferred_language) ?? c.preferred_language}</span>}
-              {c.communication_preference && <span className="flex items-center gap-1"><MessageCircle size={13} /> {label(CHANNELS, c.communication_preference) ?? c.communication_preference}</span>}
-              {c.best_time && <span className="flex items-center gap-1"><Clock size={13} /> {label(BEST_TIME, c.best_time)}{c.best_time_note ? ` · ${c.best_time_note}` : ''}</span>}
-              <Link href={`${here}?tab=kyc`} className="flex items-center gap-1 hover:underline">
-                {level && level !== 'low' ? <ShieldAlert size={13} /> : <ShieldCheck size={13} />}
-                AML: <span className={kycStatus?.tone}>{kycStatus?.label}</span>
-                {level && <span className="rounded px-1.5 py-0.5 text-[11px] font-semibold" style={{ background: RISK_LABEL[level].bg, color: RISK_LABEL[level].fg }}>{RISK_LABEL[level].label}</span>}
-                {reviewOverdue && <span className="text-signal-danger">· επανέλεγχος!</span>}
-              </Link>
-            </p>
-            {((c.groups ?? []).length > 0 || (c.tags ?? []).length > 0) && (
-              <p className="mt-2 flex flex-wrap gap-1.5">
-                {(c.groups ?? []).map((g: string) => <Link key={`g${g}`} href={`/crm/customers`} className="rounded-full bg-forest/[0.08] px-2.5 py-0.5 text-[12px] font-medium text-forest" data-no-tr>{g}</Link>)}
-                {(c.tags ?? []).map((t: string) => <span key={`t${t}`} className="rounded-full border border-stone-line px-2.5 py-0.5 text-[12px] text-charcoal" data-no-tr>{t}</span>)}
-              </p>
-            )}
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {contact.phone && <a href={`https://wa.me/${String(contact.phone).replace(/[^\d]/g, '')}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-lg border border-stone-line px-3 py-2 text-sm text-charcoal hover:border-forest/40">WhatsApp</a>}
-            {contact.email && <a href={`mailto:${contact.email}`} className="inline-flex items-center gap-1.5 rounded-lg border border-stone-line px-3 py-2 text-sm text-charcoal hover:border-forest/40">Email</a>}
-            <Link href={`/marketing?tab=email&ids=${contact.id}`} className="inline-flex items-center gap-1.5 rounded-lg bg-forest px-3 py-2 text-sm font-semibold text-white">Campaign</Link>
+      <Link href="/crm/customers" className="inline-flex items-center gap-1 text-[14px] text-charcoal-600 hover:text-charcoal">‹ Πίσω στους πελάτες</Link>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-forest/[0.09] text-[16px] font-semibold text-forest">{(contact.full_name ?? '?').split(' ').map((x: string) => x[0]).slice(0, 2).join('').toUpperCase()}</span>
+          <div className="min-w-0">
+            <h1 className="font-display text-3xl text-charcoal" data-no-tr>{contact.full_name ?? 'Χωρίς όνομα'}</h1>
+            <p className="text-[14px] text-charcoal-600" data-no-tr>{[contact.email, contact.phone].filter(Boolean).join(' · ') || '—'}</p>
+            <p className="mt-0.5 flex items-center gap-1 text-[13px] text-charcoal-600"><CalendarDays size={13} /> Εγγραφή {joined}</p>
           </div>
         </div>
-        <div className="grid grid-cols-2 border-t border-stone-line sm:grid-cols-5">
-          {[
-            ['Budget', lead && (lead.budget_min || lead.budget_max) ? `€${formatNumber(Number(lead.budget_max ?? lead.budget_min ?? 0))}` : '—'],
-            ['Έργο ενδιαφέροντος', lead?.projects?.name ?? '—'],
-            ['Viewings', String(viewCount ?? 0)],
-            ['Έγγραφα', String(docCount ?? 0)],
-            ['Πελάτης από', contact.created_at ? new Date(contact.created_at).toLocaleDateString('el-GR') : '—'],
-          ].map(([k, v], i) => (
-            <div key={k} className={`px-5 py-3 ${i ? 'sm:border-l sm:border-stone-line' : ''}`}><p className="text-[12px] font-semibold uppercase tracking-wide text-charcoal-600">{k}</p><p className="mt-0.5 truncate text-[16px] font-semibold text-charcoal" data-no-tr>{v}</p></div>
-          ))}
+        <div className="flex flex-wrap gap-2">
+          {contact.phone && <a href={`https://wa.me/${String(contact.phone).replace(/[^\d]/g, '')}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-lg border border-stone-line bg-white px-3 py-2 text-sm text-charcoal hover:border-forest/40"><MessageCircle size={15} /> Μήνυμα</a>}
+          <Link href={`/marketing?tab=email&ids=${contact.id}`} className="inline-flex items-center gap-1.5 rounded-lg border border-stone-line bg-white px-3 py-2 text-sm text-charcoal hover:border-forest/40"><Mail size={15} /> Email</Link>
+          <Link href={`${here}?tab=properties`} className="inline-flex items-center gap-1.5 rounded-lg border border-stone-line bg-white px-3 py-2 text-sm text-charcoal hover:border-forest/40"><Home size={15} /> Ακίνητα</Link>
+          <Link href="/calendar" className="inline-flex items-center gap-1.5 rounded-lg bg-forest px-3 py-2 text-sm font-semibold text-white hover:bg-forest/90"><CalendarDays size={15} /> Νέο viewing</Link>
         </div>
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {[
+          ['Κατάσταση', STATUS_LABEL[c.status ?? 'active'] ?? c.status],
+          ['Ενδιαφέρον', interest ?? '—'],
+          ['Ομάδα', (c.groups ?? []).join(', ') || 'Χωρίς ομάδα'],
+          ['Υπόλοιπο', formatCurrency(balance)],
+        ].map(([k, v]) => (
+          <div key={k} className="rounded-2xl border border-stone-line bg-white px-5 py-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]"><p className="text-[13px] text-charcoal-600">{k}</p><p className="mt-1 text-[19px] font-semibold leading-snug text-charcoal" data-no-tr>{v}</p></div>
+        ))}
       </div>
 
       <DuplicateBanner contactId={contact.id} matches={dupes} canMerge={canEdit && ['admin', 'management', 'sales'].includes(profile.role)} />
@@ -183,7 +170,45 @@ export default async function ContactDetailPage({ params, searchParams }: { para
       };
     }
     const { data: followUps } = await supabase.from('follow_up_tasks').select('id, note, due_at, is_done').eq('contact_id', contact!.id);
+    const dash = (v: unknown) => (v === null || v === undefined || v === '' ? '—' : String(v));
+    const dmy = (v: string | null | undefined) => (v ? new Date(v).toLocaleDateString('el-GR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—');
+    const nm = String(contact!.full_name ?? '').trim().split(/\s+/);
+    const InfoCard = ({ title, rows }: { title: string; rows: [string, React.ReactNode][] }) => (
+      <div className="rounded-2xl border border-stone-line bg-white p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+        <h3 className="mb-3 text-[18px] font-semibold text-charcoal">{title}</h3>
+        <dl className="space-y-3">{rows.map(([k, v]) => <div key={k} className="flex items-baseline justify-between gap-4 text-[15px]"><dt className="text-charcoal-600">{k}</dt><dd className="text-right font-medium text-charcoal" data-no-tr>{v}</dd></div>)}</dl>
+      </div>
+    );
+    const BUYER_TYPE: Record<string, string> = { investor: 'Επενδυτής', end_user: 'Ιδιοκατοίκηση', holiday: 'Εξοχικό', relocation: 'Μετεγκατάσταση', other: 'Άλλο' };
+    const SRC: Record<string, string> = { website: 'Ιστοσελίδα', meta: 'Facebook / Instagram', google: 'Google', organic: 'Οργανικά', referral: 'Σύσταση', walk_in: 'Επίσκεψη', whatsapp: 'WhatsApp', other: 'Άλλο', manual: 'Καταχώριση' };
+    const ownerName = hub.staff.find((x) => x.id === c.owner_id)?.name ?? '—';
     return (
+      <div className="space-y-5">
+      <div className="flex justify-end gap-2">
+        {canEdit && <a href="#edit" className="inline-flex items-center gap-1.5 rounded-lg border border-stone-line bg-white px-3 py-1.5 text-sm text-charcoal hover:border-forest/40"><Pencil size={14} /> Επεξεργασία</a>}
+      </div>
+      <div className="grid gap-5 lg:grid-cols-2">
+        <InfoCard title="Προσωπικά στοιχεία" rows={[
+          ['Όνομα', dash(nm[0])], ['Επώνυμο', dash(nm.slice(1).join(' '))], ['Ημ. γέννησης', dmy(kyc?.date_of_birth)], ['Αρ. ταυτότητας / διαβατηρίου', dash(kyc?.id_number)],
+          ['Εθνικότητα', dash(contact!.nationality ?? kyc?.nationality)], ['Τύπος αγοραστή', dash(BUYER_TYPE[c.buyer_type] ?? c.buyer_type)], ['Εγγραφή', joined], ['Επάγγελμα', dash(kyc?.occupation)],
+        ]} />
+        <InfoCard title="Επικοινωνία & διεύθυνση" rows={[
+          ['Email', dash(contact!.email)], ['Κινητό', dash(contact!.phone)], ['Γλώσσα', dash(label(LANGUAGES, c.preferred_language) ?? c.preferred_language)],
+          ['Προτιμώμενο κανάλι', dash(label(CHANNELS, c.communication_preference) ?? c.communication_preference)], ['Καλύτερη ώρα', dash(label(BEST_TIME, c.best_time))],
+          ['Λαμβάνει marketing', c.marketing_opt_in ? 'Ναι' : 'Όχι'], ['Διεύθυνση', dash(kyc?.address)], ['Χώρα διαμονής', dash(kyc?.residence_country)],
+        ]} />
+        <InfoCard title="Ομαδοποίηση" rows={[
+          ['Ομάδες', (c.groups ?? []).join(', ') || 'Χωρίς ομάδα'], ['Ιδιότητες', rolesFromRow(c).map((r) => ROLE_EL[r]).join(', ') || '—'],
+          ['Υπεύθυνος', ownerName], ['Πηγή', dash(SRC[c.first_touch_source ?? 'manual'] ?? c.first_touch_source)], ['AML', dash(kycStatus?.label)],
+        ]} />
+        <div className="rounded-2xl border border-stone-line bg-white p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+          <h3 className="mb-3 text-[18px] font-semibold text-charcoal">Tags</h3>
+          {(c.tags ?? []).length ? <div className="flex flex-wrap gap-1.5">{(c.tags as string[]).map((t) => <span key={t} className="rounded-full border border-stone-line px-2.5 py-0.5 text-[13px] text-charcoal" data-no-tr>{t}</span>)}</div> : <p className="text-[15px] text-charcoal-600">Δεν βρέθηκαν tags.</p>}
+        </div>
+      </div>
+      <InfoCard title="Σχόλιο" rows={[['Σχόλιο', dash(lead?.message ?? kyc?.notes)]]} />
+
+      <h2 id="edit" className="scroll-mt-24 pt-2 text-[13px] font-semibold uppercase tracking-[0.1em] text-charcoal-600">Πώληση & επεξεργασία</h2>
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
           {lead && (
@@ -215,6 +240,7 @@ export default async function ContactDetailPage({ params, searchParams }: { para
             info={{ consentAt: c.consent_at ?? null, consentSource: c.consent_source ?? null, consentText: c.consent_text ?? null, marketing: !!c.marketing_opt_in, marketingAt: c.marketing_opt_in_at ?? null, anonymizedAt: c.anonymized_at ?? null }}
             hold={gdprHold.hold} missing={gdprHold.missing || !('anonymized_at' in c)} canEdit={canEdit} canErase={canErase} canExport={hasRight(profile, 'export_data')} />
         </div>
+      </div>
       </div>
     );
   }
