@@ -17,103 +17,62 @@ export interface NavDef { label?: string; items: NavGroupDef[] }
 // A child may carry its own module when it lives in another workspace's gate.
 export const DEFAULT_NAV: NavDef[] = [
   {
+    label: 'Λειτουργία',
     items: [
-      {
-        href: '/dashboard', label: 'Dashboard', icon: 'LayoutDashboard',
-        children: [
-          { href: '/dashboard', label: 'My Workspace' },
-          { href: '/calendar', label: 'Ημερολόγιο' },
-          { href: '/command-center', label: 'Command Center', module: 'operations' },
-        ],
-      },
-      {
-        href: '/crm/leads', label: 'Sales', icon: 'TrendingUp', module: 'leads',
-        children: [
-          { href: '/sales/leads', label: 'Leads Inbox' },
-          { href: '/sales/deals', label: 'Deals' },
-          { href: '/crm/customers', label: 'Πελάτες' },
-          { href: '/sales/activities', label: 'Activities' },
-          { href: '/sales/insights', label: 'Insights' },
-        ],
-      },
-      {
-        href: '/projects', label: 'Έργα & μονάδες', icon: 'Building2', module: 'projects',
-        children: [
-          { href: '/projects', label: 'Έργα' },
-          { href: '/map', label: 'Χάρτης' },
-          { href: '/deal-analyzer', label: 'Deal Analyzer', module: 'deals' },
-        ],
-      },
-      {
-        href: '/acquisitions', label: 'Αγορές γης', icon: 'Map', module: 'acquisitions',
-        children: [
-          { href: '/acquisitions?tab=map', label: 'Χάρτης' },
-          { href: '/acquisitions?tab=pipeline', label: 'Pipeline' },
-          { href: '/acquisitions?tab=scoring', label: 'Αξιολόγηση γης' },
-          { href: '/acquisitions?tab=assembly', label: 'Συνένωση' },
-          { href: '/acquisitions?tab=outreach', label: 'Επαφές ιδιοκτητών' },
-        ],
-      },
-      {
-        href: '/marketing', label: 'Marketing', icon: 'Megaphone', module: 'marketing',
-        children: [
-          { href: '/marketing', label: 'Καμπάνιες' },
-          { href: '/automation', label: 'Αυτοματισμοί', module: 'automation' },
-          { href: '/settings/templates', label: 'Templates', module: 'automation' },
-          { href: '/crm/leads?tab=retargeting', label: 'Retargeting', module: 'leads' },
-        ],
-      },
-      {
-        href: '/property', label: 'Property Management', icon: 'Home', module: 'property',
-        children: [
-          { href: '/property?tab=houses', label: 'Ακίνητα' },
-          { href: '/property?tab=maintenance', label: 'Συντήρηση' },
-          { href: '/property?tab=warranties', label: 'Εγγυήσεις' },
-          { href: '/property?tab=documents', label: 'Έγγραφα' },
-          { href: '/property?tab=history', label: 'Ιστορικό ιδιοκτησίας' },
-        ],
-      },
-      {
-        href: '/financials', label: 'Οικονομικά', icon: 'Wallet', module: 'financials',
-        children: [
-          { href: '/financials', label: 'Επισκόπηση' },
-          { href: '/financials/invoices', label: 'Τιμολόγια' },
-        ],
-      },
-      {
-        href: '/hr', label: 'Ομάδα & HR', icon: 'UserCog', module: 'hr',
-        children: [
-          { href: '/hr?tab=team', label: 'Ομάδα' },
-          { href: '/hr?tab=intelligence', label: 'HR Intelligence' },
-          { href: '/hr?tab=verification', label: 'Επαλήθευση υπαλλήλου' },
-          { href: '/hr?tab=salary', label: 'Μισθοδοσία' },
-          { href: '/hr?tab=contracts', label: 'Συμβόλαια' },
-          { href: '/hr?tab=payslips', label: 'Payslips' },
-          { href: '/hr?tab=leave', label: 'Άδειες' },
-          { href: '/hr?tab=benefits', label: 'Παροχές' },
-        ],
-      },
-      {
-        href: '/reports', label: 'Αναφορές', icon: 'FileBarChart', module: 'financials',
-      },
+      { href: '/dashboard', label: 'Dashboard', icon: 'LayoutDashboard' },
+      { href: '/calendar', label: 'Ημερολόγιο', icon: 'CalendarDays' },
+      { href: '/command-center', label: 'Command Center', icon: 'Gauge', module: 'operations' },
+    ],
+  },
+  {
+    label: 'Πωλήσεις',
+    items: [
+      { href: '/sales/leads', label: 'Leads Inbox', icon: 'Inbox', module: 'leads' },
+      { href: '/sales/deals', label: 'Deals', icon: 'TrendingUp', module: 'leads' },
+      { href: '/crm/customers', label: 'Πελάτες', icon: 'Contact', module: 'leads' },
+      { href: '/sales/activities', label: 'Activities', icon: 'ListChecks', module: 'leads' },
+      { href: '/sales/insights', label: 'Insights', icon: 'LineChart', module: 'leads' },
+    ],
+  },
+  {
+    label: 'Έργα',
+    items: [
+      { href: '/projects', label: 'Έργα & μονάδες', icon: 'Building2', module: 'projects' },
+      { href: '/map', label: 'Χάρτης', icon: 'MapPin', module: 'projects' },
+      { href: '/deal-analyzer', label: 'Deal Analyzer', icon: 'Calculator', module: 'deals' },
+      { href: '/acquisitions', label: 'Αγορές γης', icon: 'Map', module: 'acquisitions' },
+      { href: '/property', label: 'Property Management', icon: 'Home', module: 'property' },
+    ],
+  },
+  {
+    label: 'Οικονομικά',
+    items: [
+      { href: '/financials', label: 'Οικονομικά', icon: 'Wallet', module: 'financials' },
+      { href: '/financials/invoices', label: 'Τιμολόγια', icon: 'Receipt', module: 'financials' },
+    ],
+  },
+  {
+    label: 'Marketing',
+    items: [
+      { href: '/marketing', label: 'Marketing', icon: 'Megaphone', module: 'marketing' },
+      { href: '/automation', label: 'Αυτοματισμοί', icon: 'Zap', module: 'automation' },
+      { href: '/reports', label: 'Αναφορές', icon: 'FileBarChart', module: 'financials' },
+      { href: '/hr?tab=benefits', label: 'Benefits', icon: 'Gift', module: 'hr' },
+    ],
+  },
+  {
+    label: 'Ομάδα',
+    items: [
+      { href: '/hr', label: 'Ομάδα & HR', icon: 'UserCog', module: 'hr' },
     ],
   },
   {
     label: 'Admin',
     items: [
-      { href: '/account', label: 'My account', icon: 'UserCog' },
-      { href: '/settings', label: 'Settings', icon: 'Settings', module: 'users' },
+      { href: '/settings/users', label: 'Staff', icon: 'Users', module: 'users' },
       { href: '/settings/mobile-app', label: 'Mobile app', icon: 'Smartphone', module: 'users' },
-      {
-        href: '/settings/users', label: 'Staff', icon: 'Users', module: 'users',
-        children: [
-          { href: '/settings/users', label: 'Υπάλληλοι' },
-          { href: '/settings/users?tab=external', label: 'Ιδιοκτήτες & συνεργάτες' },
-          { href: '/settings/roles', label: 'Ρόλοι & δικαιώματα' },
-          { href: '/settings/users?tab=leave', label: 'Άδειες' },
-          { href: '/settings/view-as', label: 'Προβολή ως χρήστης' },
-        ],
-      },
+      { href: '/settings', label: 'Settings', icon: 'Settings', module: 'users' },
+      { href: '/account', label: 'My account', icon: 'UserCog' },
     ],
   },
 ];
@@ -124,6 +83,7 @@ export const NAV_ICON_NAMES = [
   'UserCog', 'ClipboardList', 'FileBarChart', 'Settings', 'CalendarDays', 'Users', 'Briefcase',
   'HardHat', 'Hammer', 'KeyRound', 'Landmark', 'LineChart', 'PieChart', 'Target', 'Inbox',
   'MessageSquare', 'Mail', 'Phone', 'FileText', 'FolderOpen', 'Star', 'Zap', 'Globe', 'ShieldCheck', 'Smartphone',
+  'Gauge', 'ListChecks', 'MapPin', 'Calculator', 'Receipt', 'Gift', 'Handshake', 'ClipboardCheck',
 ] as const;
 
 /** Every internal page the menu can open — the allow-list for the start screen. */

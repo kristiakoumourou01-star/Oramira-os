@@ -29,14 +29,15 @@ export function Breadcrumbs() {
     if (!best || score > best.score) best = { group, groupHref, label, href, score };
   };
   for (const sec of DEFAULT_NAV) for (const g of sec.items) {
-    consider(g.label, g.href, g.label, g.href);
+    // Με ενότητες (Πωλήσεις, Έργα …) το «πού είμαι» είναι Ενότητα › Σελίδα.
+    consider(sec.label && sec.label !== g.label ? sec.label : g.label, sec.label ? '' : g.href, g.label, g.href);
     for (const c of g.children ?? []) consider(g.label, g.href, c.label, c.href);
   }
 
   const crumbs: { label: string; href?: string }[] = [];
   const b = best as { group: string; groupHref: string; label: string; href: string } | null;
   if (b) {
-    if (b.group !== b.label) crumbs.push({ label: b.group, href: b.groupHref });
+    if (b.group !== b.label) crumbs.push({ label: b.group, href: b.groupHref || undefined });
     crumbs.push({ label: b.label, href: b.href });
     const base = b.href.split('?')[0];
     if (path.startsWith('/account') && tab && ACCOUNT_TABS[tab] && !crumbs.some((c) => c.label === ACCOUNT_TABS[tab])) crumbs.push({ label: ACCOUNT_TABS[tab] });

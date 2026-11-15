@@ -357,3 +357,17 @@ html[data-theme='dark'] .btn-secondary { color: rgb(var(--c-charcoal)); border-c
   .print-area, .print-area * { visibility: visible; }
   .print-area { position: absolute; left: 0; top: 0; width: 100%; box-shadow: none !important; border: 0 !important; background: #fff !important; color: #2b2a27 !important; }
 }
+
+/* ---- Αναγνωσιμότητα (όπως FitnessCRM): πιο σκούρα «αχνά» κείμενα, όχι πολύ μικρά γράμματα ---- */
+html:not([data-theme='dark']) .text-charcoal-600\/40 { color: rgb(var(--c-charcoal-600) / 0.62); }
+html:not([data-theme='dark']) :is(.text-charcoal-600\/45, .text-charcoal-600\/50) { color: rgb(var(--c-charcoal-600) / 0.7); }
+html:not([data-theme='dark']) :is(.text-charcoal-600\/55, .text-charcoal-600\/60) { color: rgb(var(--c-charcoal-600) / 0.78); }
+html:not([data-theme='dark']) :is(.text-charcoal-600\/65, .text-charcoal-600\/70) { color: rgb(var(--c-charcoal-600) / 0.86); }
+html:not([data-theme='dark']) :is(.text-charcoal-600\/75, .text-charcoal-600\/80) { color: rgb(var(--c-charcoal-600) / 0.92); }
+.text-\[9px\] { font-size: 10px; }
+.text-\[10px\] { font-size: 11px; }
+.text-\[10\.5px\], .text-\[11px\] { font-size: 12px; }
+/* Μενού: πιο ευδιάκριτα στοιχεία και τίτλοι ενοτήτων */
+aside nav .text-stone-100\/65 { color: rgb(245 245 244 / 0.85); }
+aside nav .text-stone-100\/55 { color: rgb(245 245 244 / 0.78); }
+aside nav .text-stone-100\/30 { color: rgb(245 245 244 / 0.5); font-weight: 600; letter-spacing: 0.12em; }

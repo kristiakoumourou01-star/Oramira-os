@@ -65,10 +65,9 @@ export default async function InternalLayout({ children }: { children: React.Rea
     icon: navIcon(it.icon),
     children: it.children.length > 1 ? it.children.map((c) => ({ href: c.href, label: navLabel(c.href, c.label), ...(c.href === '/sales/activities' && activitiesDue ? { badge: activitiesDue } : {}) })) : undefined,
   });
-  const sections = [
-    { items: resolved.filter((it) => it.section === 0).map(toItem) },
-    { label: 'Admin', items: resolved.filter((it) => it.section !== 0).map(toItem) },
-  ].filter((sct) => sct.items.length > 0);
+  // Ενότητες με τίτλο (όπως στο FitnessCRM): Λειτουργία, Πωλήσεις, Έργα … Admin. Ο τίτλος δεν πατιέται.
+  const sections = DEFAULT_NAV.map((sec, i) => ({ label: sec.label, items: resolved.filter((it) => it.section === i).map(toItem) }))
+    .filter((sct) => sct.items.length > 0);
 
   const signOut = (
     <form action={logout}>
