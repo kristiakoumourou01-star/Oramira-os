@@ -124,6 +124,7 @@ export async function bulkUpdateContacts(ids: string[], op: { addRole?: ContactR
   }
   const grp = (op.addGroup ?? op.removeGroup ?? '').trim().slice(0, 60);
   if (grp) {
+    if (op.addGroup) await db.from('contact_groups').upsert({ name: grp }, { onConflict: 'name', ignoreDuplicates: true });
     const { data: rows } = await db.from('contacts').select('id, groups').in('id', list);
     for (const r of (rows ?? []) as any[]) {
       const cur = new Set<string>(r.groups ?? []);
@@ -208,6 +209,69 @@ export async function deleteContact(contactId: string): Promise<Result & { archi
     return { ok: true, archived: true };
   }
   await logActivity({ entityType: 'contact', entityId: contactId, action: 'deleted' });
+  refresh();
+  return { ok: true };
+}
+
+/* ── Ομάδες πελατών (segments) ─────────────────────────────────────────── */
+
+const cleanTags = (t: unknown) => (Array.isArray(t) ? Array.from(new Set(t.map((x) => String(x ?? '').trim().slice(0, 40)).filter(Boolean))).slice(0, 20) : []);
+
+async function setMembership(db: any, name: string, add: string[], remove: string[]) {
+  const ids = [...add, ...remove].filter((x) => UUID.test(x)).slice(0, 2000);
+  if (!ids.length) return;
+  const { data: rows } = await db.from('contacts').select('id, groups').in('id', ids);
+  for (const r of (rows ?? []) as any[]) {
+    const cur = new Set<string>(r.groups ?? []);
+    if (add.includes(r.id)) cur.add(name); else cur.delete(name);
+    await db.from('contacts').update({ groups: [...cur] }).eq('id', r.id);
+  }
+}
+
+/** Νέα ομάδα πελατών, προαιρετικά με τα πρώτα μέλη της. */
+export async function createContactGroup(input: { name: string; description?: string; tags?: string[]; memberIds?: string[] }): Promise<Result> {
+  const me = await requirePermission('leads', 'edit');
+  const name = (input.name ?? '').trim().slice(0, 60);
+  if (!name) return { ok: false, error: 'Γράψτε όνομα ομάδας.' };
+  const db = (await createSupabaseServerClient()) as any;
+  const { data, error } = await db.from('contact_groups').insert({ name, description: (input.description ?? '').trim().slice(0, 300) || null, tags: cleanTags(input.tags), created_by: me.id }).select('id').single();
+  if (error) return { ok: false, error: /duplicate|unique/i.test(error.message) ? 'Υπάρχει ήδη ομάδα με αυτό το όνομα.' : error.message };
+  await setMembership(db, name, input.memberIds ?? [], []);
+  refresh();
+  return { ok: true, id: data.id };
+}
+
+/** Αλλαγή ονόματος / περιγραφής / tags και μελών μιας ομάδας. */
+export async function updateContactGroup(id: string, input: { name: string; description?: string; tags?: string[]; add?: string[]; remove?: string[] }): Promise<Result> {
+  await requirePermission('leads', 'edit');
+  if (!UUID.test(id)) return { ok: false, error: 'Άκυρη ομάδα.' };
+  const name = (input.name ?? '').trim().slice(0, 60);
+  if (!name) return { ok: false, error: 'Γράψτε όνομα ομάδας.' };
+  const db = (await createSupabaseServerClient()) as any;
+  const { data: old } = await db.from('contact_groups').select('name').eq('id', id).maybeSingle();
+  if (!old) return { ok: false, error: 'Η ομάδα δεν βρέθηκε.' };
+  const { error } = await db.from('contact_groups').update({ name, description: (input.description ?? '').trim().slice(0, 300) || null, tags: cleanTags(input.tags) }).eq('id', id);
+  if (error) return { ok: false, error: /duplicate|unique/i.test(error.message) ? 'Υπάρχει ήδη ομάδα με αυτό το όνομα.' : error.message };
+  if (old.name !== name) {
+    const { data: rows } = await db.from('contacts').select('id, groups').contains('groups', [old.name]);
+    for (const r of (rows ?? []) as any[]) await db.from('contacts').update({ groups: (r.groups as string[]).map((g) => (g === old.name ? name : g)) }).eq('id', r.id);
+  }
+  await setMembership(db, name, input.add ?? [], input.remove ?? []);
+  refresh();
+  return { ok: true, id };
+}
+
+/** Διαγραφή ομάδας — οι πελάτες μένουν, απλώς βγαίνουν από την ομάδα. */
+export async function deleteContactGroup(id: string): Promise<Result> {
+  await requirePermission('leads', 'edit');
+  if (!UUID.test(id)) return { ok: false, error: 'Άκυρη ομάδα.' };
+  const db = (await createSupabaseServerClient()) as any;
+  const { data: old } = await db.from('contact_groups').select('name').eq('id', id).maybeSingle();
+  if (!old) return { ok: false, error: 'Η ομάδα δεν βρέθηκε.' };
+  const { data: rows } = await db.from('contacts').select('id, groups').contains('groups', [old.name]);
+  for (const r of (rows ?? []) as any[]) await db.from('contacts').update({ groups: (r.groups as string[]).filter((g) => g !== old.name) }).eq('id', r.id);
+  const { error } = await db.from('contact_groups').delete().eq('id', id);
+  if (error) return { ok: false, error: error.message };
   refresh();
   return { ok: true };
 }

@@ -1,38 +1,58 @@
 'use client';
 
-import { useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Plus, Download, Search, X, Users, UserX, Clock, Check, CalendarDays } from 'lucide-react';
-import { createContact, bulkUpdateContacts, updateContactBasics, deleteContact, importContacts } from '@/app/actions/contacts-hub';
-import { Eye, Pencil, Trash2, History, Filter, LayoutGrid, Upload, FileSpreadsheet, FolderPlus } from 'lucide-react';
+import { Plus, Download, Search, X, Users, Check, CalendarDays, ChevronLeft, ChevronRight, Columns3, SlidersHorizontal, Megaphone } from 'lucide-react';
+import { createContact, bulkUpdateContacts, updateContactBasics, deleteContact, importContacts, createContactGroup, updateContactGroup, deleteContactGroup } from '@/app/actions/contacts-hub';
+import { Eye, Pencil, Trash2, History, Filter, LayoutGrid, Upload, FileSpreadsheet } from 'lucide-react';
 import {
   ALL_ROLES, CONTACT_STATUSES, DEFAULT_FILTERS, ROLE_EL, ROLE_TONE, SOURCE_EL, STATUS_EL, STATUS_TONE,
-  contactsCsv, filterContacts, roleCounts, type ContactFilters, type ContactListRow, type ContactRole, type ContactStatus,
+  contactsCsv, filterContacts, roleCounts, type ContactFilters, type ContactGroup, type ContactListRow, type ContactRole, type ContactStatus,
 } from '@/lib/contacts-hub-shared';
 import { LEAD_SOURCES } from '@/lib/lead-automation-shared';
 import { LANGUAGES } from '@/lib/kyc-shared';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { PhoneInput } from '@/components/ui/PhoneInput';
+import { HubCards } from '@/components/ui/HubCards';
 
 interface Staff { id: string; name: string }
-const PAGE = 100;
+
+const COLS = [
+  ['roles', 'Ιδιότητες'], ['status', 'Κατάσταση'], ['groups', 'Ομάδες'], ['owner', 'Υπεύθυνος'], ['source', 'Πηγή'],
+  ['language', 'Γλώσσα'], ['nationality', 'Εθνικότητα'], ['consent', 'Marketing'], ['last', 'Τελευταία επαφή'], ['value', 'Αξία'],
+] as const;
+type Col = (typeof COLS)[number][0];
+const DEFAULT_COLS: Col[] = ['roles', 'status', 'groups', 'owner', 'source', 'last', 'value'];
+const LANG_EL: Record<string, string> = Object.fromEntries(LANGUAGES.map((l) => [l.v, l.l]));
+const BUYER_TYPES: [string, string][] = [['investor', 'Επενδυτής'], ['end_user', 'Ιδιοκατοίκηση'], ['holiday', 'Εξοχικό'], ['relocation', 'Μετεγκατάσταση'], ['other', 'Άλλο']];
+const iconBtn = 'flex h-8 w-8 items-center justify-center rounded-full text-charcoal-600 transition hover:bg-forest/10 hover:text-forest';
 
 /**
- * Πελάτες → Όλες οι επαφές: όλοι οι άνθρωποι σε μία λίστα, με ιδιότητες
- * (lead, αγοραστής, επενδυτής…), κατάσταση, υπεύθυνο, φίλτρα, μαζικές αλλαγές,
- * εξαγωγή και καταχώριση νέας επαφής.
+ * Πελάτες (όπως στο FitnessCRM): κάρτες Πελάτες · Leads · Ομάδες · Import και
+ * από κάτω το αποτέλεσμα. Φίλτρα σε όλα τα στοιχεία που καταχωρούνται, ομάδες
+ * (segments) που στοχεύονται μετά από το Marketing.
  */
-export function ContactsHub({ rows, staff, initialRole = '', canCreate, canEdit }: { rows: ContactListRow[]; staff: Staff[]; initialRole?: ContactRole | ''; canCreate: boolean; canEdit: boolean }) {
+export function ContactsHub({ rows, staff, groupDefs = [], initialRole = '', initialView, canCreate, canEdit }: { rows: ContactListRow[]; staff: Staff[]; groupDefs?: ContactGroup[]; initialRole?: ContactRole | ''; initialView?: string; canCreate: boolean; canEdit: boolean }) {
   const router = useRouter();
   const [f, setF] = useState<ContactFilters>({ ...DEFAULT_FILTERS, role: initialRole });
-  const [shown, setShown] = useState(PAGE);
+  const [per, setPer] = useState(25);
+  const [pageNo, setPageNo] = useState(0);
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [adding, setAdding] = useState(false);
-  const [view, setView] = useState<'customers' | 'leads' | 'groups' | 'import'>(initialRole === 'lead' ? 'leads' : 'customers');
-  const [groupName, setGroupName] = useState('');
+  const [view, setView] = useState<'customers' | 'leads' | 'groups' | 'import'>(
+    initialView === 'groups' || initialView === 'import' ? initialView : initialRole === 'lead' ? 'leads' : 'customers');
+  const [more, setMore] = useState(false);
+  const [colsOpen, setColsOpen] = useState(false);
+  const [cols, setCols] = useState<Col[]>(DEFAULT_COLS);
+  useEffect(() => { try { const v = JSON.parse(localStorage.getItem('oramira:customer-cols') ?? 'null'); if (Array.isArray(v)) setCols(v); } catch { /* */ } }, []);
+  const flipCol = (c: Col) => setCols((x) => { const n = x.includes(c) ? x.filter((y) => y !== c) : [...x, c]; try { localStorage.setItem('oramira:customer-cols', JSON.stringify(n)); } catch { /* */ } return n; });
+  const [groupDlg, setGroupDlg] = useState<ContactGroup | 'new' | null>(null);
   const [editRow, setEditRow] = useState<ContactListRow | null>(null);
   const [gone, setGone] = useState<Set<string>>(new Set());
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [pending, start] = useTransition();
+  const set = (p: Partial<ContactFilters>) => { setF((x) => ({ ...x, ...p })); setPageNo(0); setSel(new Set()); };
   const remove = (r: ContactListRow) => {
     if (!confirm(`Διαγραφή της επαφής «${r.name}»;\n\nΑν συνδέεται με deals, κρατήσεις ή συμβόλαια, θα αρχειοθετηθεί αντί να διαγραφεί, για να μη χαθεί το ιστορικό.`)) return;
     start(async () => {
@@ -43,23 +63,20 @@ export function ContactsHub({ rows, staff, initialRole = '', canCreate, canEdit 
       router.refresh();
     });
   };
-  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
-  const [pending, start] = useTransition();
-  const set = (p: Partial<ContactFilters>) => { setF((x) => ({ ...x, ...p })); setShown(PAGE); setSel(new Set()); };
 
-  const list = useMemo(() => filterContacts(rows, f), [rows, f]);
+  const list = useMemo(() => filterContacts(rows, f).filter((r) => !gone.has(r.id)), [rows, f, gone]);
   const counts = useMemo(() => roleCounts(rows), [rows]);
   const tags = useMemo(() => Array.from(new Set(rows.flatMap((r) => r.tags))).sort(), [rows]);
-  const groups = useMemo(() => Array.from(new Set(rows.flatMap((r) => r.groups))).sort(), [rows]);
+  const groups = useMemo(() => Array.from(new Set([...groupDefs.map((g) => g.name), ...rows.flatMap((r) => r.groups)])).sort((a, b) => a.localeCompare(b, 'el')), [rows, groupDefs]);
+  const nationalities = useMemo(() => Array.from(new Set(rows.map((r) => r.nationality).filter(Boolean) as string[])).sort(), [rows]);
   const now = Date.now();
-  const quiet = rows.filter((r) => r.status === 'active' && now - Date.parse(r.lastContactAt ?? r.createdAt) > 30 * 86_400_000).length;
-  const noOwner = rows.filter((r) => r.status !== 'archived' && !r.ownerId).length;
   const active = rows.filter((r) => r.status === 'active').length;
-  const filtered = JSON.stringify({ ...f, role: '' }) !== JSON.stringify({ ...DEFAULT_FILTERS, role: '' });
+  const advanced = (['owner', 'source', 'tag', 'language', 'nationality', 'buyerType', 'consent', 'dateFrom', 'dateTo'] as const).filter((k) => f[k]).length + (f.quietDays ? 1 : 0) + (f.role && view === 'customers' ? 1 : 0);
+  const filtered = JSON.stringify({ ...f, role: '', sort: '' }) !== JSON.stringify({ ...DEFAULT_FILTERS, role: '', sort: '' });
 
   const exportCsv = () => {
     const blob = new Blob([contactsCsv(list)], { type: 'text/csv;charset=utf-8' });
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `epafes-${new Date().toISOString().slice(0, 10)}.csv`; a.click();
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `pelates-${new Date().toISOString().slice(0, 10)}.csv`; a.click();
     URL.revokeObjectURL(a.href);
   };
   const bulk = (op: Parameters<typeof bulkUpdateContacts>[1]) => start(async () => {
@@ -68,169 +85,314 @@ export function ContactsHub({ rows, staff, initialRole = '', canCreate, canEdit 
     if (r.ok) { setSel(new Set()); router.refresh(); }
   });
   const toggle = (id: string) => setSel((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
-  const page = list.slice(0, shown);
+  const pages = Math.max(1, Math.ceil(list.length / per));
+  const pg = Math.min(pageNo, pages - 1);
+  const page = list.slice(pg * per, pg * per + per);
   const allOnPage = page.length > 0 && page.every((r) => sel.has(r.id));
-
-  const Kpi = ({ icon: Icon, label, value, onClick, on }: { icon: any; label: string; value: number; onClick?: () => void; on?: boolean }) => (
-    <button type="button" onClick={onClick} className={`panel flex items-center gap-3 p-4 text-left transition ${on ? 'ring-2 ring-forest/40' : 'hover:ring-1 hover:ring-forest/20'}`}>
-      <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-forest/[0.07] text-forest"><Icon size={16} /></span>
-      <span><span className="eyebrow block">{label}</span><span className="figure text-xl text-charcoal">{value}</span></span>
-    </button>
-  );
+  const campaignHref = (q: Record<string, string>) => `/marketing?tab=email&${new URLSearchParams(q).toString()}`;
 
   const newThisMonth = rows.filter((r) => Date.parse(r.createdAt) >= new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime()).length;
   const leadCount = counts.lead ?? 0;
   const conv = leadCount + (counts.buyer ?? 0) > 0 ? Math.round(((counts.buyer ?? 0) / (leadCount + (counts.buyer ?? 0))) * 100) : 0;
-  const groupStats = groups.map((g) => ({ g, n: rows.filter((r) => r.groups.includes(g)).length }));
-  const go = (v: typeof view) => { setView(v); if (v === 'leads') set({ role: 'lead' }); else if (v === 'customers') set({ role: '' }); };
-  const hubCards: { k: typeof view; icon: any; title: string; value: string; sub: React.ReactNode }[] = [
-    { k: 'customers', icon: Users, title: 'Πελάτες', value: String(counts.all ?? rows.length), sub: <><span className="block text-forest">{newThisMonth} νέοι αυτόν τον μήνα</span><span className="block">{active} ενεργοί</span></> },
-    { k: 'leads', icon: Filter, title: 'Leads', value: String(leadCount), sub: <span className="block">{conv}% μετατροπή σε αγοραστές</span> },
-    { k: 'groups', icon: LayoutGrid, title: 'Ομάδες', value: String(groups.length), sub: <span className="block">{groupStats.reduce((s, x) => s + x.n, 0)} μέλη σε ομάδες</span> },
-    { k: 'import', icon: Upload, title: 'Import', value: 'CSV', sub: <span className="block">Μαζική προσθήκη επαφών</span> },
-  ];
+  const groupStats = groups.map((g) => ({ g, def: groupDefs.find((d) => d.name === g), n: rows.filter((r) => r.groups.includes(g)).length }));
+  const inAnyGroup = rows.filter((r) => r.groups.length > 0).length;
+  const go = (v: string) => { setView(v as typeof view); setSel(new Set()); if (v === 'leads') set({ role: 'lead' }); else if (v === 'customers') set({ role: '' }); };
+  const has = (c: Col) => cols.includes(c);
 
   return (
-    <div className="space-y-4">
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {hubCards.map((c) => {
-          const on = view === c.k;
-          return (
-            <button key={c.k} type="button" onClick={() => go(c.k)} className={`rounded-2xl border p-4 text-left transition ${on ? 'border-forest/40 bg-forest/[0.06] shadow-[0_0_0_2px_rgba(17,49,36,0.18)]' : 'border-stone-line bg-white hover:border-forest/30'}`}>
-              <div className="flex items-start justify-between">
-                <span className={`flex h-10 w-10 items-center justify-center rounded-xl ${on ? 'bg-forest text-white' : 'bg-forest/10 text-forest'}`}><c.icon size={18} /></span>
-                <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium ${on ? 'bg-forest text-white' : 'border border-stone-line text-charcoal-600'}`}>{on ? 'Ανοιχτό' : 'Πατήστε για άνοιγμα'}</span>
-              </div>
-              <p className="mt-3 flex items-baseline justify-between font-semibold text-charcoal">{c.title}<span className="text-2xl">{c.value}</span></p>
-              <span className="text-xs text-charcoal-600/75">{c.sub}</span>
-            </button>
-          );
-        })}
-      </div>
+    <div className="space-y-5">
+      <HubCards active={view} onSelect={go} cards={[
+        { key: 'customers', icon: Users, title: 'Πελάτες', value: (counts.all ?? rows.length).toLocaleString('el-GR'), sub: `${newThisMonth} νέοι αυτόν τον μήνα`, sub2: `${active} ενεργοί` },
+        { key: 'leads', icon: Filter, title: 'Leads', value: leadCount.toLocaleString('el-GR'), sub: `${conv}% μετατροπή σε αγοραστές` },
+        { key: 'groups', icon: LayoutGrid, title: 'Ομάδες', value: groups.length, sub: `${inAnyGroup} πελάτες σε ομάδες` },
+        { key: 'import', icon: Download, title: 'Import', value: 'CSV', sub: 'Μαζική προσθήκη ή ενημέρωση πελατών' },
+      ]} />
+
+      {msg && <p className={`rounded-xl border px-4 py-2.5 text-sm ${msg.ok ? 'border-forest/20 bg-forest/[0.05] text-forest' : 'border-signal-danger/30 bg-rose-50 text-signal-danger'}`}>{msg.text}</p>}
 
       {view === 'groups' && (
-        <div className="space-y-3">
-          <div className="rounded-2xl border border-stone-line bg-white p-4 text-sm text-charcoal-600">
-            <p className="flex items-center gap-2 font-semibold text-charcoal"><FolderPlus size={16} className="text-forest" /> Νέα ομάδα</p>
-            <p className="mt-1">Ανοίξτε «Πελάτες», επιλέξτε επαφές με το κουτάκι και στη μπάρα επιλογής γράψτε το όνομα της ομάδας (π.χ. «Επενδυτές Ρωσίας», «VIP Λεμεσός»).</p>
-          </div>
-          {groupStats.length === 0
-            ? <p className="rounded-2xl border border-dashed border-stone-line p-8 text-center text-sm text-charcoal-600/70">Δεν υπάρχουν ακόμη ομάδες.</p>
-            : <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{groupStats.map(({ g, n }) => (
-                <button key={g} type="button" onClick={() => { setView('customers'); set({ role: '', group: g }); }} className="flex items-center gap-3 rounded-2xl border border-stone-line bg-white p-4 text-left hover:border-forest/40">
-                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#c9a063]/15 text-[#8a6420]"><LayoutGrid size={17} /></span>
-                  <span className="min-w-0 flex-1"><span className="block truncate font-semibold text-charcoal" data-no-tr>{g}</span><span className="text-xs text-charcoal-600/70">{n} μέλη</span></span>
-                </button>
-              ))}</div>}
-        </div>
+        <GroupsPanel stats={groupStats} canEdit={canEdit} onNew={() => setGroupDlg('new')} onEdit={(g) => setGroupDlg(g)}
+          onView={(g) => { setView('customers'); set({ ...DEFAULT_FILTERS, group: g }); }}
+          campaignHref={(g) => campaignHref({ group: g })}
+          onDelete={(g) => {
+            if (!g.def) return;
+            if (!confirm(`Διαγραφή της ομάδας «${g.g}»;\n\nΟι πελάτες δεν διαγράφονται, απλώς βγαίνουν από την ομάδα.`)) return;
+            start(async () => { const r = await deleteContactGroup(g.def!.id); setMsg(r.ok ? { ok: true, text: `Η ομάδα «${g.g}» διαγράφηκε.` } : { ok: false, text: r.error }); router.refresh(); });
+          }} />
       )}
 
       {view === 'import' && <ImportPanel onDone={(t) => { setMsg({ ok: true, text: t }); setView('customers'); router.refresh(); }} />}
 
-      {(view === 'customers' || view === 'leads') && <>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap gap-1.5">
-          <Chip on={!f.role} onClick={() => set({ role: '' })}>Όλες <b>{counts.all ?? 0}</b></Chip>
-          {ALL_ROLES.filter((r) => ['lead', 'buyer', 'investor', 'homeowner'].includes(r) || counts[r] || f.role === r).map((r) => (
-            <Chip key={r} on={f.role === r} onClick={() => set({ role: f.role === r ? '' : r })}>{ROLE_EL[r]} <b>{counts[r] ?? 0}</b></Chip>
-          ))}
-        </div>
-        <div className="flex gap-2">
-          <button type="button" onClick={exportCsv} className="btn-ghost text-sm"><Download size={14} /> Export ({list.length})</button>
-          {canCreate && <button type="button" onClick={() => setAdding(true)} className="btn-primary text-sm"><Plus size={14} /> Νέα επαφή</button>}
-        </div>
-      </div>
+      {(view === 'customers' || view === 'leads') && (
+        <div className="rounded-2xl border border-stone-line bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+          <div className="space-y-3 p-4 sm:p-5">
+            <div className="flex flex-wrap items-center gap-2 text-[15px] text-charcoal-600">
+              <span>Εμφάνιση</span>
+              <select value={per} onChange={(e) => { setPer(Number(e.target.value)); setPageNo(0); }} className="input h-9 w-20 py-1 text-sm">{[10, 25, 50, 100].map((n) => <option key={n} value={n}>{n}</option>)}</select>
+              <span>εγγραφές</span>
+              <div className="relative">
+                <button type="button" onClick={() => setColsOpen((o) => !o)} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-stone-100 px-3 text-sm font-medium text-charcoal hover:bg-stone-200"><Columns3 size={15} /> Στήλες</button>
+                {colsOpen && (
+                  <div className="absolute left-0 top-10 z-20 w-56 rounded-xl border border-stone-line bg-white p-2 shadow-overlay" onMouseLeave={() => setColsOpen(false)}>
+                    {COLS.map(([k, l]) => <label key={k} className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-charcoal hover:bg-stone-50"><input type="checkbox" checked={has(k)} onChange={() => flipCol(k)} /> {l}</label>)}
+                  </div>
+                )}
+              </div>
+              <span className="ml-auto flex flex-wrap gap-2">
+                <button type="button" onClick={exportCsv} className="btn-ghost text-sm"><Download size={14} /> Export ({list.length})</button>
+                <Link href={campaignHref(f.group ? { group: f.group } : f.tag ? { tag: f.tag } : f.role ? { role: f.role } : {})} className="btn-ghost text-sm"><Megaphone size={14} /> Campaign</Link>
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <select value={f.group} onChange={(e) => set({ group: e.target.value })} className="input h-10 w-auto min-w-[170px] text-sm"><option value="">Όλες οι ομάδες</option>{groups.map((g) => <option key={g} value={g}>{g}</option>)}</select>
+              <select value={f.status} onChange={(e) => set({ status: e.target.value as ContactFilters['status'] })} className="input h-10 w-auto min-w-[160px] text-sm"><option value="">Όλες οι καταστάσεις</option>{CONTACT_STATUSES.map((s) => <option key={s} value={s}>{STATUS_EL[s]}</option>)}<option value="all">Και αρχειοθετημένες</option></select>
+              <label className="relative min-w-[200px] flex-1 sm:max-w-xs">
+                <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-charcoal-600/60" />
+                <input value={f.q} onChange={(e) => set({ q: e.target.value })} placeholder="Αναζήτηση…" className="input h-10 pl-9" />
+              </label>
+              <button type="button" onClick={() => set({ status: f.status === 'active' ? '' : 'active' })} className={`inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-[13px] ${f.status === 'active' ? 'border-forest/40 bg-forest/[0.08] text-forest' : 'border-stone-line text-charcoal'}`}><Users size={13} /> {active} ενεργοί</button>
+              <button type="button" onClick={() => setMore((m) => !m)} className={`inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-[13px] ${more || advanced ? 'border-forest/40 bg-forest/[0.08] text-forest' : 'border-stone-line text-charcoal'}`}><SlidersHorizontal size={13} /> Φίλτρα{advanced ? ` (${advanced})` : ''}</button>
+              {filtered && <button type="button" onClick={() => set({ ...DEFAULT_FILTERS, role: f.role })} className="inline-flex h-8 items-center gap-1 rounded-full px-2 text-[13px] text-charcoal-600 hover:text-charcoal"><X size={13} /> Καθαρισμός</button>}
+            </div>
+            {canCreate && <button type="button" onClick={() => setAdding(true)} className="btn-primary text-sm"><Plus size={15} /> {view === 'leads' ? 'Νέο lead' : 'Νέος πελάτης'}</button>}
 
-      <div className="grid gap-3 sm:grid-cols-3">
-        <Kpi icon={Users} label="Ενεργές επαφές" value={active} onClick={() => set({ status: f.status === 'active' ? '' : 'active' })} on={f.status === 'active'} />
-        <Kpi icon={Clock} label="Χωρίς επαφή 30+ μέρες" value={quiet} onClick={() => set({ quietDays: f.quietDays ? 0 : 30, status: f.quietDays ? f.status : 'active' })} on={f.quietDays > 0} />
-        <Kpi icon={UserX} label="Χωρίς υπεύθυνο" value={noOwner} onClick={() => set({ owner: f.owner === 'none' ? '' : 'none' })} on={f.owner === 'none'} />
-      </div>
+            {more && (
+              <div className="grid gap-3 rounded-xl border border-stone-line bg-stone-50/60 p-3 sm:grid-cols-2 lg:grid-cols-4">
+                {view === 'customers' && <F label="Ιδιότητα"><Sel value={f.role} onChange={(v) => set({ role: v as ContactRole })} options={[['', 'Όλες'], ...ALL_ROLES.map((r) => [r, `${ROLE_EL[r]} (${counts[r] ?? 0})`] as [string, string])]} /></F>}
+                <F label="Υπεύθυνος"><Sel value={f.owner} onChange={(v) => set({ owner: v })} options={[['', 'Όλοι'], ['none', 'Χωρίς υπεύθυνο'], ...staff.map((s) => [s.id, s.name] as [string, string])]} /></F>
+                <F label="Πηγή"><Sel value={f.source} onChange={(v) => set({ source: v })} options={[['', 'Όλες'], ...[...LEAD_SOURCES, 'manual'].map((s) => [s, SOURCE_EL[s] ?? s] as [string, string])]} /></F>
+                <F label="Tag"><Sel value={f.tag} onChange={(v) => set({ tag: v })} options={[['', 'Όλα'], ...tags.map((t) => [t, t] as [string, string])]} /></F>
+                <F label="Γλώσσα"><Sel value={f.language} onChange={(v) => set({ language: v })} options={[['', 'Όλες'], ...LANGUAGES.map((l) => [l.v, l.l] as [string, string])]} /></F>
+                <F label="Εθνικότητα"><Sel value={f.nationality} onChange={(v) => set({ nationality: v })} options={[['', 'Όλες'], ...nationalities.map((n) => [n, n] as [string, string])]} /></F>
+                <F label="Τύπος αγοραστή"><Sel value={f.buyerType} onChange={(v) => set({ buyerType: v })} options={[['', 'Όλοι'], ...BUYER_TYPES]} /></F>
+                <F label="Συγκατάθεση marketing"><Sel value={f.consent} onChange={(v) => set({ consent: v as ContactFilters['consent'] })} options={[['', 'Όλοι'], ['yes', 'Έχουν δώσει'], ['no', 'Δεν έχουν δώσει']]} /></F>
+                <F label="Τελευταία επαφή"><Sel value={String(f.quietDays)} onChange={(v) => set({ quietDays: Number(v) })} options={[['0', 'Οποτεδήποτε'], ['30', 'Πάνω από 30 μέρες'], ['60', 'Πάνω από 60 μέρες'], ['90', 'Πάνω από 90 μέρες']]} /></F>
+                <F label="Ταξινόμηση"><Sel value={f.sort} onChange={(v) => set({ sort: v as ContactFilters['sort'] })} options={[['recent', 'Νεότεροι πρώτα'], ['name', 'Αλφαβητικά'], ['last_contact', 'Παλαιότερη επαφή πρώτα'], ['value', 'Μεγαλύτερη αξία']]} /></F>
+                <F label="Ημερομηνία" wide>
+                  <span className="flex items-center gap-1.5">
+                    <select value={f.dateField} onChange={(e) => set({ dateField: e.target.value as ContactFilters['dateField'] })} className="input w-auto text-sm"><option value="created">Καταχώριση</option><option value="last_contact">Τελευταία επαφή</option></select>
+                    <CalendarDays size={15} className="shrink-0 text-charcoal-600/60" />
+                    <input type="date" value={f.dateFrom} max={f.dateTo || undefined} onChange={(e) => set({ dateFrom: e.target.value })} className="input min-w-0 flex-1 text-sm" aria-label="Από" />
+                    <span className="text-charcoal-600/60">–</span>
+                    <input type="date" value={f.dateTo} min={f.dateFrom || undefined} onChange={(e) => set({ dateTo: e.target.value })} className="input min-w-0 flex-1 text-sm" aria-label="Έως" />
+                  </span>
+                </F>
+              </div>
+            )}
 
-      <div className="panel grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6">
-        <label className="relative sm:col-span-2">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-charcoal-600/50" />
-          <input value={f.q} onChange={(e) => set({ q: e.target.value })} placeholder="Όνομα, email, τηλέφωνο, tag…" className="input pl-8" />
-        </label>
-        <Sel value={f.status} onChange={(v) => set({ status: v as ContactFilters['status'] })} options={[['', 'Κατάσταση: όλες ενεργές'], ['all', 'Και αρχειοθετημένες'], ...CONTACT_STATUSES.map((s) => [s, STATUS_EL[s]] as [string, string])]} />
-        <Sel value={f.owner} onChange={(v) => set({ owner: v })} options={[['', 'Υπεύθυνος: όλοι'], ['none', 'Χωρίς υπεύθυνο'], ...staff.map((s) => [s.id, s.name] as [string, string])]} />
-        <Sel value={f.source} onChange={(v) => set({ source: v })} options={[['', 'Πηγή: όλες'], ...[...LEAD_SOURCES, 'manual'].map((s) => [s, SOURCE_EL[s] ?? s] as [string, string])]} />
-        <Sel value={f.tag} onChange={(v) => set({ tag: v })} options={[['', 'Tag: όλα'], ...tags.map((t) => [t, t] as [string, string])]} />
-        <Sel value={f.sort} onChange={(v) => set({ sort: v as ContactFilters['sort'] })} options={[['recent', 'Νεότερες πρώτα'], ['name', 'Αλφαβητικά'], ['last_contact', 'Παλαιότερη επαφή πρώτα'], ['value', 'Μεγαλύτερη αξία']]} />
-        <div className="flex items-center gap-1.5 sm:col-span-2">
-          <CalendarDays size={15} className="shrink-0 text-charcoal-600/60" />
-          <select value={f.dateField} onChange={(e) => set({ dateField: e.target.value as ContactFilters['dateField'] })} className="input w-auto text-sm" aria-label="Ημερομηνία"><option value="created">Καταχώριση</option><option value="last_contact">Τελευταία επαφή</option></select>
-          <input type="date" value={f.dateFrom} max={f.dateTo || undefined} onChange={(e) => set({ dateFrom: e.target.value })} className="input min-w-0 flex-1 text-sm" aria-label="Από" title="Από" />
-          <span className="text-charcoal-600/60">–</span>
-          <input type="date" value={f.dateTo} min={f.dateFrom || undefined} onChange={(e) => set({ dateTo: e.target.value })} className="input min-w-0 flex-1 text-sm" aria-label="Έως" title="Έως" />
-        </div>
-        {groups.length > 0 && <Sel value={f.group} onChange={(v) => set({ group: v })} options={[['', 'Ομάδα: όλες'], ...groups.map((g) => [g, g] as [string, string])]} />}
-        {filtered && <button type="button" onClick={() => set({ ...DEFAULT_FILTERS, role: f.role })} className="btn-ghost text-xs"><X size={13} /> Καθαρισμός</button>}
-      </div>
+            {canEdit && sel.size > 0 && (
+              <div className="flex flex-wrap items-center gap-2 rounded-xl border border-forest/30 bg-forest/[0.04] p-3 text-sm">
+                <b className="mr-1 text-charcoal">{sel.size} επιλεγμένοι:</b>
+                <Sel compact value="" onChange={(v) => { if (v === '__new') setGroupDlg('new'); else if (v) bulk({ addGroup: v }); }} options={[['', '+ Σε ομάδα…'], ...groups.map((g) => [g, g] as [string, string]), ['__new', '+ Νέα ομάδα…']]} />
+                {f.group && <button type="button" onClick={() => bulk({ removeGroup: f.group })} className="rounded-full border border-stone-line bg-white px-2.5 py-1 text-xs">− από «{f.group}»</button>}
+                <Sel compact value="" onChange={(v) => v && bulk({ addRole: v as ContactRole })} options={[['', '+ Ιδιότητα…'], ...ALL_ROLES.map((r) => [r, ROLE_EL[r]] as [string, string])]} />
+                <Sel compact value="" onChange={(v) => v && bulk({ removeRole: v as ContactRole })} options={[['', '− Ιδιότητα…'], ...ALL_ROLES.map((r) => [r, ROLE_EL[r]] as [string, string])]} />
+                <Sel compact value="" onChange={(v) => v && bulk({ status: v as ContactStatus })} options={[['', 'Κατάσταση…'], ...CONTACT_STATUSES.map((s) => [s, STATUS_EL[s]] as [string, string])]} />
+                <Sel compact value="" onChange={(v) => v && bulk({ ownerId: v === 'none' ? null : v })} options={[['', 'Υπεύθυνος…'], ['none', 'Κανένας'], ...staff.map((s) => [s.id, s.name] as [string, string])]} />
+                <Link href={campaignHref({ ids: [...sel].join(',') })} className="inline-flex items-center gap-1 rounded-full bg-forest px-3 py-1 text-xs font-semibold text-white"><Megaphone size={12} /> Campaign</Link>
+                <button type="button" onClick={() => setSel(new Set())} className="btn-ghost ml-auto text-xs">Ακύρωση επιλογής</button>
+              </div>
+            )}
+          </div>
 
-      {canEdit && sel.size > 0 && (
-        <div className="panel flex flex-wrap items-center gap-2 border border-forest/30 p-3 text-sm">
-          <b className="mr-1">{sel.size} επιλεγμένες:</b>
-          <Sel compact value="" onChange={(v) => v && bulk({ addRole: v as ContactRole })} options={[['', '+ Ιδιότητα…'], ...ALL_ROLES.map((r) => [r, ROLE_EL[r]] as [string, string])]} />
-          <Sel compact value="" onChange={(v) => v && bulk({ removeRole: v as ContactRole })} options={[['', '− Ιδιότητα…'], ...ALL_ROLES.map((r) => [r, ROLE_EL[r]] as [string, string])]} />
-          <Sel compact value="" onChange={(v) => v && bulk({ status: v as ContactStatus })} options={[['', 'Κατάσταση…'], ...CONTACT_STATUSES.map((s) => [s, STATUS_EL[s]] as [string, string])]} />
-          <Sel compact value="" onChange={(v) => v && bulk({ ownerId: v === 'none' ? null : v })} options={[['', 'Υπεύθυνος…'], ['none', 'Κανένας'], ...staff.map((s) => [s.id, s.name] as [string, string])]} />
-          <span className="flex items-center gap-1"><input value={groupName} onChange={(e) => setGroupName(e.target.value)} placeholder="Ομάδα…" className="input h-8 w-36 py-1 text-xs" list="contact-groups" /><datalist id="contact-groups">{groups.map((g) => <option key={g} value={g} />)}</datalist>
-            <button type="button" disabled={!groupName.trim()} onClick={() => { bulk({ addGroup: groupName.trim() }); setGroupName(''); }} className="rounded-full bg-forest px-2.5 py-1 text-xs font-semibold text-white disabled:opacity-40">+ Ομάδα</button>
-            {f.group && <button type="button" onClick={() => bulk({ removeGroup: f.group })} className="rounded-full border border-stone-line px-2.5 py-1 text-xs">− από «{f.group}»</button>}</span>
-          <button type="button" onClick={() => setSel(new Set())} className="btn-ghost ml-auto text-xs">Ακύρωση επιλογής</button>
+          <div className="overflow-x-auto border-t border-stone-line">
+            <table className="table-base w-full min-w-[860px]">
+              <thead>
+                <tr>
+                  {canEdit && <th className="w-8"><input type="checkbox" checked={allOnPage} onChange={() => setSel(allOnPage ? new Set() : new Set(page.map((r) => r.id)))} aria-label="Επιλογή όλων" /></th>}
+                  <th>Ονοματεπώνυμο</th>
+                  {COLS.filter(([k]) => has(k)).map(([k, l]) => <th key={k} className={k === 'value' ? 'text-right' : ''}>{l}</th>)}
+                  <th className="sticky right-0 z-[1] w-[148px] bg-white text-right shadow-[-8px_0_12px_-10px_rgba(0,0,0,0.18)]">Ενέργειες</th>
+                </tr>
+              </thead>
+              <tbody>
+                {page.map((r) => {
+                  const days = r.lastContactAt ? Math.floor((now - Date.parse(r.lastContactAt)) / 86_400_000) : null;
+                  return (
+                    <tr key={r.id} className={sel.has(r.id) ? 'bg-forest/[0.03]' : ''}>
+                      {canEdit && <td><input type="checkbox" checked={sel.has(r.id)} onChange={() => toggle(r.id)} aria-label={`Επιλογή ${r.name}`} /></td>}
+                      <td>
+                        <Link href={`/crm/${r.id}`} className="font-semibold text-charcoal hover:text-forest hover:underline" data-no-tr>{r.name}</Link>
+                        <span className="block text-[13px] text-charcoal-600" data-no-tr>{[r.email, r.phone].filter(Boolean).join(' · ') || '—'}</span>
+                      </td>
+                      {has('roles') && <td><span className="flex flex-wrap gap-1">{r.roles.length ? r.roles.map((x) => <span key={x} className={ROLE_TONE[x]}>{ROLE_EL[x]}</span>) : <span className="text-charcoal-600/60">—</span>}</span></td>}
+                      {has('status') && <td><span className={STATUS_TONE[r.status]}>{STATUS_EL[r.status]}</span>{r.openLeads > 0 && <span className="block text-[12px] text-charcoal-600">{r.openLeads === 1 ? '1 ανοιχτό lead' : `${r.openLeads} ανοιχτά leads`}</span>}</td>}
+                      {has('groups') && <td><span className="flex flex-wrap gap-1">{r.groups.length ? r.groups.map((g) => <button key={g} type="button" onClick={() => set({ group: g })} className="rounded-full border border-stone-line px-2 py-0.5 text-[12px] text-charcoal hover:border-forest/40" data-no-tr>{g}</button>) : <span className="text-charcoal-600/60">—</span>}</span></td>}
+                      {has('owner') && <td className="text-sm">{r.ownerName ?? <span className="text-charcoal-600/60">—</span>}</td>}
+                      {has('source') && <td className="text-sm text-charcoal-600">{SOURCE_EL[r.source ?? 'manual'] ?? r.source}</td>}
+                      {has('language') && <td className="text-sm text-charcoal-600">{r.language ? LANG_EL[r.language] ?? r.language : '—'}</td>}
+                      {has('nationality') && <td className="text-sm text-charcoal-600" data-no-tr>{r.nationality ?? '—'}</td>}
+                      {has('consent') && <td className="text-sm">{r.optIn ? <span className="badge-forest">Ναι</span> : <span className="text-charcoal-600/70">Όχι</span>}</td>}
+                      {has('last') && <td className={`text-sm ${days !== null && days > 30 ? 'text-signal-danger' : 'text-charcoal-600'}`}>{r.lastContactAt ? `${formatDate(r.lastContactAt)}${days !== null && days > 30 ? ` · ${days} μέρες` : ''}` : <span className="text-charcoal-600/60">ποτέ</span>}</td>}
+                      {has('value') && <td className="figure text-right text-sm">{r.value ? formatCurrency(r.value) : '—'}</td>}
+                      <td className={`sticky right-0 z-[1] shadow-[-8px_0_12px_-10px_rgba(0,0,0,0.18)] ${sel.has(r.id) ? 'bg-[#f6f7f5]' : 'bg-white'}`}>
+                        <span className="flex justify-end gap-1">
+                          <Link href={`/crm/${r.id}`} title="Προβολή" aria-label="Προβολή" className={iconBtn}><Eye size={16} /></Link>
+                          <Link href={`/crm/${r.id}?tab=activity`} title="Ιστορικό" aria-label="Ιστορικό" className={iconBtn}><History size={15} /></Link>
+                          {canEdit && <button type="button" onClick={() => setEditRow(r)} title="Επεξεργασία" aria-label="Επεξεργασία" className={iconBtn}><Pencil size={15} /></button>}
+                          {canEdit && <button type="button" onClick={() => remove(r)} disabled={pending} title="Διαγραφή" aria-label="Διαγραφή" className="flex h-8 w-8 items-center justify-center rounded-full text-charcoal-600 transition hover:bg-rose-50 hover:text-signal-danger"><Trash2 size={15} /></button>}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {list.length === 0 && <tr><td colSpan={14} className="py-10 text-center text-sm text-charcoal-600">Κανένας πελάτης με αυτά τα φίλτρα.</td></tr>}
+              </tbody>
+            </table>
+          </div>
+          <Pager from={list.length ? pg * per + 1 : 0} to={Math.min(list.length, pg * per + per)} total={list.length} page={pg} pages={pages} onPage={setPageNo} />
         </div>
       )}
-      {msg && <p className={`text-sm ${msg.ok ? 'text-forest' : 'text-signal-danger'}`}>{msg.text}</p>}
 
-      <div className="panel overflow-x-auto">
-        <table className="table-base w-full min-w-[860px]">
-          <thead>
-            <tr>
-              {canEdit && <th className="w-8"><input type="checkbox" checked={allOnPage} onChange={() => setSel(allOnPage ? new Set() : new Set(page.map((r) => r.id)))} aria-label="Επιλογή όλων" /></th>}
-              <th>Επαφή</th><th>Ιδιότητες</th><th>Κατάσταση</th><th>Υπεύθυνος</th><th>Πηγή</th><th>Τελευταία επαφή</th><th className="text-right">Αξία</th>
-              <th className="sticky right-0 z-[1] w-[148px] bg-white text-right shadow-[-8px_0_12px_-10px_rgba(17,49,36,0.25)]">Ενέργειες</th>
-            </tr>
-          </thead>
-          <tbody>
-            {page.filter((r) => !gone.has(r.id)).map((r) => {
-              const days = r.lastContactAt ? Math.floor((now - Date.parse(r.lastContactAt)) / 86_400_000) : null;
-              return (
-                <tr key={r.id} className={sel.has(r.id) ? 'bg-forest/[0.03]' : ''}>
-                  {canEdit && <td><input type="checkbox" checked={sel.has(r.id)} onChange={() => toggle(r.id)} aria-label={`Επιλογή ${r.name}`} /></td>}
+      {groupDlg && <GroupDialog group={groupDlg === 'new' ? null : groupDlg} rows={rows} preselect={groupDlg === 'new' ? [...sel] : undefined}
+        onClose={() => setGroupDlg(null)} onSaved={(t) => { setGroupDlg(null); setSel(new Set()); setMsg({ ok: true, text: t }); router.refresh(); }} />}
+      {editRow && <EditContactDialog row={editRow} staff={staff} onClose={() => setEditRow(null)} onSaved={(t) => { setEditRow(null); setMsg({ ok: true, text: t }); router.refresh(); }} />}
+      {adding && <NewContactDialog staff={staff} defaultRole={f.role || (view === 'leads' ? 'lead' : 'buyer')} onClose={() => setAdding(false)} onCreated={(id) => { setAdding(false); router.push(`/crm/${id}`); }} />}
+      {pending && <span className="sr-only">Αποθήκευση…</span>}
+    </div>
+  );
+}
+
+function F({ label, children, wide }: { label: string; children: React.ReactNode; wide?: boolean }) {
+  return <label className={`block ${wide ? 'sm:col-span-2' : ''}`}><span className="mb-1 block text-[12px] font-semibold uppercase tracking-wide text-charcoal-600">{label}</span>{children}</label>;
+}
+
+function Pager({ from, to, total, page, pages, onPage }: { from: number; to: number; total: number; page: number; pages: number; onPage: (n: number) => void }) {
+  return (
+    <div className="flex items-center justify-between border-t border-stone-line px-5 py-3 text-sm text-charcoal-600">
+      <span>Εμφάνιση {from}–{to} από {total}</span>
+      {pages > 1 && <span className="flex items-center gap-1">
+        <button type="button" disabled={page === 0} onClick={() => onPage(page - 1)} className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-stone-100 disabled:opacity-30" aria-label="Προηγούμενη"><ChevronLeft size={16} /></button>
+        <span className="tabular-nums">{page + 1} / {pages}</span>
+        <button type="button" disabled={page >= pages - 1} onClick={() => onPage(page + 1)} className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-stone-100 disabled:opacity-30" aria-label="Επόμενη"><ChevronRight size={16} /></button>
+      </span>}
+    </div>
+  );
+}
+
+type GroupStat = { g: string; def?: ContactGroup; n: number };
+function GroupsPanel({ stats, canEdit, onNew, onEdit, onView, onDelete, campaignHref }: { stats: GroupStat[]; canEdit: boolean; onNew: () => void; onEdit: (g: ContactGroup) => void; onView: (g: string) => void; onDelete: (g: GroupStat) => void; campaignHref: (g: string) => string }) {
+  const [q, setQ] = useState('');
+  const [tag, setTag] = useState('');
+  const [per, setPer] = useState(25);
+  const [pg, setPg] = useState(0);
+  const allTags = Array.from(new Set(stats.flatMap((s) => s.def?.tags ?? []))).sort();
+  const list = stats.filter((s) => (!q || s.g.toLowerCase().includes(q.toLowerCase())) && (!tag || (s.def?.tags ?? []).includes(tag)));
+  const pages = Math.max(1, Math.ceil(list.length / per));
+  const page = list.slice(pg * per, pg * per + per);
+  const members = stats.reduce((n, s) => n + s.n, 0);
+  const largest = [...stats].sort((a, b) => b.n - a.n)[0];
+  return (
+    <div className="space-y-5">
+      <div className="rounded-2xl border border-stone-line bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+        <div className="space-y-3 p-4 sm:p-5">
+          <div className="flex flex-wrap items-center gap-2 text-[15px] text-charcoal-600">
+            <span>Εμφάνιση</span>
+            <select value={per} onChange={(e) => { setPer(Number(e.target.value)); setPg(0); }} className="input h-9 w-20 py-1 text-sm">{[10, 25, 50].map((n) => <option key={n} value={n}>{n}</option>)}</select>
+            <span>εγγραφές</span>
+          </div>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <select value={tag} onChange={(e) => { setTag(e.target.value); setPg(0); }} className="input h-10 w-auto min-w-[170px] text-sm"><option value="">Όλα τα tags</option>{allTags.map((t) => <option key={t} value={t}>{t}</option>)}</select>
+            <label className="relative min-w-[200px] flex-1 sm:max-w-xs"><Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-charcoal-600/60" /><input value={q} onChange={(e) => { setQ(e.target.value); setPg(0); }} placeholder="Αναζήτηση…" className="input h-10 pl-9" /></label>
+            {canEdit && <button type="button" onClick={onNew} className="btn-primary text-sm"><Plus size={15} /> Νέα ομάδα</button>}
+          </div>
+        </div>
+        <div className="overflow-x-auto border-t border-stone-line">
+          <table className="table-base w-full min-w-[640px]">
+            <thead><tr><th>Όνομα</th><th>Μέλη</th><th>Tags</th><th className="text-right">Ενέργειες</th></tr></thead>
+            <tbody>
+              {page.map((s) => (
+                <tr key={s.g}>
+                  <td><button type="button" onClick={() => onView(s.g)} className="font-semibold text-charcoal hover:text-forest hover:underline" data-no-tr>{s.g}</button>{s.def?.description && <span className="block text-[13px] text-charcoal-600" data-no-tr>{s.def.description}</span>}</td>
+                  <td className="tabular-nums">{s.n}</td>
+                  <td><span className="flex flex-wrap gap-1">{(s.def?.tags ?? []).length ? s.def!.tags.map((t) => <span key={t} className="rounded-full border border-stone-line px-2 py-0.5 text-[12px]" data-no-tr>{t}</span>) : <span className="text-charcoal-600/60">—</span>}</span></td>
                   <td>
-                    <Link href={`/crm/${r.id}`} className="font-medium text-charcoal hover:text-forest hover:underline">{r.name}</Link>
-                    <span className="block text-xs text-charcoal-600/70">{[r.email, r.phone].filter(Boolean).join(' · ') || '—'}</span>
-                    {r.tags.length > 0 && <span className="mt-0.5 block text-[11px] text-charcoal-600/60">{r.tags.slice(0, 4).join(' · ')}</span>}
-                  </td>
-                  <td><span className="flex flex-wrap gap-1">{r.roles.length ? r.roles.map((x) => <span key={x} className={ROLE_TONE[x]}>{ROLE_EL[x]}</span>) : <span className="text-xs text-charcoal-600/50">—</span>}</span></td>
-                  <td><span className={STATUS_TONE[r.status]}>{STATUS_EL[r.status]}</span>{r.openLeads > 0 && <span className="block text-[11px] text-charcoal-600/60">{r.openLeads === 1 ? '1 ανοιχτό lead' : `${r.openLeads} ανοιχτά leads`}</span>}</td>
-                  <td className="text-sm">{r.ownerName ?? <span className="text-charcoal-600/50">—</span>}</td>
-                  <td className="text-sm text-charcoal-600">{SOURCE_EL[r.source ?? 'manual'] ?? r.source}</td>
-                  <td className={`text-sm ${days !== null && days > 30 ? 'text-signal-danger' : 'text-charcoal-600'}`}>{r.lastContactAt ? `${formatDate(r.lastContactAt)}${days !== null && days > 30 ? ` · ${days} μέρες` : ''}` : <span className="text-charcoal-600/50">ποτέ</span>}</td>
-                  <td className="figure text-right text-sm">{r.value ? formatCurrency(r.value) : '—'}</td>
-                  <td className={`sticky right-0 z-[1] shadow-[-8px_0_12px_-10px_rgba(17,49,36,0.25)] ${sel.has(r.id) ? 'bg-[#f4f6f2]' : 'bg-white'}`}>
                     <span className="flex justify-end gap-1">
-                      <Link href={`/crm/${r.id}`} title="Προβολή" aria-label="Προβολή" className="flex h-8 w-8 items-center justify-center rounded-full text-charcoal-600 transition hover:bg-forest/10 hover:text-forest"><Eye size={16} /></Link>
-                      <Link href={`/crm/${r.id}?tab=activity`} title="Ιστορικό" aria-label="Ιστορικό" className="flex h-8 w-8 items-center justify-center rounded-full text-charcoal-600 transition hover:bg-forest/10 hover:text-forest"><History size={15} /></Link>
-                      {canEdit && <button type="button" onClick={() => setEditRow(r)} title="Επεξεργασία" aria-label="Επεξεργασία" className="flex h-8 w-8 items-center justify-center rounded-full text-charcoal-600 transition hover:bg-forest/10 hover:text-forest"><Pencil size={15} /></button>}
-                      {canEdit && <button type="button" onClick={() => remove(r)} disabled={pending} title="Διαγραφή" aria-label="Διαγραφή" className="flex h-8 w-8 items-center justify-center rounded-full text-charcoal-600 transition hover:bg-rose-50 hover:text-signal-danger"><Trash2 size={15} /></button>}
+                      <button type="button" onClick={() => onView(s.g)} title="Προβολή μελών" aria-label="Προβολή μελών" className={iconBtn}><Eye size={16} /></button>
+                      <Link href={campaignHref(s.g)} title="Αποστολή campaign σε αυτή την ομάδα" aria-label="Campaign" className={iconBtn}><Megaphone size={15} /></Link>
+                      {canEdit && s.def && <button type="button" onClick={() => onEdit(s.def!)} title="Επεξεργασία" aria-label="Επεξεργασία" className={iconBtn}><Pencil size={15} /></button>}
+                      {canEdit && s.def && <button type="button" onClick={() => onDelete(s)} title="Διαγραφή" aria-label="Διαγραφή" className="flex h-8 w-8 items-center justify-center rounded-full text-charcoal-600 transition hover:bg-rose-50 hover:text-signal-danger"><Trash2 size={15} /></button>}
                     </span>
                   </td>
                 </tr>
-              );
-            })}
-            {list.length === 0 && <tr><td colSpan={9} className="py-8 text-center text-sm text-charcoal-600/70">Καμία επαφή με αυτά τα φίλτρα.</td></tr>}
-          </tbody>
-        </table>
-        {list.length > shown && <div className="border-t border-stone-line p-3 text-center"><button type="button" className="btn-ghost text-sm" onClick={() => setShown((n) => n + PAGE)}>Περισσότερες ({list.length - shown})</button></div>}
+              ))}
+              {list.length === 0 && <tr><td colSpan={4} className="py-10 text-center text-sm text-charcoal-600">{stats.length ? 'Καμία ομάδα με αυτά τα φίλτρα.' : 'Δεν υπάρχουν ακόμη ομάδες. Πατήστε «Νέα ομάδα».'}</td></tr>}
+            </tbody>
+          </table>
+        </div>
+        <Pager from={list.length ? pg * per + 1 : 0} to={Math.min(list.length, pg * per + per)} total={list.length} page={pg} pages={pages} onPage={setPg} />
       </div>
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <Stat label="Σύνολο ομάδων" value={stats.length} note="Ομάδες για φίλτρο στη λίστα και στόχευση στο Marketing." />
+        <Stat label="Πελάτες σε ομάδες" value={members} note="Όσοι ανήκουν σε τουλάχιστον μία ομάδα." />
+        <Stat label="Μέσο μέγεθος" value={stats.length ? Math.round(members / stats.length) : 0} note="Μέσος όρος μελών ανά ομάδα." />
+        <Stat label="Μεγαλύτερη ομάδα" value={largest?.n ?? 0} note={largest ? `«${largest.g}» είναι η μεγαλύτερη ομάδα.` : '—'} />
+      </div>
+    </div>
+  );
+}
 
-      </>}
+function Stat({ label, value, note }: { label: string; value: React.ReactNode; note: string }) {
+  return (
+    <div className="rounded-2xl border border-stone-line bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+      <p className="text-[13px] font-semibold uppercase tracking-wide text-charcoal-600">{label}</p>
+      <p className="mt-1 text-3xl font-semibold tabular-nums text-charcoal">{value}</p>
+      <p className="mt-1 text-[13px] text-charcoal-600">{note}</p>
+    </div>
+  );
+}
 
-      {editRow && <EditContactDialog row={editRow} staff={staff} onClose={() => setEditRow(null)} onSaved={(t) => { setEditRow(null); setMsg({ ok: true, text: t }); router.refresh(); }} />}
-      {adding && <NewContactDialog staff={staff} defaultRole={f.role || 'lead'} onClose={() => setAdding(false)} onCreated={(id) => { setAdding(false); router.push(`/crm/${id}`); }} />}
-      {pending && <span className="sr-only">Αποθήκευση…</span>}
+function GroupDialog({ group, rows, preselect, onClose, onSaved }: { group: ContactGroup | null; rows: ContactListRow[]; preselect?: string[]; onClose: () => void; onSaved: (msg: string) => void }) {
+  const initial = useMemo(() => new Set(group ? rows.filter((r) => r.groups.includes(group.name)).map((r) => r.id) : preselect ?? []), [group, rows, preselect]);
+  const [name, setName] = useState(group?.name ?? '');
+  const [desc, setDesc] = useState(group?.description ?? '');
+  const [tagText, setTagText] = useState((group?.tags ?? []).join(', '));
+  const [members, setMembers] = useState<Set<string>>(new Set(initial));
+  const [q, setQ] = useState('');
+  const [onlySel, setOnlySel] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+  const ql = q.trim().toLowerCase();
+  const shown = rows.filter((r) => r.status !== 'archived' && (!onlySel || members.has(r.id)) && (!ql || [r.name, r.email ?? '', r.phone ?? '', ...r.tags].join(' ').toLowerCase().includes(ql))).slice(0, 200);
+  const flip = (id: string) => setMembers((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const save = () => start(async () => {
+    const tags = tagText.split(',').map((t) => t.trim()).filter(Boolean);
+    const add = [...members].filter((id) => !initial.has(id) || !group);
+    const remove = [...initial].filter((id) => !members.has(id));
+    const r = group ? await updateContactGroup(group.id, { name, description: desc, tags, add, remove }) : await createContactGroup({ name, description: desc, tags, memberIds: [...members] });
+    if (!r.ok) { setErr(r.error); return; }
+    onSaved(group ? `Η ομάδα «${name}» αποθηκεύτηκε.` : `Δημιουργήθηκε η ομάδα «${name}» με ${members.size} μέλη.`);
+  });
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-charcoal/30 sm:items-center sm:p-4" onClick={onClose}>
+      <div className="flex max-h-[92vh] w-full max-w-2xl flex-col rounded-t-2xl bg-white shadow-overlay sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between border-b border-stone-line px-6 py-4"><h3 className="text-2xl">{group ? 'Επεξεργασία ' : 'Νέα '}<em className="text-forest">ομάδα</em></h3><button type="button" onClick={onClose} aria-label="Κλείσιμο" className="text-charcoal-600 hover:text-charcoal"><X size={18} /></button></div>
+        <div className="space-y-4 overflow-y-auto px-6 py-5">
+          <p className="text-[13px] font-semibold uppercase tracking-wide text-charcoal-600">Βασικά</p>
+          <label className="block"><span className="mb-1 block text-[12px] font-semibold uppercase tracking-wide text-charcoal-600">Όνομα *</span><input autoFocus className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="π.χ. Επενδυτές Ισραήλ, VIP Λεμεσός" /></label>
+          <label className="block"><span className="mb-1 block text-[12px] font-semibold uppercase tracking-wide text-charcoal-600">Περιγραφή</span><input className="input" value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Ποιοι ανήκουν εδώ και γιατί" /></label>
+          <label className="block"><span className="mb-1 block text-[12px] font-semibold uppercase tracking-wide text-charcoal-600">Tags</span><input className="input" value={tagText} onChange={(e) => setTagText(e.target.value)} placeholder="π.χ. investor, golden visa, sea view" /><span className="mt-1 block text-[12px] text-charcoal-600">Χωρισμένα με κόμμα</span></label>
+          <div>
+            <div className="mb-2 flex flex-wrap items-center gap-2">
+              <p className="text-[13px] font-semibold uppercase tracking-wide text-charcoal-600">Μέλη · {members.size}</p>
+              <label className="ml-auto flex items-center gap-1.5 text-sm text-charcoal-600"><input type="checkbox" checked={onlySel} onChange={(e) => setOnlySel(e.target.checked)} /> Μόνο επιλεγμένοι</label>
+            </div>
+            <label className="relative block"><Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-charcoal-600/60" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Αναζήτηση πελάτη για προσθήκη…" className="input pl-9" /></label>
+            <div className="mt-2 max-h-64 divide-y divide-stone-line overflow-y-auto rounded-xl border border-stone-line">
+              {shown.map((r) => (
+                <label key={r.id} className="flex cursor-pointer items-center gap-3 px-3 py-2 text-sm hover:bg-stone-50">
+                  <input type="checkbox" checked={members.has(r.id)} onChange={() => flip(r.id)} />
+                  <span className="min-w-0 flex-1"><span className="block truncate font-medium text-charcoal" data-no-tr>{r.name}</span><span className="block truncate text-[12px] text-charcoal-600" data-no-tr>{[r.email, r.phone].filter(Boolean).join(' · ')}</span></span>
+                  <span className="hidden gap-1 sm:flex">{r.roles.slice(0, 2).map((x) => <span key={x} className={ROLE_TONE[x]}>{ROLE_EL[x]}</span>)}</span>
+                </label>
+              ))}
+              {shown.length === 0 && <p className="p-4 text-center text-sm text-charcoal-600">Κανένας πελάτης.</p>}
+            </div>
+          </div>
+          {err && <p className="text-sm text-signal-danger">{err}</p>}
+        </div>
+        <div className="flex justify-end gap-2 border-t border-stone-line px-6 py-4"><button type="button" className="btn-ghost" onClick={onClose}>Ακύρωση</button><button type="button" className="btn-primary" disabled={pending || !name.trim()} onClick={save}>{pending ? 'Αποθήκευση…' : 'Αποθήκευση'}</button></div>
+      </div>
     </div>
   );
 }
@@ -325,10 +487,6 @@ function EditContactDialog({ row, staff, onClose, onSaved }: { row: ContactListR
       </div>
     </div>
   );
-}
-
-function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; children: React.ReactNode }) {
-  return <button type="button" onClick={onClick} className={`rounded-full border px-3 py-1 text-xs ${on ? 'border-forest bg-forest text-white' : 'border-stone-line bg-white text-charcoal-600 hover:border-forest/40'} [&_b]:ml-1 [&_b]:font-semibold`}>{children}</button>;
 }
 
 function Sel({ value, onChange, options, compact }: { value: string; onChange: (v: string) => void; options: [string, string][]; compact?: boolean }) {

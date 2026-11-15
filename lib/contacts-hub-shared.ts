@@ -37,6 +37,9 @@ export const SOURCE_EL: Record<string, string> = {
   walk_in: 'Επίσκεψη στο γραφείο', whatsapp: 'WhatsApp', other: 'Άλλο', manual: 'Καταχώριση από το προσωπικό',
 };
 
+/** Ομάδα πελατών (segment) — για φίλτρο και στόχευση στο Marketing. */
+export interface ContactGroup { id: string; name: string; description: string; tags: string[]; createdAt: string }
+
 /** Μία γραμμή της λίστας επαφών. */
 export interface ContactListRow {
   id: string;
@@ -51,6 +54,9 @@ export interface ContactListRow {
   tags: string[];
   groups: string[];
   language: string | null;
+  nationality: string | null;
+  buyerType: string | null;
+  optIn: boolean;
   createdAt: string;
   lastContactAt: string | null;
   openLeads: number;
@@ -68,6 +74,10 @@ export interface ContactFilters {
   group: string;
   source: string;
   kyc: '' | 'verified' | 'pending' | 'none';
+  language: string;
+  nationality: string;
+  buyerType: string;
+  consent: '' | 'yes' | 'no';
   quietDays: number; // 0 = όλοι · 30 = χωρίς επαφή 30+ μέρες
   /** Φίλτρο ημερομηνίας: ποια ημερομηνία και διάστημα (YYYY-MM-DD, κενό = χωρίς όριο). */
   dateField: 'created' | 'last_contact';
@@ -75,7 +85,7 @@ export interface ContactFilters {
   dateTo: string;
   sort: 'recent' | 'name' | 'last_contact' | 'value';
 }
-export const DEFAULT_FILTERS: ContactFilters = { q: '', role: '', status: '', owner: '', tag: '', group: '', source: '', kyc: '', quietDays: 0, dateField: 'created', dateFrom: '', dateTo: '', sort: 'recent' };
+export const DEFAULT_FILTERS: ContactFilters = { q: '', role: '', status: '', owner: '', tag: '', group: '', source: '', kyc: '', language: '', nationality: '', buyerType: '', consent: '', quietDays: 0, dateField: 'created', dateFrom: '', dateTo: '', sort: 'recent' };
 
 const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 
@@ -97,6 +107,11 @@ export function filterContacts(rows: ContactListRow[], f: ContactFilters, now = 
     if (f.tag && !r.tags.includes(f.tag)) return false;
     if (f.group && !r.groups.includes(f.group)) return false;
     if (f.source && (r.source ?? 'manual') !== f.source) return false;
+    if (f.language && (r.language ?? '') !== f.language) return false;
+    if (f.nationality && (r.nationality ?? '') !== f.nationality) return false;
+    if (f.buyerType && (r.buyerType ?? '') !== f.buyerType) return false;
+    if (f.consent === 'yes' && !r.optIn) return false;
+    if (f.consent === 'no' && r.optIn) return false;
     if (f.kyc === 'verified' && r.kycStatus !== 'verified') return false;
     if (f.kyc === 'pending' && !(r.kycStatus && r.kycStatus !== 'verified')) return false;
     if (f.kyc === 'none' && r.kycStatus) return false;

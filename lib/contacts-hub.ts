@@ -1,6 +1,6 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { getCustomers } from '@/lib/customers';
-import { rolesFromRow, type ContactEvent, type ContactListRow, type ContactStatus } from '@/lib/contacts-hub-shared';
+import { rolesFromRow, type ContactEvent, type ContactListRow, type ContactStatus, type ContactGroup } from '@/lib/contacts-hub-shared';
 
 export interface StaffOption { id: string; name: string }
 
@@ -12,20 +12,22 @@ export async function loadStaff(): Promise<StaffOption[]> {
 }
 
 /** Όλες οι επαφές με ιδιότητες, κατάσταση, υπεύθυνο, τελευταία επαφή και αξία. */
-export async function loadContactList(): Promise<{ rows: ContactListRow[]; staff: StaffOption[]; missing: boolean }> {
+export async function loadContactList(): Promise<{ rows: ContactListRow[]; staff: StaffOption[]; groups: ContactGroup[]; missing: boolean }> {
   const supabase = await createSupabaseServerClient();
   const db = supabase as any;
-  const [{ data: contacts, error }, { data: overview }, ledger, staff] = await Promise.all([
+  const [{ data: contacts, error }, { data: overview }, ledger, staff, { data: groupRows }] = await Promise.all([
     db.from('contacts')
-      .select('id, full_name, email, phone, is_lead, is_buyer, is_investor, is_homeowner, is_newsletter_subscriber, extra_roles, status, owner_id, first_touch_source, tags, groups, preferred_language, created_at, anonymized_at')
+      .select('id, full_name, email, phone, is_lead, is_buyer, is_investor, is_homeowner, is_newsletter_subscriber, extra_roles, status, owner_id, first_touch_source, tags, groups, preferred_language, nationality, buyer_type, marketing_opt_in, created_at, anonymized_at')
       .is('anonymized_at', null)
       .order('created_at', { ascending: false })
       .limit(5000),
     db.from('contact_overview').select('id, last_contact_at, open_leads, effective_owner, kyc_status').limit(5000),
     getCustomers(),
     loadStaff(),
+    db.from('contact_groups').select('id, name, description, tags, created_at').order('name'),
   ]);
-  if (error) return { rows: [], staff, missing: /column|does not exist|schema cache/i.test(error.message) };
+  const groups: ContactGroup[] = ((groupRows ?? []) as any[]).map((g) => ({ id: g.id, name: g.name, description: g.description ?? '', tags: g.tags ?? [], createdAt: g.created_at }));
+  if (error) return { rows: [], staff, groups, missing: /column|does not exist|schema cache/i.test(error.message) };
   const ov = new globalThis.Map<string, any>(((overview ?? []) as any[]).map((o) => [o.id, o]));
   const money = new globalThis.Map(ledger.rows.map((r) => [r.contactId, r]));
   const names = new globalThis.Map(staff.map((s) => [s.id, s.name]));
@@ -38,11 +40,12 @@ export async function loadContactList(): Promise<{ rows: ContactListRow[]; staff
       roles: rolesFromRow(c), status: (c.status ?? 'active') as ContactStatus,
       ownerId, ownerName: ownerId ? names.get(ownerId) ?? null : null,
       source: c.first_touch_source ?? null, tags: c.tags ?? [], groups: c.groups ?? [], language: c.preferred_language ?? null,
+      nationality: c.nationality ?? null, buyerType: c.buyer_type ?? null, optIn: !!c.marketing_opt_in,
       createdAt: c.created_at, lastContactAt: o.last_contact_at ?? null, openLeads: Number(o.open_leads ?? 0), kycStatus: o.kyc_status ?? null,
       value: m?.contractValue ?? 0, paid: m?.paid ?? 0,
     };
   });
-  return { rows, staff, missing: false };
+  return { rows, staff, groups, missing: false };
 }
 
 /** Ιστορικό μιας επαφής: αλλαγές ιδιοτήτων/κατάστασης/υπεύθυνου, μετατροπές, leads. */

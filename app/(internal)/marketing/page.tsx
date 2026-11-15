@@ -6,6 +6,12 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { BarChart3, Users, Reply, CalendarCheck, Trophy, Zap, Megaphone, Lightbulb } from 'lucide-react';
 import { TrendChip } from '@/components/ui/TrendChip';
 import type { Trend } from '@/lib/trend';
+import { effectiveCan } from '@/lib/permissions';
+import { MarketingHub, type PickContact } from '@/components/marketing/MarketingHub';
+import type { CampaignRow } from '@/lib/campaigns-shared';
+
+export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
 
 const SOURCE_LABEL: Record<string, string> = {
   website: 'Website', meta: 'Meta', google: 'Google', organic: 'Organic',
@@ -16,10 +22,23 @@ const SOURCE_LABEL: Record<string, string> = {
  * Marketing workspace — the top of the funnel (Marketing → Leads → Sales).
  * Surfaces live lead-source performance and funnel efficiency from the CRM.
  */
-export default async function MarketingPage() {
-  await requirePermission('marketing');
+export default async function MarketingPage({ searchParams }: { searchParams: { tab?: string; group?: string; tag?: string; role?: string; ids?: string } }) {
+  const profile = await requirePermission('marketing');
   const supabase = await createSupabaseServerClient();
-  const k = await computeSalesKpis(supabase);
+  const db = supabase as any;
+  const [k, { data: camps }, { data: groupRows }, { data: contactRows }] = await Promise.all([
+    computeSalesKpis(supabase),
+    db.from('marketing_campaigns').select('*').order('created_at', { ascending: false }).limit(500),
+    db.from('contact_groups').select('name').order('name'),
+    db.from('contacts').select('id, full_name, email, phone, marketing_opt_in, groups, tags, status').is('anonymized_at', null).neq('status', 'archived').order('full_name').limit(5000),
+  ]);
+  const contactsAll = (contactRows ?? []) as any[];
+  const groupNames = Array.from(new Set([...((groupRows ?? []) as any[]).map((g) => g.name as string), ...contactsAll.flatMap((c) => (c.groups ?? []) as string[])])).sort((a, b) => a.localeCompare(b, 'el'));
+  const groups = groupNames.map((name) => ({ name, n: contactsAll.filter((c) => (c.groups ?? []).includes(name)).length }));
+  const tagList = Array.from(new Set(contactsAll.flatMap((c) => (c.tags ?? []) as string[]))).sort();
+  const picks: PickContact[] = contactsAll.map((c) => ({ id: c.id, name: c.full_name ?? c.email ?? '—', email: c.email, phone: c.phone, optIn: !!c.marketing_opt_in }));
+  const campaigns: CampaignRow[] = ((camps ?? []) as any[]).map((c) => ({ id: c.id, name: c.name, channel: c.channel, audience: c.audience ?? {}, subject: c.subject, preview: c.preview, body: c.body ?? '', status: c.status, recipients: c.recipients ?? 0, sent: c.sent ?? 0, failed: c.failed ?? 0, skipped: c.skipped ?? 0, createdAt: c.created_at, sentAt: c.sent_at, createdBy: c.created_by }));
+  const canEdit = effectiveCan(profile.role, profile.moduleAccess, 'marketing', 'edit', profile.permissions);
   const bestSource = [...k.sources].sort((a, b) => b.conversionPct - a.conversionPct || b.leads - a.leads)[0];
   const label = (s: string) => SOURCE_LABEL[s] ?? s;
 
@@ -49,9 +68,8 @@ export default async function MarketingPage() {
     { label: 'Won', value: String(k.wonCount), icon: Trophy, tone: 'text-champagne-600' },
   ];
 
-  return (
+  const sources = (
     <div className="space-y-5">
-      <WorkspaceHeader eyebrow="Workspace" title="Marketing" description="The top of the funnel — Marketing generates the leads Sales converts." />
 
       {/* Funnel KPIs (live from the CRM) */}
       <div className="ws-card grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-5 !py-4">
@@ -106,6 +124,13 @@ export default async function MarketingPage() {
           </table>
         )}
       </div>
+    </div>
+  );
+
+  return (
+    <div className="space-y-5">
+      <WorkspaceHeader eyebrow="Marketing" title="Marketing" description="Επικοινωνία με τους πελάτες σας σε κάθε κανάλι — email και WhatsApp — από ένα σημείο." />
+      <MarketingHub campaigns={campaigns} groups={groups} contacts={picks} tags={tagList} prefill={searchParams} sources={sources} canEdit={canEdit} />
     </div>
   );
 }
