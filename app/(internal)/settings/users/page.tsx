@@ -3,10 +3,14 @@ import { createSupabaseServerClient, createSupabaseServiceRoleClient } from '@/l
 import { INTERNAL_ROLES, sanitizePermissions } from '@/lib/permissions';
 import { getOrgSettingsRaw } from '@/lib/org-settings';
 import { UsersAdmin, type AdminUser, type AdminInvite } from '@/components/admin/UsersAdmin';
+import { StaffTabs } from '@/components/admin/StaffTabs';
+import { LeaveManager } from '@/components/hr/LeaveManager';
+import { effectiveCan } from '@/lib/permissions';
 
 const PORTAL_ROLES = ['buyer', 'homeowner', 'investor', 'contractor'];
 
-export default async function UsersSettingsPage() {
+export default async function UsersSettingsPage({ searchParams }: { searchParams?: { tab?: string } }) {
+  const tab = searchParams?.tab === 'external' ? 'external' : searchParams?.tab === 'leave' ? 'leave' : 'employees';
   const profile = await requirePermission('users');
   const supabase = await createSupabaseServerClient();
 
@@ -52,14 +56,36 @@ export default async function UsersSettingsPage() {
     };
   };
 
+  const counts = { employees: (users ?? []).length, external: (portalUsers ?? []).length };
+  if (tab === 'leave') {
+    const canEditHr = effectiveCan(profile.role, profile.moduleAccess, 'hr', 'edit', profile.permissions);
+    const [{ data: allLeave }, { data: balances }] = await Promise.all([
+      supabase.from('leave_requests').select('id, profile_id, leave_type, start_date, end_date, days, reason, status, created_at, profiles!leave_requests_profile_id_fkey(full_name)').order('start_date', { ascending: false }).limit(1000),
+      supabase.from('leave_balances').select('profile_id, leave_type, year, total_days, used_days'),
+    ]);
+    return (
+      <div className="space-y-5">
+        <StaffTabs active="leave" counts={counts} />
+        <div><p className="eyebrow mb-1">Staff</p><h1 className="text-3xl">Άδειες</h1></div>
+        <LeaveManager me={profile.id} canEdit={canEditHr} employees={((users ?? []) as any[]).map((u) => ({ id: u.id, full_name: u.full_name })) as any}
+          balances={((balances ?? []) as any[]).map((b) => ({ ...b, total_days: Number(b.total_days ?? 0), used_days: Number(b.used_days ?? 0) }))}
+          requests={((allLeave ?? []) as any[]).map((r) => ({ ...r, employee: r.profiles?.full_name ?? null }))} />
+      </div>
+    );
+  }
+
   return (
-    <UsersAdmin
-      users={(users ?? []).map(enrich)}
-      invites={(invites ?? []) as AdminInvite[]}
-      portalUsers={(portalUsers ?? []).map((u) => ({ ...u, email: emails.get(u.id) ?? null, permissions: null, mustChangePassword: false, moduleAccess: [] }))}
-      currentUserId={profile.id}
-      canImpersonate={profile.role === 'admin'}
-      roles={roles}
-    />
+    <div className="space-y-5">
+      <StaffTabs active={tab} counts={counts} />
+      <UsersAdmin
+        mode={tab}
+        users={(users ?? []).map(enrich)}
+        invites={(invites ?? []) as AdminInvite[]}
+        portalUsers={(portalUsers ?? []).map((u) => ({ ...u, email: emails.get(u.id) ?? null, permissions: null, mustChangePassword: false, moduleAccess: [] }))}
+        currentUserId={profile.id}
+        canImpersonate={profile.role === 'admin'}
+        roles={roles}
+      />
+    </div>
   );
 }

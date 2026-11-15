@@ -110,8 +110,10 @@ export const DEFAULT_NAV: NavDef[] = [
       {
         href: '/settings/users', label: 'Staff', icon: 'Users', module: 'users',
         children: [
-          { href: '/settings/users', label: 'Χρήστες & πρόσβαση' },
+          { href: '/settings/users', label: 'Υπάλληλοι' },
+          { href: '/settings/users?tab=external', label: 'Ιδιοκτήτες & συνεργάτες' },
           { href: '/settings/roles', label: 'Ρόλοι & δικαιώματα' },
+          { href: '/settings/users?tab=leave', label: 'Άδειες' },
           { href: '/settings/view-as', label: 'Προβολή ως χρήστης' },
         ],
       },
