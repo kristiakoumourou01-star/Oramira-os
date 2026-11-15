@@ -208,6 +208,7 @@ export function sidebarBackground(style: string, primary: string, custom: string
     for (let i = 0; i < 8 && luminance(c) > 0.06; i++) c = hex(darken(c, 0.2, c));
     return `linear-gradient(to bottom, rgb(${darken(c, 0.25, c)}), rgb(${channels(c, c)}), rgb(${lighten(c, 0.07, c)}))`;
   };
+  if (style === 'light') return '#ffffff';
   if (style === 'charcoal') return 'linear-gradient(to bottom, #15171A, #1B1E22, #22262B)';
   if (style === 'custom') return grad(custom);
   // brand: a deep version of the primary colour (the original Oramira look)

@@ -293,7 +293,7 @@ export function menuOverridesFrom(items: ResolvedNavItem[], position: MenuPositi
 }
 
 /* ---- Appearance extras (company-wide; colours/fonts live in org_branding) ---- */
-export type SidebarStyle = 'brand' | 'charcoal' | 'custom';
+export type SidebarStyle = 'light' | 'brand' | 'charcoal' | 'custom';
 export type Corners = 'square' | 'soft' | 'round';
 export type BoxStyle = 'shadow' | 'outline' | 'flat';
 /** Χρώμα κουτιών: λευκό ή απόχρωση από τα χρώματα της εταιρείας. */
@@ -312,7 +312,7 @@ export interface AppearanceSettings {
   labelStyle: LabelStyle;
 }
 export const DEFAULT_APPEARANCE: AppearanceSettings = {
-  logoOnLight: null, favicon: null, sidebarStyle: 'brand', sidebarColor: '#113124', corners: 'soft', boxStyle: 'shadow', boxColor: 'white', labelStyle: 'soft',
+  logoOnLight: null, favicon: null, sidebarStyle: 'light', sidebarColor: '#113124', corners: 'soft', boxStyle: 'shadow', boxColor: 'white', labelStyle: 'soft',
 };
 
 export interface OrgSettings {
@@ -599,7 +599,7 @@ export function mergeAppearance(a: any): AppearanceSettings {
   return {
     logoOnLight: img(v.logoOnLight),
     favicon: img(v.favicon),
-    sidebarStyle: ['brand', 'charcoal', 'custom'].includes(v.sidebarStyle) ? v.sidebarStyle : DEFAULT_APPEARANCE.sidebarStyle,
+    sidebarStyle: ['light', 'brand', 'charcoal', 'custom'].includes(v.sidebarStyle) ? v.sidebarStyle : DEFAULT_APPEARANCE.sidebarStyle,
     sidebarColor: typeof v.sidebarColor === 'string' && HEX6.test(v.sidebarColor) ? v.sidebarColor.toUpperCase() : DEFAULT_APPEARANCE.sidebarColor,
     corners: ['square', 'soft', 'round'].includes(v.corners) ? v.corners : DEFAULT_APPEARANCE.corners,
     boxStyle: ['shadow', 'outline', 'flat'].includes(v.boxStyle) ? v.boxStyle : DEFAULT_APPEARANCE.boxStyle,

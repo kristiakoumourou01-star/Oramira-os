@@ -20,12 +20,12 @@ export function TopMenu({ sections, footer, brand }: { sections: { label?: strin
     });
 
   return (
-    <header className="relative z-30 flex items-center gap-4 [background:var(--sidebar-bg)] px-4 py-2">
+    <header className="relative z-30 flex items-center gap-4 [background:var(--sidebar-bg)] border-b border-[color:var(--sb-line)] px-4 py-2">
       {brand}
       <nav className="flex flex-1 flex-wrap items-center gap-0.5" aria-label="Κύριο μενού">
         {sections.flatMap((s) => s.items).map((it) => {
           const active = isActive(it);
-          const base = `flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[13px] transition-colors ${active ? 'bg-white/[0.08] font-medium text-champagne' : 'text-stone-100/70 hover:bg-white/[0.07] hover:text-stone-100'}`;
+          const base = `flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[13px] transition-colors ${active ? 'bg-[color:var(--sb-active-bg)] font-medium text-[color:var(--sb-active-text)]' : 'text-[color:var(--sb-text)] hover:bg-[color:var(--sb-hover-bg)] hover:text-[color:var(--sb-text-hover)]'}`;
           if (!it.children || it.children.length === 0) {
             return <Link key={it.href} href={it.href} className={base}>{it.icon}{it.label}</Link>;
           }
