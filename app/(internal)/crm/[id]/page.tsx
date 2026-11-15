@@ -34,13 +34,21 @@ import { TaskList } from '@/components/ui/TaskList';
 export const dynamic = 'force-dynamic';
 
 const TABS = [
-  { key: 'overview', label: 'Επισκόπηση' },
-  { key: 'activity', label: 'Σημειώσεις & μηνύματα' },
-  { key: 'properties', label: 'Ακίνητα & προβολές' },
-  { key: 'deals', label: 'Συναλλαγές & πληρωμές' },
+  { key: 'overview', label: 'Πληροφορίες' },
   { key: 'documents', label: 'Έγγραφα' },
   { key: 'people', label: 'Οικογένεια & συνεργάτες' },
+  { key: 'deals', label: 'Αγορά & πληρωμές' },
+  { key: 'properties', label: 'Ακίνητα & viewings' },
+  { key: 'activity', label: 'Επικοινωνία' },
   { key: 'kyc', label: 'Ταυτότητα & AML' },
+] as const;
+// Όπως στο FitnessCRM: κύριες καρτέλες (pill) και, στο «Προφίλ», υπο-καρτέλες.
+const MAIN = [
+  { key: 'profile', label: 'Προφίλ', tabs: ['overview', 'documents', 'people'] },
+  { key: 'deals', label: 'Αγορά & πληρωμές', tabs: ['deals'] },
+  { key: 'properties', label: 'Ακίνητα & viewings', tabs: ['properties'] },
+  { key: 'activity', label: 'Επικοινωνία', tabs: ['activity'] },
+  { key: 'kyc', label: 'Ταυτότητα & AML', tabs: ['kyc'] },
 ] as const;
 type TabKey = (typeof TABS)[number]['key'];
 const VIEWING: Record<string, string> = { scheduled: 'Προγραμματισμένη', attended: 'Έγινε', no_show: 'Δεν ήρθε', cancelled: 'Ακυρώθηκε' };
@@ -54,7 +62,7 @@ const label = (list: { v: string; l: string }[], v: string | null | undefined) =
  * επισκόπηση, σημειώσεις/μηνύματα, ακίνητα & προβολές, συναλλαγές & πληρωμές,
  * έγγραφα, οικογένεια/συνεργάτες, ταυτότητα & AML.
  */
-export default async function ContactDetailPage({ params, searchParams }: { params: { id: string }; searchParams: { tab?: string } }) {
+export default async function ContactDetailPage({ params, searchParams }: { params: { id: string }; searchParams: { tab?: string; edit?: string } }) {
   const profile = await requirePermission('leads');
   const canEdit = effectiveCan(profile.role, profile.moduleAccess, 'leads', 'edit', profile.permissions);
   const tab: TabKey = (TABS.find((t) => t.key === searchParams.tab)?.key ?? 'overview') as TabKey;
@@ -127,14 +135,22 @@ export default async function ContactDetailPage({ params, searchParams }: { para
 
       <DuplicateBanner contactId={contact.id} matches={dupes} canMerge={canEdit && ['admin', 'management', 'sales'].includes(profile.role)} />
 
-      <nav className="flex flex-wrap gap-1.5 rounded-2xl border border-stone-line bg-white p-1.5">
-        {TABS.map((t) => (
-          <Link key={t.key} href={t.key === 'overview' ? here : `${here}?tab=${t.key}`} scroll={false}
-            className={`rounded-xl px-3.5 py-2 text-[14px] font-medium transition ${tab === t.key ? 'bg-forest/[0.09] text-forest' : 'text-charcoal-600 hover:bg-stone-50 hover:text-charcoal'}`}>
-            {t.label}{(counts[t.key] ?? 0) > 0 && <span className="ml-1.5 rounded-full bg-forest/10 px-1.5 text-[11px] text-forest">{counts[t.key]}</span>}
-          </Link>
-        ))}
-      </nav>
+      <div className="space-y-2">
+        <nav className="inline-flex flex-wrap gap-1 rounded-xl border border-stone-line bg-white p-1">
+          {MAIN.map((m) => {
+            const on = (m.tabs as readonly string[]).includes(tab);
+            const n = m.tabs.reduce((x, k) => x + (counts[k as TabKey] ?? 0), 0);
+            return <Link key={m.key} href={m.tabs[0] === 'overview' ? here : `${here}?tab=${m.tabs[0]}`} scroll={false} className={`rounded-lg px-3.5 py-1.5 text-[14px] font-medium transition ${on ? 'bg-forest/[0.09] text-forest' : 'text-charcoal-600 hover:text-charcoal'}`}>{m.label}{m.key !== 'profile' && n > 0 && <span className="ml-1.5 rounded-full bg-forest/10 px-1.5 text-[11px] text-forest">{n}</span>}</Link>;
+          })}
+        </nav>
+        {['overview', 'documents', 'people'].includes(tab) && (
+          <nav className="flex gap-1 border-b border-stone-line">
+            {TABS.filter((t) => ['overview', 'documents', 'people'].includes(t.key)).map((t) => (
+              <Link key={t.key} href={t.key === 'overview' ? here : `${here}?tab=${t.key}`} scroll={false} className={`-mb-px border-b-2 px-3 py-2 text-[14px] ${tab === t.key ? 'border-forest font-medium text-charcoal' : 'border-transparent text-charcoal-600 hover:text-charcoal'}`}>{t.label}{(counts[t.key] ?? 0) > 0 && <span className="ml-1 text-[12px] text-charcoal-600">({counts[t.key]})</span>}</Link>
+            ))}
+          </nav>
+        )}
+      </div>
 
       {tab === 'overview' && await Overview()}
       {tab === 'activity' && await Activity()}
@@ -142,6 +158,7 @@ export default async function ContactDetailPage({ params, searchParams }: { para
       {tab === 'deals' && await Deals()}
       {tab === 'documents' && await Documents()}
       {tab === 'people' && await People()}
+      {tab === 'kyc' && await Gdpr()}
       {tab === 'kyc' && (
         <KycPanel contactId={contact.id} initial={kyc ? cleanKyc(kyc) : EMPTY_KYC} aml={settings.aml} canEdit={canEdit} missing={migMissing} contactNationality={contact.nationality}
           meta={{ verifiedAt: kyc?.verified_at ?? null, verifiedBy: kyc?.verifier?.full_name ?? null, reviewDue: kyc?.review_due ?? null, updatedAt: kyc?.updated_at ?? null }} />
@@ -152,24 +169,20 @@ export default async function ContactDetailPage({ params, searchParams }: { para
   /* ------------------------------------------------------------ tabs -- */
 
   async function Overview() {
-    const [{ events, names }, staff] = await Promise.all([loadContactEvents(contact!.id), loadStaff()]);
-    const hub = { events, names, staff };
-    const canErase = effectiveCan(profile.role, profile.moduleAccess, 'leads', 'delete', profile.permissions);
-    const gdprHold = canErase && !c.anonymized_at ? await legalHold(contact!.id) : { hold: null, missing: false };
-    const { data: buyer } = await supabase.from('buyers').select('id, portal_eligible, portal_activated').eq('contact_id', contact!.id).maybeSingle();
-    let unitLinkData = null;
-    if (buyer) {
-      const { data: unit } = await supabase.from('units').select('id, unit_number, sqm, price, projects(name)').eq('buyer_contact_id', contact!.id).limit(1).maybeSingle();
-      const { data: reservation } = unit ? await supabase.from('reservations').select('deposit_amount, deposit_paid').eq('unit_id', unit.id).eq('buyer_contact_id', contact!.id).order('reserved_at', { ascending: false }).limit(1).maybeSingle() : { data: null };
-      const { data: contract } = unit ? await supabase.from('contracts').select('id, status').eq('unit_id', unit.id).eq('buyer_contact_id', contact!.id).order('created_at', { ascending: false }).limit(1).maybeSingle() : { data: null };
-      const { data: payments } = contract ? await supabase.from('payments').select('amount_paid, paid_at').eq('contract_id', (contract as any).id) : { data: [] };
-      unitLinkData = {
-        buyerId: buyer.id, portalEligible: buyer.portal_eligible, portalActivated: buyer.portal_activated,
-        unit: unit ? { id: unit.id, unit_number: unit.unit_number, sqm: unit.sqm, price: unit.price, project_name: (unit as any).projects?.name ?? null } : null,
-        reservation: reservation ?? null, contract: contract ? { status: (contract as any).status } : null, payments: payments ?? [],
-      };
+    const hub = { staff: await loadStaff() };
+    if (searchParams.edit === '1' && canEdit) {
+      return (
+        <div className="space-y-5">
+          <div className="flex items-center justify-between"><h2 className="text-[18px] font-semibold text-charcoal">Επεξεργασία στοιχείων</h2><Link href={here} scroll={false} className="btn-primary text-sm">Τέλος</Link></div>
+          <div className="grid gap-5 lg:grid-cols-2">
+            <ContactRolesPanel contactId={contact!.id} roles={rolesFromRow(c)} status={(c.status ?? 'active') as ContactStatus} ownerId={c.owner_id ?? null} staff={hub.staff} canEdit={canEdit} />
+            <ContactPreferences contactId={contact!.id} canEdit={canEdit && !migMissing} initial={{ language: c.preferred_language ?? null, channel: c.communication_preference ?? null, bestTime: c.best_time ?? null, bestTimeNote: c.best_time_note ?? null }} />
+            <ContactMetaPanel contactId={contact!.id} initial={readMeta(contact)} defs={settings.tags} canEdit={canEdit} />
+          </div>
+          <p className="text-[13px] text-charcoal-600">Ταυτότητα, ημ. γέννησης, διεύθυνση και επάγγελμα αλλάζουν στην καρτέλα «Ταυτότητα & AML».</p>
+        </div>
+      );
     }
-    const { data: followUps } = await supabase.from('follow_up_tasks').select('id, note, due_at, is_done').eq('contact_id', contact!.id);
     const dash = (v: unknown) => (v === null || v === undefined || v === '' ? '—' : String(v));
     const dmy = (v: string | null | undefined) => (v ? new Date(v).toLocaleDateString('el-GR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—');
     const nm = String(contact!.full_name ?? '').trim().split(/\s+/);
@@ -185,7 +198,7 @@ export default async function ContactDetailPage({ params, searchParams }: { para
     return (
       <div className="space-y-5">
       <div className="flex justify-end gap-2">
-        {canEdit && <a href="#edit" className="inline-flex items-center gap-1.5 rounded-lg border border-stone-line bg-white px-3 py-1.5 text-sm text-charcoal hover:border-forest/40"><Pencil size={14} /> Επεξεργασία</a>}
+        {canEdit && <Link href={`${here}?edit=1`} scroll={false} className="inline-flex items-center gap-1.5 rounded-lg border border-stone-line bg-white px-3 py-1.5 text-sm text-charcoal hover:border-forest/40"><Pencil size={14} /> Επεξεργασία</Link>}
       </div>
       <div className="grid gap-5 lg:grid-cols-2">
         <InfoCard title="Προσωπικά στοιχεία" rows={[
@@ -208,40 +221,17 @@ export default async function ContactDetailPage({ params, searchParams }: { para
       </div>
       <InfoCard title="Σχόλιο" rows={[['Σχόλιο', dash(lead?.message ?? kyc?.notes)]]} />
 
-      <h2 id="edit" className="scroll-mt-24 pt-2 text-[13px] font-semibold uppercase tracking-[0.1em] text-charcoal-600">Πώληση & επεξεργασία</h2>
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="space-y-6 lg:col-span-2">
-          {lead && (
-            <div className="panel p-6">
-              <div className="mb-4 flex items-center justify-between"><h4>Πορεία πώλησης</h4><Link href={`/crm/leads/${lead.id}`} className="text-xs text-forest hover:underline">Άνοιγμα lead →</Link></div>
-              <StatusPipeline leadId={lead.id} currentStatus={lead.status} currentStage={stageById[lead.id] ?? null} pipeline={pipelineOf(settings.pipelines, lead.pipeline ?? null)} lostReasons={settings.pipelines.lostReasons}
-                stageEnteredAt={lead.stage_entered_at ?? null} lostReason={lead.lost_reason ?? null} lostNote={lead.lost_note ?? null} commissionInvoiceId={lead.commission_invoice_id ?? null} />
-              <div className="mt-5 grid grid-cols-2 gap-4 text-sm">
-                <div><p className="eyebrow">Budget</p><p className="figure text-charcoal">{lead.budget_min || lead.budget_max ? `€${formatNumber(Number(lead.budget_min ?? 0))}–${formatNumber(Number(lead.budget_max ?? 0))}` : '—'}</p></div>
-                <div><p className="eyebrow">Πηγή</p><p className="capitalize text-charcoal">{lead.source}</p></div>
-                <div><p className="eyebrow">Έργο ενδιαφέροντος</p><p className="text-charcoal">{lead.projects?.name ?? '—'}</p></div>
-                <div><p className="eyebrow">Πότε θέλει να αγοράσει</p><p className="text-charcoal">{lead.timeline_to_buy ?? '—'}</p></div>
-              </div>
-            </div>
-          )}
-          {lead && <AIInsightPanel leadId={lead.id} score={lead.ai_score} reasoning={lead.ai_score_reasoning} summary={lead.ai_summary} nextSteps={lead.ai_next_steps} generatedAt={lead.ai_summary_generated_at} />}
-          {unitLinkData && <UnitLinkCard data={unitLinkData} />}
-          <div className="panel p-6">
-            <h4 className="mb-3">Follow-ups</h4>
-            <TaskList table="follow_up_tasks" tasks={(followUps ?? []).map((t) => ({ id: t.id, title: t.note ?? 'Follow up', due_at: t.due_at, is_done: t.is_done }))} />
-          </div>
-        </div>
-        <div className="space-y-6">
-          <ContactRolesPanel contactId={contact!.id} roles={rolesFromRow(c)} status={(c.status ?? 'active') as ContactStatus} ownerId={c.owner_id ?? null} staff={hub.staff} canEdit={canEdit} />
-          <ContactHistory events={hub.events} names={hub.names} />
-          <ContactPreferences contactId={contact!.id} canEdit={canEdit && !migMissing} initial={{ language: c.preferred_language ?? null, channel: c.communication_preference ?? null, bestTime: c.best_time ?? null, bestTimeNote: c.best_time_note ?? null }} />
-          <ContactMetaPanel contactId={contact!.id} initial={readMeta(contact)} defs={settings.tags} canEdit={canEdit} />
-          <GdprPanel contactId={contact!.id}
-            info={{ consentAt: c.consent_at ?? null, consentSource: c.consent_source ?? null, consentText: c.consent_text ?? null, marketing: !!c.marketing_opt_in, marketingAt: c.marketing_opt_in_at ?? null, anonymizedAt: c.anonymized_at ?? null }}
-            hold={gdprHold.hold} missing={gdprHold.missing || !('anonymized_at' in c)} canEdit={canEdit} canErase={canErase} canExport={hasRight(profile, 'export_data')} />
-        </div>
       </div>
-      </div>
+    );
+  }
+
+  async function Gdpr() {
+    const canErase = effectiveCan(profile.role, profile.moduleAccess, 'leads', 'delete', profile.permissions);
+    const gdprHold = canErase && !c.anonymized_at ? await legalHold(contact!.id) : { hold: null, missing: false };
+    return (
+      <GdprPanel contactId={contact!.id}
+        info={{ consentAt: c.consent_at ?? null, consentSource: c.consent_source ?? null, consentText: c.consent_text ?? null, marketing: !!c.marketing_opt_in, marketingAt: c.marketing_opt_in_at ?? null, anonymizedAt: c.anonymized_at ?? null }}
+        hold={gdprHold.hold} missing={gdprHold.missing || !('anonymized_at' in c)} canEdit={canEdit} canErase={canErase} canExport={hasRight(profile, 'export_data')} />
     );
   }
 
@@ -254,7 +244,17 @@ export default async function ContactDetailPage({ params, searchParams }: { para
       ...(notes ?? []).map((n: any) => ({ id: n.id, kind: 'note' as const, body: n.body, author: n.profiles?.full_name, occurred_at: n.created_at })),
       ...(comms ?? []).map((m: any) => ({ id: m.id, kind: 'communication' as const, body: m.summary, channel: m.channel, direction: m.direction, status: m.status, ai_generated: m.ai_generated, author: m.profiles?.full_name, occurred_at: m.occurred_at })),
     ].sort((a, b) => new Date(b.occurred_at).getTime() - new Date(a.occurred_at).getTime());
-    return <div className="max-w-3xl"><ContactTimeline contactId={contact!.id} leadId={lead?.id} entries={timeline} /></div>;
+    const { events, names } = await loadContactEvents(contact!.id);
+    const { data: followUps } = await supabase.from('follow_up_tasks').select('id, note, due_at, is_done').eq('contact_id', contact!.id);
+    return (
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="lg:col-span-2"><ContactTimeline contactId={contact!.id} leadId={lead?.id} entries={timeline} /></div>
+        <div className="space-y-6">
+          <div className="panel p-6"><h4 className="mb-3">Follow-ups</h4><TaskList table="follow_up_tasks" tasks={(followUps ?? []).map((t) => ({ id: t.id, title: t.note ?? 'Follow up', due_at: t.due_at, is_done: t.is_done }))} /></div>
+          <ContactHistory events={events} names={names} />
+        </div>
+      </div>
+    );
   }
 
   async function Properties() {
@@ -305,6 +305,19 @@ export default async function ContactDetailPage({ params, searchParams }: { para
   }
 
   async function Deals() {
+    const { data: buyer } = await supabase.from('buyers').select('id, portal_eligible, portal_activated').eq('contact_id', contact!.id).maybeSingle();
+    let unitLinkData = null;
+    if (buyer) {
+      const { data: unit } = await supabase.from('units').select('id, unit_number, sqm, price, projects(name)').eq('buyer_contact_id', contact!.id).limit(1).maybeSingle();
+      const { data: reservation } = unit ? await supabase.from('reservations').select('deposit_amount, deposit_paid').eq('unit_id', unit.id).eq('buyer_contact_id', contact!.id).order('reserved_at', { ascending: false }).limit(1).maybeSingle() : { data: null };
+      const { data: contract } = unit ? await supabase.from('contracts').select('id, status').eq('unit_id', unit.id).eq('buyer_contact_id', contact!.id).order('created_at', { ascending: false }).limit(1).maybeSingle() : { data: null };
+      const { data: payments } = contract ? await supabase.from('payments').select('amount_paid, paid_at').eq('contract_id', (contract as any).id) : { data: [] };
+      unitLinkData = {
+        buyerId: buyer.id, portalEligible: buyer.portal_eligible, portalActivated: buyer.portal_activated,
+        unit: unit ? { id: unit.id, unit_number: unit.unit_number, sqm: unit.sqm, price: unit.price, project_name: (unit as any).projects?.name ?? null } : null,
+        reservation: reservation ?? null, contract: contract ? { status: (contract as any).status } : null, payments: payments ?? [],
+      };
+    }
     const leadIds = (leads ?? []).map((l: any) => l.id);
     const [{ data: negs }, { data: resv }, { data: contracts }, { data: invoices }, { data: inv }] = await Promise.all([
       leadIds.length ? supabase.from('negotiations').select('id, lead_id, offered_price, counter_offer, agreed_price, created_at, units(unit_number)').in('lead_id', leadIds).order('created_at', { ascending: false }) : Promise.resolve({ data: [] as any[] }),
@@ -322,6 +335,21 @@ export default async function ContactDetailPage({ params, searchParams }: { para
     const today = new Date().toISOString().slice(0, 10);
     return (
       <div className="space-y-6">
+        {lead && (
+          <div className="panel p-6">
+            <div className="mb-4 flex items-center justify-between"><h4>Πορεία πώλησης</h4><Link href={`/crm/leads/${lead.id}`} className="text-xs text-forest hover:underline">Άνοιγμα lead →</Link></div>
+            <StatusPipeline leadId={lead.id} currentStatus={lead.status} currentStage={stageById[lead.id] ?? null} pipeline={pipelineOf(settings.pipelines, lead.pipeline ?? null)} lostReasons={settings.pipelines.lostReasons}
+              stageEnteredAt={lead.stage_entered_at ?? null} lostReason={lead.lost_reason ?? null} lostNote={lead.lost_note ?? null} commissionInvoiceId={lead.commission_invoice_id ?? null} />
+            <div className="mt-5 grid grid-cols-2 gap-4 text-sm sm:grid-cols-4">
+              <div><p className="eyebrow">Budget</p><p className="figure text-charcoal">{lead.budget_min || lead.budget_max ? `€${formatNumber(Number(lead.budget_min ?? 0))}–${formatNumber(Number(lead.budget_max ?? 0))}` : '—'}</p></div>
+              <div><p className="eyebrow">Πηγή</p><p className="capitalize text-charcoal">{lead.source}</p></div>
+              <div><p className="eyebrow">Έργο ενδιαφέροντος</p><p className="text-charcoal">{lead.projects?.name ?? '—'}</p></div>
+              <div><p className="eyebrow">Πότε θέλει να αγοράσει</p><p className="text-charcoal">{lead.timeline_to_buy ?? '—'}</p></div>
+            </div>
+          </div>
+        )}
+        {lead && <AIInsightPanel leadId={lead.id} score={lead.ai_score} reasoning={lead.ai_score_reasoning} summary={lead.ai_summary} nextSteps={lead.ai_next_steps} generatedAt={lead.ai_summary_generated_at} />}
+        {unitLinkData && <UnitLinkCard data={unitLinkData} />}
         <div className="panel p-6">
           <h4 className="mb-3">Leads</h4>
           {(leads ?? []).length === 0 ? <p className="text-sm text-charcoal-600/60">Κανένα lead.</p> : (
