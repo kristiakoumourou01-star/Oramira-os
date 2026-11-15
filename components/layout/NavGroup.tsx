@@ -83,10 +83,18 @@ export function NavGroup({ href, label, icon, items: children, compact = false, 
   return (
     <div>
       <div ref={headRef} className={`group flex items-center rounded-lg pr-1 transition-colors ${active ? 'bg-white/[0.06]' : 'hover:bg-white/[0.05]'}`}>
-        <Link href={href} onClick={() => { keepInPlace(); if (!open) { setOpen(true); announce(); } }} className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-3 py-1.5 text-[13px] transition-colors ${active ? 'font-medium text-champagne' : 'text-stone-100/65 hover:text-stone-100'}`}>
-          <span className={active ? 'text-champagne' : 'text-stone-100/60 group-hover:text-stone-100'}>{icon}</span>
-          <span className="truncate">{label}</span>
-        </Link>
+        {children.length > 0 ? (
+          // Με υποσελίδες: το πάτημα ανοίγει/κλείνει τη λίστα (δεν φεύγει από τη σελίδα).
+          <button type="button" onClick={toggle} aria-expanded={open} className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-3 py-1.5 text-left text-[13px] transition-colors ${active ? 'font-medium text-champagne' : 'text-stone-100/65 hover:text-stone-100'}`}>
+            <span className={active ? 'text-champagne' : 'text-stone-100/60 group-hover:text-stone-100'}>{icon}</span>
+            <span className="truncate">{label}</span>
+          </button>
+        ) : (
+          <Link href={href} onClick={() => { keepInPlace(); if (!open) { setOpen(true); announce(); } }} className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-3 py-1.5 text-[13px] transition-colors ${active ? 'font-medium text-champagne' : 'text-stone-100/65 hover:text-stone-100'}`}>
+            <span className={active ? 'text-champagne' : 'text-stone-100/60 group-hover:text-stone-100'}>{icon}</span>
+            <span className="truncate">{label}</span>
+          </Link>
+        )}
         <button onClick={toggle} aria-label={`Toggle ${label}`} className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-stone-100/40 hover:text-stone-100">
           <ChevronDown size={14} className={`transition-transform duration-200 ${open ? '' : '-rotate-90'}`} />
         </button>
