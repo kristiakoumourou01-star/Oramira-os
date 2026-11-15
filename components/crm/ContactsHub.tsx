@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Plus, Download, Search, X, Users, Check, CalendarDays, ChevronLeft, ChevronRight, Columns3, SlidersHorizontal, Megaphone } from 'lucide-react';
 import { createContact, bulkUpdateContacts, updateContactBasics, deleteContact, importContacts, createContactGroup, updateContactGroup, deleteContactGroup } from '@/app/actions/contacts-hub';
-import { Eye, Pencil, Trash2, Filter, LayoutGrid, Upload, FileSpreadsheet, Mail, Phone, ExternalLink, Sparkles } from 'lucide-react';
+import { Eye, Pencil, Trash2, Filter, LayoutGrid, Upload, FileSpreadsheet, Mail, Phone, ExternalLink, Sparkles, ListChecks } from 'lucide-react';
 import {
   ALL_ROLES, CONTACT_STATUSES, DEFAULT_FILTERS, ROLE_EL, ROLE_TONE, SOURCE_EL, STATUS_EL, STATUS_TONE,
   contactsCsv, filterContacts, roleCounts, type ContactFilters, type ContactGroup, type ContactListRow, type ContactRole, type ContactStatus,
@@ -139,8 +139,8 @@ export function ContactsHub({ rows, staff, groupDefs = [], initialRole = '', ini
       {view === 'import' && <ImportPanel onDone={(t) => { setMsg({ ok: true, text: t }); setView('customers'); router.refresh(); }} />}
 
       {(view === 'customers' || view === 'leads') && (
-        <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_300px]">
-        <div className="min-w-0 rounded-2xl border border-stone-line bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+        <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="flex min-w-0 flex-col self-stretch rounded-2xl border border-stone-line bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
           <div className="space-y-3 p-4 sm:p-5">
             <div className="flex flex-wrap items-center gap-2 text-[15px] text-charcoal-600">
               <span>Εμφάνιση</span>
@@ -192,15 +192,15 @@ export function ContactsHub({ rows, staff, groupDefs = [], initialRole = '', ini
           </div>
 
           <div className="overflow-x-auto border-t border-stone-line">
-            <table className="w-full min-w-[820px] text-[14px]">
+            <table className="w-full min-w-[760px] text-[14px]">
               <thead>
                 <tr className="border-b border-stone-line text-left text-[12px] font-semibold uppercase tracking-wide text-charcoal-600">
                   {([['name', 'Ονοματεπώνυμο'], ...COLS.filter(([k]) => has(k))] as [string, string][]).map(([k, l]) => (
-                    <th key={k} className="whitespace-nowrap px-4 py-3">
+                    <th key={k} className="whitespace-nowrap px-3 py-3">
                       {['roles', 'tags'].includes(k) ? l : <button type="button" onClick={() => sortClick(k)} className="inline-flex items-center gap-1 uppercase hover:text-charcoal">{l}<span className="text-[10px] text-charcoal-600/60">{sortBy?.k === k ? (sortBy.dir === 1 ? '↑' : '↓') : '⇅'}</span></button>}
                     </th>
                   ))}
-                  <th className="px-4 py-3 text-right">Ενέργειες</th>
+                  <th className="px-3 py-3 text-right">Ενέργειες</th>
                 </tr>
               </thead>
               <tbody>
@@ -208,16 +208,16 @@ export function ContactsHub({ rows, staff, groupDefs = [], initialRole = '', ini
                   const n = splitName(r.name);
                   return (
                     <tr key={r.id} onClick={() => setQuick(r)} className="cursor-pointer border-b border-stone-line/70 last:border-0 hover:bg-stone-50">
-                      <td className="px-4 py-3 font-semibold text-charcoal" data-no-tr>{r.name}</td>
-                      {has('first') && <td className="px-4 py-3 text-charcoal-600" data-no-tr>{n.first || '—'}</td>}
-                      {has('last') && <td className="px-4 py-3 text-charcoal-600" data-no-tr>{n.last || '—'}</td>}
-                      {has('email') && <td className="px-4 py-3 text-charcoal-600" data-no-tr>{r.email || '—'}</td>}
-                      {has('mobile') && <td className="whitespace-nowrap px-4 py-3 text-charcoal-600" data-no-tr>{r.phone || '—'}</td>}
-                      {has('group') && <td className="px-4 py-3">{r.groups.length ? <span className="flex flex-wrap gap-1">{r.groups.map((g) => <span key={g} className="whitespace-nowrap rounded-full border border-stone-line px-2 py-0.5 text-[12px] text-charcoal" data-no-tr>{g}</span>)}</span> : <span className="text-charcoal-600">—</span>}</td>}
-                      {has('tags') && <td className="px-4 py-3 text-[13px] text-charcoal-600" data-no-tr>{r.tags.join(', ') || '—'}</td>}
-                      {has('joined') && <td className="whitespace-nowrap px-4 py-3 text-charcoal-600">{ddmmyyyy(r.createdAt)}</td>}
-                      {has('roles') && <td className="px-4 py-3"><span className="flex flex-wrap gap-1">{r.roles.length ? r.roles.map((x) => <span key={x} className={ROLE_TONE[x]}>{ROLE_EL[x]}</span>) : <span className="text-charcoal-600">—</span>}</span></td>}
-                      <td className="px-4 py-2" onClick={(e) => e.stopPropagation()}>
+                      <td className="px-3 py-3 font-semibold text-charcoal" data-no-tr>{r.name}</td>
+                      {has('first') && <td className="px-3 py-3 text-charcoal-600" data-no-tr>{n.first || '—'}</td>}
+                      {has('last') && <td className="px-3 py-3 text-charcoal-600" data-no-tr>{n.last || '—'}</td>}
+                      {has('email') && <td className="px-3 py-3 text-charcoal-600" data-no-tr>{r.email || '—'}</td>}
+                      {has('mobile') && <td className="whitespace-nowrap px-3 py-3 text-charcoal-600" data-no-tr>{r.phone || '—'}</td>}
+                      {has('group') && <td className="px-3 py-3">{r.groups.length ? <span className="flex flex-wrap gap-1">{r.groups.map((g) => <span key={g} className="whitespace-nowrap rounded-full border border-stone-line px-2 py-0.5 text-[12px] text-charcoal" data-no-tr>{g}</span>)}</span> : <span className="text-charcoal-600">—</span>}</td>}
+                      {has('tags') && <td className="px-3 py-3 text-[13px] text-charcoal-600" data-no-tr>{r.tags.join(', ') || '—'}</td>}
+                      {has('joined') && <td className="whitespace-nowrap px-3 py-3 text-charcoal-600">{ddmmyyyy(r.createdAt)}</td>}
+                      {has('roles') && <td className="px-3 py-3"><span className="flex flex-wrap gap-1">{r.roles.length ? r.roles.map((x) => <span key={x} className={ROLE_TONE[x]}>{ROLE_EL[x]}</span>) : <span className="text-charcoal-600">—</span>}</span></td>}
+                      <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
                         <span className="flex justify-end gap-1">
                           {canEdit && <button type="button" onClick={() => setEditRow(r)} title="Επεξεργασία πελάτη" aria-label="Επεξεργασία πελάτη" className={iconBtn}><Pencil size={15} /></button>}
                           {canEdit && <button type="button" onClick={() => remove(r)} disabled={pending} title="Διαγραφή πελάτη" aria-label="Διαγραφή πελάτη" className="flex h-8 w-8 items-center justify-center rounded-full text-charcoal-600 transition hover:bg-rose-50 hover:text-signal-danger"><Trash2 size={15} /></button>}
@@ -256,14 +256,14 @@ function Pager({ from, to, total, page, pages, onPage }: { from: number; to: num
     <div className="flex flex-wrap items-center justify-between gap-2 border-t border-stone-line px-5 py-3 text-sm text-charcoal-600">
       <span>Εμφάνιση {from}–{to} από {total}</span>
       {pages > 1 && <span className="flex items-center gap-1">
-        <button type="button" disabled={page === 0} onClick={() => onPage(page - 1)} className="rounded-lg border border-stone-line px-3 py-1 disabled:opacity-40">Προηγούμενη</button>
+        <button type="button" disabled={page === 0} onClick={() => onPage(page - 1)} className="rounded-lg border border-stone-line px-3.5 py-1.5 text-charcoal disabled:text-charcoal-600/50">Προηγούμενη</button>
         {nums.map((n, i) => (
           <span key={n} className="flex items-center gap-1">
             {i > 0 && n - nums[i - 1] > 1 && <span className="px-1">…</span>}
-            <button type="button" onClick={() => onPage(n)} className={`min-w-[32px] rounded-lg px-2 py-1 tabular-nums ${n === page ? 'bg-forest text-white' : 'border border-stone-line text-charcoal hover:border-forest/40'}`}>{n + 1}</button>
+            <button type="button" onClick={() => onPage(n)} className={`min-w-[36px] rounded-lg px-2.5 py-1.5 tabular-nums ${n === page ? 'bg-forest text-white' : 'border border-stone-line text-charcoal hover:border-forest/40'}`}>{n + 1}</button>
           </span>
         ))}
-        <button type="button" disabled={page >= pages - 1} onClick={() => onPage(page + 1)} className="rounded-lg border border-stone-line px-3 py-1 disabled:opacity-40">Επόμενη</button>
+        <button type="button" disabled={page >= pages - 1} onClick={() => onPage(page + 1)} className="rounded-lg border border-stone-line px-3.5 py-1.5 text-charcoal disabled:text-charcoal-600/50">Επόμενη</button>
       </span>}
     </div>
   );
@@ -357,16 +357,33 @@ function CustomersSide({ rows, groups, newThisMonth, onGroup, onUngrouped, expor
       <div className={card}><p className="text-[12px] font-semibold uppercase tracking-wide text-charcoal-600">Ποσοστό από pipeline</p><p className="font-display text-3xl text-charcoal">{fromPipeline}%</p><p className="text-[13px] text-charcoal-600">Πελάτες που ήρθαν από τις πηγές leads. Όσο μεγαλύτερο, τόσο καλύτερα δουλεύει το follow-up.</p></div>
 
       <div className={card}>
-        <p className="text-[15px] font-semibold text-charcoal">Προτεινόμενα επόμενα βήματα</p>
-        <button type="button" onClick={onUngrouped} className="mt-2 flex w-full items-center justify-between gap-2 rounded-xl border border-stone-line px-3 py-2 text-left hover:border-forest/40"><span><span className="block text-[13px] font-medium text-charcoal">Βάλτε σε ομάδες όσους δεν έχουν</span><span className="block text-[12px] text-charcoal-600">Για να ξέρει η ομάδα ποιος θέλει follow-up.</span></span><span className="font-semibold text-forest">{live.length - grouped}</span></button>
-        {biggest && <button type="button" onClick={() => onGroup(biggest.g)} className="mt-2 flex w-full items-center justify-between gap-2 rounded-xl border border-stone-line px-3 py-2 text-left hover:border-forest/40"><span><span className="block text-[13px] font-medium text-charcoal">Δείτε τη μεγαλύτερη ομάδα</span><span className="block text-[12px] text-charcoal-600" data-no-tr>«{biggest.g}»</span></span><span className="font-semibold text-forest">{biggest.n}</span></button>}
+        <p className="mb-3 text-[16px] font-semibold text-charcoal">Προτεινόμενα επόμενα βήματα</p>
+        <div className="space-y-3">
+          <button type="button" onClick={onUngrouped} className="flex w-full items-center gap-3 rounded-xl border border-stone-line p-3 text-left transition hover:border-forest/40">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-forest/[0.09] text-forest"><ListChecks size={18} /></span>
+            <span className="min-w-0 flex-1"><span className="block text-[14px] font-semibold text-charcoal">Βάλτε σε ομάδες όσους δεν έχουν</span><span className="block text-[13px] leading-snug text-charcoal-600">Οργανώστε τους πελάτες σε ομάδες ώστε η ομάδα να ξέρει ποιος θέλει follow-up.</span></span>
+            <span className="shrink-0 rounded-full border border-stone-line px-2.5 py-0.5 text-[12px] font-semibold tabular-nums text-charcoal">{live.length - grouped}</span>
+          </button>
+          {biggest && <button type="button" onClick={() => onGroup(biggest.g)} className="flex w-full items-center gap-3 rounded-xl border border-stone-line p-3 text-left transition hover:border-forest/40">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-forest/[0.09] text-forest"><Users size={18} /></span>
+            <span className="min-w-0 flex-1"><span className="block text-[14px] font-semibold text-charcoal">Δείτε τη μεγαλύτερη ομάδα</span><span className="block text-[13px] leading-snug text-charcoal-600">Ανοίξτε την «<span data-no-tr>{biggest.g}</span>» για να δείτε τη μεγαλύτερη ενεργή ομάδα σας.</span></span>
+            <span className="shrink-0 rounded-full border border-stone-line px-2.5 py-0.5 text-[12px] font-semibold tabular-nums text-charcoal">{biggest.n}</span>
+          </button>}
+        </div>
       </div>
 
       <div className={card}>
-        <div className="flex items-center justify-between"><p className="text-[15px] font-semibold text-charcoal">Πελάτες ανά ομάδα</p><span className="text-[12px] text-charcoal-600">{inUse.length} ομάδες</span></div>
-        <p className="text-[12px] text-charcoal-600">Πού βρίσκονται οι πελάτες σας.</p>
-        <ul className="mt-2 space-y-2">{inUse.sort((a, b) => b.n - a.n).slice(0, 8).map((g) => (
-          <li key={g.g}><button type="button" onClick={() => onGroup(g.g)} className="w-full text-left"><span className="flex justify-between text-[13px]"><span className="truncate font-medium text-charcoal" data-no-tr>{g.g}</span><span className="text-charcoal-600">{g.n} · {live.length ? Math.round((g.n / live.length) * 100) : 0}%</span></span><span className="mt-1 block h-1 rounded-full bg-stone-100"><span className="block h-1 rounded-full bg-forest" style={{ width: `${live.length ? (g.n / live.length) * 100 : 0}%` }} /></span></button></li>
+        <div className="flex items-center justify-between gap-2"><p className="text-[16px] font-semibold text-charcoal">Πελάτες ανά ομάδα</p><span className="rounded-full border border-stone-line px-2.5 py-0.5 text-[12px] font-medium text-charcoal">{inUse.length} ομάδες</span></div>
+        <p className="text-[13px] text-charcoal-600">Πού συγκεντρώνονται οι πελάτες σας.</p>
+        <ul className="mt-3 space-y-2.5">{[...inUse].sort((a, b) => b.n - a.n).slice(0, 8).map((g, i) => (
+          <li key={g.g}><button type="button" onClick={() => onGroup(g.g)} className="w-full rounded-xl border border-stone-line p-3 text-left transition hover:border-forest/40">
+            <span className="flex items-center gap-3">
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-forest/[0.09] text-[12px] font-semibold text-forest">{i + 1}</span>
+              <span className="min-w-0 flex-1 truncate text-[14px] font-semibold text-charcoal" data-no-tr>{g.g}</span>
+              <span className="text-right"><span className="block text-[15px] font-semibold tabular-nums text-charcoal">{g.n}</span><span className="block text-[12px] text-charcoal-600">{live.length ? Math.round((g.n / live.length) * 100) : 0}% του συνόλου</span></span>
+            </span>
+            <span className="mt-2 block h-1.5 rounded-full bg-stone-100"><span className="block h-1.5 rounded-full bg-forest" style={{ width: `${live.length ? Math.max(2, (g.n / live.length) * 100) : 0}%` }} /></span>
+          </button></li>
         ))}{inUse.length === 0 && <li className="text-[13px] text-charcoal-600">Καμία ομάδα σε χρήση.</li>}</ul>
       </div>
     </aside>
