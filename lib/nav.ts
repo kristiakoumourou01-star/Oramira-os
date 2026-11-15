@@ -50,6 +50,7 @@ export const DEFAULT_NAV: NavDef[] = [
       {
         href: '/acquisitions', label: 'Αγορές γης', icon: 'Map', module: 'acquisitions',
         children: [
+          { href: '/acquisitions?tab=map', label: 'Χάρτης' },
           { href: '/acquisitions?tab=pipeline', label: 'Pipeline' },
           { href: '/acquisitions?tab=scoring', label: 'Αξιολόγηση γης' },
           { href: '/acquisitions?tab=assembly', label: 'Συνένωση' },

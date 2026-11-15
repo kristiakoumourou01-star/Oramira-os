@@ -57,9 +57,10 @@ export default async function AcquisitionsPage({ searchParams }: { searchParams:
   const outreachDue = active.filter((p) => ['contacted', 'interested', 'negotiation'].includes(p.stage) && (!p.lastContactedAt || now - new Date(p.lastContactedAt).getTime() > 7 * DAY)).sort((a, b) => b.score.score - a.score.score);
 
   const tabs: TabDef[] = [
+    { id: 'map', label: 'Χάρτης', content: <AcquisitionMap parcels={parcels} /> },
     { id: 'pipeline', label: 'Pipeline', content: parcels.length === 0 ? <Panel><p className="text-sm text-charcoal-600/70">No parcels yet — add your first off-market landowner to start sourcing.</p></Panel> : <AcquisitionBoard parcels={parcels} /> },
     {
-      id: 'scoring', label: 'Land scoring', content: (
+      id: 'scoring', label: 'Αξιολόγηση γης', content: (
         <Panel>
           {parcels.length === 0 ? <p className="text-sm text-charcoal-600/70">No parcels scored yet.</p> : (
             <div className="overflow-x-auto">
@@ -82,9 +83,9 @@ export default async function AcquisitionsPage({ searchParams }: { searchParams:
         </Panel>
       ),
     },
-    { id: 'assembly', label: 'Assembly', content: <AssemblyPanel clusters={clusters} /> },
+    { id: 'assembly', label: 'Συνένωση', content: <AssemblyPanel clusters={clusters} /> },
     {
-      id: 'outreach', label: 'Outreach', content: (
+      id: 'outreach', label: 'Επαφές ιδιοκτητών', content: (
         <div className="space-y-4">
           <Panel>
             <h4 className="mb-1 text-charcoal">Automated outreach cadence</h4>
@@ -127,10 +128,7 @@ export default async function AcquisitionsPage({ searchParams }: { searchParams:
         ))}
       </div>
 
-      {/* Map-first primary surface */}
-      <AcquisitionMap parcels={parcels} />
-
-      {/* Pipeline + scoring + assembly + outreach (secondary) */}
+      {/* Χάρτης / Pipeline / Αξιολόγηση / Συνένωση / Επαφές — αμέσως κάτω από τους αριθμούς */}
       <Tabs tabs={tabs} initial={searchParams?.tab} />
     </div>
   );
