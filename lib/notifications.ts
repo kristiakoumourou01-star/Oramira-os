@@ -157,3 +157,15 @@ export async function queueNotificationEmail(params: {
     return false;
   }
 }
+
+/**
+ * Ειδοποίηση στο προσωπικό με συγκεκριμένους ρόλους (π.χ. όταν ένας ιδιοκτήτης
+ * δηλώνει αίτημα από τη δική του πλατφόρμα). Service-role, server-only.
+ */
+export async function notifyStaffRoles(roles: string[], params: { title: string; body?: string; link?: string; event?: string }) {
+  try {
+    const svc = createSupabaseServiceRoleClient() as any;
+    const { data } = await svc.from('profiles').select('id').in('role', roles).eq('is_active', true);
+    for (const p of (data ?? []) as { id: string }[]) await deliverNotification(svc, { userId: p.id, ...params });
+  } catch { /* best effort */ }
+}

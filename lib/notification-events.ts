@@ -26,6 +26,7 @@ export const NOTIF_EVENTS: NotifEventDef[] = [
   { key: 'contractor_payment', label: 'Πληρωμή εργολάβου', who: 'Οικονομικά', group: 'Οικονομικά', inApp: true, email: false },
   { key: 'vat_deadline', label: 'Προθεσμία ΦΠΑ', who: 'Οικονομικά', group: 'Οικονομικά', inApp: true, email: true },
   { key: 'warranty_expiring', label: 'Εγγύηση λήγει', who: 'Ομάδα', group: 'Έργα & πελάτες', inApp: true, email: false },
+  { key: 'owner_request', label: 'Αίτημα ιδιοκτήτη (συντήρηση / εγγύηση)', who: 'Admins, managers, κατασκευή', group: 'Έργα & πελάτες', inApp: true, email: true, urgent: true },
   { key: 'maintenance_escalation', label: 'Συντήρηση σε καθυστέρηση', who: 'Property management', group: 'Έργα & πελάτες', inApp: true, email: true },
   { key: 'owner_checkin', label: 'Επικοινωνία με ιδιοκτήτη / επιθεώρηση', who: 'Property management', group: 'Έργα & πελάτες', inApp: true, email: false },
   { key: 'construction_update', label: 'Νέα ενημέρωση κατασκευής', who: 'Οι αγοραστές των μονάδων', group: 'Έργα & πελάτες', inApp: true, email: true },

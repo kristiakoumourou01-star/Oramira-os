@@ -1,5 +1,7 @@
 'use server';
 
+import { notifyStaffRoles } from '@/lib/notifications';
+
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { requireRole } from '@/lib/auth';
 import { logActivity } from '@/lib/activity';
@@ -77,6 +79,17 @@ export async function createTicket(params: {
     metadata: { category: params.category, priority: params.priority },
   });
   await onMaintenanceOpened(ticket.id);
+  // Ειδοποίηση στο προσωπικό: ο ιδιοκτήτης δήλωσε αίτημα από την πλατφόρμα του.
+  {
+    const { data: u } = await supabase.from('units').select('unit_number, projects(name)').eq('id', params.unitId).maybeSingle();
+    const where = [(u as any)?.projects?.name, (u as any)?.unit_number].filter(Boolean).join(' · ');
+    await notifyStaffRoles(['admin', 'management', 'construction'], {
+      title: `${params.warrantyId ? 'Αίτημα εγγύησης' : 'Νέο αίτημα ιδιοκτήτη'}${where ? ` — ${where}` : ''}`,
+      body: [params.title, params.priority === 'emergency' ? 'ΕΠΕΙΓΟΝ' : null].filter(Boolean).join(' · '),
+      link: `/property?dev=${projectId}&tab=maintenance`,
+      event: 'owner_request',
+    });
+  }
 
   revalidatePath('/homeowner/maintenance');
   revalidatePath('/homeowner/warranty');

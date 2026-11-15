@@ -1,7 +1,7 @@
 import { requirePermission } from '@/lib/auth';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import Link from 'next/link';
-import { Map as MapIcon, Home, Users, Wrench, FileText, ShieldCheck, History } from 'lucide-react';
+import { Map as MapIcon, Home, Users, Wrench, FileText, ShieldCheck, History, Building2 } from 'lucide-react';
 import { loadDevelopmentMapData } from '@/lib/development-map-data';
 import { loadSignedProjectMedia } from '@/lib/project-media';
 import { SiteMap } from '@/components/property/SiteMap';
@@ -42,6 +42,12 @@ export default async function PropertyManagementPage({ searchParams }: { searchP
   const cityQuery = activeCity ? `&city=${encodeURIComponent(activeCity)}` : '';
 
   const selected = visibleProjects.find((p) => p.id === searchParams.dev) ?? visibleProjects[0] ?? projects[0];
+  const [{ data: allUnits }, { data: allOpen }] = await Promise.all([
+    supabase.from('units').select('project_id'),
+    supabase.from('maintenance_tickets').select('project_id, status').in('status', OPEN),
+  ]);
+  const unitCount = new Map<string, number>(); for (const u of (allUnits ?? []) as any[]) unitCount.set(u.project_id, (unitCount.get(u.project_id) ?? 0) + 1);
+  const openCount = new Map<string, number>(); for (const t of (allOpen ?? []) as any[]) if (t.project_id) openCount.set(t.project_id, (openCount.get(t.project_id) ?? 0) + 1);
 
   const [mapData, media, { data: units }, { data: documents }] = await Promise.all([
     loadDevelopmentMapData(selected.id),
@@ -174,12 +180,25 @@ export default async function PropertyManagementPage({ searchParams }: { searchP
         </div>
       )}
 
-      {/* Development selector (within the chosen city) */}
-      {visibleProjects.length > 1 && (
-        <div className="flex flex-wrap gap-1.5">
-          {visibleProjects.map((p) => (
-            <Link key={p.id} href={`/property?dev=${p.id}${cityQuery}`} className={`badge ${p.id === selected.id ? 'badge-forest' : 'badge-neutral'}`}>{p.name}</Link>
-          ))}
+      {/* Επιλογή έργου: κάρτες, με μονάδες και ανοιχτά αιτήματα ιδιοκτητών */}
+      {visibleProjects.length > 0 && (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {visibleProjects.map((p) => {
+            const on = p.id === selected.id;
+            const nUnits = unitCount.get(p.id) ?? 0;
+            const nOpen = openCount.get(p.id) ?? 0;
+            return (
+              <Link key={p.id} href={`/property?dev=${p.id}${cityQuery}`} aria-current={on ? 'page' : undefined}
+                className={`group relative flex items-center gap-3 rounded-2xl border px-4 py-3 transition ${on ? 'border-forest bg-forest text-white shadow-[0_8px_20px_-10px_rgba(17,49,36,0.6)]' : 'border-stone-line bg-white text-charcoal hover:border-forest/40 hover:shadow-[0_4px_14px_-8px_rgba(17,49,36,0.3)]'}`}>
+                <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${on ? 'bg-white/15 text-white' : 'bg-forest/10 text-forest'}`}><Building2 size={18} /></span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-semibold" data-no-tr>{p.name}</span>
+                  <span className={`block truncate text-xs ${on ? 'text-white/75' : 'text-charcoal-600/70'}`}>{[p.location, `${nUnits} μονάδες`].filter(Boolean).join(' · ')}</span>
+                </span>
+                {nOpen > 0 && <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${on ? 'bg-white text-signal-danger' : 'bg-rose-100 text-signal-danger'}`} title="Ανοιχτά αιτήματα ιδιοκτητών">{nOpen}</span>}
+              </Link>
+            );
+          })}
         </div>
       )}
 
