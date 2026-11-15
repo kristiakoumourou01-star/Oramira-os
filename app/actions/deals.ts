@@ -254,3 +254,36 @@ export async function decideDeal(dealId: string, decision: 'approved' | 'rejecte
   revalidatePath(`/deal-analyzer/${dealId}`); revalidatePath('/deal-analyzer');
   return { ok: true, projectId };
 }
+
+/**
+ * Αγορά γης → Deal Analyzer: νέα ανάλυση με τα στοιχεία του οικοπέδου
+ * (εμβαδόν, ζώνη, συντελεστής, τιμή γης = προσφορά ή ζητούμενη τιμή).
+ */
+export async function createDealFromParcel(parcelId: string): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
+  const profile = await requireRole(STAFF);
+  const { getParcel } = await import('@/lib/acquisitions');
+  const parcel = await getParcel(parcelId);
+  if (!parcel) return { ok: false, error: 'Το οικόπεδο δεν βρέθηκε.' };
+  const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : null);
+  const density = num(parcel.densityPotential);
+  const inputs: DealInputs = {
+    ...DEFAULT_DEAL_INPUTS,
+    ...(num(parcel.plotSizeSqm) ? { plotSizeSqm: Number(parcel.plotSizeSqm) } : {}),
+    ...(parcel.zone ? { zone: parcel.zone } : {}),
+    ...(density && density < 5 ? { buildingDensity: density } : {}),
+    landAcquisitionCost: num(parcel.offerAmount) ?? num(parcel.askingPrice) ?? num(parcel.currentValue) ?? DEFAULT_DEAL_INPUTS.landAcquisitionCost,
+  };
+  const outputs = analyzeDeal(inputs);
+  const supabase = await createSupabaseServerClient();
+  const name = [parcel.reference, parcel.location].filter(Boolean).join(' · ').slice(0, 120) || 'Νέα ανάλυση';
+  const { data, error } = await supabase
+    .from('deals')
+    .insert({ name, project_id: null, created_by: profile.id, status: 'draft', ...dealColumns(inputs, outputs), inputs: { ...inputs, sourceParcelId: parcel.id } } as any)
+    .select('id')
+    .single();
+  if (error) return { ok: false, error: error.message };
+  await logActivity({ entityType: 'deal', entityId: data.id, action: 'created', metadata: { from_parcel: parcel.reference } });
+  await logActivity({ entityType: 'land_parcel', entityId: parcel.id, action: 'sent_to_deal_analyzer', metadata: { deal_id: data.id } });
+  revalidatePath('/deal-analyzer');
+  return { ok: true, id: data.id as string };
+}
