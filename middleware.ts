@@ -79,6 +79,7 @@ async function guard(request: NextRequest) {
     path.startsWith('/financials') ||
     path.startsWith('/hr') ||
     path.startsWith('/automation') ||
+    path.startsWith('/tasks') ||
     path.startsWith('/homeowner-requests') ||
     path.startsWith('/settings');
 

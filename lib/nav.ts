@@ -57,6 +57,7 @@ export const DEFAULT_NAV: NavDef[] = [
       { href: '/marketing', label: 'Marketing', icon: 'Megaphone', module: 'marketing' },
       { href: '/automation', label: 'Αυτοματισμοί', icon: 'Zap', module: 'automation' },
       { href: '/reports', label: 'Αναφορές', icon: 'FileBarChart', module: 'financials' },
+      { href: '/tasks', label: 'Tasks', icon: 'ListChecks' },
       { href: '/hr?tab=benefits', label: 'Benefits', icon: 'Gift', module: 'hr' },
     ],
   },
