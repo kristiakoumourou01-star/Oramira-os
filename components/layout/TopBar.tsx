@@ -3,6 +3,8 @@ import { CommandKButton } from '@/components/search/CommandKButton';
 import type { CurrentProfile } from '@/lib/auth';
 import { LocaleSwitcher } from '@/components/layout/LocaleSwitcher';
 import { ThemeMenu } from '@/components/layout/ThemeMenu';
+import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
+import { Suspense } from 'react';
 import { t, type TKey } from '@/lib/i18n';
 import { isInternalRole } from '@/lib/permissions';
 import type { ReactNode } from 'react';
@@ -28,8 +30,9 @@ const ROLE_LABEL: Record<string, string> = {
 export function TopBar({ profile, showSearch = false, start }: { profile: CurrentProfile; showSearch?: boolean; start?: ReactNode }) {
   return (
     <header className="sticky top-0 z-20 flex h-14 items-center justify-between bg-white/80 px-7 shadow-[0_1px_0_rgba(31,77,58,0.08)] backdrop-blur-xl">
-      <div className="flex items-center">{start}{showSearch ? <CommandKButton /> : null}</div>
+      <div className="flex min-w-0 items-center">{start}<Suspense fallback={null}><Breadcrumbs /></Suspense></div>
       <div className="flex items-center gap-3">
+        {showSearch ? <div className="w-44 sm:w-56 xl:w-80"><CommandKButton /></div> : null}
         <LocaleSwitcher />
         <ThemeMenu />
         <NotificationBell userId={profile.id} />
