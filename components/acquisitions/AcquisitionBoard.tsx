@@ -19,20 +19,40 @@ export function AcquisitionBoard({ parcels }: { parcels: ParcelItem[] }) {
   const router = useRouter();
   const [, start] = useTransition();
   const [moving, setMoving] = useState<string | null>(null);
+  const [drag, setDrag] = useState<string | null>(null);
+  const [over, setOver] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [local, setLocal] = useState<Record<string, string>>({});
 
-  const move = (id: string, stage: string) => { setMoving(id); start(async () => { const res = await updateParcelStage(id, stage); if (res && !res.ok) alert(res.error); router.refresh(); setMoving(null); }); };
-  const byStage = (s: string) => parcels.filter((p) => p.stage === s);
+  const move = (id: string, stage: string) => {
+    const cur = local[id] ?? parcels.find((p) => p.id === id)?.stage;
+    if (!stage || cur === stage) return;
+    setErr(null); setMoving(id); setLocal((l) => ({ ...l, [id]: stage }));
+    start(async () => {
+      const res = await updateParcelStage(id, stage);
+      if (res && !res.ok) { setErr(res.error ?? 'Δεν έγινε η μετακίνηση.'); setLocal((l) => { const n = { ...l }; delete n[id]; return n; }); }
+      router.refresh(); setMoving(null);
+    });
+  };
+  const byStage = (s: string) => parcels.filter((p) => (local[p.id] ?? p.stage) === s);
 
   return (
     <div className="-mx-1 overflow-x-auto px-1 pb-2">
+      <p className="mb-2 text-[13px] text-charcoal-600">Σύρετε ένα οικόπεδο σε άλλο στάδιο. Το «Deal Analyzer» το βάζει αυτόματα «Σε ανάλυση»· η έγκριση το περνά στο «Acquired» και η απόρριψη στο «Απορρίφθηκε».</p>
+      {err && <p className="mb-2 rounded-xl border border-signal-danger/30 bg-rose-50 px-3 py-2 text-sm text-signal-danger">{err}</p>}
       <div className="flex min-h-[420px] min-w-max gap-3">
       {PARCEL_STAGES.map((stage, i) => {
         const items = byStage(stage);
         return (
-          <BoardLane key={stage} tone={autoTone(i, PARCEL_STAGES.length)} title={STAGE_LABEL[stage]} count={items.length} width="w-[264px]" empty="Κενό"
+          <BoardLane key={stage} tone={autoTone(i, PARCEL_STAGES.length)} title={STAGE_LABEL[stage]} count={items.length} width="w-[264px]" empty={drag ? 'Αφήστε εδώ' : 'Κενό'}
+            over={over === stage}
+            onDragOver={(e) => { if (drag) { e.preventDefault(); setOver(stage); } }}
+            onDragLeave={() => setOver((o) => (o === stage ? null : o))}
+            onDrop={(e) => { e.preventDefault(); const id = e.dataTransfer.getData('text/plain') || drag; setOver(null); setDrag(null); if (id) move(id, stage); }}
             meta={items.length ? <>Μέση βαθμολογία <span className="font-semibold text-charcoal">{Math.round(items.reduce((s, p) => s + p.score.score, 0) / items.length)}</span></> : undefined}>
               {items.map((p) => (
-                <div key={p.id} className={`${laneRow} ${moving === p.id ? 'opacity-50' : ''}`}>
+                <div key={p.id} draggable onDragStart={(e) => { e.dataTransfer.setData('text/plain', p.id); e.dataTransfer.effectAllowed = 'move'; setDrag(p.id); }} onDragEnd={() => { setDrag(null); setOver(null); }}
+                  className={`${laneRow} cursor-grab active:cursor-grabbing ${moving === p.id || drag === p.id ? 'opacity-50' : ''}`}>
                   <div className="mb-1 flex items-start justify-between gap-2">
                     <Link href={`/acquisitions/${p.id}`} className="min-w-0 flex items-center gap-1 text-sm font-semibold text-charcoal hover:text-forest">
                       <span className="truncate">{p.reference}</span><ArrowUpRight size={12} className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100" />
@@ -47,7 +67,7 @@ export function AcquisitionBoard({ parcels }: { parcels: ParcelItem[] }) {
                     </p>
                     {p.uplift && <p className="font-medium text-forest">Uplift {formatCurrency(p.uplift.marginAbs)}{p.uplift.estimated ? ' (est.)' : ''}</p>}
                   </div>
-                  <select value={p.stage} onChange={(e) => move(p.id, e.target.value)} className="mt-2 w-full rounded-full border border-forest/25 bg-white px-2.5 py-1 text-[11px] text-forest focus:border-forest focus:outline-none">
+                  <select value={local[p.id] ?? p.stage} onChange={(e) => move(p.id, e.target.value)} className="mt-2 w-full rounded-full border border-forest/25 bg-white px-2.5 py-1 text-[11px] text-forest focus:border-forest focus:outline-none">
                     {PARCEL_STAGES.map((s) => <option key={s} value={s}>{STAGE_LABEL[s]}</option>)}
                   </select>
                 </div>

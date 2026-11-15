@@ -83,6 +83,7 @@ export async function updateDealStatus(dealId: string, status: string) {
   const supabase = await createSupabaseServerClient();
   await supabase.from('deals').update({ status }).eq('id', dealId);
   await logActivity({ entityType: 'deal', entityId: dealId, action: 'status_changed', metadata: { to: status } });
+  await syncParcelFromDeal(supabase, dealId, status);
   revalidatePath(`/deal-analyzer/${dealId}`);
   revalidatePath('/deal-analyzer');
 }
@@ -240,6 +241,18 @@ export async function submitDealForApproval(dealId: string): Promise<{ ok: true 
   return { ok: true };
 }
 
+/** Η απόφαση στο Deal Analyzer περνά και στο οικόπεδο της αγοράς γης: έγκριση → Acquired, απόρριψη → Απορρίφθηκε. */
+async function syncParcelFromDeal(supabase: any, dealId: string, status: string) {
+  const target = status === 'approved' ? 'acquired' : status === 'rejected' ? 'lost' : ['reviewing', 'on_hold', 'draft'].includes(status) ? 'under_review' : null;
+  if (!target) return;
+  const { data: d } = await supabase.from('deals').select('inputs').eq('id', dealId).maybeSingle();
+  const parcelId = d?.inputs?.sourceParcelId;
+  if (!parcelId) return;
+  await supabase.from('land_parcels').update({ stage: target }).eq('id', parcelId);
+  await logActivity({ entityType: 'land_parcel', entityId: parcelId, action: 'stage_changed', metadata: { stage: target, from_deal: dealId } });
+  revalidatePath('/acquisitions'); revalidatePath(`/acquisitions/${parcelId}`);
+}
+
 /** Απόφαση admin / management. Η έγκριση δημιουργεί αυτόματα το έργο (με τις μονάδες του unit mix). */
 export async function decideDeal(dealId: string, decision: 'approved' | 'rejected' | 'on_hold'): Promise<{ ok: true; projectId?: string } | { ok: false; error: string }> {
   await requireRole(['admin', 'management']);
@@ -247,6 +260,7 @@ export async function decideDeal(dealId: string, decision: 'approved' | 'rejecte
   const { error } = await supabase.from('deals').update({ status: decision }).eq('id', dealId);
   if (error) return { ok: false, error: error.message };
   await logActivity({ entityType: 'deal', entityId: dealId, action: `decision_${decision}` });
+  await syncParcelFromDeal(supabase, dealId, decision);
   let projectId: string | undefined;
   if (decision === 'approved') {
     try { projectId = await convertDealToProject(dealId); } catch (e) { return { ok: false, error: e instanceof Error ? e.message : 'Το έργο δεν δημιουργήθηκε.' }; }
@@ -284,6 +298,9 @@ export async function createDealFromParcel(parcelId: string): Promise<{ ok: true
   if (error) return { ok: false, error: error.message };
   await logActivity({ entityType: 'deal', entityId: data.id, action: 'created', metadata: { from_parcel: parcel.reference } });
   await logActivity({ entityType: 'land_parcel', entityId: parcel.id, action: 'sent_to_deal_analyzer', metadata: { deal_id: data.id } });
+  // Στο pipeline της αγοράς γης περνά αυτόματα «Σε ανάλυση (Deal Analyzer)».
+  await (supabase as any).from('land_parcels').update({ stage: 'under_review' }).eq('id', parcel.id).in('stage', ['new', 'contacted', 'interested', 'negotiation', 'due_diligence', 'offer_made', 'under_review']);
+  revalidatePath('/acquisitions'); revalidatePath(`/acquisitions/${parcel.id}`);
   revalidatePath('/deal-analyzer');
   return { ok: true, id: data.id as string };
 }

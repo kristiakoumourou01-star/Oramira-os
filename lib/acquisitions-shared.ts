@@ -12,8 +12,8 @@ export const PARCEL_STAGES = ['new', 'contacted', 'interested', 'under_review', 
 export type ParcelStage = typeof PARCEL_STAGES[number];
 
 export const STAGE_LABEL: Record<string, string> = {
-  new: 'New landowner', contacted: 'Contacted', interested: 'Interested', under_review: 'Under review',
-  negotiation: 'Negotiation', due_diligence: 'Due diligence', offer_made: 'Offer made', acquired: 'Acquired', lost: 'Lost',
+  new: 'New landowner', contacted: 'Contacted', interested: 'Interested', under_review: 'Σε ανάλυση (Deal Analyzer)',
+  negotiation: 'Negotiation', due_diligence: 'Due diligence', offer_made: 'Offer made', acquired: 'Acquired', lost: 'Απορρίφθηκε',
 };
 
 /** Stage → pin/badge hex, shared by the map and board. */
