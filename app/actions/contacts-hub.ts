@@ -99,7 +99,7 @@ export async function convertContact(contactId: string, from: ContactRole | null
 }
 
 /** Μαζικές αλλαγές από τη λίστα (επιλεγμένες επαφές). */
-export async function bulkUpdateContacts(ids: string[], op: { addRole?: ContactRole; removeRole?: ContactRole; status?: ContactStatus; ownerId?: string | null }): Promise<Result & { updated?: number }> {
+export async function bulkUpdateContacts(ids: string[], op: { addRole?: ContactRole; removeRole?: ContactRole; status?: ContactStatus; ownerId?: string | null; addGroup?: string; removeGroup?: string }): Promise<Result & { updated?: number }> {
   await requirePermission('leads', 'edit');
   const list = (ids ?? []).filter((x) => UUID.test(x)).slice(0, 500);
   if (!list.length) return { ok: false, error: 'Δεν επιλέξατε επαφές.' };
@@ -122,8 +122,37 @@ export async function bulkUpdateContacts(ids: string[], op: { addRole?: ContactR
       await db.from('contacts').update({ extra_roles: [...cur] }).eq('id', r.id);
     }
   }
+  const grp = (op.addGroup ?? op.removeGroup ?? '').trim().slice(0, 60);
+  if (grp) {
+    const { data: rows } = await db.from('contacts').select('id, groups').in('id', list);
+    for (const r of (rows ?? []) as any[]) {
+      const cur = new Set<string>(r.groups ?? []);
+      if (op.addGroup) cur.add(grp); else cur.delete(grp);
+      await db.from('contacts').update({ groups: [...cur] }).eq('id', r.id);
+    }
+  }
   refresh();
   return { ok: true, updated: list.length };
+}
+
+/** Μαζική εισαγωγή επαφών από CSV (παραλείπει όσα email υπάρχουν ήδη). */
+export async function importContacts(rows: { name: string; email?: string; phone?: string; role?: string; source?: string; tags?: string; group?: string }[]): Promise<{ ok: true; created: number; skipped: number; errors: string[] } | { ok: false; error: string }> {
+  await requirePermission('leads', 'edit');
+  const list = (rows ?? []).slice(0, 2000);
+  if (!list.length) return { ok: false, error: 'Το αρχείο δεν έχει γραμμές.' };
+  let created = 0, skipped = 0; const errors: string[] = [];
+  const roleMap: Record<string, ContactRole> = { lead: 'lead', buyer: 'buyer', 'αγοραστής': 'buyer', investor: 'investor', 'επενδυτής': 'investor', homeowner: 'homeowner', owner: 'homeowner', 'ιδιοκτήτης': 'homeowner' } as any;
+  for (const [i, r] of list.entries()) {
+    const role = roleMap[(r.role ?? '').trim().toLowerCase()] ?? 'lead';
+    const res = await createContact({ name: r.name, email: r.email, phone: r.phone, roles: [role], source: r.source?.trim().toLowerCase(), tags: (r.tags ?? '').split(/[;|]/).map((t) => t.trim()).filter(Boolean) });
+    if (res.ok) {
+      created++;
+      if (r.group?.trim() && res.id) await (await createSupabaseServerClient() as any).from('contacts').update({ groups: [r.group.trim().slice(0, 60)] }).eq('id', res.id);
+    } else if (res.existingId) skipped++;
+    else if (errors.length < 20) errors.push(`Γραμμή ${i + 2}: ${res.error}`);
+  }
+  refresh();
+  return { ok: true, created, skipped, errors };
 }
 
 /** Νέο lead για μια υπάρχουσα επαφή (π.χ. επιστρέφων πελάτης). */

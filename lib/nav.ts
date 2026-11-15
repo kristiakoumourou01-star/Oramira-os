@@ -17,7 +17,7 @@ export interface NavDef { label?: string; items: NavGroupDef[] }
 // A child may carry its own module when it lives in another workspace's gate.
 export const DEFAULT_NAV: NavDef[] = [
   {
-    label: 'Λειτουργία',
+    label: 'Operations',
     items: [
       { href: '/dashboard', label: 'Dashboard', icon: 'LayoutDashboard' },
       { href: '/calendar', label: 'Ημερολόγιο', icon: 'CalendarDays' },
@@ -25,7 +25,7 @@ export const DEFAULT_NAV: NavDef[] = [
     ],
   },
   {
-    label: 'Πωλήσεις',
+    label: 'Sales',
     items: [
       { href: '/sales/leads', label: 'Leads Inbox', icon: 'Inbox', module: 'leads' },
       { href: '/sales/deals', label: 'Deals', icon: 'TrendingUp', module: 'leads' },
@@ -35,7 +35,7 @@ export const DEFAULT_NAV: NavDef[] = [
     ],
   },
   {
-    label: 'Έργα',
+    label: 'Projects',
     items: [
       { href: '/projects', label: 'Έργα & μονάδες', icon: 'Building2', module: 'projects' },
       { href: '/map', label: 'Χάρτης', icon: 'MapPin', module: 'projects' },
@@ -45,7 +45,7 @@ export const DEFAULT_NAV: NavDef[] = [
     ],
   },
   {
-    label: 'Οικονομικά',
+    label: 'Finance',
     items: [
       { href: '/financials', label: 'Οικονομικά', icon: 'Wallet', module: 'financials' },
       { href: '/financials/invoices', label: 'Τιμολόγια', icon: 'Receipt', module: 'financials' },
@@ -61,7 +61,7 @@ export const DEFAULT_NAV: NavDef[] = [
     ],
   },
   {
-    label: 'Ομάδα',
+    label: 'Team',
     items: [
       { href: '/hr', label: 'Ομάδα & HR', icon: 'UserCog', module: 'hr' },
     ],

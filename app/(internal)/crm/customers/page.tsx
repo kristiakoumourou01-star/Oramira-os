@@ -18,7 +18,7 @@ export default async function ContactsPage({ searchParams }: { searchParams: { r
   const can = (a: 'edit') => effectiveCan(profile.role, profile.moduleAccess, 'leads', a, profile.permissions);
   return (
     <div className="space-y-5">
-      <WorkspaceHeader eyebrow="Πελάτες" title="Επαφές" description="Όλοι οι άνθρωποι σε μία λίστα. Προσθέστε, μετατρέψτε (π.χ. lead → αγοραστής), αναθέστε και φιλτράρετε." />
+      <WorkspaceHeader eyebrow="Πωλήσεις" title="Πελάτες" description="Πελάτες, leads, ομάδες και import σε ένα σημείο." />
       {missing && <p className="panel p-4 text-sm text-signal-danger">Λείπει το migration 0071 στη βάση.</p>}
       <ContactsHub key={role} rows={rows} staff={staff} initialRole={role} canCreate={can('edit')} canEdit={can('edit')} />
     </div>

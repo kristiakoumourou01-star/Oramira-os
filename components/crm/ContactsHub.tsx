@@ -4,8 +4,8 @@ import { useMemo, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Plus, Download, Search, X, Users, UserX, Clock, Check, CalendarDays } from 'lucide-react';
-import { createContact, bulkUpdateContacts, updateContactBasics, deleteContact } from '@/app/actions/contacts-hub';
-import { Eye, Pencil, Trash2, History } from 'lucide-react';
+import { createContact, bulkUpdateContacts, updateContactBasics, deleteContact, importContacts } from '@/app/actions/contacts-hub';
+import { Eye, Pencil, Trash2, History, Filter, LayoutGrid, Upload, FileSpreadsheet, FolderPlus } from 'lucide-react';
 import {
   ALL_ROLES, CONTACT_STATUSES, DEFAULT_FILTERS, ROLE_EL, ROLE_TONE, SOURCE_EL, STATUS_EL, STATUS_TONE,
   contactsCsv, filterContacts, roleCounts, type ContactFilters, type ContactListRow, type ContactRole, type ContactStatus,
@@ -29,6 +29,8 @@ export function ContactsHub({ rows, staff, initialRole = '', canCreate, canEdit 
   const [shown, setShown] = useState(PAGE);
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [adding, setAdding] = useState(false);
+  const [view, setView] = useState<'customers' | 'leads' | 'groups' | 'import'>(initialRole === 'lead' ? 'leads' : 'customers');
+  const [groupName, setGroupName] = useState('');
   const [editRow, setEditRow] = useState<ContactListRow | null>(null);
   const [gone, setGone] = useState<Set<string>>(new Set());
   const remove = (r: ContactListRow) => {
@@ -76,8 +78,56 @@ export function ContactsHub({ rows, staff, initialRole = '', canCreate, canEdit 
     </button>
   );
 
+  const newThisMonth = rows.filter((r) => Date.parse(r.createdAt) >= new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime()).length;
+  const leadCount = counts.lead ?? 0;
+  const conv = leadCount + (counts.buyer ?? 0) > 0 ? Math.round(((counts.buyer ?? 0) / (leadCount + (counts.buyer ?? 0))) * 100) : 0;
+  const groupStats = groups.map((g) => ({ g, n: rows.filter((r) => r.groups.includes(g)).length }));
+  const go = (v: typeof view) => { setView(v); if (v === 'leads') set({ role: 'lead' }); else if (v === 'customers') set({ role: '' }); };
+  const hubCards: { k: typeof view; icon: any; title: string; value: string; sub: React.ReactNode }[] = [
+    { k: 'customers', icon: Users, title: 'Πελάτες', value: String(counts.all ?? rows.length), sub: <><span className="block text-forest">{newThisMonth} νέοι αυτόν τον μήνα</span><span className="block">{active} ενεργοί</span></> },
+    { k: 'leads', icon: Filter, title: 'Leads', value: String(leadCount), sub: <span className="block">{conv}% μετατροπή σε αγοραστές</span> },
+    { k: 'groups', icon: LayoutGrid, title: 'Ομάδες', value: String(groups.length), sub: <span className="block">{groupStats.reduce((s, x) => s + x.n, 0)} μέλη σε ομάδες</span> },
+    { k: 'import', icon: Upload, title: 'Import', value: 'CSV', sub: <span className="block">Μαζική προσθήκη επαφών</span> },
+  ];
+
   return (
     <div className="space-y-4">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {hubCards.map((c) => {
+          const on = view === c.k;
+          return (
+            <button key={c.k} type="button" onClick={() => go(c.k)} className={`rounded-2xl border p-4 text-left transition ${on ? 'border-forest/40 bg-forest/[0.06] shadow-[0_0_0_2px_rgba(17,49,36,0.18)]' : 'border-stone-line bg-white hover:border-forest/30'}`}>
+              <div className="flex items-start justify-between">
+                <span className={`flex h-10 w-10 items-center justify-center rounded-xl ${on ? 'bg-forest text-white' : 'bg-forest/10 text-forest'}`}><c.icon size={18} /></span>
+                <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium ${on ? 'bg-forest text-white' : 'border border-stone-line text-charcoal-600'}`}>{on ? 'Ανοιχτό' : 'Πατήστε για άνοιγμα'}</span>
+              </div>
+              <p className="mt-3 flex items-baseline justify-between font-semibold text-charcoal">{c.title}<span className="text-2xl">{c.value}</span></p>
+              <span className="text-xs text-charcoal-600/75">{c.sub}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {view === 'groups' && (
+        <div className="space-y-3">
+          <div className="rounded-2xl border border-stone-line bg-white p-4 text-sm text-charcoal-600">
+            <p className="flex items-center gap-2 font-semibold text-charcoal"><FolderPlus size={16} className="text-forest" /> Νέα ομάδα</p>
+            <p className="mt-1">Ανοίξτε «Πελάτες», επιλέξτε επαφές με το κουτάκι και στη μπάρα επιλογής γράψτε το όνομα της ομάδας (π.χ. «Επενδυτές Ρωσίας», «VIP Λεμεσός»).</p>
+          </div>
+          {groupStats.length === 0
+            ? <p className="rounded-2xl border border-dashed border-stone-line p-8 text-center text-sm text-charcoal-600/70">Δεν υπάρχουν ακόμη ομάδες.</p>
+            : <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{groupStats.map(({ g, n }) => (
+                <button key={g} type="button" onClick={() => { setView('customers'); set({ role: '', group: g }); }} className="flex items-center gap-3 rounded-2xl border border-stone-line bg-white p-4 text-left hover:border-forest/40">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#c9a063]/15 text-[#8a6420]"><LayoutGrid size={17} /></span>
+                  <span className="min-w-0 flex-1"><span className="block truncate font-semibold text-charcoal" data-no-tr>{g}</span><span className="text-xs text-charcoal-600/70">{n} μέλη</span></span>
+                </button>
+              ))}</div>}
+        </div>
+      )}
+
+      {view === 'import' && <ImportPanel onDone={(t) => { setMsg({ ok: true, text: t }); setView('customers'); router.refresh(); }} />}
+
+      {(view === 'customers' || view === 'leads') && <>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap gap-1.5">
           <Chip on={!f.role} onClick={() => set({ role: '' })}>Όλες <b>{counts.all ?? 0}</b></Chip>
@@ -125,6 +175,9 @@ export function ContactsHub({ rows, staff, initialRole = '', canCreate, canEdit 
           <Sel compact value="" onChange={(v) => v && bulk({ removeRole: v as ContactRole })} options={[['', '− Ιδιότητα…'], ...ALL_ROLES.map((r) => [r, ROLE_EL[r]] as [string, string])]} />
           <Sel compact value="" onChange={(v) => v && bulk({ status: v as ContactStatus })} options={[['', 'Κατάσταση…'], ...CONTACT_STATUSES.map((s) => [s, STATUS_EL[s]] as [string, string])]} />
           <Sel compact value="" onChange={(v) => v && bulk({ ownerId: v === 'none' ? null : v })} options={[['', 'Υπεύθυνος…'], ['none', 'Κανένας'], ...staff.map((s) => [s.id, s.name] as [string, string])]} />
+          <span className="flex items-center gap-1"><input value={groupName} onChange={(e) => setGroupName(e.target.value)} placeholder="Ομάδα…" className="input h-8 w-36 py-1 text-xs" list="contact-groups" /><datalist id="contact-groups">{groups.map((g) => <option key={g} value={g} />)}</datalist>
+            <button type="button" disabled={!groupName.trim()} onClick={() => { bulk({ addGroup: groupName.trim() }); setGroupName(''); }} className="rounded-full bg-forest px-2.5 py-1 text-xs font-semibold text-white disabled:opacity-40">+ Ομάδα</button>
+            {f.group && <button type="button" onClick={() => bulk({ removeGroup: f.group })} className="rounded-full border border-stone-line px-2.5 py-1 text-xs">− από «{f.group}»</button>}</span>
           <button type="button" onClick={() => setSel(new Set())} className="btn-ghost ml-auto text-xs">Ακύρωση επιλογής</button>
         </div>
       )}
@@ -173,9 +226,67 @@ export function ContactsHub({ rows, staff, initialRole = '', canCreate, canEdit 
         {list.length > shown && <div className="border-t border-stone-line p-3 text-center"><button type="button" className="btn-ghost text-sm" onClick={() => setShown((n) => n + PAGE)}>Περισσότερες ({list.length - shown})</button></div>}
       </div>
 
+      </>}
+
       {editRow && <EditContactDialog row={editRow} staff={staff} onClose={() => setEditRow(null)} onSaved={(t) => { setEditRow(null); setMsg({ ok: true, text: t }); router.refresh(); }} />}
       {adding && <NewContactDialog staff={staff} defaultRole={f.role || 'lead'} onClose={() => setAdding(false)} onCreated={(id) => { setAdding(false); router.push(`/crm/${id}`); }} />}
       {pending && <span className="sr-only">Αποθήκευση…</span>}
+    </div>
+  );
+}
+
+function ImportPanel({ onDone }: { onDone: (msg: string) => void }) {
+  const [rows, setRows] = useState<Record<string, string>[]>([]);
+  const [cols, setCols] = useState<string[]>([]);
+  const [map, setMap] = useState<Record<string, string>>({});
+  const [err, setErr] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+  const FIELDS: [string, string, RegExp][] = [['name', 'Ονοματεπώνυμο *', /^(full.?name|name|όνομα|ονοματεπώνυμο|πελάτης)$/i], ['email', 'Email', /e-?mail/i], ['phone', 'Τηλέφωνο', /phone|mobile|τηλ|κινητό/i], ['role', 'Ιδιότητα', /role|type|ιδιότητα|τύπος/i], ['source', 'Πηγή', /source|πηγή/i], ['tags', 'Tags', /tag/i], ['group', 'Ομάδα', /group|ομάδα/i]];
+  const parse = (text: string) => {
+    const lines = text.replace(/\r/g, '').split('\n').filter((l) => l.trim());
+    if (lines.length < 2) { setErr('Το αρχείο χρειάζεται επικεφαλίδα και τουλάχιστον μία γραμμή.'); return; }
+    const sep = (lines[0].match(/;/g)?.length ?? 0) > (lines[0].match(/,/g)?.length ?? 0) ? ';' : lines[0].includes('\t') ? '\t' : ',';
+    const split = (l: string) => { const out: string[] = []; let cur = '', q = false; for (const ch of l) { if (ch === '"') q = !q; else if (ch === sep && !q) { out.push(cur); cur = ''; } else cur += ch; } out.push(cur); return out.map((x) => x.trim()); };
+    const head = split(lines[0].replace(/^\ufeff/, ''));
+    setCols(head);
+    setRows(lines.slice(1).map((l) => { const v = split(l); return Object.fromEntries(head.map((h, i) => [h, v[i] ?? ''])); }));
+    const m: Record<string, string> = {}; for (const [k, , re] of FIELDS) { const hit = head.find((h) => re.test(h)); if (hit) m[k] = hit; } setMap(m); setErr(null);
+  };
+  const run = () => start(async () => {
+    if (!map.name) { setErr('Διαλέξτε ποια στήλη είναι το ονοματεπώνυμο.'); return; }
+    const payload = rows.map((r) => ({ name: r[map.name] ?? '', email: map.email ? r[map.email] : '', phone: map.phone ? r[map.phone] : '', role: map.role ? r[map.role] : '', source: map.source ? r[map.source] : '', tags: map.tags ? r[map.tags] : '', group: map.group ? r[map.group] : '' })).filter((r) => r.name.trim());
+    const res = await importContacts(payload);
+    if (!res.ok) { setErr(res.error); return; }
+    if (res.errors.length) setErr(res.errors.join('\n'));
+    onDone(`Εισήχθησαν ${res.created} επαφές${res.skipped ? ` · ${res.skipped} υπήρχαν ήδη` : ''}.`);
+  });
+  return (
+    <div className="space-y-4 rounded-2xl border border-stone-line bg-white p-5">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="flex items-center gap-2 font-semibold text-charcoal"><FileSpreadsheet size={17} className="text-forest" /> Import επαφών από CSV / Excel</p>
+        <button type="button" onClick={() => { const csv = '\ufeffΟνοματεπώνυμο,Email,Τηλέφωνο,Ιδιότητα,Πηγή,Tags,Ομάδα\nMaria Georgiou,maria@example.com,+35799000000,lead,website,VIP,Λεμεσός'; const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = 'oramira-epafes-protypo.csv'; a.click(); }} className="text-xs font-medium text-forest hover:underline">Κατέβασμα προτύπου</button>
+      </div>
+      <label className="flex cursor-pointer flex-col items-center gap-1 rounded-2xl border-2 border-dashed border-forest/25 bg-forest/[0.03] px-4 py-8 text-center text-sm text-charcoal-600 hover:border-forest/50">
+        <Upload size={22} className="text-forest" />
+        <span>Επιλέξτε αρχείο <b>.csv</b> (από Excel: Αποθήκευση ως → CSV)</span>
+        <input type="file" accept=".csv,text/csv" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) void f.text().then(parse); }} />
+      </label>
+      {cols.length > 0 && (
+        <>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            {FIELDS.map(([k, label]) => (
+              <label key={k} className="block"><span className="text-xs font-medium text-charcoal-600">{label}</span>
+                <select className="input mt-1" value={map[k] ?? ''} onChange={(e) => setMap((m) => ({ ...m, [k]: e.target.value }))}><option value="">—</option>{cols.map((c) => <option key={c} value={c}>{c}</option>)}</select></label>
+            ))}
+          </div>
+          <div className="overflow-x-auto rounded-xl border border-stone-line">
+            <table className="w-full text-xs"><thead className="bg-forest/[0.04]"><tr>{cols.map((c) => <th key={c} className="px-3 py-2 text-left font-semibold">{c}</th>)}</tr></thead>
+              <tbody>{rows.slice(0, 5).map((r, i) => <tr key={i} className="border-t border-stone-line">{cols.map((c) => <td key={c} className="px-3 py-1.5" data-no-tr>{r[c]}</td>)}</tr>)}</tbody></table>
+          </div>
+          <div className="flex items-center gap-3"><span className="text-sm text-charcoal-600">{rows.length} γραμμές έτοιμες</span><button type="button" disabled={pending} onClick={run} className="ml-auto inline-flex items-center gap-1.5 rounded-full bg-forest px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"><Upload size={14} /> {pending ? 'Εισαγωγή…' : 'Εισαγωγή'}</button></div>
+        </>
+      )}
+      {err && <p className="whitespace-pre-line text-sm text-signal-danger">{err}</p>}
     </div>
   );
 }
