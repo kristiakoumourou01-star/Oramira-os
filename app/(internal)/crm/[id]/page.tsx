@@ -88,33 +88,63 @@ export default async function ContactDetailPage({ params, searchParams }: { para
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <p className="eyebrow mb-1">{contact.email}</p>
-          <h1 className="text-3xl">{contact.full_name ?? 'Χωρίς όνομα'}</h1>
-          <p className="mt-1 text-sm text-charcoal-600/80">{contact.phone} {contact.nationality ? `· ${contact.nationality}` : ''}</p>
-          <p className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-charcoal-600">
-            {c.preferred_language && <span className="flex items-center gap-1"><Languages size={12} /> {label(LANGUAGES, c.preferred_language) ?? c.preferred_language}</span>}
-            {c.communication_preference && <span className="flex items-center gap-1"><MessageCircle size={12} /> {label(CHANNELS, c.communication_preference) ?? c.communication_preference}</span>}
-            {c.best_time && <span className="flex items-center gap-1"><Clock size={12} /> {label(BEST_TIME, c.best_time)}{c.best_time_note ? ` · ${c.best_time_note}` : ''}</span>}
-            <Link href={`${here}?tab=kyc`} className="flex items-center gap-1 hover:underline">
-              {level && level !== 'low' ? <ShieldAlert size={12} /> : <ShieldCheck size={12} />}
-              AML: <span className={kycStatus?.tone}>{kycStatus?.label}</span>
-              {level && <span className="rounded px-1.5 py-0.5 text-[10px] font-semibold" style={{ background: RISK_LABEL[level].bg, color: RISK_LABEL[level].fg }}>{RISK_LABEL[level].label}</span>}
-              {reviewOverdue && <span className="text-signal-danger">· επανέλεγχος!</span>}
-            </Link>
-          </p>
+      <div className="rounded-2xl border border-stone-line bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+        <div className="flex flex-wrap items-start gap-4 p-5">
+          <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-forest/[0.09] font-display text-2xl text-forest">{(contact.full_name ?? '?').split(' ').map((x: string) => x[0]).slice(0, 2).join('')}</span>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="font-display text-3xl text-charcoal" data-no-tr>{contact.full_name ?? 'Χωρίς όνομα'}</h1>
+              <LifecycleBadges isLead={contact.is_lead} isBuyer={contact.is_buyer} isInvestor={contact.is_investor} isHomeowner={contact.is_homeowner} isNewsletter={contact.is_newsletter_subscriber} />
+            </div>
+            <p className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-[14px] text-charcoal-600" data-no-tr>
+              {contact.email && <a href={`mailto:${contact.email}`} className="hover:text-forest">{contact.email}</a>}
+              {contact.phone && <a href={`tel:${contact.phone}`} className="hover:text-forest">{contact.phone}</a>}
+              {contact.nationality && <span>{contact.nationality}</span>}
+            </p>
+            <p className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px] text-charcoal-600">
+              {c.preferred_language && <span className="flex items-center gap-1"><Languages size={13} /> {label(LANGUAGES, c.preferred_language) ?? c.preferred_language}</span>}
+              {c.communication_preference && <span className="flex items-center gap-1"><MessageCircle size={13} /> {label(CHANNELS, c.communication_preference) ?? c.communication_preference}</span>}
+              {c.best_time && <span className="flex items-center gap-1"><Clock size={13} /> {label(BEST_TIME, c.best_time)}{c.best_time_note ? ` · ${c.best_time_note}` : ''}</span>}
+              <Link href={`${here}?tab=kyc`} className="flex items-center gap-1 hover:underline">
+                {level && level !== 'low' ? <ShieldAlert size={13} /> : <ShieldCheck size={13} />}
+                AML: <span className={kycStatus?.tone}>{kycStatus?.label}</span>
+                {level && <span className="rounded px-1.5 py-0.5 text-[11px] font-semibold" style={{ background: RISK_LABEL[level].bg, color: RISK_LABEL[level].fg }}>{RISK_LABEL[level].label}</span>}
+                {reviewOverdue && <span className="text-signal-danger">· επανέλεγχος!</span>}
+              </Link>
+            </p>
+            {((c.groups ?? []).length > 0 || (c.tags ?? []).length > 0) && (
+              <p className="mt-2 flex flex-wrap gap-1.5">
+                {(c.groups ?? []).map((g: string) => <Link key={`g${g}`} href={`/crm/customers`} className="rounded-full bg-forest/[0.08] px-2.5 py-0.5 text-[12px] font-medium text-forest" data-no-tr>{g}</Link>)}
+                {(c.tags ?? []).map((t: string) => <span key={`t${t}`} className="rounded-full border border-stone-line px-2.5 py-0.5 text-[12px] text-charcoal" data-no-tr>{t}</span>)}
+              </p>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {contact.phone && <a href={`https://wa.me/${String(contact.phone).replace(/[^\d]/g, '')}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-lg border border-stone-line px-3 py-2 text-sm text-charcoal hover:border-forest/40">WhatsApp</a>}
+            {contact.email && <a href={`mailto:${contact.email}`} className="inline-flex items-center gap-1.5 rounded-lg border border-stone-line px-3 py-2 text-sm text-charcoal hover:border-forest/40">Email</a>}
+            <Link href={`/marketing?tab=email&ids=${contact.id}`} className="inline-flex items-center gap-1.5 rounded-lg bg-forest px-3 py-2 text-sm font-semibold text-white">Campaign</Link>
+          </div>
         </div>
-        <LifecycleBadges isLead={contact.is_lead} isBuyer={contact.is_buyer} isInvestor={contact.is_investor} isHomeowner={contact.is_homeowner} isNewsletter={contact.is_newsletter_subscriber} />
+        <div className="grid grid-cols-2 border-t border-stone-line sm:grid-cols-5">
+          {[
+            ['Budget', lead && (lead.budget_min || lead.budget_max) ? `€${formatNumber(Number(lead.budget_max ?? lead.budget_min ?? 0))}` : '—'],
+            ['Έργο ενδιαφέροντος', lead?.projects?.name ?? '—'],
+            ['Viewings', String(viewCount ?? 0)],
+            ['Έγγραφα', String(docCount ?? 0)],
+            ['Πελάτης από', contact.created_at ? new Date(contact.created_at).toLocaleDateString('el-GR') : '—'],
+          ].map(([k, v], i) => (
+            <div key={k} className={`px-5 py-3 ${i ? 'sm:border-l sm:border-stone-line' : ''}`}><p className="text-[12px] font-semibold uppercase tracking-wide text-charcoal-600">{k}</p><p className="mt-0.5 truncate text-[16px] font-semibold text-charcoal" data-no-tr>{v}</p></div>
+          ))}
+        </div>
       </div>
 
       <DuplicateBanner contactId={contact.id} matches={dupes} canMerge={canEdit && ['admin', 'management', 'sales'].includes(profile.role)} />
 
-      <nav className="flex flex-wrap gap-1 border-b border-stone-line">
+      <nav className="flex flex-wrap gap-1.5 rounded-2xl border border-stone-line bg-white p-1.5">
         {TABS.map((t) => (
           <Link key={t.key} href={t.key === 'overview' ? here : `${here}?tab=${t.key}`} scroll={false}
-            className={`-mb-px border-b-2 px-3 py-2 text-sm ${tab === t.key ? 'border-forest font-medium text-forest' : 'border-transparent text-charcoal-600 hover:text-charcoal'}`}>
-            {t.label}{(counts[t.key] ?? 0) > 0 && <span className="ml-1.5 rounded-full bg-stone px-1.5 text-[11px] text-charcoal-600">{counts[t.key]}</span>}
+            className={`rounded-xl px-3.5 py-2 text-[14px] font-medium transition ${tab === t.key ? 'bg-forest/[0.09] text-forest' : 'text-charcoal-600 hover:bg-stone-50 hover:text-charcoal'}`}>
+            {t.label}{(counts[t.key] ?? 0) > 0 && <span className="ml-1.5 rounded-full bg-forest/10 px-1.5 text-[11px] text-forest">{counts[t.key]}</span>}
           </Link>
         ))}
       </nav>
