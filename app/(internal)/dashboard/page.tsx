@@ -1,7 +1,8 @@
-import { Fragment } from 'react';
 import { requireProfile } from '@/lib/auth';
 import { effectiveCan } from '@/lib/permissions';
-import { layoutFor, SIZE_CLASS, BLOCK_SECTION, SECTION_INFO } from '@/lib/dashboard-shared';
+import { layoutFor, SIZE_CLASS } from '@/lib/dashboard-shared';
+import { loadHome } from '@/lib/dashboard-home';
+import { HomeDashboard } from '@/components/dashboard/HomeDashboard';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { ROLE_LABEL, INTERNAL_ROLES, type AppRole } from '@/lib/permissions';
 import Link from 'next/link';
@@ -70,7 +71,9 @@ export default async function DashboardPage() {
   const blocks = layoutFor((await getOrgSettings()).dashboard, profile.role, profile.customRoleId).filter((b) => b.visible);
   // Executive Command Center — CEO-level cross-module board, admins/management only.
   const isExec = ['admin', 'management'].includes(me?.role ?? profile.role);
-  const commandCenter = isExec ? await buildCommandCenter(supabase) : null;
+  // Το Command Center έχει δική του σελίδα (/command-center).
+  const commandCenter: Awaited<ReturnType<typeof buildCommandCenter>> | null = null;
+  void isExec;
   const projectOptions = (projectsRes?.data ?? []).map((p) => ({ id: p.id, name: p.name }));
   const leadOptions = (leadsEnriched ?? []).slice(0, 100).map((l) => ({ id: l.id, name: l.full_name ?? 'Lead', contactId: l.contact_id }));
   const teamOptions = (teamRes?.data ?? []).map((m: any) => ({ id: m.id, name: m.full_name ?? 'Team member', email: m.contacts?.email ?? '', avatar_url: m.avatar_url ?? null }));
@@ -313,34 +316,18 @@ export default async function DashboardPage() {
     }
   };
 
-  const shown = blocks.map((b) => ({ ...b, node: render(b.key) })).filter((b) => b.node);
+  const PERSONAL = ['planner', 'tasks', 'notifications', 'approvals', 'commissions', 'leave', 'payslips'];
+  const shown = blocks.filter((b) => PERSONAL.includes(b.key)).map((b) => ({ ...b, node: render(b.key) })).filter((b) => b.node);
+  const home = await loadHome();
 
-  return (
-    <div className="-mx-6 -my-5 grid min-h-screen grid-cols-6 content-start gap-4 bg-[#F7F4EE] px-6 py-5 text-charcoal">
-      {shown.map((b, i) => {
-        const sec = BLOCK_SECTION[b.key] ?? 'other';
-        const prev = i > 0 ? (BLOCK_SECTION[shown[i - 1].key] ?? 'other') : null;
-        const info = SECTION_INFO[sec];
-        // Το briefing ανοίγει τη σελίδα χωρίς τίτλο· κάθε άλλη ενότητα ξεκινά με τίτλο.
-        const head = info && sec !== prev && !(i === 0 && b.key === 'briefing');
-        return (
-          <Fragment key={b.key}>
-            {head && (
-              <div className={`col-span-6 flex items-end justify-between gap-3 border-b border-forest/10 pb-2 ${i > 0 ? 'mt-4' : ''}`}>
-                <div className="flex items-center gap-2.5">
-                  <span className="h-5 w-1 rounded-full bg-forest" />
-                  <h2 className="text-[13px] font-semibold uppercase tracking-[0.14em] text-forest">{info.title}</h2>
-                </div>
-                <p className="text-xs text-charcoal-600/60">{info.hint}</p>
-              </div>
-            )}
-            <div className={SIZE_CLASS[b.size]}>{b.node}</div>
-          </Fragment>
-        );
-      })}
-      {shown.length === 0 && (
-        <p className="col-span-6 text-sm text-charcoal-600/70">Δεν έχει επιλεγεί κανένα κουτί για το dashboard σας. Ο admin τα ρυθμίζει στο Settings → Dashboard.</p>
-      )}
-    </div>
+  const personal = shown.length > 0 && (
+    <section className="space-y-3 pt-2">
+      <h2 className="text-[13px] font-semibold uppercase tracking-[0.1em] text-charcoal-600">Η μέρα μου</h2>
+      <div className="grid grid-cols-6 gap-4">
+        {shown.map((b) => <div key={b.key} className={SIZE_CLASS[b.size]}>{b.node}</div>)}
+      </div>
+    </section>
   );
+
+  return <HomeDashboard d={home} name={me?.full_name ?? profile.fullName ?? ''} planner={personal} />;
 }
