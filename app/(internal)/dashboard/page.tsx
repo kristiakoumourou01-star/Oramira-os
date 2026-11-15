@@ -1,6 +1,7 @@
+import { Fragment } from 'react';
 import { requireProfile } from '@/lib/auth';
 import { effectiveCan } from '@/lib/permissions';
-import { layoutFor, SIZE_CLASS } from '@/lib/dashboard-shared';
+import { layoutFor, SIZE_CLASS, BLOCK_SECTION, SECTION_INFO } from '@/lib/dashboard-shared';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { ROLE_LABEL, INTERNAL_ROLES, type AppRole } from '@/lib/permissions';
 import Link from 'next/link';
@@ -316,9 +317,27 @@ export default async function DashboardPage() {
 
   return (
     <div className="-mx-6 -my-5 grid min-h-screen grid-cols-6 content-start gap-4 bg-[#F7F4EE] px-6 py-5 text-charcoal">
-      {shown.map((b) => (
-        <div key={b.key} className={SIZE_CLASS[b.size]}>{b.node}</div>
-      ))}
+      {shown.map((b, i) => {
+        const sec = BLOCK_SECTION[b.key] ?? 'other';
+        const prev = i > 0 ? (BLOCK_SECTION[shown[i - 1].key] ?? 'other') : null;
+        const info = SECTION_INFO[sec];
+        // Το briefing ανοίγει τη σελίδα χωρίς τίτλο· κάθε άλλη ενότητα ξεκινά με τίτλο.
+        const head = info && sec !== prev && !(i === 0 && b.key === 'briefing');
+        return (
+          <Fragment key={b.key}>
+            {head && (
+              <div className={`col-span-6 flex items-end justify-between gap-3 border-b border-forest/10 pb-2 ${i > 0 ? 'mt-4' : ''}`}>
+                <div className="flex items-center gap-2.5">
+                  <span className="h-5 w-1 rounded-full bg-forest" />
+                  <h2 className="text-[13px] font-semibold uppercase tracking-[0.14em] text-forest">{info.title}</h2>
+                </div>
+                <p className="text-xs text-charcoal-600/60">{info.hint}</p>
+              </div>
+            )}
+            <div className={SIZE_CLASS[b.size]}>{b.node}</div>
+          </Fragment>
+        );
+      })}
       {shown.length === 0 && (
         <p className="col-span-6 text-sm text-charcoal-600/70">Δεν έχει επιλεγεί κανένα κουτί για το dashboard σας. Ο admin τα ρυθμίζει στο Settings → Dashboard.</p>
       )}

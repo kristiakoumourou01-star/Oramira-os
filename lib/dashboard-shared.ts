@@ -37,6 +37,19 @@ export const DASHBOARD_CATALOG: BlockDef[] = [
   { key: 'payslips', label: 'Τα payslips μου', hint: 'Οι τελευταίες μισθοδοσίες σας, για λήψη.', size: 'third', visible: false, sizes: ALL },
 ];
 
+/** Ενότητες του dashboard: τα κουτιά ομαδοποιούνται κάτω από τίτλους. */
+export const BLOCK_SECTION: Record<string, string> = {
+  briefing: 'today', kpis: 'today', command: 'company', planner: 'schedule', pipeline: 'schedule', tasks: 'schedule',
+  notifications: 'inbox', approvals: 'inbox', commissions: 'mine', leave: 'mine', payslips: 'mine',
+};
+export const SECTION_INFO: Record<string, { title: string; hint: string }> = {
+  today: { title: 'Σήμερα', hint: 'Η μέρα σας με μια ματιά' },
+  company: { title: 'Εικόνα εταιρείας', hint: 'Προτεραιότητες, κίνδυνοι, ταμείο' },
+  schedule: { title: 'Πρόγραμμα & εργασίες', hint: 'Ημερολόγιο, pipeline και εκκρεμότητες' },
+  inbox: { title: 'Ειδοποιήσεις & εγκρίσεις', hint: 'Ό,τι περιμένει απάντηση' },
+  mine: { title: 'Τα δικά μου', hint: 'Προμήθειες, άδειες, μισθοδοσία' },
+};
+
 export const SIZE_LABEL: Record<BlockSize, string> = { third: '⅓', half: '½', twoThirds: '⅔', full: 'Πλήρες' };
 /** Grid classes (6-column grid on large screens, full width on phones). */
 export const SIZE_CLASS: Record<BlockSize, string> = {
