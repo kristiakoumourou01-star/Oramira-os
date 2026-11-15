@@ -83,15 +83,15 @@ export default async function InsightsPage({ searchParams }: { searchParams: { p
             {perf.map((r) => (
               <div key={r.month} className="flex flex-1 flex-col items-center gap-1">
                 <div className="flex h-40 w-full items-end justify-center gap-0.5">
-                  <span className="w-1/4 rounded-t bg-sky-400" style={{ height: `${(r.started / maxPerf) * 100}%` }} title={`Νέα: ${r.started}`} />
-                  <span className="w-1/4 rounded-t bg-emerald-500" style={{ height: `${(r.won / maxPerf) * 100}%` }} title={`Won: ${r.won}`} />
+                  <span className="w-1/4 rounded-t bg-forest" style={{ height: `${(r.started / maxPerf) * 100}%` }} title={`Νέα: ${r.started}`} />
+                  <span className="w-1/4 rounded-t bg-forest" style={{ height: `${(r.won / maxPerf) * 100}%` }} title={`Won: ${r.won}`} />
                   <span className="w-1/4 rounded-t bg-rose-400" style={{ height: `${(r.lost / maxPerf) * 100}%` }} title={`Lost: ${r.lost}`} />
                 </div>
                 <span className="text-[10px] text-charcoal-600/70">{mLabel(r.month)}</span>
               </div>
             ))}
           </div>
-          <p className="mt-2 flex gap-4 text-xs text-charcoal-600"><span><span className="mr-1 inline-block h-2 w-2 rounded bg-sky-400" />Νέα</span><span><span className="mr-1 inline-block h-2 w-2 rounded bg-emerald-500" />Won</span><span><span className="mr-1 inline-block h-2 w-2 rounded bg-rose-400" />Lost</span></p>
+          <p className="mt-2 flex gap-4 text-xs text-charcoal-600"><span><span className="mr-1 inline-block h-2 w-2 rounded bg-forest" />Νέα</span><span><span className="mr-1 inline-block h-2 w-2 rounded bg-forest" />Won</span><span><span className="mr-1 inline-block h-2 w-2 rounded bg-rose-400" />Lost</span></p>
         </Card>
 
         <Card title="Funnel μετατροπής" sub={`Deals που ξεκίνησαν στο διάστημα και έφτασαν σε κάθε στάδιο`}>
@@ -110,7 +110,7 @@ export default async function InsightsPage({ searchParams }: { searchParams: { p
           <div className="overflow-x-auto">
             <table className="table-base w-full min-w-[480px] text-sm">
               <thead><tr><th>Υπεύθυνος</th><th className="text-right">Ανοιχτά</th><th className="text-right">Αξία</th><th className="text-right">Won</th><th className="text-right">Won €</th><th className="text-right">Lost</th><th className="text-right">Win rate</th></tr></thead>
-              <tbody>{owners.map((r) => <tr key={r.ownerId ?? 'none'}><td>{r.name}</td><td className="text-right">{r.open}</td><td className="text-right">{formatCurrency(r.openValue)}</td><td className="text-right text-emerald-700">{r.won}</td><td className="text-right">{formatCurrency(r.wonValue)}</td><td className="text-right text-signal-danger">{r.lost}</td><td className="text-right font-medium">{r.winRate}%</td></tr>)}</tbody>
+              <tbody>{owners.map((r) => <tr key={r.ownerId ?? 'none'}><td>{r.name}</td><td className="text-right">{r.open}</td><td className="text-right">{formatCurrency(r.openValue)}</td><td className="text-right text-forest">{r.won}</td><td className="text-right">{formatCurrency(r.wonValue)}</td><td className="text-right text-signal-danger">{r.lost}</td><td className="text-right font-medium">{r.winRate}%</td></tr>)}</tbody>
             </table>
           </div>
         </Card>

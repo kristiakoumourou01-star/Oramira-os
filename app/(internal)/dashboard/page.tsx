@@ -189,7 +189,7 @@ export default async function DashboardPage() {
                     <span className="overflow-hidden"><span className="block truncate text-charcoal">{e.title}</span><span className="figure text-[11px] text-charcoal-600/55">{formatWeekdayTime(new Date(e.start))}</span></span>
                     <span className="flex shrink-0 items-center gap-2">
                       {e.attendees && e.attendees.length > 0 && <AvatarStack attendees={e.attendees} size={18} />}
-                      {e.meetingLink && <a href={e.meetingLink} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 rounded bg-violet-500/10 px-1.5 py-0.5 text-[10px] text-violet-700 hover:bg-violet-500/20"><Video size={10} /> Join</a>}
+                      {e.meetingLink && <a href={e.meetingLink} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 rounded bg-forest/10 px-1.5 py-0.5 text-[10px] text-forest hover:bg-forest/20"><Video size={10} /> Join</a>}
                     </span>
                   </li>
                 ))}

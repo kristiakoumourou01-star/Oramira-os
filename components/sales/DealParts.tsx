@@ -84,7 +84,7 @@ export function DealHeader({ leadId, title, fallbackTitle, status, ownerId, agen
           </div>
           {!closed && (
             <>
-              <button type="button" disabled={pending} onClick={() => run(() => updateLeadStatus(leadId, 'won', undefined, undefined, wonStageKey))} className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">Won</button>
+              <button type="button" disabled={pending} onClick={() => run(() => updateLeadStatus(leadId, 'won', undefined, undefined, wonStageKey))} className="rounded-lg bg-forest px-4 py-2 text-sm font-semibold text-white hover:bg-forest">Won</button>
               <button type="button" disabled={pending} onClick={() => setLost(true)} className="rounded-lg bg-signal-danger px-4 py-2 text-sm font-semibold text-white hover:opacity-90">Lost</button>
             </>
           )}
@@ -104,7 +104,7 @@ export function DealHeader({ leadId, title, fallbackTitle, status, ownerId, agen
       </div>
       {archived && <p className="rounded-lg bg-stone px-3 py-2 text-sm text-charcoal-600"><Archive size={13} className="mr-1 inline" /> Αυτό το deal είναι στο αρχείο.</p>}
       {inInbox && (
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-sm">
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-forest/25 bg-forest/[0.06] px-3 py-2 text-sm">
           <span className="text-charcoal">Αυτό είναι lead στο <Link href="/sales/leads" className="font-medium text-forest hover:underline">Leads Inbox</Link> — δεν εμφανίζεται ακόμη στο pipeline.</span>
           <button type="button" disabled={pending} className="btn-primary text-sm" onClick={() => run(() => setLeadsInbox([leadId], false))}>Μετατροπή σε deal</button>
         </div>
@@ -140,7 +140,7 @@ export function StageBar({ leadId, pipeline, status, stage, enteredAt }: { leadI
           return (
             <button key={s.key} type="button" disabled={pending || cur} title={`${s.label} · ${s.probability}%`} data-no-tr
               onClick={() => start(async () => { await updateLeadStatus(leadId, s.status, undefined, undefined, s.key); router.refresh(); })}
-              className={`relative -ml-2 min-w-[110px] flex-1 truncate py-2 pl-6 pr-4 text-center text-sm first:ml-0 first:pl-3 ${cur ? 'bg-emerald-600 font-semibold text-white' : done ? 'bg-emerald-100 text-emerald-800' : 'bg-stone text-charcoal-600 hover:bg-stone-200'}`}
+              className={`relative -ml-2 min-w-[110px] flex-1 truncate py-2 pl-6 pr-4 text-center text-sm first:ml-0 first:pl-3 ${cur ? 'bg-forest font-semibold text-white' : done ? 'bg-forest/10 text-forest' : 'bg-stone text-charcoal-600 hover:bg-stone-200'}`}
               style={{ clipPath: i === 0 ? 'polygon(0 0, calc(100% - 10px) 0, 100% 50%, calc(100% - 10px) 100%, 0 100%)' : 'polygon(0 0, calc(100% - 10px) 0, 100% 50%, calc(100% - 10px) 100%, 0 100%, 10px 50%)' }}>
               {s.label}{cur ? ` · ${days}μ.` : ''}
             </button>
@@ -300,7 +300,7 @@ export function FocusList({ items }: { items: OpenActivity[] }) {
         return (
           <div key={a.id} className={`flex items-start gap-3 rounded-xl border bg-white p-3 ${late ? 'border-rose-200' : 'border-stone-line'}`}>
             <button type="button" disabled={pending} title="Ολοκλήρωση" aria-label="Ολοκλήρωση" onClick={() => { setGone((g) => [...g, a.id]); start(async () => { await completeAndNext(a.id); router.refresh(); }); }}
-              className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 border-stone-300 hover:border-emerald-600 hover:bg-emerald-50"><Check size={11} className="text-emerald-700 opacity-0 hover:opacity-100" /></button>
+              className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 border-stone-300 hover:border-forest hover:bg-forest/[0.06]"><Check size={11} className="text-forest opacity-0 hover:opacity-100" /></button>
             <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-stone text-charcoal-600"><I size={14} /></span>
             <div className="min-w-0 flex-1">
               <p className="font-medium text-charcoal" data-no-tr>{a.note || activityLabel(a.type)}</p>

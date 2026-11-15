@@ -35,10 +35,10 @@
     --c-stone: 247 243 236;
     --c-stone-line: 227 218 201;
     --c-stone-200: 239 233 221;
-    --c-champagne: 200 168 107;
-    --c-champagne-50: 248 240 225;
-    --c-champagne-600: 173 140 82;
-    --c-olive: 138 133 96;
+    --c-champagne: 31 58 48;
+    --c-champagne-50: 234 240 236;
+    --c-champagne-600: 31 58 48;
+    --c-olive: 31 58 48;
     --c-charcoal: 43 42 39;
     --c-charcoal-600: 83 79 71;
     --font-display: var(--font-source-serif), Georgia, serif;
@@ -170,7 +170,7 @@
   /* Lead: δικό του χρυσαφί, ευανάγνωστο σε κάθε στυλ ετικετών. */
   .badge-lead {
     @apply badge;
-    background-color: #f6e9cf; color: #7a5518; border-color: #e2c48c;
+    background-color: rgb(var(--c-forest) / 0.09); color: rgb(var(--c-forest)); border-color: rgb(var(--c-forest) / 0.25);
   }
 }
 
@@ -288,9 +288,9 @@ html[data-boxcolor]:not([data-theme='dark']) .input { background-color: rgb(255 
 /* Status labels (badges) */
 html[data-labels='solid'] .badge-forest { background-color: rgb(var(--c-forest)); color: #fff; border-color: transparent; }
 html[data-labels='solid'] .badge-champagne { background-color: rgb(var(--c-champagne-50)); color: rgb(var(--c-charcoal)); border-color: rgb(var(--c-champagne-600) / 0.55); }
-html[data-labels='solid'] .badge-lead { background-color: #b07d22; color: #fff; border-color: transparent; }
-html[data-labels='outline'] .badge-lead { background-color: transparent; color: #8a6420; border-color: #c9a063; }
-html[data-theme='dark'] .badge-lead { background-color: rgb(176 125 34 / 0.25); color: #f3d79c; border-color: rgb(201 160 99 / 0.5); }
+html[data-labels='solid'] .badge-lead { background-color: rgb(var(--c-forest)); color: #fff; border-color: transparent; }
+html[data-labels='outline'] .badge-lead { background-color: transparent; color: rgb(var(--c-forest)); border-color: rgb(var(--c-forest) / 0.4); }
+html[data-theme='dark'] .badge-lead { background-color: rgb(var(--c-forest) / 0.3); color: #e7efe9; border-color: rgb(var(--c-forest) / 0.5); }
 html[data-labels='solid'] .badge-neutral { background-color: rgb(var(--c-charcoal-600)); color: #fff; border-color: transparent; }
 html[data-labels='outline'] .badge-forest,
 html[data-labels='outline'] .badge-champagne,
@@ -328,7 +328,7 @@ html[data-theme='dark'] {
   --c-charcoal: 232 230 224;
   --c-charcoal-600: 172 176 170;
   --c-forest-50: 30 40 35;
-  --c-champagne-50: 44 40 30;
+  --c-champagne-50: 30 40 35;
 }
 html[data-theme='dark'] body { background-color: rgb(var(--c-stone)); color: rgb(var(--c-charcoal)); }
 html[data-theme='dark'] .bg-white,
@@ -391,3 +391,7 @@ html[data-sidebar='light'][data-theme='dark'] {
 .sb-logo-on-light { display: none; }
 html[data-sidebar='light']:not([data-theme='dark']) .sb-logo-on-light { display: block; }
 html[data-sidebar='light']:not([data-theme='dark']) .sb-logo-on-dark { display: none; }
+
+/* Ένα χρώμα παντού: checkbox, radio, range, επιλογή κειμένου στο χρώμα της εταιρείας. */
+:root { accent-color: rgb(var(--c-forest)); }
+::selection { background-color: rgb(var(--c-forest) / 0.18); }

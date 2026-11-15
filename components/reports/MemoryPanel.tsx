@@ -7,8 +7,8 @@ import { MEMORY_KINDS, type MemoryEntry, type MemoryKind } from '@/lib/executive
 import { formatDate } from '@/lib/format';
 
 const KIND_CLS: Record<string, string> = {
-  decision: 'bg-forest/10 text-forest', negotiation: 'bg-champagne-50 text-champagne-600', owner: 'bg-sky-500/10 text-sky-700',
-  project: 'bg-olive/10 text-olive', employee: 'bg-violet-500/10 text-violet-700', risk: 'bg-signal-danger/10 text-signal-danger',
+  decision: 'bg-forest/10 text-forest', negotiation: 'bg-champagne-50 text-champagne-600', owner: 'bg-forest/10 text-forest',
+  project: 'bg-olive/10 text-olive', employee: 'bg-forest/10 text-forest', risk: 'bg-signal-danger/10 text-signal-danger',
 };
 const IMP: Record<string, string> = { high: 'text-signal-danger', normal: 'text-charcoal-600/50', low: 'text-charcoal-600/40' };
 

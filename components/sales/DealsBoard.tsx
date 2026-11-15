@@ -31,7 +31,7 @@ const ACT_ICON: Record<string, any> = { call: Phone, meeting: Users, task: Check
 const STATE_STYLE: Record<ActivityState, { cls: string; title: string }> = {
   none: { cls: 'text-amber-500', title: 'Καμία προγραμματισμένη activity' },
   overdue: { cls: 'bg-signal-danger text-white', title: 'Καθυστερημένη activity' },
-  today: { cls: 'bg-emerald-600 text-white', title: 'Activity σήμερα' },
+  today: { cls: 'bg-forest text-white', title: 'Activity σήμερα' },
   planned: { cls: 'bg-stone-300 text-white', title: 'Προγραμματισμένη activity' },
 };
 const initials = (n: string | null | undefined) => (n ?? '?').split(/\s+/).map((w) => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
@@ -198,7 +198,7 @@ export function DealsBoard({ leads: initial, cfg, rawCfg, canEditStages = false,
         <p className="block pr-6 font-semibold leading-snug text-charcoal group-hover:text-forest" data-no-tr>{dealTitle(l)}</p>
         {!isClosed(l.status) && (
           <span className="absolute right-2 top-2 hidden gap-1 group-hover:flex">
-            <button type="button" onClick={(e) => { e.stopPropagation(); markWon(l); }} title="Won" aria-label="Won" className="flex h-6 items-center rounded-md border border-emerald-300 bg-white px-1.5 text-[11px] font-semibold text-emerald-700 hover:bg-emerald-50"><ThumbsUp size={12} /></button>
+            <button type="button" onClick={(e) => { e.stopPropagation(); markWon(l); }} title="Won" aria-label="Won" className="flex h-6 items-center rounded-md border border-forest/25 bg-white px-1.5 text-[11px] font-semibold text-forest hover:bg-forest/[0.06]"><ThumbsUp size={12} /></button>
             <button type="button" onClick={(e) => { e.stopPropagation(); setLostFor(l); }} title="Lost" aria-label="Lost" className="flex h-6 items-center rounded-md border border-rose-300 bg-white px-1.5 text-[11px] font-semibold text-signal-danger hover:bg-rose-50"><ThumbsDown size={12} /></button>
           </span>
         )}
@@ -211,7 +211,7 @@ export function DealsBoard({ leads: initial, cfg, rawCfg, canEditStages = false,
             <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-forest text-[9px] font-semibold text-white" title={l.owner_name ?? 'Χωρίς υπεύθυνο'}>{initials(l.owner_name)}</span>
             <span className="truncate text-xs font-medium text-charcoal-600">{dealValue(l) ? formatCurrency(dealValue(l)) : '€0'}</span>
           </span>
-          {l.status === 'won' ? <span className="rounded bg-emerald-600 px-1.5 text-[10px] font-semibold uppercase text-white">Won</span>
+          {l.status === 'won' ? <span className="rounded bg-forest px-1.5 text-[10px] font-semibold uppercase text-white">Won</span>
             : isClosed(l.status) ? <span className="rounded bg-signal-danger px-1.5 text-[10px] font-semibold uppercase text-white">Lost</span>
             : (
               <button type="button" onClick={(e) => { e.stopPropagation(); setActFor(l); }} title={STATE_STYLE[st].title} aria-label={STATE_STYLE[st].title}
@@ -332,13 +332,13 @@ export function DealsBoard({ leads: initial, cfg, rawCfg, canEditStages = false,
               );
             })}
             {preset !== 'lost' && <div onDragOver={(e) => { if (drag) { e.preventDefault(); setOver('__won'); } }} onDrop={(e) => { e.preventDefault(); dropClosed('won'); }}
-              className={`flex w-[280px] shrink-0 flex-col rounded-2xl ring-1 ring-inset transition-colors ${over === '__won' ? 'bg-emerald-100 ring-2 ring-emerald-400' : 'bg-emerald-50/70 ring-emerald-200/70'}`}>
+              className={`flex w-[280px] shrink-0 flex-col rounded-2xl ring-1 ring-inset transition-colors ${over === '__won' ? 'bg-forest/10 ring-2 ring-forest' : 'bg-forest/[0.05] ring-forest/20'}`}>
               <div className="px-3.5 pb-2.5 pt-3">
-                <div className="flex items-center gap-2"><ThumbsUp size={14} className="text-emerald-600" /><p className="flex-1 text-[15px] font-semibold tracking-tight text-emerald-700">Won</p><span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">{won.length}</span></div>
+                <div className="flex items-center gap-2"><ThumbsUp size={14} className="text-forest" /><p className="flex-1 text-[15px] font-semibold tracking-tight text-forest">Won</p><span className="rounded-full bg-forest/10 px-2 py-0.5 text-[11px] font-semibold text-forest">{won.length}</span></div>
                 <p className="mt-1 text-xs text-charcoal-600/75"><span className="font-semibold text-charcoal">{formatCurrency(won.reduce((s, l) => s + dealValue(l), 0))}</span></p>
               </div>
               <div className="flex flex-col gap-1 px-1.5 pb-2">{won.map((l) => card(l))}</div>
-              {drag && <p className="mx-3 mb-3 rounded-xl border-2 border-dashed border-emerald-300 py-6 text-center text-xs font-medium text-emerald-700">Αφήστε εδώ → Won</p>}
+              {drag && <p className="mx-3 mb-3 rounded-xl border-2 border-dashed border-forest/25 py-6 text-center text-xs font-medium text-forest">Αφήστε εδώ → Won</p>}
               {!allClosed && wonAll.length > won.length && <button type="button" onClick={() => setShowClosed(true)} className="px-3.5 pb-3 text-left text-xs text-charcoal-600/70 hover:text-forest">+{wonAll.length - won.length} παλαιότερα</button>}
             </div>}
             {preset !== 'won' && <div onDragOver={(e) => { if (drag) { e.preventDefault(); setOver('__lost'); } }} onDrop={(e) => { e.preventDefault(); dropClosed('lost'); }}
@@ -361,7 +361,7 @@ export function DealsBoard({ leads: initial, cfg, rawCfg, canEditStages = false,
           {[
             { k: 'del', label: 'Διαγραφή', icon: Trash2, cls: 'border-stone-line text-charcoal-600', on: (l: LeadListItem) => setDelFor(l) },
             { k: 'lost', label: 'Lost', icon: ThumbsDown, cls: 'border-rose-300 text-signal-danger', on: (l: LeadListItem) => setLostFor(l) },
-            { k: 'won', label: 'Won', icon: Trophy, cls: 'border-emerald-300 text-emerald-700', on: markWon },
+            { k: 'won', label: 'Won', icon: Trophy, cls: 'border-forest/25 text-forest', on: markWon },
             { k: 'move', label: 'Άλλο pipeline', icon: ArrowRightLeft, cls: 'border-stone-line text-charcoal-600', on: (l: LeadListItem) => setMoveFor(l) },
             { k: 'arch', label: 'Αρχείο', icon: Archive, cls: 'border-stone-line text-charcoal-600', on: (l: LeadListItem) => archive([l.id], true) },
           ].map((z) => (
@@ -475,10 +475,10 @@ function QuickActivity({ deal, agents, currentUserId, onClose, onSaved }: { deal
             {list.map((a) => { const I = ACT_ICON[a.type] ?? CheckSquare; const late = Date.parse(a.dueAt) < Date.now(); return (
               <li key={a.id} className="flex items-start gap-3 px-3 py-2.5">
                 <button type="button" disabled={pending} title="Ολοκλήρωση" aria-label="Ολοκλήρωση" onClick={() => start(async () => { const r = await completeAndNext(a.id); if (r.ok) { const rest = list.filter((x) => x.id !== a.id); setList(rest); nextAfter(rest); } })}
-                  className="mt-0.5 h-5 w-5 shrink-0 rounded-full border-2 border-stone-300 hover:border-emerald-600 hover:bg-emerald-50" />
+                  className="mt-0.5 h-5 w-5 shrink-0 rounded-full border-2 border-stone-300 hover:border-forest hover:bg-forest/[0.06]" />
                 <div className="min-w-0 flex-1">
                   <p className="flex items-center gap-1.5 font-medium text-charcoal"><I size={14} className="shrink-0 text-charcoal-600" /><span className="truncate" data-no-tr>{a.note || activityLabel(a.type)}</span></p>
-                  <p className="text-xs"><span className={late ? 'font-medium text-signal-danger' : 'text-emerald-700'}>{when(a.dueAt)}</span><span className="text-charcoal-600/70" data-no-tr> · {a.assigneeName ?? '—'}</span></p>
+                  <p className="text-xs"><span className={late ? 'font-medium text-signal-danger' : 'text-forest'}>{when(a.dueAt)}</span><span className="text-charcoal-600/70" data-no-tr> · {a.assigneeName ?? '—'}</span></p>
                 </div>
               </li>
             ); })}
@@ -550,15 +550,15 @@ function Forecast({ deals, pipeName, onMove }: { deals: LeadListItem[]; pipeName
                 className={`flex w-[260px] shrink-0 flex-col ${over === k ? 'bg-forest/[0.06]' : ''}`}>
                 <div className="rounded-t-xl border-b border-stone-line bg-white px-3 py-2">
                   <p className="font-semibold text-charcoal">{m.label}</p>
-                  <p className="text-xs text-charcoal-600/70">{formatCurrency(openSum)} ανοιχτά{wonSum ? <> · <span className="text-emerald-700">{formatCurrency(wonSum)} won</span></> : null}</p>
+                  <p className="text-xs text-charcoal-600/70">{formatCurrency(openSum)} ανοιχτά{wonSum ? <> · <span className="text-forest">{formatCurrency(wonSum)} won</span></> : null}</p>
                 </div>
                 <div className="flex min-h-[100px] flex-col gap-2 p-2">
                   {items.map((l) => (
                     <div key={l.id} draggable={l.status !== 'won'} onDragStart={(e) => { e.dataTransfer.setData('text/plain', l.id); setDrag(l.id); }} onDragEnd={() => { setDrag(null); setOver(null); }}
-                      className={`rounded-lg border bg-white p-2.5 text-sm shadow-sm ${l.status === 'won' ? 'border-emerald-300' : 'border-stone-line cursor-grab'}`}>
+                      className={`rounded-lg border bg-white p-2.5 text-sm shadow-sm ${l.status === 'won' ? 'border-forest/25' : 'border-stone-line cursor-grab'}`}>
                       <Link href={`/crm/leads/${l.id}`} className="block font-semibold text-charcoal hover:text-forest" data-no-tr>{dealTitle(l)}</Link>
                       <p className="text-xs text-charcoal-600/70">{formatCurrency(dealValue(l))}{l.owner_name ? ` · ${l.owner_name}` : ''}</p>
-                      {l.status === 'won' && <span className="mt-1 inline-block rounded bg-emerald-600 px-1.5 text-[10px] font-semibold uppercase text-white">Won</span>}
+                      {l.status === 'won' && <span className="mt-1 inline-block rounded bg-forest px-1.5 text-[10px] font-semibold uppercase text-white">Won</span>}
                     </div>
                   ))}
                 </div>

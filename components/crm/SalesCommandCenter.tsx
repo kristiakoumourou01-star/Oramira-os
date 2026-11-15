@@ -127,7 +127,7 @@ export function SalesCommandCenter({ data }: { data: SalesCommand }) {
                 <div className="flex items-center justify-between">
                   <span className={`text-[11px] ${v.reminderSent ? 'text-forest' : 'text-champagne-600'}`}>{v.reminderSent ? '✓ Reminder sent' : '⚠ Reminder pending'}</span>
                   <div className="flex items-center gap-2">
-                    {v.meetingLink && <a href={v.meetingLink} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 rounded bg-violet-500/10 px-1.5 py-0.5 text-[10px] text-violet-700"><Video size={10} /> Join</a>}
+                    {v.meetingLink && <a href={v.meetingLink} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 rounded bg-forest/10 px-1.5 py-0.5 text-[10px] text-forest"><Video size={10} /> Join</a>}
                     <span className="flex items-center gap-1 text-[11px] font-medium text-forest">{v.nextAction} <ArrowRight size={11} /></span>
                   </div>
                 </div>

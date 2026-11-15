@@ -43,7 +43,7 @@ export function LogsView({ rows, showActor, lang }: { rows: LogRow[]; showActor:
     { label: 'Ενέργειες · 24ω', v: kpi.events, icon: Activity, tone: 'bg-forest/10 text-forest' },
     { label: 'Συνδέσεις · 30 ημ.', v: kpi.logins, icon: LogIn, tone: 'bg-[#4a8668]/15 text-[#2f6e54]' },
     { label: 'Αποτυχημένες συνδέσεις', v: kpi.failed, icon: ShieldAlert, tone: kpi.failed ? 'bg-rose-100 text-signal-danger' : 'bg-stone text-charcoal-600' },
-    { label: 'Αλλαγές · 24ω', v: kpi.changes, icon: PencilLine, tone: 'bg-[#c9a063]/20 text-[#8a6a33]' },
+    { label: 'Αλλαγές · 24ω', v: kpi.changes, icon: PencilLine, tone: 'bg-[rgb(var(--c-forest))]/20 text-[#8a6a33]' },
   ];
 
   return (
@@ -90,7 +90,7 @@ export function LogsView({ rows, showActor, lang }: { rows: LogRow[]; showActor:
               <tr key={r.id} className="transition-colors hover:bg-forest/[0.025]">
                 <td className="whitespace-nowrap px-4 py-2.5 tabular-nums text-charcoal-600">{fmt(r.at)}</td>
                 {showActor && <td className="whitespace-nowrap px-4 py-2.5 font-medium text-charcoal" data-no-tr>{r.actor}</td>}
-                <td className="px-4 py-2.5"><span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset ${r.action === 'login_failed' ? 'bg-rose-50 text-signal-danger ring-rose-200' : r.action === 'login' || r.action === 'logout' ? 'bg-forest/[0.07] text-forest ring-forest/20' : r.action.includes('delet') ? 'bg-rose-50 text-rose-700 ring-rose-200' : r.action.includes('creat') ? 'bg-emerald-50 text-emerald-700 ring-emerald-200' : 'bg-[#c9a063]/15 text-[#8a6a33] ring-[#c9a063]/30'}`}>{r.actionLabel}</span> <span className="ml-1 text-xs text-charcoal-600/60">{r.entity}</span></td>
+                <td className="px-4 py-2.5"><span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset ${r.action === 'login_failed' ? 'bg-rose-50 text-signal-danger ring-rose-200' : r.action === 'login' || r.action === 'logout' ? 'bg-forest/[0.07] text-forest ring-forest/20' : r.action.includes('delet') ? 'bg-rose-50 text-rose-700 ring-rose-200' : r.action.includes('creat') ? 'bg-forest/[0.06] text-forest ring-forest/25' : 'bg-[rgb(var(--c-forest))]/15 text-[#8a6a33] ring-[rgb(var(--c-forest))]/30'}`}>{r.actionLabel}</span> <span className="ml-1 text-xs text-charcoal-600/60">{r.entity}</span></td>
                 <td className="px-4 py-2.5 text-xs text-charcoal-600/80" data-no-tr>{r.details || '—'}</td>
               </tr>
             ))}

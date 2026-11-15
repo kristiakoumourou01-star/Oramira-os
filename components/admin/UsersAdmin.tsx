@@ -456,7 +456,7 @@ export function UsersAdmin({
                 {portalUsers.filter((u) => !extCat || u.role === extCat).map((u) => (
                   <tr key={u.id} className="hover:bg-stone/60">
                     <td><p className="font-medium text-charcoal">{u.full_name ?? 'Unnamed'}</p>{u.email && <p className="text-xs text-charcoal-600/60">{u.email}</p>}</td>
-                    <td><span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${u.role === 'homeowner' ? 'bg-forest/[0.08] text-forest' : u.role === 'contractor' ? 'bg-amber-50 text-amber-800' : u.role === 'investor' ? 'bg-violet-50 text-violet-700' : 'bg-sky-50 text-sky-700'}`}>{PORTAL_ROLE_LABEL[u.role] ?? u.role}</span></td>
+                    <td><span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${u.role === 'homeowner' ? 'bg-forest/[0.08] text-forest' : u.role === 'contractor' ? 'bg-amber-50 text-amber-800' : u.role === 'investor' ? 'bg-forest/[0.06] text-forest' : 'bg-forest/[0.06] text-forest'}`}>{PORTAL_ROLE_LABEL[u.role] ?? u.role}</span></td>
                     <td><span className={u.is_active ? 'badge-forest' : 'badge-neutral'}>{u.is_active ? 'Ενεργός' : 'Ανενεργός'}</span></td>
                     <td className="text-right">
                       <div className="flex justify-end gap-0.5">
@@ -593,7 +593,7 @@ function HistoryDrawer({ user, onClose }: { user: AdminUser; onClose: () => void
             <ol className="relative space-y-4 border-l-2 border-forest/15 pl-4">
               {rows.map((r) => (
                 <li key={r.id} className="relative">
-                  <span className={`absolute -left-[23px] top-1 h-3 w-3 rounded-full ring-2 ring-white ${r.action === 'login_failed' || r.action.includes('delet') ? 'bg-rose-500' : r.action === 'login' ? 'bg-forest' : 'bg-[#c9a063]'}`} />
+                  <span className={`absolute -left-[23px] top-1 h-3 w-3 rounded-full ring-2 ring-white ${r.action === 'login_failed' || r.action.includes('delet') ? 'bg-rose-500' : r.action === 'login' ? 'bg-forest' : 'bg-[rgb(var(--c-forest))]'}`} />
                   <p className="text-sm font-medium text-charcoal">{ACT[r.action] ?? r.action.replace(/_/g, ' ')} <span className="font-normal text-charcoal-600/60">· {ENT[r.entity] ?? r.entity}</span></p>
                   <p className="text-xs tabular-nums text-charcoal-600/70">{new Date(r.at).toLocaleString('el-GR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Nicosia' })}</p>
                   {r.details && <p className="text-xs text-charcoal-600/60" data-no-tr>{r.details}</p>}

@@ -61,9 +61,9 @@ export function PropertyDocuments({ projectId, units, docs, canEdit }: { project
                   <button type="button" onClick={() => open(d)} className="flex items-center gap-2 text-left font-semibold text-charcoal hover:text-forest"><FileText size={15} className="shrink-0 text-forest" /><span data-no-tr>{d.title || 'Χωρίς τίτλο'}</span></button>
                   {d.description && <p className="mt-0.5 max-w-xs text-xs text-charcoal-600/80" data-no-tr>{d.description}</p>}
                 </td>
-                <td className="whitespace-nowrap"><span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${d.unitId ? 'bg-forest/[0.07] text-forest' : 'bg-[#c9a063]/15 text-[#8a6420]'}`} data-no-tr={d.unitId ? true : undefined}>{d.unitId ? unitName.get(d.unitId) ?? 'Ακίνητο' : 'Όλο το έργο'}</span></td>
+                <td className="whitespace-nowrap"><span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${d.unitId ? 'bg-forest/[0.07] text-forest' : 'bg-[rgb(var(--c-forest))]/15 text-[rgb(var(--c-forest))]'}`} data-no-tr={d.unitId ? true : undefined}>{d.unitId ? unitName.get(d.unitId) ?? 'Ακίνητο' : 'Όλο το έργο'}</span></td>
                 <td className="whitespace-nowrap text-charcoal-600">{CAT[d.category] ?? d.category}</td>
-                <td className="max-w-[260px]">{d.notes ? <p className="flex gap-1.5 whitespace-pre-line text-xs text-charcoal-600" data-no-tr><StickyNote size={12} className="mt-0.5 shrink-0 text-[#c9a063]" />{d.notes}</p> : <span className="text-xs text-charcoal-600/40">—</span>}</td>
+                <td className="max-w-[260px]">{d.notes ? <p className="flex gap-1.5 whitespace-pre-line text-xs text-charcoal-600" data-no-tr><StickyNote size={12} className="mt-0.5 shrink-0 text-[rgb(var(--c-forest))]" />{d.notes}</p> : <span className="text-xs text-charcoal-600/40">—</span>}</td>
                 <td className="whitespace-nowrap text-xs text-charcoal-600"><span className="tabular-nums">{fmt(d.created_at)}</span>{d.uploader && <span className="block text-charcoal-600/60" data-no-tr>{d.uploader}</span>}</td>
                 <td>
                   <span className="flex justify-end gap-1">

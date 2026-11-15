@@ -19,7 +19,7 @@ export function ForecastPanel({ forecast }: { forecast: FinancialForecast }) {
   return (
     <div className="overflow-hidden rounded-2xl border border-stone-line bg-white shadow-[0_1px_2px_rgba(17,49,36,0.04)]">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-stone-line px-5 py-4">
-        <h4 className="flex items-center gap-2.5 text-[15px] font-semibold text-charcoal"><span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#b07d22] text-white"><TrendingUp size={15} /></span> Cashflow forecast</h4>
+        <h4 className="flex items-center gap-2.5 text-[15px] font-semibold text-charcoal"><span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[rgb(var(--c-forest))] text-white"><TrendingUp size={15} /></span> Cashflow forecast</h4>
         <span className="rounded-full bg-forest/[0.07] px-3 py-1 text-xs text-forest">{forecast.activeReservations} active reservations · €{formatNumber(Math.round(forecast.monthlyPayroll))}/mo payroll</span>
       </div>
 

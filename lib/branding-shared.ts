@@ -139,10 +139,12 @@ export function brandCssVars(b: Branding): string {
     '--c-forest': channels(b.colorPrimary, d.colorPrimary),
     '--c-forest-deep': darken(b.colorPrimary, 0.28, d.colorPrimary),
     '--c-forest-50': lighten(b.colorPrimary, 0.9, d.colorPrimary),
-    '--c-champagne': channels(b.colorAccent, d.colorAccent),
-    '--c-champagne-50': lighten(b.colorAccent, 0.86, d.colorAccent),
-    '--c-champagne-600': darken(b.colorAccent, 0.22, d.colorAccent),
-    '--c-olive': darken(b.colorAccent, 0.2, d.colorAccent),
+    // Ένα χρώμα σε όλη την πλατφόρμα (όπως το μωβ του FitnessCRM): οι τόνοι
+    // «champagne» / «olive» ακολουθούν το κύριο χρώμα που επιλέγει η εταιρεία.
+    '--c-champagne': channels(b.colorPrimary, d.colorPrimary),
+    '--c-champagne-50': lighten(b.colorPrimary, 0.9, d.colorPrimary),
+    '--c-champagne-600': channels(b.colorPrimary, d.colorPrimary),
+    '--c-olive': channels(b.colorPrimary, d.colorPrimary),
     '--c-sand': channels(b.colorSecondary, d.colorSecondary),
     '--c-sand-100': lighten(b.colorSecondary, 0.4, d.colorSecondary),
     // Χρώμα κουτιών (Ρυθμίσεις → Εμφάνιση → Χρώμα κουτιών).

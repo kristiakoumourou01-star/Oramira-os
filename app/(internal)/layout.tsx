@@ -71,7 +71,7 @@ export default async function InternalLayout({ children }: { children: React.Rea
 
   const signOut = (
     <form action={logout}>
-      {!(compact && menu.position !== 'top') && <p className="mb-1 flex items-center gap-2 px-3 text-[13px] text-[color:var(--sb-text)]"><span className="h-2 w-2 rounded-full bg-emerald-500" /> Συνδεδεμένος</p>}
+      {!(compact && menu.position !== 'top') && <p className="mb-1 flex items-center gap-2 px-3 text-[13px] text-[color:var(--sb-text)]"><span className="h-2 w-2 rounded-full bg-forest" /> Συνδεδεμένος</p>}
       <button type="submit" title={t('signOut')} className={`flex w-full items-center rounded py-2 text-sm text-[color:var(--sb-text)] hover:bg-[color:var(--sb-hover-bg)] hover:text-[color:var(--sb-text-hover)] ${compact && menu.position !== 'top' ? 'justify-center px-0' : 'gap-3 px-3'}`}>
         <LogOut size={16} strokeWidth={1.75} />
         {(!compact || menu.position === 'top') && t('signOut')}

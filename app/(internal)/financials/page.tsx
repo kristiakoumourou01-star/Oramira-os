@@ -102,9 +102,9 @@ export default async function FinancialsPage() {
                       <td className="font-semibold text-charcoal" data-no-tr>{p.name}<span className="block text-xs font-normal text-charcoal-600/60">{p.availableUnits} available</span></td>
                       <td className="w-44"><span className="figure text-charcoal">{p.soldUnits} / {p.totalUnits}</span> <span className="text-xs text-charcoal-600/60">{soldPct}%</span><Bar pct={soldPct} cls="bg-forest" /></td>
                       <td className="figure font-medium text-charcoal">{eur(p.revenue, { compact: true })}</td>
-                      <td className="w-44"><span className="figure text-forest">{eur(p.collected, { compact: true })}</span> <span className="text-xs text-charcoal-600/60">{collectedPct}%</span><Bar pct={collectedPct} cls="bg-emerald-500" /></td>
+                      <td className="w-44"><span className="figure text-forest">{eur(p.collected, { compact: true })}</span> <span className="text-xs text-charcoal-600/60">{collectedPct}%</span><Bar pct={collectedPct} cls="bg-forest" /></td>
                       <td className="figure text-charcoal">{eur(p.contractorLiabilities, { compact: true })}</td>
-                      <td className="text-right"><span className={`figure inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${p.contribution >= 0 ? 'bg-emerald-50 text-forest ring-1 ring-inset ring-emerald-200' : 'bg-rose-50 text-signal-danger ring-1 ring-inset ring-rose-200'}`}>{eur(p.contribution, { compact: true })}</span></td>
+                      <td className="text-right"><span className={`figure inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${p.contribution >= 0 ? 'bg-forest/[0.06] text-forest ring-1 ring-inset ring-forest/25' : 'bg-rose-50 text-signal-danger ring-1 ring-inset ring-rose-200'}`}>{eur(p.contribution, { compact: true })}</span></td>
                     </tr>
                   );
                 })}

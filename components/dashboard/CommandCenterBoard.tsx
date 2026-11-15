@@ -7,7 +7,7 @@ const MOD: Record<PriorityModule, { label: string; cls: string }> = {
   lead: { label: 'Lead', cls: 'bg-champagne-50 text-champagne-600' },
   task: { label: 'Task', cls: 'bg-forest/10 text-forest' },
   approval: { label: 'Approval', cls: 'bg-olive/10 text-olive' },
-  maintenance: { label: 'Maintenance', cls: 'bg-sky-500/10 text-sky-700' },
+  maintenance: { label: 'Maintenance', cls: 'bg-forest/10 text-forest' },
   finance: { label: 'Finance', cls: 'bg-signal-danger/10 text-signal-danger' },
 };
 
@@ -105,7 +105,7 @@ export function CommandCenterBoard({ data }: { data: CommandCenter }) {
               ))}
               {data.urgentMaintenance.map((m) => (
                 <li key={m.id} className="flex items-center justify-between gap-2 text-sm">
-                  <span className="flex items-center gap-1.5 truncate text-charcoal"><Wrench size={11} className="text-sky-600" /> {m.title}</span>
+                  <span className="flex items-center gap-1.5 truncate text-charcoal"><Wrench size={11} className="text-forest" /> {m.title}</span>
                   <span className={`shrink-0 text-[11px] ${m.priority === 'emergency' ? 'text-signal-danger' : 'text-champagne-600'}`}>{m.priority} · {m.ageDays}d</span>
                 </li>
               ))}
