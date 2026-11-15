@@ -1,5 +1,6 @@
 'use client';
 
+import { HubCards } from '@/components/ui/HubCards';
 import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { LayoutTemplate, Layers, SlidersHorizontal, GripVertical, Lock, Eye, EyeOff, Pencil, Plus, RotateCcw, Save, HelpCircle, ChevronDown, Bell, Search, Home, Calendar, Wrench, FileText, User, Phone as PhoneIcon, MessageCircle, Hammer, CreditCard, Building2, Megaphone, Check, Copy, Apple, Smartphone } from 'lucide-react';
@@ -58,21 +59,7 @@ export function MobileAppBuilder({ initial, projects, installUrl, company }: { i
         <h1 className="font-display text-3xl text-charcoal">Mobile App</h1>
         <p className="text-sm text-charcoal-600/75">Τι βλέπουν οι πελάτες σας (ιδιοκτήτες, αγοραστές, επενδυτές) στην εφαρμογή — αρχική οθόνη, περιεχόμενο και ρυθμίσεις.</p>
       </div>
-      <div className="grid gap-3 md:grid-cols-3">
-        {cards.map((c) => {
-          const on = tab === c.k;
-          return (
-            <button key={c.k} type="button" onClick={() => setTab(c.k)} className={`rounded-2xl border p-4 text-left transition ${on ? 'border-forest/40 bg-forest/[0.06] shadow-[0_0_0_2px_rgba(17,49,36,0.18)]' : 'border-stone-line bg-white hover:border-forest/30'}`}>
-              <div className="flex items-start justify-between">
-                <span className={`flex h-10 w-10 items-center justify-center rounded-xl ${on ? 'bg-forest text-white' : 'bg-forest/10 text-forest'}`}><c.icon size={18} /></span>
-                <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium ${on ? 'bg-forest text-white' : 'border border-stone-line text-charcoal-600'}`}>{on ? 'Ανοιχτό' : 'Πατήστε για άνοιγμα'}</span>
-              </div>
-              <p className="mt-3 flex items-baseline justify-between font-semibold text-charcoal">{c.title}{c.n !== undefined && <span className="text-xl">{c.n}</span>}</p>
-              <p className="text-xs text-charcoal-600/70">{c.sub}</p>
-            </button>
-          );
-        })}
-      </div>
+      <HubCards cols={3} active={tab} onSelect={(k) => setTab(k as typeof tab)} cards={cards.map((c) => ({ key: c.k, icon: c.icon, title: c.title, value: c.n, sub: c.sub }))} />
 
       <div className="sticky top-14 z-20 flex flex-wrap items-center gap-2 rounded-2xl border border-stone-line bg-white/95 px-4 py-2.5 backdrop-blur">
         <p className="font-display text-xl text-charcoal">{tab === 'home' ? 'Home Builder' : tab === 'content' ? 'Content' : 'Settings'}</p>

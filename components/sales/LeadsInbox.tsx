@@ -15,7 +15,7 @@ import { LeadDrawer } from '@/components/crm/LeadDrawer';
 import { DATE_TAG, currentLocale } from '@/lib/locale-shared';
 
 const SRC: Record<string, string> = { website: 'Website', meta: 'Meta', google: 'Google', organic: 'Organic', referral: 'Σύσταση', whatsapp: 'WhatsApp', walk_in: 'Walk-in', other: 'Άλλο' };
-const SRC_TONE: Record<string, string> = { website: 'bg-sky-50 text-sky-700 ring-sky-200', meta: 'bg-indigo-50 text-indigo-700 ring-indigo-200', google: 'bg-amber-50 text-amber-700 ring-amber-200', organic: 'bg-emerald-50 text-emerald-700 ring-emerald-200', referral: 'bg-violet-50 text-violet-700 ring-violet-200', whatsapp: 'bg-green-50 text-green-700 ring-green-200', walk_in: 'bg-orange-50 text-orange-700 ring-orange-200', other: 'bg-stone text-charcoal-600 ring-stone-line' };
+const SRC_TONE: Record<string, string> = { website: 'bg-forest/[0.06] text-forest ring-forest/20', meta: 'bg-forest/[0.06] text-forest ring-forest/20', google: 'bg-forest/[0.06] text-forest ring-forest/20', organic: 'bg-forest/[0.06] text-forest ring-forest/20', referral: 'bg-forest/[0.06] text-forest ring-forest/20', whatsapp: 'bg-forest/[0.06] text-forest ring-forest/20', walk_in: 'bg-forest/[0.06] text-forest ring-forest/20', other: 'bg-stone text-charcoal-600 ring-stone-line' };
 const AV = ['bg-forest', 'bg-[#4a8668]', 'bg-[#c9a063]', 'bg-[#3f6fb0]', 'bg-[#b0607f]', 'bg-[#7c6bb5]', 'bg-[#c2554d]'];
 const avatarOf = (name: string) => { let h = 0; for (const c of name) h = (h * 31 + c.charCodeAt(0)) >>> 0; return AV[h % AV.length]; };
 const initialsOf = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join('') || '•';
@@ -66,9 +66,9 @@ export function LeadsInbox({ leads: initial, cfg, agents }: { leads: LeadListIte
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {[
           { label: 'Στο Inbox', v: inboxAll.length, icon: Inbox, tone: 'text-forest bg-forest/10' },
-          { label: 'Νέα σήμερα', v: inboxAll.filter((l) => Date.now() - new Date(l.created_at).getTime() < 864e5).length, icon: Sparkles, tone: 'text-sky-700 bg-sky-100' },
-          { label: 'Hot', v: inboxAll.filter((l) => (l.labels ?? []).includes('hot')).length, icon: Flame, tone: 'text-rose-700 bg-rose-100' },
-          { label: 'Χωρίς activity', v: inboxAll.filter((l) => activityState(l.next_follow_up ?? l.next_action_date) === 'none').length, icon: CalendarClock, tone: 'text-amber-700 bg-amber-100' },
+          { label: 'Νέα σήμερα', v: inboxAll.filter((l) => Date.now() - new Date(l.created_at).getTime() < 864e5).length, icon: Sparkles, tone: 'text-forest bg-forest/[0.09]' },
+          { label: 'Hot', v: inboxAll.filter((l) => (l.labels ?? []).includes('hot')).length, icon: Flame, tone: 'text-forest bg-forest/[0.09]' },
+          { label: 'Χωρίς activity', v: inboxAll.filter((l) => activityState(l.next_follow_up ?? l.next_action_date) === 'none').length, icon: CalendarClock, tone: 'text-forest bg-forest/[0.09]' },
         ].map((k) => (
           <div key={k.label} className="flex items-center gap-3 rounded-2xl border border-stone-line bg-white px-4 py-3 shadow-[0_1px_2px_rgba(17,49,36,0.04)]">
             <span className={`flex h-10 w-10 items-center justify-center rounded-xl ${k.tone}`}><k.icon size={18} /></span>

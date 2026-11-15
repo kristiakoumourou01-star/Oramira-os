@@ -8,15 +8,9 @@ import { eur } from '@/lib/deal-analyzer';
 import { TrendingUp, Wallet, Hourglass, Wrench, Users, CalendarCheck, Home, KeyRound, Timer, Gauge, ShieldCheck, Hammer, Building2 } from 'lucide-react';
 
 type Tone = 'green' | 'amber' | 'forest' | 'rose' | 'sky' | 'violet' | 'sand';
-const TONE: Record<Tone, { card: string; ico: string; val: string }> = {
-  green: { card: 'from-emerald-50 to-white border-emerald-200/70', ico: 'bg-emerald-500 text-white', val: 'text-emerald-800' },
-  amber: { card: 'from-amber-50 to-white border-amber-200/70', ico: 'bg-amber-500 text-white', val: 'text-amber-800' },
-  forest: { card: 'from-forest/[0.08] to-white border-forest/20', ico: 'bg-forest text-white', val: 'text-forest' },
-  rose: { card: 'from-rose-50 to-white border-rose-200/70', ico: 'bg-rose-500 text-white', val: 'text-rose-800' },
-  sky: { card: 'from-sky-50 to-white border-sky-200/70', ico: 'bg-sky-500 text-white', val: 'text-sky-800' },
-  violet: { card: 'from-violet-50 to-white border-violet-200/70', ico: 'bg-violet-500 text-white', val: 'text-violet-800' },
-  sand: { card: 'from-[#c9a063]/15 to-white border-[#c9a063]/30', ico: 'bg-[#b07d22] text-white', val: 'text-[#7a5518]' },
-};
+// Ένα χρώμα παντού (της εταιρείας), όπως στο FitnessCRM.
+const ONE = { card: 'from-white to-white border-stone-line', ico: 'bg-forest/[0.09] text-forest', val: 'text-charcoal' };
+const TONE: Record<Tone, { card: string; ico: string; val: string }> = { green: ONE, amber: ONE, forest: ONE, rose: ONE, sky: ONE, violet: ONE, sand: ONE };
 
 // Κύριος αριθμός (χρήματα): έγχρωμη κάρτα με εικονίδιο.
 function Stat({ label, value, icon: Icon, hint, tone }: { label: string; value: string; icon: any; hint?: string; tone: Tone }) {
@@ -108,9 +102,9 @@ export default async function FinancialsPage() {
                       <td className="font-semibold text-charcoal" data-no-tr>{p.name}<span className="block text-xs font-normal text-charcoal-600/60">{p.availableUnits} available</span></td>
                       <td className="w-44"><span className="figure text-charcoal">{p.soldUnits} / {p.totalUnits}</span> <span className="text-xs text-charcoal-600/60">{soldPct}%</span><Bar pct={soldPct} cls="bg-forest" /></td>
                       <td className="figure font-medium text-charcoal">{eur(p.revenue, { compact: true })}</td>
-                      <td className="w-44"><span className="figure text-emerald-700">{eur(p.collected, { compact: true })}</span> <span className="text-xs text-charcoal-600/60">{collectedPct}%</span><Bar pct={collectedPct} cls="bg-emerald-500" /></td>
-                      <td className="figure text-rose-700">{eur(p.contractorLiabilities, { compact: true })}</td>
-                      <td className="text-right"><span className={`figure inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${p.contribution >= 0 ? 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200' : 'bg-rose-50 text-signal-danger ring-1 ring-inset ring-rose-200'}`}>{eur(p.contribution, { compact: true })}</span></td>
+                      <td className="w-44"><span className="figure text-forest">{eur(p.collected, { compact: true })}</span> <span className="text-xs text-charcoal-600/60">{collectedPct}%</span><Bar pct={collectedPct} cls="bg-emerald-500" /></td>
+                      <td className="figure text-charcoal">{eur(p.contractorLiabilities, { compact: true })}</td>
+                      <td className="text-right"><span className={`figure inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${p.contribution >= 0 ? 'bg-emerald-50 text-forest ring-1 ring-inset ring-emerald-200' : 'bg-rose-50 text-signal-danger ring-1 ring-inset ring-rose-200'}`}>{eur(p.contribution, { compact: true })}</span></td>
                     </tr>
                   );
                 })}

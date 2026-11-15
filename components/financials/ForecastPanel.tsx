@@ -27,9 +27,9 @@ export function ForecastPanel({ forecast }: { forecast: FinancialForecast }) {
         {forecast.horizons.map((h) => {
           const pos = h.net >= 0;
           return (
-            <div key={h.days} className={`rounded-xl border p-4 ${pos ? 'border-emerald-200 bg-gradient-to-br from-emerald-50 to-white' : 'border-rose-200 bg-gradient-to-br from-rose-50 to-white'}`}>
+            <div key={h.days} className={`rounded-xl border p-4 border-stone-line bg-white`}>
               <p className="text-[11px] font-semibold uppercase tracking-wide text-charcoal-600/70">Net cashflow · next {h.days}d</p>
-              <p className={`mt-2 flex items-center gap-1 font-display text-2xl ${pos ? 'text-emerald-700' : 'text-signal-danger'}`}>{pos ? <ArrowUpRight size={18} /> : <ArrowDownRight size={18} />}{c(h.net)}</p>
+              <p className={`mt-2 flex items-center gap-1 font-display text-2xl ${pos ? 'text-forest' : 'text-signal-danger'}`}>{pos ? <ArrowUpRight size={18} /> : <ArrowDownRight size={18} />}{c(h.net)}</p>
             </div>
           );
         })}
@@ -43,8 +43,8 @@ export function ForecastPanel({ forecast }: { forecast: FinancialForecast }) {
           <tbody className="divide-y divide-stone-line/60 [&_td]:px-5 [&_td]:py-2.5">
             {rows.map((r) => (
               <tr key={r.label} className="hover:bg-forest/[0.02]">
-                <td className="text-charcoal"><span className={`mr-2 inline-block h-2 w-2 rounded-full ${r.kind === 'in' ? 'bg-emerald-500' : 'bg-rose-400'}`} />{r.label}</td>
-                {forecast.horizons.map((h) => <td key={h.days} className={`figure text-right ${r.kind === 'in' ? 'text-emerald-700' : 'text-rose-700'}`}>{r.get(h)}</td>)}
+                <td className="text-charcoal"><span className={`mr-2 inline-block h-2 w-2 rounded-full ${r.kind === 'in' ? 'bg-forest' : 'bg-charcoal-600/40'}`} />{r.label}</td>
+                {forecast.horizons.map((h) => <td key={h.days} className={`figure text-right ${r.kind === 'in' ? 'text-forest' : 'text-charcoal'}`}>{r.get(h)}</td>)}
               </tr>
             ))}
           </tbody>

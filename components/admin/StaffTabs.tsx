@@ -1,26 +1,16 @@
-import Link from 'next/link';
-import { Users, Handshake, ShieldCheck, Plane } from 'lucide-react';
+'use client';
 
-/** Staff (όπως στο FitnessCRM): Υπάλληλοι · Ιδιοκτήτες & συνεργάτες · Ρόλοι · Άδειες. */
+import { Users, Handshake, ShieldCheck, Plane } from 'lucide-react';
+import { HubCards } from '@/components/ui/HubCards';
+
+/** Staff (όπως στο FitnessCRM): κάρτες Υπάλληλοι · Ιδιοκτήτες & συνεργάτες · Ρόλοι · Άδειες. */
 export function StaffTabs({ active, counts = {} }: { active: 'employees' | 'external' | 'roles' | 'leave'; counts?: Partial<Record<string, number>> }) {
-  const tabs = [
-    { k: 'employees', label: 'Υπάλληλοι', href: '/settings/users', icon: Users },
-    { k: 'external', label: 'Ιδιοκτήτες & συνεργάτες', href: '/settings/users?tab=external', icon: Handshake },
-    { k: 'roles', label: 'Ρόλοι', href: '/settings/roles', icon: ShieldCheck },
-    { k: 'leave', label: 'Άδειες', href: '/settings/users?tab=leave', icon: Plane },
-  ] as const;
   return (
-    <nav className="flex flex-wrap gap-1.5 rounded-2xl bg-forest/[0.06] p-1.5">
-      {tabs.map((t) => {
-        const on = t.k === active;
-        return (
-          <Link key={t.k} href={t.href} aria-current={on ? 'page' : undefined}
-            className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition ${on ? 'bg-forest text-white shadow-sm' : 'text-forest hover:bg-forest/10'}`}>
-            <t.icon size={15} /> {t.label}
-            {counts[t.k] !== undefined && <span className={`rounded-full px-1.5 text-[11px] ${on ? 'bg-white/20' : 'bg-forest/10'}`}>{counts[t.k]}</span>}
-          </Link>
-        );
-      })}
-    </nav>
+    <HubCards active={active} cards={[
+      { key: 'employees', icon: Users, title: 'Υπάλληλοι', value: counts.employees, sub: 'Ομάδα, ρόλοι και πρόσβαση', href: '/settings/users' },
+      { key: 'external', icon: Handshake, title: 'Ιδιοκτήτες & συνεργάτες', value: counts.external, sub: 'Λογαριασμοί εκτός ομάδας', href: '/settings/users?tab=external' },
+      { key: 'roles', icon: ShieldCheck, title: 'Ρόλοι', value: counts.roles, sub: 'Τι βλέπει και τι αλλάζει ο κάθε ρόλος', href: '/settings/roles' },
+      { key: 'leave', icon: Plane, title: 'Άδειες', value: counts.leave, sub: 'Αιτήματα, εγκρίσεις και υπόλοιπα', href: '/settings/users?tab=leave' },
+    ]} />
   );
 }
