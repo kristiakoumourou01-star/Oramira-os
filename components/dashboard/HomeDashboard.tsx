@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Sparkles, AlertTriangle, Info, ArrowRight, Plus, LayoutGrid, CalendarDays, Download, CreditCard, UserPlus, KeyRound, FileSignature, Eye, CalendarClock, Video } from 'lucide-react';
-import type { HomeData } from '@/lib/dashboard-home';
+import type { HomeData } from '@/lib/dashboard-home-shared';
 
 const eur = (n: number) => `€${Math.round(n).toLocaleString('el-GR')}`;
 const eurShort = (n: number) => (n >= 1_000_000 ? `€${(n / 1_000_000).toFixed(1)}M` : n >= 1000 ? `€${Math.round(n / 1000)}k` : `€${Math.round(n)}`);
