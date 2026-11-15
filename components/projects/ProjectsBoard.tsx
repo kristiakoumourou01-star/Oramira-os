@@ -112,6 +112,7 @@ export function ProjectsBoard({ projects: initial, canEdit, stages, rawStages, c
             <div className="space-y-5 px-6 py-5">
               <div className="flex flex-wrap gap-2">
                 <Link href={`/projects/${open.id}`} className="btn-primary text-sm"><ArrowUpRight size={14} /> Πλήρες προφίλ</Link>
+                {canEdit && <Link href={`/projects/${open.id}?edit=1`} className="btn-secondary text-sm"><Pencil size={14} /> Επεξεργασία</Link>}
                 <Link href={`/projects/${open.id}/prices`} className="btn-secondary text-sm"><Tags size={14} /> Τιμοκατάλογος</Link>
                 <Link href={`/projects/${open.id}/map`} className="btn-secondary text-sm"><MapIcon size={14} /> Διαδραστικός χάρτης</Link>
               </div>

@@ -55,17 +55,19 @@ export async function updateProject(params: {
   name: string;
   location?: string;
   description?: string;
+  developmentType?: string;
+  deliveryDate?: string | null;
 }) {
   await requireRole(STAFF);
   const supabase = await createSupabaseServerClient();
-  await supabase
-    .from('projects')
-    .update({
-      name: params.name,
-      location: params.location ?? null,
-      description: params.description ?? null,
-    })
-    .eq('id', params.projectId);
+  const patch: Record<string, unknown> = {
+    name: params.name,
+    location: params.location ?? null,
+    description: params.description ?? null,
+  };
+  if (params.developmentType === 'houses' || params.developmentType === 'apartments' || params.developmentType === 'mixed') patch.development_type = params.developmentType;
+  if (params.deliveryDate !== undefined) patch.delivery_date = params.deliveryDate && /^\d{4}-\d{2}-\d{2}$/.test(params.deliveryDate) ? params.deliveryDate : null;
+  await supabase.from('projects').update(patch).eq('id', params.projectId);
   await logActivity({ entityType: 'project', entityId: params.projectId, action: 'updated' });
   revalidatePath(`/projects/${params.projectId}`);
   revalidatePath('/projects');

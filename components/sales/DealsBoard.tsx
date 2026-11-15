@@ -49,6 +49,10 @@ const MONTHS = ['Ιαν', 'Φεβ', 'Μαρ', 'Απρ', 'Μάι', 'Ιούν', '�
  */
 /** Απαλό χρώμα ανά στάδιο: από άμμο → φασκόμηλο → πράσινο Oramira (RGB χωρίς κόμματα για rgb(… / a)). */
 const STAGE_TONES = ['191 171 136', '201 160 99', '184 146 92', '150 160 110', '110 150 112', '74 134 104', '47 110 84', '17 49 36'];
+function stageRgb(st: { color?: string }, i: number, n: number): string {
+  const m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(st.color ?? '');
+  return m ? `${parseInt(m[1], 16)} ${parseInt(m[2], 16)} ${parseInt(m[3], 16)}` : stageTone(i, n);
+}
 function stageTone(i: number, n: number): string {
   if (n <= 1) return STAGE_TONES[STAGE_TONES.length - 1];
   return STAGE_TONES[Math.round((i / (n - 1)) * (STAGE_TONES.length - 1))];
@@ -190,7 +194,7 @@ export function DealsBoard({ leads: initial, cfg, rawCfg, canEditStages = false,
     const Ic = ACT_ICON[l.next_activity_type ?? ''] ?? ChevronRight;
     return (
       <div key={l.id} draggable={!pending} onDragStart={(e) => onCardDragStart(e, l.id)} onDragEnd={() => { setDrag(null); setOver(null); }} onClick={() => setOpenId(l.id)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') setOpenId(l.id); }}
-        className={`group relative border-b border-stone-line bg-white/85 px-3 py-2.5 text-sm transition last:border-b-0 hover:bg-forest/[0.04] ${rot ? 'border-l-2 border-l-rose-400' : ''} ${drag === l.id ? 'opacity-40' : ''} cursor-grab active:cursor-grabbing`}>
+        className={`group relative rounded-xl px-3 py-2.5 text-sm transition hover:bg-white hover:shadow-[0_4px_16px_-6px_rgba(17,49,36,0.18)] bg-white/70 ${rot ? 'shadow-[inset_3px_0_0_0_rgb(251_113_133)]' : ''} ${drag === l.id ? 'opacity-40' : ''} cursor-grab active:cursor-grabbing`}>
         <p className="block pr-6 font-semibold leading-snug text-charcoal group-hover:text-forest" data-no-tr>{dealTitle(l)}</p>
         {!isClosed(l.status) && (
           <span className="absolute right-2 top-2 hidden gap-1 group-hover:flex">
@@ -200,11 +204,11 @@ export function DealsBoard({ leads: initial, cfg, rawCfg, canEditStages = false,
         )}
         {l.title && l.full_name && <p className="truncate text-xs text-charcoal-600/70" data-no-tr>{l.full_name}</p>}
         {(l.labels ?? []).length > 0 && (
-          <div className="mt-1 flex flex-wrap gap-1">{(l.labels ?? []).map((k) => { const lb = labelOf(k); return lb ? <span key={k} className={`rounded border px-1.5 text-[10px] font-medium ${LABEL_CLASS[lb.color]}`}>{lb.name}</span> : null; })}</div>
+          <div className="mt-1 flex flex-wrap gap-1">{(l.labels ?? []).map((k) => { const lb = labelOf(k); return lb ? <span key={k} className={`rounded-full border px-2 py-px text-[10px] font-semibold ${LABEL_CLASS[lb.color]}`}>{lb.name}</span> : null; })}</div>
         )}
         <div className="mt-1.5 flex items-center justify-between gap-2">
           <span className="flex min-w-0 items-center gap-1.5">
-            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-stone text-[9px] font-semibold text-charcoal-600" title={l.owner_name ?? 'Χωρίς υπεύθυνο'}>{initials(l.owner_name)}</span>
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-forest text-[9px] font-semibold text-white" title={l.owner_name ?? 'Χωρίς υπεύθυνο'}>{initials(l.owner_name)}</span>
             <span className="truncate text-xs font-medium text-charcoal-600">{dealValue(l) ? formatCurrency(dealValue(l)) : '€0'}</span>
           </span>
           {l.status === 'won' ? <span className="rounded bg-emerald-600 px-1.5 text-[10px] font-semibold uppercase text-white">Won</span>
@@ -299,46 +303,54 @@ export function DealsBoard({ leads: initial, cfg, rawCfg, canEditStages = false,
       <p className="text-sm text-charcoal-600"><span className="font-semibold text-charcoal">{formatCurrency(total)}</span> · {open.length} deals <span className="text-charcoal-600/60">· σταθμισμένη {formatCurrency(Math.round(weighted))}</span>{msg && <span className="ml-3 text-forest">{msg}</span>}</p>
 
       {view === 'board' && (
-        <div ref={scrollRef} className="-mx-1 overflow-x-auto pb-24"
+        <div ref={scrollRef} className="-mx-1 overflow-x-auto px-1 pb-24"
           onDragOver={(e) => { if (drag) edgeScroll(e.clientX); }} onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) stopEdge(); }} onDrop={stopEdge}
           onPointerDown={onPanDown} onPointerMove={onPanMove} onPointerUp={onPanUp} onPointerCancel={onPanUp}>
-          <div className="flex min-h-[calc(100vh-330px)] min-w-max divide-x divide-stone-line overflow-hidden rounded-xl border border-stone-line bg-white/60">
+          <div className="flex min-h-[calc(100vh-330px)] min-w-max gap-3">
             {preset !== 'won' && preset !== 'lost' && columns.map((st, i) => {
               const items = byStage(st);
               const sum = items.reduce((s, l) => s + dealValue(l), 0);
+              const tone = stageRgb(st, i, columns.length);
               return (
                 <div key={st.key} {...dropZone(st.key, (l) => moveTo(l, st))}
-                  style={{ backgroundColor: over === st.key ? `rgb(${stageTone(i, columns.length)} / 0.2)` : `rgb(${stageTone(i, columns.length)} / 0.08)` }}
-                  className="stage-col flex w-[272px] shrink-0 flex-col transition">
-                  <div className="stage-head relative overflow-hidden border-b border-stone-line px-3 py-2" style={{ backgroundColor: `rgb(${stageTone(i, columns.length)} / 0.22)`, borderTop: `3px solid rgb(${stageTone(i, columns.length)})`, clipPath: i < columns.length - 1 ? 'polygon(0 0, calc(100% - 10px) 0, 100% 50%, calc(100% - 10px) 100%, 0 100%)' : undefined }}>
-                    <p className="flex items-center gap-1.5 truncate font-semibold text-charcoal"><span className="inline-block h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: `rgb(${stageTone(i, columns.length)})` }} /><span className="truncate" data-no-tr>{st.label}</span></p>
-                    <p className="text-xs text-charcoal-600/80">{formatCurrency(sum)} · {items.length} deals · {st.probability}%</p>
-                    <div className="mt-1.5 h-1 w-full rounded-full bg-white/70"><div className="h-1 rounded-full" style={{ width: `${Math.max(4, Math.min(100, st.probability))}%`, backgroundColor: `rgb(${stageTone(i, columns.length)})` }} /></div>
+                  style={{ backgroundColor: `rgb(${tone} / ${over === st.key ? 0.18 : 0.07})`, boxShadow: over === st.key ? `inset 0 0 0 2px rgb(${tone} / 0.6)` : `inset 0 0 0 1px rgb(${tone} / 0.14)` }}
+                  className="flex w-[280px] shrink-0 flex-col rounded-2xl transition-colors">
+                  <div className="px-3.5 pb-2.5 pt-3">
+                    <div className="flex items-center gap-2">
+                      <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: `rgb(${tone})`, boxShadow: `0 0 0 3px rgb(${tone} / 0.18)` }} />
+                      <p className="min-w-0 flex-1 truncate text-[15px] font-semibold tracking-tight text-charcoal" data-no-tr>{st.label}</p>
+                      <span className="rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ backgroundColor: `rgb(${tone} / 0.16)`, color: `rgb(${tone})` }}>{items.length}</span>
+                    </div>
+                    <p className="mt-1 text-xs text-charcoal-600/75"><span className="font-semibold text-charcoal">{formatCurrency(sum)}</span> · {st.probability}%</p>
+                    <div className="mt-2 h-[3px] w-full overflow-hidden rounded-full" style={{ backgroundColor: `rgb(${tone} / 0.15)` }}><div className="h-full rounded-full" style={{ width: `${Math.max(3, Math.min(100, st.probability))}%`, backgroundColor: `rgb(${tone})` }} /></div>
                   </div>
-                  <div className="flex min-h-[120px] flex-1 flex-col">
+                  <div className="flex min-h-[120px] flex-1 flex-col gap-1 px-1.5 pb-2">
                     {items.map((l) => card(l))}
+                    {items.length === 0 && !drag && <p className="mx-2 mt-2 rounded-xl border border-dashed py-6 text-center text-xs text-charcoal-600/50" style={{ borderColor: `rgb(${tone} / 0.3)` }}>Κανένα deal</p>}
                   </div>
                 </div>
               );
             })}
-            {(
-              <>
-                {preset !== 'lost' && <div onDragOver={(e) => { if (drag) { e.preventDefault(); setOver('__won'); } }} onDrop={(e) => { e.preventDefault(); dropClosed('won'); }}
-                  className={`flex w-[272px] shrink-0 flex-col transition ${over === '__won' ? 'bg-emerald-100' : 'bg-emerald-50/60'}`}>
-                  <div className="rounded-t-xl border-b border-emerald-200 bg-white px-3 py-2"><p className="font-semibold text-emerald-700">Won</p><p className="text-xs text-charcoal-600/70">{formatCurrency(won.reduce((s, l) => s + dealValue(l), 0))} · {won.length} deals</p></div>
-                  <div className="flex flex-col">{won.map((l) => card(l))}</div>
-                  {drag && <p className="m-2 rounded-lg border-2 border-dashed border-emerald-300 py-6 text-center text-xs text-emerald-700">Αφήστε εδώ → Won</p>}
-                  {!allClosed && wonAll.length > won.length && <button type="button" onClick={() => setShowClosed(true)} className="px-3 py-2 text-left text-xs text-charcoal-600/70 hover:text-forest">+{wonAll.length - won.length} παλαιότερα</button>}
-                </div>}
-                {preset !== 'won' && <div onDragOver={(e) => { if (drag) { e.preventDefault(); setOver('__lost'); } }} onDrop={(e) => { e.preventDefault(); dropClosed('lost'); }}
-                  className={`flex w-[272px] shrink-0 flex-col transition ${over === '__lost' ? 'bg-rose-100' : 'bg-rose-50/50'}`}>
-                  <div className="rounded-t-xl border-b border-rose-200 bg-white px-3 py-2"><p className="font-semibold text-signal-danger">Lost</p><p className="text-xs text-charcoal-600/70">{formatCurrency(lost.reduce((s, l) => s + dealValue(l), 0))} · {lost.length} deals</p></div>
-                  <div className="flex flex-col">{lost.map((l) => card(l))}</div>
-                  {drag && <p className="m-2 rounded-lg border-2 border-dashed border-rose-300 py-6 text-center text-xs text-signal-danger">Αφήστε εδώ → Lost</p>}
-                  {!allClosed && lostAll.length > lost.length && <button type="button" onClick={() => setShowClosed(true)} className="px-3 py-2 text-left text-xs text-charcoal-600/70 hover:text-forest">+{lostAll.length - lost.length} παλαιότερα</button>}
-                </div>}
-              </>
-            )}
+            {preset !== 'lost' && <div onDragOver={(e) => { if (drag) { e.preventDefault(); setOver('__won'); } }} onDrop={(e) => { e.preventDefault(); dropClosed('won'); }}
+              className={`flex w-[280px] shrink-0 flex-col rounded-2xl ring-1 ring-inset transition-colors ${over === '__won' ? 'bg-emerald-100 ring-2 ring-emerald-400' : 'bg-emerald-50/70 ring-emerald-200/70'}`}>
+              <div className="px-3.5 pb-2.5 pt-3">
+                <div className="flex items-center gap-2"><ThumbsUp size={14} className="text-emerald-600" /><p className="flex-1 text-[15px] font-semibold tracking-tight text-emerald-700">Won</p><span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">{won.length}</span></div>
+                <p className="mt-1 text-xs text-charcoal-600/75"><span className="font-semibold text-charcoal">{formatCurrency(won.reduce((s, l) => s + dealValue(l), 0))}</span></p>
+              </div>
+              <div className="flex flex-col gap-1 px-1.5 pb-2">{won.map((l) => card(l))}</div>
+              {drag && <p className="mx-3 mb-3 rounded-xl border-2 border-dashed border-emerald-300 py-6 text-center text-xs font-medium text-emerald-700">Αφήστε εδώ → Won</p>}
+              {!allClosed && wonAll.length > won.length && <button type="button" onClick={() => setShowClosed(true)} className="px-3.5 pb-3 text-left text-xs text-charcoal-600/70 hover:text-forest">+{wonAll.length - won.length} παλαιότερα</button>}
+            </div>}
+            {preset !== 'won' && <div onDragOver={(e) => { if (drag) { e.preventDefault(); setOver('__lost'); } }} onDrop={(e) => { e.preventDefault(); dropClosed('lost'); }}
+              className={`flex w-[280px] shrink-0 flex-col rounded-2xl ring-1 ring-inset transition-colors ${over === '__lost' ? 'bg-rose-100 ring-2 ring-rose-400' : 'bg-rose-50/60 ring-rose-200/70'}`}>
+              <div className="px-3.5 pb-2.5 pt-3">
+                <div className="flex items-center gap-2"><ThumbsDown size={14} className="text-signal-danger" /><p className="flex-1 text-[15px] font-semibold tracking-tight text-signal-danger">Lost</p><span className="rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-semibold text-signal-danger">{lost.length}</span></div>
+                <p className="mt-1 text-xs text-charcoal-600/75"><span className="font-semibold text-charcoal">{formatCurrency(lost.reduce((s, l) => s + dealValue(l), 0))}</span></p>
+              </div>
+              <div className="flex flex-col gap-1 px-1.5 pb-2">{lost.map((l) => card(l))}</div>
+              {drag && <p className="mx-3 mb-3 rounded-xl border-2 border-dashed border-rose-300 py-6 text-center text-xs font-medium text-signal-danger">Αφήστε εδώ → Lost</p>}
+              {!allClosed && lostAll.length > lost.length && <button type="button" onClick={() => setShowClosed(true)} className="px-3.5 pb-3 text-left text-xs text-charcoal-600/70 hover:text-forest">+{lostAll.length - lost.length} παλαιότερα</button>}
+            </div>}
           </div>
         </div>
       )}
