@@ -223,24 +223,24 @@ export function DealsBoard({ leads: initial, cfg, rawCfg, canEditStages = false,
 
   const ViewBtn = ({ v, icon: I, label }: { v: View; icon: any; label: string }) => (
     <button type="button" onClick={() => setView(v)} title={label} aria-label={label} aria-pressed={view === v}
-      className={`flex h-9 w-10 items-center justify-center border-r border-stone-line last:border-r-0 ${view === v ? 'bg-forest/10 text-forest' : 'bg-white text-charcoal-600 hover:bg-stone'}`}><I size={17} /></button>
+      className={`flex h-9 w-10 items-center justify-center border-r border-forest/25 last:border-r-0 ${view === v ? 'bg-forest text-white' : 'bg-white text-forest hover:bg-forest/10'}`}><I size={17} /></button>
   );
 
   return (
     <div className="space-y-3">
       {/* Μπάρα εργαλείων — όπως στο Pipedrive */}
       <div className="flex flex-wrap items-center gap-2">
-        <div className="flex overflow-hidden rounded-lg border border-stone-line">
+        <div className="flex overflow-hidden rounded-lg border border-forest/40">
           <ViewBtn v="board" icon={Columns3} label="Πίνακας" />
           <ViewBtn v="list" icon={List} label="Λίστα" />
           <ViewBtn v="forecast" icon={CircleDollarSign} label="Forecast" />
           <ViewBtn v="archive" icon={Archive} label="Αρχείο" />
         </div>
         <div className="flex items-center">
-          <select className={`input h-9 w-auto py-1 text-sm font-medium ${canEditStages ? 'rounded-r-none' : ''}`} value={pipe.key} onChange={(e) => setPipeKey(e.target.value)} aria-label="Pipeline" data-no-tr>
+          <select className={`input h-9 w-auto py-1 text-sm font-semibold !border-forest/40 !bg-forest/[0.07] text-forest ${canEditStages ? 'rounded-r-none' : ''}`} value={pipe.key} onChange={(e) => setPipeKey(e.target.value)} aria-label="Pipeline" data-no-tr>
             {cfg.pipelines.map((p) => <option key={p.key} value={p.key}>{p.name}</option>)}
           </select>
-          {canEditStages && <button type="button" onClick={() => setEditStages(true)} title="Επεξεργασία σταδίων" aria-label="Επεξεργασία σταδίων" className="-ml-px flex h-9 items-center rounded-r-lg border border-stone-line bg-white px-2.5 text-charcoal-600 hover:bg-stone hover:text-charcoal"><Pencil size={14} /></button>}
+          {canEditStages && <button type="button" onClick={() => setEditStages(true)} title="Επεξεργασία σταδίων" aria-label="Επεξεργασία σταδίων" className="-ml-px flex h-9 items-center rounded-r-lg border border-forest bg-forest px-2.5 text-white hover:bg-forest/90"><Pencil size={14} /></button>}
         </div>
         {editStages && <StageEditor cfg={rawCfg ?? cfg} pipelineKey={pipe.key} onClose={() => setEditStages(false)} />}
         <select className="input h-9 w-auto py-1 text-sm" value={owner} onChange={(e) => setOwner(e.target.value)} aria-label="Υπεύθυνος">
@@ -264,7 +264,7 @@ export function DealsBoard({ leads: initial, cfg, rawCfg, canEditStages = false,
           <option value="lost">Lost deals</option>
         </select>
         <div className="relative">
-          <button type="button" onClick={() => setFilterOpen((x) => !x)} className={`btn-secondary h-9 text-sm ${condCount ? 'border-forest text-forest' : ''}`}><Filter size={14} /> Add condition{condCount ? ` (${condCount})` : ''}</button>
+          <button type="button" onClick={() => setFilterOpen((x) => !x)} className={`btn-secondary h-9 text-sm !border-forest/40 !bg-forest/[0.07] !text-forest hover:!bg-forest/15 ${condCount ? '!bg-forest !text-white' : ''}`}><Filter size={14} /> Add condition{condCount ? ` (${condCount})` : ''}</button>
           {filterOpen && (
             <div className="absolute left-0 top-full z-30 mt-1 w-[320px] space-y-2 rounded-xl border border-stone-line bg-white p-3 shadow-overlay">
               <div className="grid grid-cols-2 gap-2 text-sm">
