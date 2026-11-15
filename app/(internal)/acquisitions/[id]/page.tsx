@@ -2,6 +2,7 @@ import { requirePermission } from '@/lib/auth';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
+import { AnalyzeParcelButton } from '@/components/acquisitions/AnalyzeParcelButton';
 import { ArrowLeft, Phone, Mail, MapPin, Ruler, Flag, HeartHandshake } from 'lucide-react';
 import { getParcel, STAGE_LABEL } from '@/lib/acquisitions';
 import { LandScorePanel } from '@/components/acquisitions/LandScorePanel';
@@ -68,6 +69,7 @@ export default async function ParcelDetailPage({ params }: { params: { id: strin
             {parcel.ownerPhone && <a href={`tel:${parcel.ownerPhone}`} className="flex items-center gap-1 hover:text-forest"><Phone size={12} /> {parcel.ownerPhone}</a>}
             {parcel.ownerEmail && !parcel.ownerEmail.endsWith('@parcel.oramira.local') && <a href={`mailto:${parcel.ownerEmail}`} className="flex items-center gap-1 hover:text-forest"><Mail size={12} /> Email</a>}
           </div>
+          <div className="mt-3"><AnalyzeParcelButton parcelId={parcel.id} /></div>
         </div>
       </div>
 
