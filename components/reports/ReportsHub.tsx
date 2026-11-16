@@ -12,7 +12,7 @@ const ICONS: Record<string, any> = { BarChart3, Briefcase, LineChart, Target, Ne
  * Reports όπως στο FitnessCRM: πλέγμα 3 στηλών με ίδια λευκά κουτάκια (ένα
  * χρώμα — της εταιρείας)· με κλικ η αναφορά εμφανίζεται από κάτω, με export.
  */
-export function ReportsHub({ tiles, active, children }: { tiles: ReportTile[]; active: string | null; children?: React.ReactNode }) {
+export function ReportsHub({ tiles, active, children, footer }: { tiles: ReportTile[]; active: string | null; children?: React.ReactNode; footer?: React.ReactNode }) {
   const path = usePathname();
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => { if (active && ref.current) ref.current.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, [active]);
@@ -20,7 +20,7 @@ export function ReportsHub({ tiles, active, children }: { tiles: ReportTile[]; a
     <div className="space-y-8">
       <HubCards cols={3} active={active ?? undefined} cards={tiles.map((t) => ({ key: t.key, icon: ICONS[t.icon] ?? BarChart3, title: t.title, sub: t.desc, href: `${path}?tab=${t.key}` }))} />
       <div ref={ref} className="scroll-mt-20">
-        {active ? children : <p className="rounded-2xl border border-dashed border-stone-line bg-white px-4 py-10 text-center text-[14px] text-charcoal-600">Διαλέξτε μια αναφορά από τα κουτάκια για να εμφανιστεί εδώ.</p>}
+        {active ? children : footer}
       </div>
     </div>
   );

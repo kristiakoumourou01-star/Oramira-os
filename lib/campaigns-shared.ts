@@ -1,6 +1,6 @@
 /** Campaigns του Marketing — client-safe τύποι και βοηθήματα. */
 
-export type CampaignChannel = 'email' | 'whatsapp';
+export type CampaignChannel = 'email' | 'whatsapp' | 'push';
 export type CampaignAudience =
   | { kind: 'groups'; groups: string[] }
   | { kind: 'contacts'; ids: string[] }
@@ -10,7 +10,7 @@ export type CampaignAudience =
 
 export interface CampaignRow {
   id: string; name: string; channel: CampaignChannel; audience: CampaignAudience; subject: string | null; preview: string | null; body: string;
-  status: 'draft' | 'sending' | 'sent' | 'cancelled'; recipients: number; sent: number; failed: number; skipped: number;
+  status: 'draft' | 'sending' | 'sent' | 'cancelled'; recipients: number; sent: number; failed: number; skipped: number; opened?: number;
   createdAt: string; sentAt: string | null; createdBy: string | null;
 }
 
@@ -25,6 +25,7 @@ export function cleanAudience(a: unknown, channel: CampaignChannel): CampaignAud
   if (v.kind === 'groups') { const groups = strs(v.groups, 50); return groups.length ? { kind: 'groups', groups } : null; }
   if (v.kind === 'contacts') { const ids = strs(v.ids, 5000); return ids.length ? { kind: 'contacts', ids } : null; }
   if (v.kind === 'addresses') {
+    if (channel === 'push') return null;
     const addresses = strs(v.addresses, 2000).filter((x) => (channel === 'email' ? EMAIL.test(x) : x.replace(/\D/g, '').length >= 8));
     return addresses.length ? { kind: 'addresses', addresses } : null;
   }

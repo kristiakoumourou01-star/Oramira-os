@@ -1,87 +1,63 @@
 import { requirePermission } from '@/lib/auth';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { JOBS } from '@/lib/automations';
-import { AutomationCategories, type AutomationGroup } from '@/components/automation/AutomationCategories';
+import { AutomationHub, type AutoJob, type AutoRun } from '@/components/automation/AutomationHub';
 import { WorkspaceHeader } from '@/components/ui/WorkspaceHeader';
-import { formatDateTime } from '@/lib/format';
 
-const STATUS_CLASS: Record<string, string> = {
-  success: 'badge-forest',
-  failed: 'border-signal-danger/30 bg-champagne-50 text-signal-danger badge',
-  partial: 'badge-champagne',
-};
+export const dynamic = 'force-dynamic';
 
-// Job → domain category. Every job maps to exactly one collapsible section.
 const CATEGORY: Record<string, string> = {
-  crm: 'Sales', speed_to_lead: 'Sales', sales_cadence: 'Sales', dead_lead_reactivation: 'Sales', viewing_reminders: 'Sales', meeting_reminders: 'Sales', churn_detection: 'Sales',
-  acquisition_ops: 'Acquisitions', acquisition_cadence: 'Acquisitions',
-  maintenance: 'Property', warranty_expiry: 'Property', reservation_expiry: 'Property', owner_lifecycle: 'Property',
-  contract_reminders: 'HR',
-  payment_reminders: 'Finance',
-  task_orchestration: 'AI · Autonomous', self_healing: 'AI · Autonomous', learning_loop: 'AI · Autonomous', executive_memory: 'AI · Autonomous',
-  website_sync: 'System', auto_calendar_events: 'System',
+  crm: 'Πωλήσεις', speed_to_lead: 'Πωλήσεις', sales_cadence: 'Πωλήσεις', lead_digest: 'Πωλήσεις', dead_lead_reactivation: 'Πωλήσεις', viewing_reminders: 'Πωλήσεις', meeting_reminders: 'Πωλήσεις', churn_detection: 'Πωλήσεις',
+  acquisition_ops: 'Αγορές γης', acquisition_cadence: 'Αγορές γης',
+  maintenance: 'Ακίνητα', warranty_expiry: 'Ακίνητα', reservation_expiry: 'Ακίνητα', owner_lifecycle: 'Ακίνητα',
+  contract_reminders: 'Ομάδα & HR',
+  payment_reminders: 'Οικονομικά',
+  task_orchestration: 'AI', self_healing: 'AI', learning_loop: 'AI', executive_memory: 'AI',
+  website_sync: 'Σύστημα', auto_calendar_events: 'Σύστημα', gdpr_retention: 'Σύστημα',
 };
-const ORDER = ['Sales', 'Acquisitions', 'Property', 'HR', 'Finance', 'AI · Autonomous', 'System'];
+const ORDER = ['Πωλήσεις', 'Αγορές γης', 'Ακίνητα', 'Ομάδα & HR', 'Οικονομικά', 'AI', 'Σύστημα'];
+const EL: Record<string, [string, string]> = {
+  reservation_expiry: ['Λήξη κρατήσεων', 'Αποδεσμεύει μονάδες από κρατήσεις που έληξαν και ειδοποιεί την ομάδα.'],
+  warranty_expiry: ['Λήξη εγγυήσεων', 'Υπενθυμίζει σε ιδιοκτήτες και ομάδα εγγυήσεις που λήγουν μέσα σε 60 μέρες.'],
+  payment_reminders: ['Υπενθυμίσεις πληρωμών', 'Υπενθυμίσεις για επερχόμενες δόσεις και ειδοποιήσεις για καθυστερήσεις.'],
+  website_sync: ['Συγχρονισμός ιστοσελίδας', 'Περνά στο CRM ό,τι ήρθε από τη φόρμα της ιστοσελίδας ή το newsletter.'],
+  maintenance: ['Συντήρηση', 'Υπενθυμίσεις επισκέψεων, καθυστερήσεις και κλιμάκωση ανοιχτών αιτημάτων.'],
+  crm: ['Follow-ups CRM', 'Υπενθυμίσεις για ανενεργά leads, στάδια που καθυστερούν και leads υψηλής αξίας.'],
+  contract_reminders: ['Υπενθυμίσεις συμβάσεων', 'Ειδοποιεί πριν λήξουν συμβάσεις, δοκιμαστικές περίοδοι και ανανεώσεις υπαλλήλων.'],
+  viewing_reminders: ['Υπενθυμίσεις viewings', 'Στέλνει WhatsApp υπενθύμιση για viewings των επόμενων 24 ωρών.'],
+  meeting_reminders: ['Υπενθυμίσεις ραντεβού', 'Στέλνει WhatsApp υπενθύμιση για ραντεβού με leads των επόμενων 2 ωρών.'],
+  dead_lead_reactivation: ['Επανενεργοποίηση leads', 'Leads χωρίς κίνηση πάνω από 30 μέρες μπαίνουν σε επανενεργοποίηση με WhatsApp και email.'],
+  auto_calendar_events: ['Αυτόματα γεγονότα ημερολογίου', 'Βάζει στο ημερολόγιο λήξεις συμβάσεων/εγγυήσεων, viewings και προθεσμίες μισθοδοσίας.'],
+  churn_detection: ['Εντοπισμός κινδύνου', 'Σημαδεύει deals σε κίνδυνο, διαπραγματεύσεις που σταμάτησαν και ανενεργούς ιδιοκτήτες.'],
+  owner_lifecycle: ['Κύκλος ιδιοκτήτη', 'Follow-up μετά από επισκευή, ετήσιες επιθεωρήσεις και επέτειος παράδοσης.'],
+  task_orchestration: ['Αυτόματες εργασίες', 'Δημιουργεί εργασίες για ζεστά leads, κολλημένα deals, απλήρωτες κρατήσεις και καθυστερημένα follow-ups.'],
+  self_healing: ['Αυτο-διόρθωση διαδικασιών', 'Εντοπίζει follow-ups που λείπουν, χαρτιά που δεν ολοκληρώθηκαν, παραδόσεις και τιμολόγια που καθυστερούν.'],
+  learning_loop: ['Μάθηση από αποτελέσματα', 'Μαθαίνει από τα κερδισμένα/χαμένα deals για καλύτερο scoring και follow-up.'],
+  executive_memory: ['Μνήμη διοίκησης', 'Κρατά αυτόματα τα κερδισμένα/χαμένα deals και τις σημαντικές αποφάσεις.'],
+  acquisition_cadence: ['Follow-up αγορών γης', 'Υπενθυμίζει σε ιδιοκτήτες γης που δεν απαντούν, με WhatsApp/email και εργασία για τηλέφωνο.'],
+  gdpr_retention: ['Διατήρηση δεδομένων (GDPR)', 'Ανωνυμοποιεί leads χωρίς δραστηριότητα πέρα από την περίοδο διατήρησης.'],
+  acquisition_ops: ['Λειτουργίες αγορών γης', 'Εργασίες follow-up, ειδοποιήσεις χωρίς επαφή, προθεσμίες due diligence και αιτήματα εγγράφων.'],
+};
+const SCHED: Record<string, string> = { 'Hourly': 'Κάθε ώρα', 'Daily': 'Καθημερινά', 'Every 15 min': 'Κάθε 15 λεπτά', 'Every 6 hours': 'Κάθε 6 ώρες', 'Every 5 min': 'Κάθε 5 λεπτά', 'Every 2 hours': 'Κάθε 2 ώρες' };
 
+/** Αυτοματισμοί στο στυλ του FitnessCRM. */
 export default async function AutomationCenterPage() {
   await requirePermission('automation');
   const supabase = await createSupabaseServerClient();
-
-  const { data: runs } = await supabase
-    .from('automation_runs')
-    .select('id, job, status, processed, summary, error, triggered_by, started_at')
-    .order('started_at', { ascending: false })
-    .limit(60);
-
-  type Run = NonNullable<typeof runs>[number];
-  const lastByJob = new Map<string, Run>();
-  for (const r of runs ?? []) if (!lastByJob.has(r.job)) lastByJob.set(r.job, r);
-
-  // Group jobs into categories (serialisable — the run() fn stays server-side).
-  const groups: AutomationGroup[] = ORDER.map((category) => ({
-    category,
-    jobs: JOBS.filter((j) => (CATEGORY[j.key] ?? 'System') === category).map((j) => {
-      const last = lastByJob.get(j.key);
-      return { key: j.key, label: j.label, description: j.description, schedule: j.schedule, lastStatus: last?.status ?? null, lastAt: last?.started_at ?? null };
-    }),
-  })).filter((g) => g.jobs.length > 0);
-
-  const failing = (runs ?? []).length ? [...lastByJob.values()].filter((r) => r.status === 'failed').length : 0;
-
+  const { data: runRows } = await supabase.from('automation_runs').select('id, job, status, processed, summary, error, triggered_by, started_at').order('started_at', { ascending: false }).limit(500);
+  const label = (k: string) => EL[k]?.[0] ?? JOBS.find((j) => j.key === k)?.label ?? k;
+  const runs: AutoRun[] = ((runRows ?? []) as any[]).map((r) => ({ id: r.id, job: r.job, label: label(r.job), status: r.status, processed: r.processed ?? 0, summary: r.summary, error: r.error, trigger: r.triggered_by, at: r.started_at }));
+  const last = new Map<string, AutoRun>();
+  for (const r of runs) if (!last.has(r.job)) last.set(r.job, r);
+  const jobs: AutoJob[] = JOBS.map((j) => ({
+    key: j.key, label: label(j.key), description: EL[j.key]?.[1] ?? j.description, schedule: SCHED[j.schedule] ?? j.schedule, category: CATEGORY[j.key] ?? 'Σύστημα',
+    lastStatus: last.get(j.key)?.status ?? null, lastAt: last.get(j.key)?.at ?? null, lastSummary: last.get(j.key)?.summary ?? null,
+  }));
+  const categories = ORDER.filter((c) => jobs.some((j) => j.category === c));
   return (
     <div className="space-y-5">
-      <WorkspaceHeader eyebrow="Operations" title="Automation Center" description={`${JOBS.length} automations across ${groups.length} domains${failing ? ` · ${failing} need attention` : ' · all healthy'}. Expand a category to run or inspect a job.`} />
-
-      {/* Collapsible category sections */}
-      <AutomationCategories groups={groups} />
-
-      {/* Run history / audit log */}
-      <div className="panel overflow-hidden">
-        <div className="border-b border-stone-line px-6 py-4">
-          <h4>Run history</h4>
-        </div>
-        {!runs || runs.length === 0 ? (
-          <p className="px-6 py-10 text-center text-sm text-charcoal-600/70">No automation runs recorded yet. Run a job above or wait for the next scheduled execution.</p>
-        ) : (
-          <table className="table-base w-full">
-            <thead>
-              <tr><th>Job</th><th>Status</th><th>Processed</th><th>Summary</th><th>Trigger</th><th>When</th></tr>
-            </thead>
-            <tbody>
-              {runs.map((r) => (
-                <tr key={r.id} className="hover:bg-stone/60">
-                  <td className="font-medium text-charcoal">{JOBS.find((j) => j.key === r.job)?.label ?? r.job}</td>
-                  <td><span className={STATUS_CLASS[r.status] ?? 'badge-neutral'}>{r.status}</span></td>
-                  <td className="figure text-charcoal-600">{r.processed}</td>
-                  <td className="text-charcoal-600/85">{r.error ? <span className="text-signal-danger">{r.error}</span> : r.summary}</td>
-                  <td className="text-charcoal-600/70 capitalize">{r.triggered_by}</td>
-                  <td className="figure text-charcoal-600/70">{formatDateTime(r.started_at)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+      <WorkspaceHeader eyebrow="Marketing" title="Αυτοματισμοί" description={`${jobs.length} αυτοματισμοί σε ${categories.length} κατηγορίες — follow-ups, υπενθυμίσεις, λήξεις και εργασίες που τρέχουν μόνες τους.`} />
+      <AutomationHub jobs={jobs} runs={runs} categories={categories} />
     </div>
   );
 }

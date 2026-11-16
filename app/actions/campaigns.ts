@@ -5,6 +5,7 @@ import { requirePermission } from '@/lib/auth';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { sendMessage } from '@/lib/communications';
 import { getChannelAdapter } from '@/lib/providers';
+import { notifyUser } from '@/lib/notifications';
 import { cleanAudience, renderCampaign, type CampaignAudience, type CampaignChannel } from '@/lib/campaigns-shared';
 
 type R<T = {}> = ({ ok: true } & T) | { ok: false; error: string };
@@ -31,6 +32,14 @@ async function resolve(audience: CampaignAudience, channel: CampaignChannel): Pr
   const rows = ((data ?? []) as any[]).filter((c) => c.status !== 'archived' && c.status !== 'do_not_contact');
   let noConsent = 0, noAddress = 0;
   const list: Recipient[] = [];
+  if (channel === 'push') {
+    // Push = ειδοποίηση στην εφαρμογή (portal) αγοραστών / ιδιοκτητών που έχουν λογαριασμό.
+    const ok = rows.filter((c) => { if (!c.marketing_opt_in) { noConsent++; return false; } return true; });
+    const { data: profs } = ok.length ? await db.from('profiles').select('id, contact_id').in('contact_id', ok.map((c) => c.id)) : { data: [] };
+    const byContact = new Map(((profs ?? []) as any[]).map((p) => [p.contact_id, p.id]));
+    for (const c of ok) { const pid = byContact.get(c.id); if (pid) list.push({ contactId: c.id, name: c.full_name ?? '', to: pid }); else noAddress++; }
+    return { list, total: rows.length, noConsent, noAddress };
+  }
   for (const c of rows) {
     if (!c.marketing_opt_in) { noConsent++; continue; }
     const to = channel === 'email' ? (c.email ?? '').trim() : (c.phone ?? '').trim();
@@ -53,7 +62,7 @@ export interface CampaignInput { id?: string; name: string; channel: CampaignCha
 /** Αποθήκευση ως πρόχειρο, ή αποθήκευση και αποστολή. */
 export async function saveCampaign(input: CampaignInput, send: boolean): Promise<R<{ id: string; sent?: number; failed?: number; queued?: number; providerMissing?: boolean }>> {
   const me = await requirePermission('marketing', 'edit');
-  const channel: CampaignChannel = input.channel === 'whatsapp' ? 'whatsapp' : 'email';
+  const channel: CampaignChannel = input.channel === 'whatsapp' ? 'whatsapp' : input.channel === 'push' ? 'push' : 'email';
   const name = (input.name ?? '').trim().slice(0, 120);
   const body = (input.body ?? '').trim().slice(0, 20000);
   const audience = cleanAudience(input.audience, channel);
@@ -82,17 +91,19 @@ export async function saveCampaign(input: CampaignInput, send: boolean): Promise
   await db.from('marketing_campaigns').update({ status: 'sending', recipients: list.length, skipped: noConsent + noAddress }).eq('id', id);
 
   let sent = 0, failed = 0, queued = 0;
-  const providerMissing = getChannelAdapter(channel).provider === 'log';
+  const providerMissing = channel !== 'push' && getChannelAdapter(channel).provider === 'log';
   const one = async (r: Recipient) => {
     const text = renderCampaign(body, r.name);
     const html = channel === 'email' ? text.split(/\n{2,}/).map((p) => `<p>${p.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/\n/g, '<br>')}</p>`).join('') : text;
     const subject = channel === 'email' ? renderCampaign(row.subject ?? name, r.name) : null;
     let status = 'failed';
-    if (r.contactId) {
-      const res = await sendMessage({ contactId: r.contactId, channel, to: r.to, subject, body: html, templateKey: `campaign:${id}` });
+    if (channel === 'push') {
+      try { await notifyUser({ userId: r.to, title: renderCampaign(row.subject ?? name, r.name), body: text.slice(0, 500), link: '/' }); status = 'sent'; } catch { status = 'failed'; }
+    } else if (r.contactId) {
+      const res = await sendMessage({ contactId: r.contactId, channel: channel as 'email' | 'whatsapp', to: r.to, subject, body: html, templateKey: `campaign:${id}` });
       status = res.status;
     } else {
-      const res = await getChannelAdapter(channel).send(r.to, { subject, body: html });
+      const res = await getChannelAdapter(channel as 'email' | 'whatsapp').send(r.to, { subject, body: html });
       status = res.status;
     }
     if (status === 'sent') sent++; else if (status === 'queued') queued++; else failed++;

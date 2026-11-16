@@ -78,10 +78,31 @@ export default async function ReportsPage({ searchParams }: { searchParams: { ta
     body = rep ? <div className="space-y-4"><h2 className="font-display text-2xl text-charcoal">{title}</h2><DataReportView report={rep} title={title} canExport={canExport} pageSize={25} /></div> : null;
   }
 
+  const { data: campRows } = await (supabase as any).from('marketing_campaigns').select('channel, sent, failed, skipped, opened, status');
+  const cr = (campRows ?? []) as any[];
+  const sum = (k: string, ch?: string) => cr.filter((c) => !ch || c.channel === ch).reduce((n, c) => n + Number(c[k] ?? 0), 0);
+  const { count: optedOut } = await (supabase as any).from('contacts').select('id', { count: 'exact', head: true }).eq('marketing_opt_in', false).not('marketing_opt_in_at', 'is', null);
+  const delivery = (
+    <div className="space-y-4">
+      <p className="text-[12px] font-semibold uppercase tracking-[0.1em] text-charcoal-600">Αποστολές campaigns</p>
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {[['Στάλθηκαν', sum('sent') + sum('failed'), 'Σύνολο μηνυμάτων που φύγανε'], ['Παραδόθηκαν', sum('sent'), 'Έφτασαν επιτυχώς'], ['Απέτυχαν', sum('failed'), 'Λάθος διεύθυνση ή πάροχος'], ['Χωρίς συγκατάθεση', optedOut ?? 0, 'Έχουν αποσύρει τη συγκατάθεση']].map(([k, v, n]) => (
+          <div key={String(k)} className="rounded-[14px] border border-stone-line bg-white p-4 shadow-sm"><p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-charcoal-600">{k}</p><p className="mt-1 text-3xl font-semibold tabular-nums text-charcoal">{v}</p><p className="text-[12px] text-charcoal-600">{n}</p></div>
+        ))}
+      </div>
+      <p className="pt-2 text-[12px] font-semibold uppercase tracking-[0.1em] text-charcoal-600">Ανά κανάλι</p>
+      <div className="grid gap-4 sm:grid-cols-3">
+        {[['Email', 'email'], ['WhatsApp', 'whatsapp'], ['Push', 'push']].map(([k, ch]) => (
+          <div key={ch} className="rounded-[14px] border border-stone-line bg-white p-4 shadow-sm"><p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-charcoal-600">{k}</p><p className="mt-1 text-3xl font-semibold tabular-nums text-charcoal">{sum('sent', ch) + sum('failed', ch)}</p><p className="text-[12px] text-charcoal-600">{sum('sent', ch)} παραδόθηκαν</p></div>
+        ))}
+      </div>
+    </div>
+  );
+
   return (
     <div className="space-y-5">
       <WorkspaceHeader eyebrow="Marketing" title="Αναφορές" description="Πωλήσεις, leads, κρατήσεις, μονάδες, τιμολόγια, προμήθειες και custom αναφορές — με export." />
-      <ReportsHub tiles={TILES} active={active}>{body}</ReportsHub>
+      <ReportsHub tiles={TILES} active={active} footer={delivery}>{body}</ReportsHub>
     </div>
   );
 }
