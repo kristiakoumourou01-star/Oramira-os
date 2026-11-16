@@ -1,8 +1,12 @@
 'use client';
 
+import { EmployeesPanel } from '@/components/admin/EmployeesPanel';
+import { PopSelect } from '@/components/ui/PopSelect';
+import type { EmployeeHr } from '@/lib/staff-shared';
+
 import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { UserPlus, X, Mail, Eye, KeyRound, ShieldCheck, Copy, RefreshCw, UserX, UserCheck, History } from 'lucide-react';
+import { UserPlus, X, Mail, Eye, KeyRound, ShieldCheck, Copy, RefreshCw, UserX, UserCheck, History, MoreHorizontal } from 'lucide-react';
 import {
   inviteUser, assignRole, setUserActive, revokeInvite,
   createUserWithPassword, setUserPermissions, setUserPassword, getUserHistory,
@@ -54,6 +58,7 @@ export interface AdminUser {
   moduleAccess?: string[];
   /** Admin-defined role id, if any. */
   customRole?: string | null;
+  hr?: EmployeeHr;
 }
 export interface AdminInvite { id: string; email: string; role: string; created_at: string }
 
@@ -317,6 +322,7 @@ export function UsersAdmin({
   canImpersonate = false,
   roles = DEFAULT_ROLES,
   mode = 'employees',
+  canEditDocs = false,
 }: {
   mode?: 'employees' | 'external';
   users: AdminUser[];
@@ -325,6 +331,7 @@ export function UsersAdmin({
   portalUsers?: AdminUser[];
   canImpersonate?: boolean;
   roles?: RolesSettings;
+  canEditDocs?: boolean;
 }) {
   const [showInvite, setShowInvite] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
@@ -334,6 +341,7 @@ export function UsersAdmin({
   const [impErr, setImpErr] = useState<string | null>(null);
   const [roleMsg, setRoleMsg] = useState<{ id: string; text: string } | null>(null);
   const [historyFor, setHistoryFor] = useState<AdminUser | null>(null);
+  const [roleFor, setRoleFor] = useState<AdminUser | null>(null);
   const [extCat, setExtCat] = useState<string>('');
   const router = useRouter();
 
@@ -353,89 +361,37 @@ export function UsersAdmin({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="eyebrow mb-1">Admin</p>
-          <h1 className="text-3xl">{mode === 'external' ? 'Ιδιοκτήτες & συνεργάτες' : 'Υπάλληλοι'}</h1>
-        </div>
-        {mode === 'employees' && <div className="flex gap-2">
-          <button onClick={() => setShowInvite(true)} className="btn-ghost">
-            <Mail size={15} strokeWidth={1.75} /> Πρόσκληση με email
-          </button>
-          <button onClick={() => setShowCreate(true)} className="btn-primary">
-            <UserPlus size={15} strokeWidth={1.75} /> Νέος χρήστης
-          </button>
-        </div>}
-      </div>
-
       {impErr && <p className="rounded-md bg-signal-danger/10 px-4 py-2 text-sm text-signal-danger">{impErr}</p>}
 
-      {/* Users */}
-      {mode === 'employees' && <div className="panel overflow-x-auto">
-        <table className="table-base w-full min-w-[820px]">
-          <thead><tr><th>Όνομα</th><th>Ρόλος</th><th>Πρόσβαση</th><th>Κατάσταση</th><th className="text-right">Ενέργειες</th></tr></thead>
-          <tbody>
-            {users.map((u) => {
-              const self = u.id === currentUserId;
-              return (
-                <tr key={u.id} className="hover:bg-stone/60">
-                  <td>
-                    <p className="font-medium text-charcoal">{u.full_name ?? 'Unnamed'}{self && <span className="ml-2 text-xs text-charcoal-600/50">(you)</span>}</p>
-                    {u.email && <p className="text-xs text-charcoal-600/60">{u.email}</p>}
-                    {u.mustChangePassword && <span className="badge-neutral mt-1 inline-block text-[11px]">Προσωρινός κωδικός</span>}
-                  </td>
-                  <td>
-                    <select
-                      value={u.customRole && roles.custom.some((c) => c.id === u.customRole) ? `custom:${u.customRole}` : u.role}
-                      disabled={isPending || self}
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        const label = e.target.selectedOptions[0]?.text ?? v;
-                        setImpErr(null); setRoleMsg(null);
-                        startTransition(async () => {
-                          const res = await assignRole(u.id, v);
-                          if (!res.ok) setImpErr(res.error);
-                          else setRoleMsg({ id: u.id, text: `Ο ρόλος άλλαξε σε «${label}».` });
-                          router.refresh();
-                        });
-                      }}
-                      className="input w-48 min-w-[11rem] text-sm"
-                    >
-                      <RoleOptions roles={roles} />
-                    </select>
-                    {roleMsg?.id === u.id && <p className="mt-1 text-[11px] text-forest">{roleMsg.text}</p>}
-                  </td>
-                  <td>
-                    {u.role === 'admin'
-                      ? <span className="badge-neutral">Όλα</span>
-                      : u.permissions
-                        ? <span className="badge-champagne whitespace-nowrap">Προσαρμοσμένα</span>
-                        : <span className="badge-neutral whitespace-nowrap">Του ρόλου</span>}
-                  </td>
-                  <td>
-                    <span className={`whitespace-nowrap ${u.is_active ? 'badge-forest' : 'badge-neutral'}`}>{u.is_active ? 'Ενεργός' : 'Ανενεργός'}</span>
-                  </td>
-                  <td className="whitespace-nowrap text-right">
-                    {!self && (
-                      <div className="flex flex-nowrap items-center justify-end gap-0.5">
-                        {u.role !== 'admin' && <IconBtn label="Δικαιώματα" onClick={() => setPermsFor(u)} disabled={isPending}><ShieldCheck size={16} strokeWidth={1.75} /></IconBtn>}
-                        <IconBtn label="Νέος κωδικός" onClick={() => setPasswordFor(u)} disabled={isPending}><KeyRound size={16} strokeWidth={1.75} /></IconBtn>
-                        <IconBtn label="Μηδενισμός 2FA" disabled={isPending} onClick={() => { if (window.confirm('Μηδενισμός 2FA: σβήνεται η εφαρμογή επαλήθευσης και οι εμπιστευμένες συσκευές του. Στην επόμενη σύνδεση το ρυθμίζει ξανά. Συνέχεια;')) run(() => resetUserMfa(u.id)); }}><RefreshCw size={16} strokeWidth={1.75} /></IconBtn>
-                        {canImpersonate && <IconBtn label="Προβολή ως χρήστης" onClick={() => viewAs(u.id)} disabled={isPending}><Eye size={16} strokeWidth={1.75} /></IconBtn>}
-                        <IconBtn label="Ιστορικό" onClick={() => setHistoryFor(u)} disabled={isPending}><History size={16} strokeWidth={1.75} /></IconBtn>
-                        <IconBtn label={u.is_active ? 'Απενεργοποίηση' : 'Ενεργοποίηση'} danger={u.is_active} disabled={isPending}
-                          onClick={() => { if (!u.is_active || window.confirm(`Απενεργοποίηση του χρήστη «${u.full_name ?? ''}»; Δεν θα μπορεί να συνδεθεί μέχρι να τον ενεργοποιήσετε ξανά.`)) run(() => setUserActive(u.id, !u.is_active)); }}>
-                          {u.is_active ? <UserX size={16} strokeWidth={1.75} /> : <UserCheck size={16} strokeWidth={1.75} />}
-                        </IconBtn>
-                      </div>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>}
+      {/* Υπάλληλοι — πίνακας όπως οι Πελάτες */}
+      {mode === 'employees' && (
+        <EmployeesPanel
+          canEdit canEditDocs={canEditDocs}
+          msg={roleMsg ? <p className="text-[13px] text-forest">{roleMsg.text}</p> : null}
+          rows={users.map((u) => ({ id: u.id, full_name: u.full_name, role: u.role, is_active: u.is_active, email: u.email, hr: u.hr, self: u.id === currentUserId, mustChangePassword: u.mustChangePassword,
+            roleLabel: roleChoiceLabel(u.customRole && roles.custom.some((c) => c.id === u.customRole) ? `custom:${u.customRole}` : u.role, roles) }))}
+          toolbar={<>
+            <button type="button" onClick={() => setShowInvite(true)} className="inline-flex h-8 items-center gap-1.5 rounded-[10px] border border-stone-line px-2.5 text-[13px] text-charcoal hover:border-forest/30"><Mail size={14} strokeWidth={1.75} /> Πρόσκληση</button>
+            <button type="button" onClick={() => setShowCreate(true)} className="inline-flex h-8 items-center gap-1.5 rounded-[10px] bg-forest px-2.5 text-[14px] font-medium text-white hover:bg-forest/90"><UserPlus size={15} strokeWidth={1.75} /> Νέος υπάλληλος</button>
+          </>}
+          actions={(id) => {
+            const u = users.find((x) => x.id === id)!;
+            if (u.id === currentUserId) return null;
+            return (
+              <MoreMenu disabled={isPending} items={[
+                { label: 'Αλλαγή ρόλου', icon: ShieldCheck, onClick: () => setRoleFor(u) },
+                ...(u.role !== 'admin' ? [{ label: 'Δικαιώματα', icon: ShieldCheck, onClick: () => setPermsFor(u) }] : []),
+                { label: 'Νέος κωδικός', icon: KeyRound, onClick: () => setPasswordFor(u) },
+                { label: 'Μηδενισμός 2FA', icon: RefreshCw, onClick: () => { if (window.confirm('Μηδενισμός 2FA: σβήνεται η εφαρμογή επαλήθευσης και οι εμπιστευμένες συσκευές του. Στην επόμενη σύνδεση το ρυθμίζει ξανά. Συνέχεια;')) run(() => resetUserMfa(u.id)); } },
+                ...(canImpersonate ? [{ label: 'Προβολή ως χρήστης', icon: Eye, onClick: () => viewAs(u.id) }] : []),
+                { label: 'Ιστορικό ενεργειών', icon: History, onClick: () => setHistoryFor(u) },
+                { label: u.is_active ? 'Απενεργοποίηση πρόσβασης' : 'Ενεργοποίηση πρόσβασης', icon: u.is_active ? UserX : UserCheck, danger: u.is_active,
+                  onClick: () => { if (!u.is_active || window.confirm(`Απενεργοποίηση του χρήστη «${u.full_name ?? ''}»; Δεν θα μπορεί να συνδεθεί μέχρι να τον ενεργοποιήσετε ξανά.`)) run(() => setUserActive(u.id, !u.is_active)); } },
+              ]} />
+            );
+          }}
+        />
+      )}
 
       {/* Portal & client accounts — read-only here, but impersonable so an
           admin can see exactly what a buyer/homeowner/investor/contractor sees. */}
@@ -498,6 +454,20 @@ export function UsersAdmin({
         )}
       </div>}
 
+      {roleFor && (
+        <Modal title={`Ρόλος · ${roleFor.full_name ?? ''}`} onClose={() => setRoleFor(null)}>
+          <RoleMenu value={roleFor.customRole && roles.custom.some((c) => c.id === roleFor.customRole) ? `custom:${roleFor.customRole}` : roleFor.role} roles={roles} disabled={isPending} onPick={(v) => {
+            const u = roleFor; setImpErr(null); setRoleMsg(null);
+            startTransition(async () => {
+              const res = await assignRole(u.id, v);
+              if (!res.ok) setImpErr(res.error);
+              else setRoleMsg({ id: u.id, text: `Ο ρόλος του/της «${u.full_name ?? ''}» άλλαξε σε «${roleChoiceLabel(v, roles)}».` });
+              setRoleFor(null); router.refresh();
+            });
+          }} />
+          <p className="mt-3 text-[13px] text-charcoal-600">Ο ρόλος ορίζει τι βλέπει και τι αλλάζει ο υπάλληλος. Για εξαιρέσεις χρησιμοποιήστε τα «Δικαιώματα».</p>
+        </Modal>
+      )}
       {historyFor && <HistoryDrawer user={historyFor} onClose={() => setHistoryFor(null)} />}
       {showCreate && <CreateUserModal roles={roles} onClose={() => setShowCreate(false)} onDone={() => router.refresh()} />}
       {permsFor && <PermissionsModal roles={roles} user={permsFor} onClose={() => setPermsFor(null)} onDone={() => router.refresh()} />}
@@ -560,6 +530,47 @@ export function UsersAdmin({
 }
 
 /** Κουμπί-εικονίδιο· το όνομά του εμφανίζεται όταν περνά το ποντίκι. */
+/** Αλλαγή ρόλου από τη γραμμή του πίνακα: μικρό αναδυόμενο μενού με ✓ στον τρέχοντα. */
+function RoleMenu({ value, roles, disabled, onPick }: { value: string; roles: RolesSettings; disabled?: boolean; onPick: (v: string) => void }) {
+  const opts: [string, string][] = [...INTERNAL_ROLES.map((r) => [r, ROLE_LABEL[r]] as [string, string]), ...roles.custom.map((c) => [`custom:${c.id}`, c.name] as [string, string])];
+  return <span title="Ρόλος"><PopSelect ariaLabel="Ρόλος" width="w-full" value={value} onChange={(v) => { if (!disabled && v !== value) onPick(v); }} options={opts} /></span>;
+}
+
+/** Μενού «⋯» με τις ενέργειες λογαριασμού, για να μένει ο πίνακας καθαρός. */
+function MoreMenu({ items, disabled }: { items: { label: string; icon: any; onClick: () => void; danger?: boolean }[]; disabled?: boolean }) {
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const open = !!pos;
+  useEffect(() => {
+    if (!open) return;
+    const close = () => setPos(null);
+    const t = setTimeout(() => { document.addEventListener('click', close); window.addEventListener('scroll', close, true); window.addEventListener('resize', close); }, 0);
+    return () => { clearTimeout(t); document.removeEventListener('click', close); window.removeEventListener('scroll', close, true); window.removeEventListener('resize', close); };
+  }, [open]);
+  const toggle = (e: React.MouseEvent<HTMLButtonElement>) => {
+    if (pos) { setPos(null); return; }
+    const r = e.currentTarget.getBoundingClientRect();
+    const h = items.length * 32 + 10;
+    const top = r.bottom + 4 + h > window.innerHeight ? Math.max(8, r.top - 4 - h) : r.bottom + 4;
+    setPos({ top, left: Math.max(8, Math.min(window.innerWidth - 232, r.right - 224)) });
+  };
+  return (
+    <span className="relative">
+      <button type="button" disabled={disabled} onClick={toggle} aria-label="Περισσότερες ενέργειες" title="Περισσότερες ενέργειες"
+        className="flex h-8 w-8 items-center justify-center rounded-full text-charcoal-600 transition hover:bg-stone-100 hover:text-charcoal"><MoreHorizontal size={16} /></button>
+      {pos && (
+        <span style={{ top: pos.top, left: pos.left }} className="anim-pop fixed z-50 block w-56 rounded-lg bg-white p-1 text-left shadow-md ring-1 ring-charcoal/10">
+          {items.map((it) => (
+            <button key={it.label} type="button" onClick={() => { setPos(null); it.onClick(); }}
+              className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-[13px] transition-colors hover:bg-stone-100 ${it.danger ? 'text-signal-danger' : 'text-charcoal'}`}>
+              <it.icon size={14} /> {it.label}
+            </button>
+          ))}
+        </span>
+      )}
+    </span>
+  );
+}
+
 function IconBtn({ label, onClick, disabled, danger, children }: { label: string; onClick: () => void; disabled?: boolean; danger?: boolean; children: React.ReactNode }) {
   return (
     <button type="button" onClick={onClick} disabled={disabled} aria-label={label} title={label}
