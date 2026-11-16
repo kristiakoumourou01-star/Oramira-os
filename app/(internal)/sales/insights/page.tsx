@@ -62,14 +62,14 @@ export default async function InsightsPage({ searchParams }: { searchParams: { p
       <WorkspaceHeader eyebrow="Sales" title="Πωλήσεις" description="Απόδοση deals, funnel μετατροπής, won/lost, activities και πρόβλεψη εσόδων." />
       <SalesNav active="insights" />
       <div className="flex flex-wrap items-center gap-2 text-sm">
-        <div className="flex gap-1 rounded-lg bg-stone p-1">{PERIODS.map(([k, l]) => <Link key={k} href={link({ period: k })} className={`rounded-md px-3 py-1 ${k === period[0] ? 'bg-white font-medium text-charcoal shadow-sm' : 'text-charcoal-600'}`}>{l}</Link>)}</div>
-        <div className="flex flex-wrap gap-1">{cfg.pipelines.map((p) => <Link key={p.key} href={link({ pipeline: p.key })} className={`rounded-full px-3 py-1 ${p.key === pipeKey ? 'bg-forest text-white' : 'bg-stone text-charcoal-600'}`} data-no-tr>{p.name}</Link>)}</div>
-        <div className="ml-auto flex flex-wrap gap-1"><Link href={link({ owner: 'all' })} className={`rounded-full px-3 py-1 ${owner === 'all' ? 'bg-forest text-white' : 'bg-stone text-charcoal-600'}`}>Όλοι</Link>{agents.map(([id, n]) => <Link key={id} href={link({ owner: id })} className={`rounded-full px-3 py-1 ${owner === id ? 'bg-forest text-white' : 'bg-stone text-charcoal-600'}`}>{n}</Link>)}</div>
+        <div className="flex rounded-lg bg-stone-100 p-0.5">{PERIODS.map(([k, l]) => <Link key={k} href={link({ period: k })} scroll={false} className={`inline-flex h-7 items-center rounded-md px-2.5 text-[13px] transition-colors ${k === period[0] ? 'bg-white font-medium text-charcoal shadow-sm' : 'text-charcoal-600 hover:text-charcoal'}`}>{l}</Link>)}</div>
+        <div className="flex flex-wrap gap-1">{cfg.pipelines.map((p) => <Link key={p.key} href={link({ pipeline: p.key })} scroll={false} className={`inline-flex h-8 items-center rounded-full border px-3 text-[13px] transition-colors ${p.key === pipeKey ? 'border-forest/40 bg-forest/[0.08] text-forest' : 'border-stone-line text-charcoal hover:border-forest/30'}`} data-no-tr>{p.name}</Link>)}</div>
+        <div className="ml-auto flex flex-wrap gap-1"><Link href={link({ owner: 'all' })} scroll={false} className={`inline-flex h-8 items-center rounded-full border px-3 text-[13px] transition-colors ${owner === 'all' ? 'border-forest/40 bg-forest/[0.08] text-forest' : 'border-stone-line text-charcoal hover:border-forest/30'}`}>Όλοι</Link>{agents.map(([id, n]) => <Link key={id} href={link({ owner: id })} scroll={false} className={`inline-flex h-8 items-center rounded-full border px-3 text-[13px] transition-colors ${owner === id ? 'border-forest/40 bg-forest/[0.08] text-forest' : 'border-stone-line text-charcoal hover:border-forest/30'}`}>{n}</Link>)}</div>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-4">
         {[['Won', formatCurrency(wonTotal), `${wonCount} deals`], ['Lost', String(lostCount), 'deals'], ['Win rate', `${wonCount + lostCount ? Math.round((wonCount / (wonCount + lostCount)) * 100) : 0}%`, 'won / (won + lost)'], ['Νέα deals', String(perf.reduce((s, r) => s + r.started, 0)), formatCurrency(perf.reduce((s, r) => s + r.startedValue, 0))]].map(([a, b, c]) => (
-          <div key={a} className="panel p-4"><p className="text-xs uppercase tracking-wide text-charcoal-600/70">{a}</p><p className="figure text-2xl text-forest">{b}</p><p className="text-xs text-charcoal-600/60">{c}</p></div>
+          <div key={a} className="rounded-[14px] border border-stone-line bg-white p-4 shadow-sm"><p className="text-[11px] font-semibold uppercase tracking-wide text-charcoal-600">{a}</p><p className="mt-1 text-2xl font-semibold tabular-nums text-charcoal">{b}</p><p className="text-xs text-charcoal-600/60">{c}</p></div>
         ))}
       </div>
 
@@ -110,7 +110,7 @@ export default async function InsightsPage({ searchParams }: { searchParams: { p
 
         <Card title="Ανά υπεύθυνο" sub="Ανοιχτά τώρα · won / lost στο διάστημα">
           <div className="overflow-x-auto">
-            <table className="table-base w-full min-w-[480px] text-sm">
+            <table className="o-table">
               <thead><tr><th>Υπεύθυνος</th><th className="text-right">Ανοιχτά</th><th className="text-right">Αξία</th><th className="text-right">Won</th><th className="text-right">Won €</th><th className="text-right">Lost</th><th className="text-right">Win rate</th></tr></thead>
               <tbody>{owners.map((r) => <tr key={r.ownerId ?? 'none'}><td>{r.name}</td><td className="text-right">{r.open}</td><td className="text-right">{formatCurrency(r.openValue)}</td><td className="text-right text-forest">{r.won}</td><td className="text-right">{formatCurrency(r.wonValue)}</td><td className="text-right text-signal-danger">{r.lost}</td><td className="text-right font-medium">{r.winRate}%</td></tr>)}</tbody>
             </table>
@@ -127,7 +127,7 @@ export default async function InsightsPage({ searchParams }: { searchParams: { p
 
         <Card title="Activities ανά χρήστη" sub="Ολοκληρωμένες και προγραμματισμένες στο διάστημα">
           <div className="overflow-x-auto">
-            <table className="table-base w-full min-w-[480px] text-sm">
+            <table className="o-table">
               <thead><tr><th>Χρήστης</th><th className="text-right">Έγιναν</th><th className="text-right">Ανοιχτές</th>{ACTIVITY_TYPES.slice(0, 4).map((a) => <th key={a.key} className="text-right">{a.label}</th>)}</tr></thead>
               <tbody>
                 {actRows.size === 0 && <tr><td colSpan={7} className="py-4 text-center text-charcoal-600/70">Καμία activity στο διάστημα.</td></tr>}
