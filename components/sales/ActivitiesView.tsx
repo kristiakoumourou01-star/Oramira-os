@@ -75,7 +75,7 @@ export function ActivitiesView({ rows: initial, agents, currentUserId, initialTy
   const pages = Math.max(1, Math.ceil(list.length / per));
   const pg = Math.min(pageNo, pages - 1);
   const page = list.slice(pg * per, pg * per + per);
-  const chip = (on: boolean) => `inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-[13px] transition-colors ${on ? 'border-forest/40 bg-forest/[0.08] text-forest' : 'border-stone-line text-charcoal hover:border-forest/30'}`;
+  const chip = (on: boolean) => `inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-[13px] transition-colors ${on ? 'border-forest bg-forest text-white' : 'border-stone-line text-charcoal hover:border-forest/30'}`;
   const ownerOpts: [string, string][] = [[currentUserId, 'Οι δικές μου'], ['everyone', 'Όλοι'], ...agents.filter((a) => a.id !== currentUserId).map((a) => [a.id, a.full_name ?? '—'] as [string, string])];
 
   return (
@@ -89,7 +89,7 @@ export function ActivitiesView({ rows: initial, agents, currentUserId, initialTy
             <span className="ml-auto flex items-center gap-2">
               <span className="flex rounded-lg bg-stone-100 p-0.5">
                 {([['list', List, 'Λίστα'], ['calendar', CalendarDays, 'Ημερολόγιο']] as const).map(([v, I, l]) => (
-                  <button key={v} type="button" onClick={() => setView(v)} aria-pressed={view === v} className={`inline-flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[13px] transition-colors ${view === v ? 'bg-white font-medium text-charcoal shadow-sm' : 'text-charcoal-600 hover:text-charcoal'}`}><I size={14} /> {l}</button>
+                  <button key={v} type="button" onClick={() => setView(v)} aria-pressed={view === v} className={`inline-flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[13px] transition-colors ${view === v ? 'bg-forest font-medium text-white shadow-sm' : 'text-charcoal-600 hover:text-charcoal'}`}><I size={14} /> {l}</button>
                 ))}
               </span>
             </span>

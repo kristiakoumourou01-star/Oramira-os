@@ -145,7 +145,7 @@ export function LeadManager({ leads, agents, currentUserId, pipelines, fixedPipe
   const page = filtered.slice(pg * per, pg * per + per);
   const allSel = page.length > 0 && page.every((l) => sel.has(l.id));
   const toggle = (id: string) => setSel((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
-  const chip = (on: boolean) => `inline-flex h-8 items-center rounded-full border px-3 text-[13px] transition-colors ${on ? 'border-forest/40 bg-forest/[0.08] text-forest' : 'border-stone-line text-charcoal hover:border-forest/30'}`;
+  const chip = (on: boolean) => `inline-flex h-8 items-center rounded-full border px-3 text-[13px] transition-colors ${on ? 'border-forest bg-forest text-white' : 'border-stone-line text-charcoal hover:border-forest/30'}`;
   const counts = {
     open: inPipe.filter((l) => l.status !== 'won' && !closedBucket(pipelines.lostReasons, l.status, l.lost_reason ?? null)).length,
     closed: inPipe.filter((l) => !!closedBucket(pipelines.lostReasons, l.status, l.lost_reason ?? null)).length,
@@ -162,7 +162,7 @@ export function LeadManager({ leads, agents, currentUserId, pipelines, fixedPipe
               <span>εγγραφές</span></>}
             <span className="ml-auto flex rounded-lg bg-stone-100 p-0.5">
               {([['list', List, 'Λίστα'], ['columns', Columns3, 'Στήλες']] as const).map(([v, I, l]) => (
-                <button key={v} type="button" onClick={() => setView(v)} aria-pressed={view === v} className={`inline-flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[13px] transition-colors ${view === v ? 'bg-white font-medium text-charcoal shadow-sm' : 'text-charcoal-600 hover:text-charcoal'}`}><I size={14} /> {l}</button>
+                <button key={v} type="button" onClick={() => setView(v)} aria-pressed={view === v} className={`inline-flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[13px] transition-colors ${view === v ? 'bg-forest font-medium text-white shadow-sm' : 'text-charcoal-600 hover:text-charcoal'}`}><I size={14} /> {l}</button>
               ))}
             </span>
           </div>

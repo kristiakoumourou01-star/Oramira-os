@@ -63,7 +63,7 @@ export function LeadsInbox({ leads: initial, cfg, agents }: { leads: LeadListIte
   const pg = Math.min(pageNo, pages - 1);
   const page = rows.slice(pg * per, pg * per + per);
   const allOn = page.length > 0 && page.every((r) => sel.includes(r.id));
-  const chip = (on: boolean) => `inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-[13px] transition-colors ${on ? 'border-forest/40 bg-forest/[0.08] text-forest' : 'border-stone-line text-charcoal hover:border-forest/30'}`;
+  const chip = (on: boolean) => `inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-[13px] transition-colors ${on ? 'border-forest bg-forest text-white' : 'border-stone-line text-charcoal hover:border-forest/30'}`;
 
   return (
     <div className="space-y-4">

@@ -81,9 +81,9 @@ export default async function InvoicesPage({ searchParams }: { searchParams: { k
       </div>
 
       <div className="flex flex-wrap items-center gap-1.5">
-        <Link href={`/financials/invoices${qs({})}`} className={`inline-flex h-8 items-center rounded-full border px-3 text-[13px] ${!kind ? 'border-forest/40 bg-forest/[0.08] text-forest' : 'border-stone-line text-charcoal hover:border-forest/30'}`}>Όλα</Link>
+        <Link href={`/financials/invoices${qs({})}`} className={`inline-flex h-8 items-center rounded-full border px-3 text-[13px] ${!kind ? 'border-forest bg-forest text-white' : 'border-stone-line text-charcoal hover:border-forest/30'}`}>Όλα</Link>
         {(['invoice', 'receipt', 'credit_note'] as DocKind[]).map((k) => (
-          <Link key={k} href={`/financials/invoices${qs({ kind: k })}`} className={`inline-flex h-8 items-center rounded-full border px-3 text-[13px] ${kind === k ? 'border-forest/40 bg-forest/[0.08] text-forest' : 'border-stone-line text-charcoal hover:border-forest/30'}`}>{KIND_PLURAL[k]}</Link>
+          <Link key={k} href={`/financials/invoices${qs({ kind: k })}`} className={`inline-flex h-8 items-center rounded-full border px-3 text-[13px] ${kind === k ? 'border-forest bg-forest text-white' : 'border-stone-line text-charcoal hover:border-forest/30'}`}>{KIND_PLURAL[k]}</Link>
         ))}
       </div>
 

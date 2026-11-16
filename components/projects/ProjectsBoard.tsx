@@ -103,7 +103,7 @@ export function ProjectsBoard({ projects: initial, canEdit, stages, rawStages, c
               {canEditStages && view === 'board' && <button type="button" onClick={() => setEditCols(true)} className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-stone-100 px-2.5 text-[13px] font-medium text-charcoal hover:bg-stone-200"><Pencil size={13} /> Στήλες</button>}
               <span className="flex rounded-lg bg-stone-100 p-0.5">
                 {([['list', List, 'Λίστα'], ['grid', LayoutGrid, 'Κάρτες'], ['board', Columns3, 'Στήλες']] as const).map(([v, I, l]) => (
-                  <button key={v} type="button" onClick={() => pick(v)} aria-pressed={view === v} className={`inline-flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[13px] transition-colors ${view === v ? 'bg-white font-medium text-charcoal shadow-sm' : 'text-charcoal-600 hover:text-charcoal'}`}><I size={14} /><span className="hidden sm:inline">{l}</span></button>
+                  <button key={v} type="button" onClick={() => pick(v)} aria-pressed={view === v} className={`inline-flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[13px] transition-colors ${view === v ? 'bg-forest font-medium text-white shadow-sm' : 'text-charcoal-600 hover:text-charcoal'}`}><I size={14} /><span className="hidden sm:inline">{l}</span></button>
                 ))}
               </span>
             </span>

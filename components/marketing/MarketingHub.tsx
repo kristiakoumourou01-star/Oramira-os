@@ -337,14 +337,14 @@ function CampaignDialog({ channel: ch0, row, copy, groups, contacts, tags, prefi
           <p className="text-[13px] font-semibold uppercase tracking-wide text-charcoal-600">Βασικά</p>
           <label className="block"><span className={lbl}>Όνομα campaign *</span><input autoFocus className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="π.χ. Νέο έργο Λεμεσός — προπώληση" /></label>
           <div className="flex flex-wrap gap-2">
-            {(['email', 'whatsapp', 'push'] as const).map((c) => <button key={c} type="button" onClick={() => { setChannel(c); if (c === 'push' && kind === 'addresses') setKind('groups'); }} className={`rounded-full border px-3 py-1 text-sm ${channel === c ? 'border-forest/40 bg-forest/[0.08] text-forest' : 'border-stone-line text-charcoal'}`}>{c === 'email' ? 'Email' : c === 'push' ? 'Push' : 'WhatsApp'}</button>)}
+            {(['email', 'whatsapp', 'push'] as const).map((c) => <button key={c} type="button" onClick={() => { setChannel(c); if (c === 'push' && kind === 'addresses') setKind('groups'); }} className={`rounded-full border px-3 py-1 text-sm ${channel === c ? 'border-forest bg-forest text-white' : 'border-stone-line text-charcoal'}`}>{c === 'email' ? 'Email' : c === 'push' ? 'Push' : 'WhatsApp'}</button>)}
           </div>
           <div>
             <span className={lbl}>Κοινό *</span>
             <select value={kind} onChange={(e) => setKind(e.target.value as Kind)} className="input w-auto text-sm">{KINDS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
             <div className="mt-2">
               {kind === 'groups' && (groups.length ? (
-                <div className="flex flex-wrap gap-1.5">{groups.map((g) => { const on = selGroups.includes(g.name); return <button key={g.name} type="button" onClick={() => setSelGroups((x) => (on ? x.filter((y) => y !== g.name) : [...x, g.name]))} className={`rounded-full border px-3 py-1 text-sm ${on ? 'border-forest/40 bg-forest/[0.08] text-forest' : 'border-stone-line text-charcoal'}`} data-no-tr>{g.name} <span className="text-charcoal-600">· {g.n}</span></button>; })}</div>
+                <div className="flex flex-wrap gap-1.5">{groups.map((g) => { const on = selGroups.includes(g.name); return <button key={g.name} type="button" onClick={() => setSelGroups((x) => (on ? x.filter((y) => y !== g.name) : [...x, g.name]))} className={`rounded-full border px-3 py-1 text-sm ${on ? 'border-forest bg-forest text-white' : 'border-stone-line text-charcoal'}`} data-no-tr>{g.name} <span className="text-charcoal-600">· {g.n}</span></button>; })}</div>
               ) : <p className="text-sm text-charcoal-600">Δεν υπάρχουν ομάδες. Φτιάξτε μία στους Πελάτες → Ομάδες.</p>)}
               {kind === 'contacts' && (
                 <div>

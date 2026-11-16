@@ -34,6 +34,7 @@ function apply() {
     if (v !== base[k] && !(dark && SURFACE.includes(k))) { root.style.setProperty(k, v); touched.add(k); }
     else if (touched.has(k)) { root.style.removeProperty(k); touched.delete(k); }
   }
+  if (menu?.style) { root.dataset.sbstyle = menu.style; root.dataset.sidebar = menu.style === 'light' ? 'light' : 'dark'; }
   const bg = sidebarBackground(menu.style, draft.colorPrimary, menu.custom);
   if (bg !== sidebarBackground(savedMenu.style, saved.colorPrimary, savedMenu.custom)) { root.style.setProperty('--sidebar-bg', bg); touched.add('--sidebar-bg'); }
   else if (touched.has('--sidebar-bg')) { root.style.removeProperty('--sidebar-bg'); touched.delete('--sidebar-bg'); }

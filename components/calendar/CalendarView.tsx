@@ -120,14 +120,14 @@ export function CalendarView({
         <div className="ml-auto flex flex-wrap items-center gap-2">
           <button
             onClick={toggleTeam}
-            className={`inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-[13px] transition-colors ${teamMode ? 'border-forest/40 bg-forest/[0.08] text-forest' : 'border-stone-line text-charcoal hover:border-forest/30'}`}
+            className={`inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-[13px] transition-colors ${teamMode ? 'border-forest bg-forest text-white' : 'border-stone-line text-charcoal hover:border-forest/30'}`}
             title="Προβολή ομάδας (στήλη ανά άτομο)"
           >
             <Users size={13} /> Ομάδα
           </button>
           <div className="flex rounded-lg bg-stone-100 p-0.5">
             {(['day', 'week', 'month'] as View[]).map((v) => (
-              <button key={v} onClick={() => go(anchor, v)} className={`inline-flex h-7 items-center rounded-md px-2.5 text-[13px] transition-colors ${view === v ? 'bg-white font-medium text-charcoal shadow-sm' : 'text-charcoal-600 hover:text-charcoal'}`}>
+              <button key={v} onClick={() => go(anchor, v)} className={`inline-flex h-7 items-center rounded-md px-2.5 text-[13px] transition-colors ${view === v ? 'bg-forest font-medium text-white shadow-sm' : 'text-charcoal-600 hover:text-charcoal'}`}>
                 {v === 'day' ? 'Ημέρα' : v === 'week' ? 'Εβδομάδα' : 'Μήνας'}
               </button>
             ))}

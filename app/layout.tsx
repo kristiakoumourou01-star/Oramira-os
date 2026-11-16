@@ -41,6 +41,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       data-boxcolor={appearance.boxColor ?? 'white'}
       data-labels={appearance.labelStyle}
       data-sidebar={appearance.sidebarStyle === 'light' ? 'light' : 'dark'}
+      data-sbstyle={appearance.sidebarStyle ?? 'light'}
       suppressHydrationWarning
     >
       <head>

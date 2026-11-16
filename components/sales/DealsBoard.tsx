@@ -228,7 +228,7 @@ export function DealsBoard({ leads: initial, cfg, rawCfg, canEditStages = false,
 
   const ViewBtn = ({ v, icon: I, label }: { v: View; icon: any; label: string }) => (
     <button type="button" onClick={() => setView(v)} title={label} aria-label={label} aria-pressed={view === v}
-      className={`inline-flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[13px] transition-colors ${view === v ? 'bg-white font-medium text-charcoal shadow-sm' : 'text-charcoal-600 hover:text-charcoal'}`}><I size={14} /><span className="hidden sm:inline">{label}</span></button>
+      className={`inline-flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[13px] transition-colors ${view === v ? 'bg-forest font-medium text-white shadow-sm' : 'text-charcoal-600 hover:text-charcoal'}`}><I size={14} /><span className="hidden sm:inline">{label}</span></button>
   );
 
   return (
@@ -255,7 +255,7 @@ export function DealsBoard({ leads: initial, cfg, rawCfg, canEditStages = false,
           onChange={(v) => { const x = v as typeof preset; setPreset(x); if (x === 'won' || x === 'lost') { setShowClosed(true); setView('board'); } }}
           options={[['all', 'Όλα τα ανοιχτά deals'], ['rotten', '«Σάπια» deals'], ['noact', 'Χωρίς προγραμματισμένη activity'], ['closepast', 'Αναμ. κλείσιμο στο παρελθόν'], ['old3m', 'Πάνω από 3 μήνες'], ['won', 'Won deals'], ['lost', 'Lost deals']]} />
         <div className="relative">
-          <button type="button" onClick={() => setFilterOpen((x) => !x)} className={`inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-[13px] transition-colors ${condCount || filterOpen ? 'border-forest/40 bg-forest/[0.08] text-forest' : 'border-stone-line text-charcoal hover:border-forest/30'}`}><Filter size={13} /> Φίλτρα{condCount ? ` (${condCount})` : ''}</button>
+          <button type="button" onClick={() => setFilterOpen((x) => !x)} className={`inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-[13px] transition-colors ${condCount || filterOpen ? 'border-forest bg-forest text-white' : 'border-stone-line text-charcoal hover:border-forest/30'}`}><Filter size={13} /> Φίλτρα{condCount ? ` (${condCount})` : ''}</button>
           {filterOpen && (
             <div className="anim-pop absolute left-0 top-full z-30 mt-1 w-[min(320px,calc(100vw-2rem))] space-y-2 rounded-xl border border-stone-line bg-white p-3 shadow-overlay">
               <div className="grid grid-cols-2 gap-2 text-sm">

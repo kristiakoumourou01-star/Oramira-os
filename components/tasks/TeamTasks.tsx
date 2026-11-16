@@ -154,10 +154,10 @@ function TaskDialog({ task, staff, me, lists, onClose, onDone }: { task: TeamTas
           <div>
             <span className={lbl}>Ανάθεση σε</span>
             {!task && <div className="mb-2 flex gap-2">
-              <button type="button" onClick={() => setMode('people')} className={`rounded-full border px-3 py-1 text-sm ${mode === 'people' ? 'border-forest/40 bg-forest/[0.08] text-forest' : 'border-stone-line'}`}>Συγκεκριμένα άτομα</button>
-              <button type="button" onClick={() => setMode('all')} className={`rounded-full border px-3 py-1 text-sm ${mode === 'all' ? 'border-forest/40 bg-forest/[0.08] text-forest' : 'border-stone-line'}`}>Όλη η ομάδα ({staff.length})</button>
+              <button type="button" onClick={() => setMode('people')} className={`rounded-full border px-3 py-1 text-sm ${mode === 'people' ? 'border-forest bg-forest text-white' : 'border-stone-line'}`}>Συγκεκριμένα άτομα</button>
+              <button type="button" onClick={() => setMode('all')} className={`rounded-full border px-3 py-1 text-sm ${mode === 'all' ? 'border-forest bg-forest text-white' : 'border-stone-line'}`}>Όλη η ομάδα ({staff.length})</button>
             </div>}
-            {(task || mode === 'people') && <div className="flex flex-wrap gap-1.5">{staff.map((s) => <button key={s.id} type="button" onClick={() => flip(s.id)} className={`rounded-full border px-3 py-1 text-sm ${people.has(s.id) ? 'border-forest/40 bg-forest/[0.08] text-forest' : 'border-stone-line text-charcoal'}`} data-no-tr>{s.name}{s.id === me ? ' (εγώ)' : ''}</button>)}</div>}
+            {(task || mode === 'people') && <div className="flex flex-wrap gap-1.5">{staff.map((s) => <button key={s.id} type="button" onClick={() => flip(s.id)} className={`rounded-full border px-3 py-1 text-sm ${people.has(s.id) ? 'border-forest bg-forest text-white' : 'border-stone-line text-charcoal'}`} data-no-tr>{s.name}{s.id === me ? ' (εγώ)' : ''}</button>)}</div>}
             {!task && mode === 'all' && <p className="text-[13px] text-charcoal-600">Κάθε μέλος της ομάδας παίρνει τη δική του εργασία και ειδοποίηση· βλέπετε πόσοι την ολοκλήρωσαν.</p>}
           </div>
           {err && <p className="text-sm text-signal-danger">{err}</p>}

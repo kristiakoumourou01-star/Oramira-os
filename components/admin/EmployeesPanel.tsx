@@ -71,7 +71,7 @@ export function EmployeesPanel({ rows, actions, toolbar, canEdit, canEditDocs, m
   const noContract = rows.filter((r) => r.is_active && !isTerminated(r.hr ?? EMPTY_HR) && !r.hr?.contract).length;
   const newThisMonth = rows.filter((r) => (r.hr?.startDate ?? '') >= monthStart).length;
   const onLeave = rows.filter((r) => r.hr?.onLeaveToday).length;
-  const chip = (on: boolean) => `inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-[13px] transition-colors ${on ? 'border-forest/40 bg-forest/[0.08] text-forest' : 'border-stone-line text-charcoal hover:border-forest/30'}`;
+  const chip = (on: boolean) => `inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-[13px] transition-colors ${on ? 'border-forest bg-forest text-white' : 'border-stone-line text-charcoal hover:border-forest/30'}`;
 
   return (
     <div className="grid items-start gap-5 2xl:grid-cols-[minmax(0,1fr)_300px]">

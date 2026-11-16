@@ -178,9 +178,9 @@ export default async function PropertyManagementPage({ searchParams }: { searchP
       {cities.length > 1 && (
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="mr-1 text-[13px] text-charcoal-600">Πόλη:</span>
-          <Link href="/property" className={`inline-flex h-8 items-center rounded-full border px-3 text-[13px] ${!activeCity ? 'border-forest/40 bg-forest/[0.08] text-forest' : 'border-stone-line text-charcoal hover:border-forest/30'}`}>Όλες</Link>
+          <Link href="/property" className={`inline-flex h-8 items-center rounded-full border px-3 text-[13px] ${!activeCity ? 'border-forest bg-forest text-white' : 'border-stone-line text-charcoal hover:border-forest/30'}`}>Όλες</Link>
           {cities.map((c) => (
-            <Link key={c} href={`/property?city=${encodeURIComponent(c)}`} className={`inline-flex h-8 items-center rounded-full border px-3 text-[13px] ${activeCity === c ? 'border-forest/40 bg-forest/[0.08] text-forest' : 'border-stone-line text-charcoal hover:border-forest/30'}`}>{c}</Link>
+            <Link key={c} href={`/property?city=${encodeURIComponent(c)}`} className={`inline-flex h-8 items-center rounded-full border px-3 text-[13px] ${activeCity === c ? 'border-forest bg-forest text-white' : 'border-stone-line text-charcoal hover:border-forest/30'}`}>{c}</Link>
           ))}
         </div>
       )}
@@ -194,11 +194,11 @@ export default async function PropertyManagementPage({ searchParams }: { searchP
             const nOpen = openCount.get(p.id) ?? 0;
             return (
               <Link key={p.id} href={`/property?dev=${p.id}${cityQuery}`} aria-current={on ? 'page' : undefined}
-                className={`group relative flex items-center gap-3 rounded-[14px] border px-4 py-3 shadow-sm transition-colors duration-150 ${on ? 'border-forest/40 bg-forest/[0.05] text-charcoal' : 'border-stone-line bg-white text-charcoal hover:border-forest/40'}`}>
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-forest/[0.09] text-forest"><Building2 size={18} /></span>
+                className={`group relative flex items-center gap-3 rounded-[14px] border px-4 py-3 shadow-sm transition-colors duration-150 ${on ? 'border-forest bg-forest text-white' : 'border-stone-line bg-white text-charcoal hover:border-forest/40'}`}>
+                <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${on ? 'bg-white/15 text-white' : 'bg-forest/[0.09] text-forest'}`}><Building2 size={18} /></span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-semibold" data-no-tr>{p.name}</span>
-                  <span className={`block truncate text-[13px] ${on ? 'text-forest' : 'text-charcoal-600'}`}>{[p.location, `${nUnits} μονάδες`].filter(Boolean).join(' · ')}</span>
+                  <span className={`block truncate text-[13px] ${on ? 'text-white/85' : 'text-charcoal-600'}`}>{[p.location, `${nUnits} μονάδες`].filter(Boolean).join(' · ')}</span>
                 </span>
                 {nOpen > 0 && <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold bg-rose-50 text-signal-danger`} title="Ανοιχτά αιτήματα ιδιοκτητών">{nOpen}</span>}
               </Link>

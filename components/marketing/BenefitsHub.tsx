@@ -92,7 +92,7 @@ function BenefitDialog({ b, onClose, onDone }: { b: Benefit | null; onClose: () 
             <label className="block"><span className={lbl}>Ισχύει έως</span><input type="date" className="input" value={f.validUntil} onChange={(e) => set({ validUntil: e.target.value })} /></label>
           </div>
           <label className="block"><span className={lbl}>Σύνδεσμος</span><input className="input" value={f.link} onChange={(e) => set({ link: e.target.value })} placeholder="https://" /></label>
-          <div><span className={lbl}>Για ποιους</span><div className="flex flex-wrap gap-1.5">{AUD.map(([k, l]) => { const on = f.audience.includes(k); return <button key={k} type="button" onClick={() => set({ audience: on ? f.audience.filter((x) => x !== k) : [...f.audience, k] })} className={`rounded-full border px-3 py-1 text-sm ${on ? 'border-forest/40 bg-forest/[0.08] text-forest' : 'border-stone-line'}`}>{l}</button>; })}</div></div>
+          <div><span className={lbl}>Για ποιους</span><div className="flex flex-wrap gap-1.5">{AUD.map(([k, l]) => { const on = f.audience.includes(k); return <button key={k} type="button" onClick={() => set({ audience: on ? f.audience.filter((x) => x !== k) : [...f.audience, k] })} className={`rounded-full border px-3 py-1 text-sm ${on ? 'border-forest bg-forest text-white' : 'border-stone-line'}`}>{l}</button>; })}</div></div>
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={f.active} onChange={(e) => set({ active: e.target.checked })} /> Ενεργή (εμφανίζεται στην εφαρμογή)</label>
           {err && <p className="text-sm text-signal-danger">{err}</p>}
         </div>
