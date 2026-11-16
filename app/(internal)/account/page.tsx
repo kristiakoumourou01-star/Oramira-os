@@ -14,8 +14,7 @@ import { AuditLogView } from '@/components/admin/AuditLogView';
 import { LogsView, type LogRow } from '@/components/account/LogsView';
 import { getAuditLog } from '@/lib/audit';
 import { DATE_TAG, currentLocale } from '@/lib/locale-shared';
-import { HubLinks } from '@/components/ui/HubTabs';
-import { WorkspaceHeader } from '@/components/ui/WorkspaceHeader';
+import { SettingsFrame, type FrameGroup } from '@/components/ui/SettingsFrame';
 
 export const dynamic = 'force-dynamic';
 
@@ -62,16 +61,16 @@ export default async function AccountPage({ searchParams }: { searchParams: { ta
       { icon: Bell, title: 'Προτιμήσεις ειδοποιήσεων', text: 'Ήχος και ειδοποιήσεις στην οθόνη.', href: '/account?tab=notifications', cta: 'Διαχείριση' },
     ];
     body = (
-      <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="grid items-start gap-5 2xl:grid-cols-[minmax(0,1fr)_340px]">
         <AccountProfile readOnly={!!me.impersonator} initial={{ fullName: row?.full_name ?? me.fullName ?? '', email: auth.user?.email ?? '', phone: row?.phone ?? '', jobTitle: row?.job_title ?? '', avatarUrl: row?.avatar_url ?? null, roleName: me.roleName, department: row?.department ?? '' }} />
-        <div className="overflow-hidden rounded-2xl border border-stone-line bg-white shadow-[0_1px_2px_rgba(17,49,36,0.04)] xl:sticky xl:top-[72px]">
+        <div className="overflow-hidden rounded-2xl border border-stone-line bg-white shadow-[0_1px_2px_rgba(17,49,36,0.04)] 2xl:sticky 2xl:top-[72px]">
           <div className="flex items-center gap-2.5 border-b border-stone-line px-4 py-3.5"><span className="flex h-8 w-8 items-center justify-center rounded-lg bg-forest/[0.09] text-forest"><ShieldCheck size={15} /></span><p className="font-semibold text-charcoal">Ασφάλεια</p></div>
           <ul className="divide-y divide-stone-line">
             {sec.map((s) => (
               <li key={s.title} className="flex items-center gap-3 px-4 py-3">
                 <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-forest/[0.07] text-forest"><s.icon size={15} /></span>
                 <span className="min-w-0 flex-1"><span className="block text-sm font-medium text-charcoal">{s.title}</span><span className="block text-xs leading-snug text-charcoal-600/70">{s.text}</span></span>
-                <Link href={s.href} className="shrink-0 rounded-full border border-forest/30 px-3 py-1 text-xs font-medium text-forest transition hover:bg-forest hover:text-white">{s.cta}</Link>
+                <Link href={s.href} className="shrink-0 rounded-[10px] border border-stone-line px-3 py-1 text-xs font-medium text-charcoal transition hover:border-forest/30">{s.cta}</Link>
               </li>
             ))}
             <li className="flex items-center gap-3 px-4 py-3">
@@ -125,19 +124,28 @@ export default async function AccountPage({ searchParams }: { searchParams: { ta
     );
   }
 
+  const groups: FrameGroup[] = [
+    { label: 'Ο λογαριασμός μου', items: [
+      { label: 'Πληροφορίες', href: '/account?tab=info', icon: 'user', sub: 'Τα στοιχεία σας και η ασφάλεια του λογαριασμού.' },
+      { label: 'Εμφάνιση', href: '/account?tab=display', icon: 'appearance', sub: 'Γλώσσα, μορφή αριθμών και θέμα, μόνο για εσάς.' },
+      { label: 'Ειδοποιήσεις', href: '/account?tab=notifications', icon: 'notifications', sub: 'Ήχος και ειδοποιήσεις στην οθόνη.' },
+    ] },
+    { label: 'Ασφάλεια', items: [
+      { label: 'Κωδικός', href: '/account/password', icon: 'password' },
+      { label: 'Έλεγχος δύο βημάτων', href: '/account/security', icon: 'security' },
+      { label: 'Logs', href: '/account?tab=logs', icon: 'logs', sub: 'Συνδέσεις και ενέργειες των τελευταίων 30 ημερών.' },
+      ...(isAdmin ? [{ label: 'Audit log', href: '/account?tab=audit', icon: 'audit', sub: 'Όλοι οι χρήστες: ποιος, πότε, από πού.' }] : []),
+    ] },
+    { label: 'Βοήθεια', items: [
+      { label: 'Τι νέο', href: '/account?tab=news', icon: 'news', sub: 'Οι τελευταίες αλλαγές στην πλατφόρμα.' },
+    ] },
+  ];
+
   return (
-    <div className="space-y-5">
-      <WorkspaceHeader eyebrow="Admin" title="My account" description="Τα δικά σας στοιχεία, ασφάλεια, logs και προτιμήσεις. Οι ρυθμίσεις της εταιρείας είναι στο Settings."
-        action={<span className="flex gap-2"><a href="mailto:info@oramiraltd.com" className="inline-flex items-center gap-1.5 rounded-lg border border-stone-line bg-white px-3 py-2 text-sm text-charcoal hover:border-forest/40"><LifeBuoy size={15} /> Βοήθεια</a><form action={logout}><button className="inline-flex items-center gap-1.5 rounded-lg border border-stone-line bg-white px-3 py-2 text-sm text-signal-danger hover:border-signal-danger/40"><LogOut size={15} /> Αποσύνδεση</button></form></span>} />
-      <HubLinks active={tab} cards={[
-        { key: 'info', icon: 'User', title: 'Πληροφορίες', sub: 'Προφίλ και ασφάλεια', href: '/account?tab=info' },
-        { key: 'logs', icon: 'History', title: 'Logs', sub: 'Συνδέσεις και ενέργειες (30 ημ.)', href: '/account?tab=logs' },
-        ...(isAdmin ? [{ key: 'audit', icon: 'Scroll2', title: 'Audit log', sub: 'Όλοι οι χρήστες', href: '/account?tab=audit' }] : []),
-        { key: 'display', icon: 'Palette', title: 'Εμφάνιση', sub: 'Γλώσσα, αριθμοί, θέμα', href: '/account?tab=display' },
-        { key: 'notifications', icon: 'Bell', title: 'Ειδοποιήσεις', sub: 'Ήχος και ειδοποιήσεις οθόνης', href: '/account?tab=notifications' },
-        { key: 'news', icon: 'Sparkles', title: 'Τι νέο', sub: 'Οι τελευταίες αλλαγές', href: '/account?tab=news' },
-      ]} />
-      <div className="min-w-0">{body}</div>
-    </div>
+    <SettingsFrame icon="user" title="Ο λογαριασμός μου" subtitle="Τα δικά σας στοιχεία, ασφάλεια, logs και προτιμήσεις. Οι ρυθμίσεις της εταιρείας είναι στις Ρυθμίσεις."
+      groups={groups} activeHref={`/account?tab=${tab}`}
+      aside={<span className="flex flex-wrap gap-2"><a href="mailto:info@oramiraltd.com" className="inline-flex h-8 items-center gap-1.5 rounded-[10px] border border-stone-line bg-white px-3 text-[13px] text-charcoal hover:border-forest/30"><LifeBuoy size={14} /> Βοήθεια</a><form action={logout}><button className="inline-flex h-8 items-center gap-1.5 rounded-[10px] border border-stone-line bg-white px-3 text-[13px] text-signal-danger hover:border-signal-danger/40"><LogOut size={14} /> Αποσύνδεση</button></form></span>}>
+      {body}
+    </SettingsFrame>
   );
 }

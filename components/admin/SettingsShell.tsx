@@ -2,6 +2,7 @@ import { getCurrentProfile } from '@/lib/auth';
 import { effectiveCan } from '@/lib/permissions';
 import { SETTINGS_NAV } from '@/lib/settings-sections';
 import { SettingsHubNav } from '@/components/admin/SettingsHubNav';
+import { getBranding } from '@/lib/branding';
 
 /**
  * Frame for every Settings page: one header and one grouped menu on the left,
@@ -9,7 +10,7 @@ import { SettingsHubNav } from '@/components/admin/SettingsHubNav';
  * entries their permissions allow (e.g. Templates/Automations for Marketing).
  */
 export async function SettingsShell({ children }: { children: React.ReactNode }) {
-  const profile = await getCurrentProfile();
+  const [profile, brand] = await Promise.all([getCurrentProfile(), getBranding()]);
   const isAdmin = profile?.role === 'admin';
   const groups = SETTINGS_NAV
     .map((g) => ({
@@ -21,6 +22,6 @@ export async function SettingsShell({ children }: { children: React.ReactNode })
     .filter((g) => g.items.length > 0);
 
   return (
-    <SettingsHubNav groups={groups}>{children}</SettingsHubNav>
+    <SettingsHubNav groups={groups} company={brand.companyName}>{children}</SettingsHubNav>
   );
 }
