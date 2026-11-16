@@ -28,7 +28,7 @@ export function MobileNav({ children }: { children: ReactNode }) {
       </button>
       {open && (
         <div className="fixed inset-0 z-50 md:hidden" role="dialog" aria-modal="true">
-          <div className="anim-fade absolute inset-0 bg-charcoal/40" onClick={() => setOpen(false)} />
+          <div className="anim-fade absolute inset-0 bg-black/40" onClick={() => setOpen(false)} />
           <div className="anim-pop absolute inset-y-0 left-0 flex max-w-[85vw] shadow-overlay [&>aside]:!flex">
             {children}
             <button type="button" onClick={() => setOpen(false)} aria-label="Κλείσιμο μενού"
