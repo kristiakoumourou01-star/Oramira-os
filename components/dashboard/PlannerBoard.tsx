@@ -402,7 +402,7 @@ export function PlannerBoard({ events: propEvents, leads = [], projects = [], te
           <Plus size={14} className="text-forest" />
           <input value={quickAdd} onChange={(e) => setQuickAdd(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); submitQuickAdd(); } }} placeholder="Quick add — e.g. Call Michael tomorrow at 11" className="min-w-0 flex-1 bg-transparent text-sm text-charcoal placeholder:text-charcoal-600/50 focus:outline-none" />
         </div>
-        <div className="mb-2 flex items-center justify-between gap-2">
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-1">
             <button onClick={() => setSelected(addDays(selected, -VIEW_STEP))} className="rounded-lg border border-[#E8E0D2] p-1 text-charcoal-600 hover:bg-[#F5F1E8]"><ChevronLeft size={15} /></button>
             <button onClick={() => { setSelected(today); setMonth(new Date(today.getFullYear(), today.getMonth(), 1)); }} className="rounded-lg border border-[#E8E0D2] px-2 py-1 text-xs text-charcoal-600 hover:bg-[#F5F1E8]">Today</button>
