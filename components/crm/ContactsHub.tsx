@@ -15,6 +15,7 @@ import { LANGUAGES } from '@/lib/kyc-shared';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { PhoneInput } from '@/components/ui/PhoneInput';
 import { HubCards } from '@/components/ui/HubCards';
+import { PopSelect } from '@/components/ui/PopSelect';
 
 interface Staff { id: string; name: string }
 
@@ -142,17 +143,17 @@ export function ContactsHub({ rows, staff, groupDefs = [], initialRole = '', ini
         onConvert={(r) => start(async () => { const res = await bulkUpdateContacts([r.id], { addRole: 'buyer' }); setMsg(res.ok ? { ok: true, text: `Ο/Η «${r.name}» έγινε πελάτης (αγοραστής).` } : { ok: false, text: res.error }); router.refresh(); })} />}
 
       {view === 'customers' && (
-        <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="grid items-start gap-5 2xl:grid-cols-[minmax(0,1fr)_300px]">
         <div className="flex min-w-0 flex-col self-stretch rounded-2xl border border-stone-line bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
           <div className="space-y-3 p-4 sm:p-5">
-            <div className="flex flex-wrap items-center gap-2 text-[15px] text-charcoal-600">
+            <div className="flex flex-wrap items-center gap-2 text-[14px] text-charcoal-600">
               <span>Εμφάνιση</span>
-              <select value={per} onChange={(e) => { setPer(Number(e.target.value)); setPageNo(0); }} className="input h-9 w-20 py-1 text-sm">{[10, 25, 50, 100].map((n) => <option key={n} value={n}>{n}</option>)}</select>
+              <PopSelect ariaLabel="Εγγραφές ανά σελίδα" width="w-[72px]" value={String(per)} onChange={(v) => { setPer(Number(v)); setPageNo(0); }} options={[['10', '10'], ['25', '25'], ['50', '50'], ['100', '100']]} />
               <span>εγγραφές</span>
               <div className="relative">
-                <button type="button" onClick={() => setColsOpen((o) => !o)} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-stone-100 px-3 text-sm font-medium text-charcoal hover:bg-stone-200"><Columns3 size={15} /> Στήλες</button>
+                <button type="button" onClick={() => setColsOpen((o) => !o)} className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-stone-100 px-2.5 text-[13px] font-medium text-charcoal transition-colors hover:bg-stone-200"><Columns3 size={14} /> Στήλες</button>
                 {colsOpen && (
-                  <div className="absolute left-0 top-10 z-20 w-56 rounded-xl border border-stone-line bg-white p-1.5 shadow-overlay" onMouseLeave={() => setColsOpen(false)}>
+                  <div className="anim-pop absolute left-0 top-9 z-20 w-52 rounded-lg bg-white p-1 shadow-md ring-1 ring-charcoal/10" onMouseLeave={() => setColsOpen(false)}>
                     <p className="px-2 py-1 text-[12px] text-charcoal-600">Εμφάνιση στηλών</p>
                     {COLS.map(([k, l]) => <label key={k} className="flex cursor-pointer items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-sm text-charcoal hover:bg-stone-50">{l}<input type="checkbox" className="accent-forest" checked={has(k)} onChange={() => flipCol(k)} /></label>)}
                     <button type="button" onClick={resetCols} className="mt-1 w-full border-t border-stone-line px-2 py-1.5 text-left text-sm text-charcoal hover:bg-stone-50">↺ Επαναφορά</button>
@@ -161,15 +162,15 @@ export function ContactsHub({ rows, staff, groupDefs = [], initialRole = '', ini
               </div>
             </div>
             <div className="flex flex-wrap items-center justify-end gap-2">
-              <select value={f.group} onChange={(e) => set({ group: e.target.value })} className="input h-10 w-auto min-w-[170px] text-sm"><option value="">Όλες οι ομάδες</option>{groups.map((g) => <option key={g} value={g}>{g}</option>)}</select>
-              <select value={f.status} onChange={(e) => set({ status: e.target.value as ContactFilters['status'] })} className="input h-10 w-auto min-w-[170px] text-sm"><option value="">Όλες οι καταστάσεις</option>{CONTACT_STATUSES.map((s) => <option key={s} value={s}>{STATUS_EL[s]}</option>)}</select>
-              <label className="relative min-w-[180px] flex-1 sm:max-w-[220px]">
-                <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-charcoal-600/60" />
-                <input value={f.q} onChange={(e) => set({ q: e.target.value })} placeholder="Αναζήτηση…" className="input h-10 pl-9" />
+              <PopSelect searchable width="min-w-[160px]" value={f.group} onChange={(v) => set({ group: v })} options={[['', 'Όλες οι ομάδες'], ...groups.map((g) => [g, g] as [string, string])]} />
+              <PopSelect searchable width="min-w-[160px]" value={f.status} onChange={(v) => set({ status: v as ContactFilters['status'] })} options={[['', 'Όλες οι καταστάσεις'], ...CONTACT_STATUSES.map((x) => [x, STATUS_EL[x]] as [string, string])]} />
+              <label className="relative w-[190px]">
+                <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-charcoal-600/60" />
+                <input value={f.q} onChange={(e) => set({ q: e.target.value })} placeholder="Αναζήτηση…" className="input h-8 py-1 pl-8 text-[13px]" />
               </label>
               <button type="button" onClick={() => set({ status: f.status === 'active' ? '' : 'active' })} className={`inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-[13px] ${f.status === 'active' ? 'border-forest/40 bg-forest/[0.08] text-forest' : 'border-stone-line text-charcoal'}`}><Users size={13} /> {active} ενεργοί</button>
               <button type="button" onClick={() => setMore((m) => !m)} title="Περισσότερα φίλτρα" className={`inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-[13px] ${more || advanced ? 'border-forest/40 bg-forest/[0.08] text-forest' : 'border-stone-line text-charcoal'}`}><SlidersHorizontal size={13} />{advanced ? ` ${advanced}` : ''}</button>
-              {canCreate && <button type="button" onClick={() => setAdding(true)} className="btn-primary text-sm"><Plus size={15} /> Νέος πελάτης</button>}
+              {canCreate && <button type="button" onClick={() => setAdding(true)} className="inline-flex h-8 items-center gap-1.5 rounded-[10px] bg-forest px-2.5 text-[14px] font-medium text-white transition-all hover:bg-forest/90 active:translate-y-px"><Plus size={15} /> Νέος πελάτης</button>}
             </div>
 
             {more && (
@@ -195,32 +196,32 @@ export function ContactsHub({ rows, staff, groupDefs = [], initialRole = '', ini
           </div>
 
           <div className="overflow-x-auto border-t border-stone-line">
-            <table className="w-full min-w-[760px] text-[14px]">
+            <table className="o-table">
               <thead>
-                <tr className="border-b border-stone-line text-left text-[12px] font-semibold uppercase tracking-wide text-charcoal-600">
+                <tr>
                   {([['name', 'Ονοματεπώνυμο'], ...COLS.filter(([k]) => has(k))] as [string, string][]).map(([k, l]) => (
-                    <th key={k} className="whitespace-nowrap px-3 py-3">
+                    <th key={k} className="">
                       {['roles', 'tags'].includes(k) ? l : <button type="button" onClick={() => sortClick(k)} className="inline-flex items-center gap-1 uppercase hover:text-charcoal">{l}<span className="text-[10px] text-charcoal-600/60">{sortBy?.k === k ? (sortBy.dir === 1 ? '↑' : '↓') : '⇅'}</span></button>}
                     </th>
                   ))}
-                  <th className="px-3 py-3 text-right">Ενέργειες</th>
+                  <th className="text-right">Ενέργειες</th>
                 </tr>
               </thead>
               <tbody>
                 {page.map((r) => {
                   const n = splitName(r.name);
                   return (
-                    <tr key={r.id} onClick={() => setQuick(r)} className="cursor-pointer border-b border-stone-line/70 last:border-0 hover:bg-stone-50">
-                      <td className="px-3 py-3 font-semibold text-charcoal" data-no-tr>{r.name}</td>
-                      {has('first') && <td className="px-3 py-3 text-charcoal-600" data-no-tr>{n.first || '—'}</td>}
-                      {has('last') && <td className="px-3 py-3 text-charcoal-600" data-no-tr>{n.last || '—'}</td>}
-                      {has('email') && <td className="px-3 py-3 text-charcoal-600" data-no-tr>{r.email || '—'}</td>}
-                      {has('mobile') && <td className="whitespace-nowrap px-3 py-3 text-charcoal-600" data-no-tr>{r.phone || '—'}</td>}
-                      {has('group') && <td className="px-3 py-3">{r.groups.length ? <span className="flex flex-wrap gap-1">{r.groups.map((g) => <span key={g} className="whitespace-nowrap rounded-full border border-stone-line px-2 py-0.5 text-[12px] text-charcoal" data-no-tr>{g}</span>)}</span> : <span className="text-charcoal-600">—</span>}</td>}
-                      {has('tags') && <td className="px-3 py-3 text-[13px] text-charcoal-600" data-no-tr>{r.tags.join(', ') || '—'}</td>}
-                      {has('joined') && <td className="whitespace-nowrap px-3 py-3 text-charcoal-600">{ddmmyyyy(r.createdAt)}</td>}
-                      {has('roles') && <td className="px-3 py-3"><span className="flex flex-wrap gap-1">{r.roles.length ? r.roles.map((x) => <span key={x} className={ROLE_TONE[x]}>{ROLE_EL[x]}</span>) : <span className="text-charcoal-600">—</span>}</span></td>}
-                      <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
+                    <tr key={r.id} onClick={() => setQuick(r)} className="cursor-pointer">
+                      <td className="o-strong" data-no-tr><span className="block max-w-[170px] truncate" title={r.name}>{r.name}</span></td>
+                      {has('first') && <td data-no-tr>{n.first || '—'}</td>}
+                      {has('last') && <td data-no-tr>{n.last || '—'}</td>}
+                      {has('email') && <td data-no-tr><span className="block max-w-[170px] truncate" title={r.email ?? ''}>{r.email || '—'}</span></td>}
+                      {has('mobile') && <td className="text-charcoal-600" data-no-tr>{r.phone || '—'}</td>}
+                      {has('group') && <td>{r.groups.length ? <span className="flex items-center gap-1" title={r.groups.join(', ')}><span className="max-w-[120px] truncate rounded-full border border-stone-line px-2 py-0.5 text-[11px] font-medium text-charcoal" data-no-tr>{r.groups[0]}</span>{r.groups.length > 1 && <span className="text-[11px] text-charcoal-600">+{r.groups.length - 1}</span>}</span> : <span>—</span>}</td>}
+                      {has('tags') && <td className="text-[13px] text-charcoal-600" data-no-tr>{r.tags.join(', ') || '—'}</td>}
+                      {has('joined') && <td className="text-charcoal-600">{ddmmyyyy(r.createdAt)}</td>}
+                      {has('roles') && <td className=""><span className="flex flex-wrap gap-1">{r.roles.length ? r.roles.map((x) => <span key={x} className={ROLE_TONE[x]}>{ROLE_EL[x]}</span>) : <span className="text-charcoal-600">—</span>}</span></td>}
+                      <td className="" onClick={(e) => e.stopPropagation()}>
                         <span className="flex justify-end gap-1">
                           {canEdit && <button type="button" onClick={() => setEditRow(r)} title="Επεξεργασία πελάτη" aria-label="Επεξεργασία πελάτη" className={iconBtn}><Pencil size={15} /></button>}
                           {canEdit && <button type="button" onClick={() => remove(r)} disabled={pending} title="Διαγραφή πελάτη" aria-label="Διαγραφή πελάτη" className="flex h-8 w-8 items-center justify-center rounded-full text-charcoal-600 transition hover:bg-rose-50 hover:text-signal-danger"><Trash2 size={15} /></button>}
@@ -281,8 +282,8 @@ function QuickView({ r, onClose }: { r: ContactListRow; onClose: () => void }) {
     </div>
   );
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-charcoal/30 p-4 backdrop-blur-[2px]" onClick={onClose}>
-      <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-overlay" onClick={(e) => e.stopPropagation()}>
+    <div className="anim-fade fixed inset-0 z-50 flex items-center justify-center bg-charcoal/30 p-4 backdrop-blur-[2px]" onClick={onClose}>
+      <div className="anim-zoom w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-overlay" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start gap-3 border-b border-stone-line px-5 py-4">
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-forest/[0.09] text-[14px] font-semibold text-forest">{r.name.split(' ').map((x) => x[0]).slice(0, 2).join('').toUpperCase()}</span>
           <div className="min-w-0 flex-1"><p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-charcoal-600">Πελάτης</p><p className="truncate font-display text-lg text-charcoal" data-no-tr>{r.name}</p><p className="truncate text-[13px] text-charcoal-600" data-no-tr>{r.email ?? r.phone ?? ''}</p></div>
@@ -327,7 +328,7 @@ function CustomersSide({ rows, groups, newThisMonth, onGroup, onUngrouped, expor
   const card = 'rounded-2xl border border-stone-line bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]';
   const chip = (on: boolean) => `rounded-full px-2.5 py-0.5 text-[12px] font-medium ${on ? 'bg-forest text-white' : 'bg-forest/[0.07] text-forest'}`;
   return (
-    <aside className="space-y-4">
+    <aside className="grid items-start gap-4 sm:grid-cols-2 2xl:block 2xl:space-y-4">
       <div className="rounded-2xl bg-gradient-to-br from-forest to-forest-deep p-4 text-white shadow-[0_8px_24px_-12px_rgb(var(--c-forest)/0.6)]">
         <span className="inline-flex items-center gap-1 rounded-full border border-white/25 bg-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.1em]"><Sparkles size={11} /> Ενημέρωση πελατών</span>
         <p className="mt-2 text-[16px] font-semibold leading-snug">Κάθε πελάτης ένα βήμα πιο κοντά στην αγορά.</p>
@@ -406,22 +407,22 @@ function GroupsPanel({ stats, canEdit, onNew, onEdit, onView, onDelete, campaign
   const members = stats.reduce((n, s) => n + s.n, 0);
   const largest = [...stats].sort((a, b) => b.n - a.n)[0];
   return (
-    <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
+    <div className="grid items-start gap-5 2xl:grid-cols-[minmax(0,1fr)_300px]">
       <div className="rounded-2xl border border-stone-line bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
         <div className="space-y-3 p-4 sm:p-5">
-          <div className="flex flex-wrap items-center gap-2 text-[15px] text-charcoal-600">
+          <div className="flex flex-wrap items-center gap-2 text-[14px] text-charcoal-600">
             <span>Εμφάνιση</span>
-            <select value={per} onChange={(e) => { setPer(Number(e.target.value)); setPg(0); }} className="input h-9 w-20 py-1 text-sm">{[10, 25, 50].map((n) => <option key={n} value={n}>{n}</option>)}</select>
+            <PopSelect ariaLabel="Εγγραφές ανά σελίδα" width="w-[72px]" value={String(per)} onChange={(v) => { setPer(Number(v)); setPg(0); }} options={[['10', '10'], ['25', '25'], ['50', '50'], ['100', '100']]} />
             <span>εγγραφές</span>
           </div>
           <div className="flex flex-wrap items-center justify-end gap-2">
-            <select value={tag} onChange={(e) => { setTag(e.target.value); setPg(0); }} className="input h-10 w-auto min-w-[170px] text-sm"><option value="">Όλα τα tags</option>{allTags.map((t) => <option key={t} value={t}>{t}</option>)}</select>
-            <label className="relative min-w-[200px] flex-1 sm:max-w-xs"><Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-charcoal-600/60" /><input value={q} onChange={(e) => { setQ(e.target.value); setPg(0); }} placeholder="Αναζήτηση…" className="input h-10 pl-9" /></label>
-            {canEdit && <button type="button" onClick={onNew} className="btn-primary text-sm"><Plus size={15} /> Νέα ομάδα</button>}
+            <PopSelect searchable width="min-w-[150px]" value={tag} onChange={(v) => { setTag(v); setPg(0); }} options={[['', 'Όλα τα tags'], ...allTags.map((t) => [t, t] as [string, string])]} />
+            <label className="relative min-w-[200px] flex-1 sm:max-w-xs"><Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-charcoal-600/60" /><input value={q} onChange={(e) => { setQ(e.target.value); setPg(0); }} placeholder="Αναζήτηση…" className="input h-8 py-1 pl-8 text-[13px]" /></label>
+            {canEdit && <button type="button" onClick={onNew} className="inline-flex h-8 items-center gap-1.5 rounded-[10px] bg-forest px-2.5 text-[14px] font-medium text-white transition-all hover:bg-forest/90 active:translate-y-px"><Plus size={15} /> Νέα ομάδα</button>}
           </div>
         </div>
         <div className="overflow-x-auto border-t border-stone-line">
-          <table className="table-base w-full min-w-[640px]">
+          <table className="o-table">
             <thead><tr><th>Όνομα</th><th>Μέλη</th><th>Tags</th><th className="text-right">Ενέργειες</th></tr></thead>
             <tbody>
               {page.map((s) => (
@@ -445,7 +446,7 @@ function GroupsPanel({ stats, canEdit, onNew, onEdit, onView, onDelete, campaign
         </div>
         <Pager from={list.length ? pg * per + 1 : 0} to={Math.min(list.length, pg * per + per)} total={list.length} page={pg} pages={pages} onPage={setPg} />
       </div>
-      <aside className="space-y-4">
+      <aside className="grid items-start gap-4 sm:grid-cols-2 2xl:block 2xl:space-y-4">
         <Briefing tag="Ενημέρωση ομάδων" title="Κρατήστε τις ομάδες καθαρές και χρήσιμες." text="Οι καλά οργανωμένες ομάδες βοηθούν την ομάδα πωλήσεων να φιλτράρει αμέσως και το Marketing να στοχεύει σωστά. Αρχειοθετήστε τις άδειες ομάδες και ελέγξτε τις πολύ μεγάλες."
           metrics={[['Με μέλη', stats.filter((x) => x.n > 0).length, 'ομάδες'], ['Άδειες', stats.filter((x) => x.n === 0).length, 'χωρίς μέλη'], ['Μεγαλύτερη', largest?.n ?? 0, 'μέλη']]} />
         <SideStat icon={LayoutGrid} label="Σύνολο ομάδων" value={stats.length} note="Ομάδες για φίλτρο στη λίστα πελατών και στόχευση στο Marketing." />
@@ -489,8 +490,8 @@ function GroupDialog({ group, rows, preselect, onClose, onSaved }: { group: Cont
     onSaved(group ? `Η ομάδα «${name}» αποθηκεύτηκε.` : `Δημιουργήθηκε η ομάδα «${name}» με ${members.size} μέλη.`);
   });
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-charcoal/30 sm:items-center sm:p-4" onClick={onClose}>
-      <div className="flex max-h-[92vh] w-full max-w-2xl flex-col rounded-t-2xl bg-white shadow-overlay sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
+    <div className="anim-fade fixed inset-0 z-50 flex items-end justify-center bg-charcoal/30 sm:items-center sm:p-4" onClick={onClose}>
+      <div className="anim-zoom flex max-h-[92vh] w-full max-w-2xl flex-col rounded-t-2xl bg-white shadow-overlay sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-stone-line px-6 py-4"><h3 className="text-2xl">{group ? 'Επεξεργασία ' : 'Νέα '}<em className="text-forest">ομάδα</em></h3><button type="button" onClick={onClose} aria-label="Κλείσιμο" className="text-charcoal-600 hover:text-charcoal"><X size={18} /></button></div>
         <div className="space-y-4 overflow-y-auto px-6 py-5">
           <p className="text-[13px] font-semibold uppercase tracking-wide text-charcoal-600">Βασικά</p>
@@ -502,7 +503,7 @@ function GroupDialog({ group, rows, preselect, onClose, onSaved }: { group: Cont
               <p className="text-[13px] font-semibold uppercase tracking-wide text-charcoal-600">Μέλη · {members.size}</p>
               <label className="ml-auto flex items-center gap-1.5 text-sm text-charcoal-600"><input type="checkbox" checked={onlySel} onChange={(e) => setOnlySel(e.target.checked)} /> Μόνο επιλεγμένοι</label>
             </div>
-            <label className="relative block"><Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-charcoal-600/60" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Αναζήτηση πελάτη για προσθήκη…" className="input pl-9" /></label>
+            <label className="relative block"><Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-charcoal-600/60" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Αναζήτηση πελάτη για προσθήκη…" className="input pl-9" /></label>
             <div className="mt-2 max-h-64 divide-y divide-stone-line overflow-y-auto rounded-xl border border-stone-line">
               {shown.map((r) => (
                 <label key={r.id} className="flex cursor-pointer items-center gap-3 px-3 py-2 text-sm hover:bg-stone-50">
@@ -556,16 +557,16 @@ function LeadsPanel({ rows, canEdit, canCreate, onAdd, onEdit, onDelete, onConve
   const srcCount = new Map<string, number>(); for (const r of rows) { const k = r.lead?.source ?? r.source ?? 'manual'; srcCount.set(k, (srcCount.get(k) ?? 0) + 1); }
   const topSrc = [...srcCount.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
   return (
-    <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
+    <div className="grid items-start gap-5 2xl:grid-cols-[minmax(0,1fr)_300px]">
       <div className="min-w-0 rounded-2xl border border-stone-line bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
         <div className="space-y-3 p-4 sm:p-5">
-          <div className="flex flex-wrap items-center gap-2 text-[15px] text-charcoal-600">
+          <div className="flex flex-wrap items-center gap-2 text-[14px] text-charcoal-600">
             <span>Εμφάνιση</span>
-            <select value={per} onChange={(e) => { setPer(Number(e.target.value)); setPg(0); }} className="input h-9 w-20 py-1 text-sm">{[10, 25, 50, 100].map((n) => <option key={n} value={n}>{n}</option>)}</select>
+            <PopSelect ariaLabel="Εγγραφές ανά σελίδα" width="w-[72px]" value={String(per)} onChange={(v) => { setPer(Number(v)); setPg(0); }} options={[['10', '10'], ['25', '25'], ['50', '50'], ['100', '100']]} />
             <span>εγγραφές</span>
             <div className="relative">
-              <button type="button" onClick={() => setColsOpen((o) => !o)} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-stone-100 px-3 text-sm font-medium text-charcoal hover:bg-stone-200"><Columns3 size={15} /> Στήλες</button>
-              {colsOpen && <div className="absolute left-0 top-10 z-20 w-56 rounded-xl border border-stone-line bg-white p-1.5 shadow-overlay" onMouseLeave={() => setColsOpen(false)}>
+              <button type="button" onClick={() => setColsOpen((o) => !o)} className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-stone-100 px-2.5 text-[13px] font-medium text-charcoal transition-colors hover:bg-stone-200"><Columns3 size={14} /> Στήλες</button>
+              {colsOpen && <div className="anim-pop absolute left-0 top-9 z-20 w-52 rounded-lg bg-white p-1 shadow-md ring-1 ring-charcoal/10" onMouseLeave={() => setColsOpen(false)}>
                 <p className="px-2 py-1 text-[12px] text-charcoal-600">Εμφάνιση στηλών</p>
                 {LCOLS.map(([k, l]) => <label key={k} className="flex cursor-pointer items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-sm text-charcoal hover:bg-stone-50">{l}<input type="checkbox" className="accent-forest" checked={has(k)} onChange={() => setCols((c) => (c.includes(k) ? c.filter((x) => x !== k) : [...c, k]))} /></label>)}
                 <button type="button" onClick={() => setCols(LCOLS.map((c) => c[0]))} className="mt-1 w-full border-t border-stone-line px-2 py-1.5 text-left text-sm text-charcoal hover:bg-stone-50">↺ Επαναφορά</button>
@@ -573,38 +574,38 @@ function LeadsPanel({ rows, canEdit, canCreate, onAdd, onEdit, onDelete, onConve
             </div>
           </div>
           <div className="flex flex-wrap items-center justify-end gap-2">
-            <select value={src} onChange={(e) => { setSrc(e.target.value); setPg(0); }} className="input h-10 w-auto min-w-[160px] text-sm"><option value="">Όλες οι πηγές</option>{sources.map((x) => <option key={x} value={x}>{SOURCE_EL[x] ?? x}</option>)}</select>
-            <select value={st} onChange={(e) => { setSt(e.target.value); setPg(0); }} className="input h-10 w-auto min-w-[160px] text-sm"><option value="">Όλες οι καταστάσεις</option>{Object.entries(LEAD_STATUS_EL).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
-            <label className="relative min-w-[160px] flex-1 sm:max-w-[200px]"><Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-charcoal-600/60" /><input value={q} onChange={(e) => { setQ(e.target.value); setPg(0); }} placeholder="Αναζήτηση…" className="input h-10 pl-9" /></label>
+            <PopSelect searchable width="min-w-[150px]" value={src} onChange={(v) => { setSrc(v); setPg(0); }} options={[['', 'Όλες οι πηγές'], ...sources.map((x) => [x, SOURCE_EL[x] ?? x] as [string, string])]} />
+            <PopSelect searchable width="min-w-[150px]" value={st} onChange={(v) => { setSt(v); setPg(0); }} options={[['', 'Όλες οι καταστάσεις'], ...Object.entries(LEAD_STATUS_EL)]} />
+            <label className="relative w-[170px]"><Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-charcoal-600/60" /><input value={q} onChange={(e) => { setQ(e.target.value); setPg(0); }} placeholder="Αναζήτηση…" className="input h-8 py-1 pl-8 text-[13px]" /></label>
             <span className="inline-flex rounded-lg border border-stone-line p-0.5">
               <button type="button" onClick={() => setMode('list')} className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-[13px] ${mode === 'list' ? 'bg-stone-100 font-medium text-charcoal' : 'text-charcoal-600'}`}><ListChecks size={14} /> Λίστα</button>
               <button type="button" onClick={() => setMode('pipeline')} className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-[13px] ${mode === 'pipeline' ? 'bg-stone-100 font-medium text-charcoal' : 'text-charcoal-600'}`}><Columns3 size={14} /> Pipeline</button>
             </span>
-            {canCreate && <button type="button" onClick={onAdd} className="btn-primary text-sm"><Plus size={15} /> Νέο lead</button>}
+            {canCreate && <button type="button" onClick={onAdd} className="inline-flex h-8 items-center gap-1.5 rounded-[10px] bg-forest px-2.5 text-[14px] font-medium text-white transition-all hover:bg-forest/90 active:translate-y-px"><Plus size={15} /> Νέο lead</button>}
           </div>
         </div>
         {mode === 'list' ? (
           <>
             <div className="overflow-x-auto border-t border-stone-line">
-              <table className="w-full min-w-[860px] text-[14px]">
-                <thead><tr className="border-b border-stone-line text-left text-[12px] font-semibold uppercase tracking-wide text-charcoal-600">
-                  {LCOLS.filter(([k]) => has(k)).map(([k, l]) => <th key={k} className="whitespace-nowrap px-3 py-3">{l}</th>)}<th className="px-3 py-3 text-right">Ενέργειες</th>
+              <table className="o-table">
+                <thead><tr>
+                  {LCOLS.filter(([k]) => has(k)).map(([k, l]) => <th key={k} className="">{l}</th>)}<th className="text-right">Ενέργειες</th>
                 </tr></thead>
                 <tbody>
                   {page.map((r) => {
                     const n = splitName(r.name); const s2 = LEAD_STATUS(r.lead?.status);
                     return (
-                      <tr key={r.id} className="border-b border-stone-line/70 last:border-0 hover:bg-stone-50">
-                        {has('first') && <td className="px-3 py-3 font-semibold text-charcoal" data-no-tr><Link href={r.lead ? `/crm/leads/${r.lead.id}` : `/crm/${r.id}`} className="hover:text-forest">{n.first || r.name}</Link></td>}
-                        {has('last') && <td className="px-3 py-3 font-semibold text-charcoal" data-no-tr>{n.last || '—'}</td>}
-                        {has('email') && <td className="px-3 py-3 text-charcoal-600" data-no-tr>{r.email || '—'}</td>}
-                        {has('phone') && <td className="whitespace-nowrap px-3 py-3 text-charcoal-600" data-no-tr>{r.phone || '—'}</td>}
-                        {has('source') && <td className="px-3 py-3"><span className="whitespace-nowrap rounded-full border border-stone-line px-2 py-0.5 text-[12px] text-charcoal">{SOURCE_EL[r.lead?.source ?? r.source ?? 'manual'] ?? r.lead?.source}</span></td>}
-                        {has('status') && <td className="px-3 py-3"><span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[12px] font-medium ${s2 === 'lost' ? 'bg-stone-100 text-charcoal-600' : 'bg-forest/[0.09] text-forest'}`}>{LEAD_STATUS_EL[s2]}</span></td>}
-                        {has('contact') && <td className="whitespace-nowrap px-3 py-3 text-charcoal-600">{r.lead?.contacted || r.lastContactAt ? 'Έγινε επικοινωνία' : 'Χωρίς επικοινωνία'}</td>}
-                        {has('approved') && <td className="px-3 py-3">{r.optIn ? <span className="inline-flex items-center gap-1 rounded-full bg-forest px-2 py-0.5 text-[12px] font-medium text-white"><Check size={12} /> Ναι</span> : <span className="text-[13px] text-charcoal-600">Όχι</span>}</td>}
-                        {has('added') && <td className="whitespace-nowrap px-3 py-3 text-charcoal-600">{ddmmyyyy(r.lead?.createdAt ?? r.createdAt)}</td>}
-                        <td className="px-3 py-2"><span className="flex justify-end gap-1">
+                      <tr key={r.id} className="">
+                        {has('first') && <td className="font-semibold text-charcoal" data-no-tr><Link href={r.lead ? `/crm/leads/${r.lead.id}` : `/crm/${r.id}`} className="hover:text-forest">{n.first || r.name}</Link></td>}
+                        {has('last') && <td className="font-semibold text-charcoal" data-no-tr>{n.last || '—'}</td>}
+                        {has('email') && <td data-no-tr><span className="block max-w-[150px] truncate" title={r.email ?? ''}>{r.email || '—'}</span></td>}
+                        {has('phone') && <td className="text-charcoal-600" data-no-tr>{r.phone || '—'}</td>}
+                        {has('source') && <td className=""><span className="whitespace-nowrap rounded-full border border-stone-line px-2 py-0.5 text-[12px] text-charcoal">{SOURCE_EL[r.lead?.source ?? r.source ?? 'manual'] ?? r.lead?.source}</span></td>}
+                        {has('status') && <td className=""><span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[12px] font-medium ${s2 === 'lost' ? 'bg-stone-100 text-charcoal-600' : 'bg-forest/[0.09] text-forest'}`}>{LEAD_STATUS_EL[s2]}</span></td>}
+                        {has('contact') && <td className="text-charcoal-600">{r.lead?.contacted || r.lastContactAt ? 'Έγινε' : 'Δεν έγινε'}</td>}
+                        {has('approved') && <td className="">{r.optIn ? <span className="inline-flex items-center gap-1 rounded-full bg-forest px-2 py-0.5 text-[12px] font-medium text-white"><Check size={12} /> Ναι</span> : <span className="text-[13px] text-charcoal-600">Όχι</span>}</td>}
+                        {has('added') && <td className="text-charcoal-600">{ddmmyyyy(r.lead?.createdAt ?? r.createdAt)}</td>}
+                        <td className=""><span className="flex justify-end gap-1">
                           {canEdit && !r.roles.includes('buyer') && <button type="button" onClick={() => onConvert(r)} title="Μετατροπή σε πελάτη" aria-label="Μετατροπή σε πελάτη" className={iconBtn}><UserCheck size={15} /></button>}
                           {canEdit && <button type="button" onClick={() => onEdit(r)} title="Επεξεργασία" aria-label="Επεξεργασία" className={iconBtn}><Pencil size={15} /></button>}
                           {canEdit && <button type="button" onClick={() => onDelete(r)} title="Διαγραφή" aria-label="Διαγραφή" className="flex h-8 w-8 items-center justify-center rounded-full text-signal-danger hover:bg-rose-50"><Trash2 size={15} /></button>}
@@ -638,7 +639,7 @@ function LeadsPanel({ rows, canEdit, canCreate, onAdd, onEdit, onDelete, onConve
           </>
         )}
       </div>
-      <aside className="space-y-4">
+      <aside className="grid items-start gap-4 sm:grid-cols-2 2xl:block 2xl:space-y-4">
         <Briefing tag="Ενημέρωση leads" title="Μετατρέψτε τα leads πριν «κρυώσουν»." text="Κάντε γρήγορα follow-up — τα leads χωρίς επικοινωνία πάνω από 7 μέρες κλείνουν στο μισό ποσοστό. Δώστε προτεραιότητα στα ενεργά και ξαναπροσεγγίστε όσα χάθηκαν με στοχευμένο μήνυμα."
           metrics={[['Σύνολο leads', total, 'από πάντα'], ['Ενεργά', activeN, 'στο pipeline'], ['Έγιναν πελάτες', conv, `${rate}% ποσοστό`]]} />
         <SideStat icon={Users} label="Ενεργά στο pipeline" value={activeN} note="Leads που δουλεύονται τώρα. Κάντε follow-up όσο το ενδιαφέρον είναι ζεστό." />
@@ -806,7 +807,7 @@ function EditContactDialog({ row, staff, onClose, onSaved }: { row: ContactListR
     onSaved(`Αποθηκεύτηκε: ${name}`);
   });
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-charcoal/30 sm:items-center sm:p-4" onClick={onClose}>
+    <div className="anim-fade fixed inset-0 z-50 flex items-end justify-center bg-charcoal/30 sm:items-center sm:p-4" onClick={onClose}>
       <div className="w-full max-w-lg rounded-t-2xl bg-white shadow-overlay sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-stone-line px-5 py-3.5"><p className="font-semibold text-charcoal">Επεξεργασία επαφής</p><button type="button" onClick={onClose} aria-label="Κλείσιμο" className="text-charcoal-600/60 hover:text-charcoal">✕</button></div>
         <div className="space-y-3 p-5">
@@ -829,11 +830,7 @@ function EditContactDialog({ row, staff, onClose, onSaved }: { row: ContactListR
 }
 
 function Sel({ value, onChange, options, compact }: { value: string; onChange: (v: string) => void; options: [string, string][]; compact?: boolean }) {
-  return (
-    <select value={value} onChange={(e) => onChange(e.target.value)} className={`input ${compact ? 'w-auto py-1 text-xs' : 'text-sm'}`}>
-      {options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-    </select>
-  );
+  return <PopSelect value={value} onChange={onChange} options={options} searchable={options.length > 6} width={compact ? 'min-w-[130px]' : 'w-full'} />;
 }
 
 function NewContactDialog({ staff, defaultRole, onClose, onCreated }: { staff: Staff[]; defaultRole: ContactRole; onClose: () => void; onCreated: (id: string) => void }) {

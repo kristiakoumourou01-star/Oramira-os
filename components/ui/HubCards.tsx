@@ -28,7 +28,7 @@ export function HubCards({ cards, active, onSelect, cols = 4 }: { cards: HubCard
 }
 
 export function HubCard({ c, on, onSelect }: { c: HubCardDef; on: boolean; onSelect?: (key: string) => void }) {
-  const cls = `group block w-full rounded-2xl border p-5 text-left transition ${on ? 'border-forest/45 bg-forest/[0.05] shadow-[0_0_0_3px_rgb(var(--c-forest)/0.08)]' : 'border-stone-line bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:border-forest/30 hover:shadow-md'}`;
+  const cls = `group block w-full rounded-[14px] border p-4 text-left shadow-sm transition-colors duration-150 ease-[cubic-bezier(0.4,0,0.2,1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forest/30 ${on ? 'border-forest/40 bg-forest/[0.05]' : 'border-stone-line bg-white hover:border-forest/40 hover:bg-stone-50/60'}`;
   const inner = (
     <>
       <div className="flex items-start justify-between gap-2">
