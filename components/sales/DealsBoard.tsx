@@ -246,7 +246,7 @@ export function DealsBoard({ leads: initial, cfg, rawCfg, canEditStages = false,
           {canEditStages && <button type="button" onClick={() => setEditStages(true)} title="Επεξεργασία σταδίων" aria-label="Επεξεργασία σταδίων" className="ml-1 flex h-8 w-8 items-center justify-center rounded-lg border border-stone-line text-charcoal-600 hover:border-forest/30 hover:text-forest"><Pencil size={14} /></button>}
         </div>
         {editStages && <StageEditor cfg={rawCfg ?? cfg} pipelineKey={pipe.key} onClose={() => setEditStages(false)} />}
-        <PopSelect searchable ariaLabel="Υπεύθυνος" width="min-w-[140px]" value={owner} onChange={setOwner} options={[['everyone', 'Όλοι'], ['me', 'Τα δικά μου'], ['none', 'Χωρίς υπεύθυνο'], ...agents.map((a) => [a.id, a.full_name ?? '—'] as [string, string])]} />
+        {view !== 'list' && <PopSelect searchable ariaLabel="Υπεύθυνος" width="min-w-[140px]" value={owner} onChange={setOwner} options={[['everyone', 'Όλοι'], ['me', 'Τα δικά μου'], ['none', 'Χωρίς υπεύθυνο'], ...agents.map((a) => [a.id, a.full_name ?? '—'] as [string, string])]} />}
         <label className="relative">
           <Search size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-charcoal-600/50" />
           <input className="input h-8 w-48 py-1 pl-8 text-[13px]" placeholder="Αναζήτηση deal…" value={q} onChange={(e) => setQ(e.target.value)} />
@@ -279,9 +279,9 @@ export function DealsBoard({ leads: initial, cfg, rawCfg, canEditStages = false,
           )}
         </div>
         {view === 'board' && <label className="flex items-center gap-1.5 text-[13px] text-charcoal-600"><input type="checkbox" checked={showClosed} onChange={(e) => setShowClosed(e.target.checked)} /> Κλειστά deals</label>}
-        <label className="flex items-center gap-1.5 text-[13px] text-charcoal-600 sm:ml-auto">Ταξινόμηση:
+        {view !== 'list' && <label className="flex items-center gap-1.5 text-[13px] text-charcoal-600 sm:ml-auto">Ταξινόμηση:
           <PopSelect ariaLabel="Ταξινόμηση" width="min-w-[150px]" value={sort} onChange={(v) => setSort(v as Sort)} options={[['activity', 'Επόμενη activity'], ['value', 'Αξία'], ['created', 'Νεότερα'], ['close', 'Ημ. κλεισίματος'], ['title', 'Τίτλος'], ['owner', 'Υπεύθυνος']]} />
-        </label>
+        </label>}
       </div>
       <p className="text-sm text-charcoal-600"><span className="font-semibold text-charcoal">{formatCurrency(total)}</span> · {open.length} deals <span className="text-charcoal-600/60">· σταθμισμένη {formatCurrency(Math.round(weighted))}</span>{msg && <span className="ml-3 text-forest">{msg}</span>}</p>
 
@@ -356,7 +356,7 @@ export function DealsBoard({ leads: initial, cfg, rawCfg, canEditStages = false,
         </div>
       )}
 
-      {view === 'list' && <LeadManager leads={filtered.filter((l) => !l.archived_at)} agents={agents} currentUserId={currentUserId} pipelines={cfg} />}
+      {view === 'list' && <LeadManager leads={filtered.filter((l) => !l.archived_at)} agents={agents} currentUserId={currentUserId} pipelines={cfg} fixedPipe={pipe.key} />}
 
       {view === 'forecast' && <Forecast deals={live} pipeName={pipe.name} onMove={(l, ym) => { const d = ym ? lastDayOf(ym) : null; patchLocal(l.id, { expected_close_date: d }); start(async () => { await updateDeal(l.id, { expectedCloseDate: d }); router.refresh(); }); }} />}
 

@@ -32,11 +32,12 @@ function money(min: number | null, max: number | null) {
  * αναζήτηση και φίλτρα, αλλαγή σταδίου/υπευθύνου από τη γραμμή, μαζικές
  * αλλαγές, και άνοιγμα της καρτέλας στη μισή οθόνη.
  */
-export function LeadManager({ leads, agents, currentUserId, pipelines }: { leads: LeadListItem[]; agents: Agent[]; currentUserId: string; pipelines: PipelineSettings }) {
+export function LeadManager({ leads, agents, currentUserId, pipelines, fixedPipe }: { leads: LeadListItem[]; agents: Agent[]; currentUserId: string; pipelines: PipelineSettings; fixedPipe?: string }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [view, setView] = useState<'list' | 'columns'>('list');
-  const [pipeKey, setPipeKey] = useState(pipelines.defaultKey);
+  const [pipeKeyState, setPipeKey] = useState(pipelines.defaultKey);
+  const pipeKey = fixedPipe ?? pipeKeyState;
   const [q, setQ] = useState('');
   const [owner, setOwner] = useState<string>(leads.some((l) => l.owner_id === currentUserId) ? 'mine' : 'all');
   const [outcome, setOutcome] = useState<Outcome>('open');
@@ -172,7 +173,7 @@ export function LeadManager({ leads, agents, currentUserId, pipelines }: { leads
             {lateCount > 0 && <button type="button" onClick={() => { setOnlyLate((x) => !x); setPageNo(0); }} className={chip(onlyLate)}><AlertTriangle size={12} className="mr-1" />Καθυστερούν {lateCount}</button>}
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            {pipelines.pipelines.length > 1 && <PopSelect ariaLabel="Pipeline" width="min-w-[140px]" value={pipe.key} onChange={(v) => { setPipeKey(v); setStageF(''); setPageNo(0); }} options={pipelines.pipelines.map((p) => [p.key, p.name] as [string, string])} />}
+            {!fixedPipe && pipelines.pipelines.length > 1 && <PopSelect ariaLabel="Pipeline" width="min-w-[140px]" value={pipe.key} onChange={(v) => { setPipeKey(v); setStageF(''); setPageNo(0); }} options={pipelines.pipelines.map((p) => [p.key, p.name] as [string, string])} />}
             <PopSelect searchable ariaLabel="Υπεύθυνος" width="min-w-[150px]" value={owner} onChange={(v) => { setOwner(v); setPageNo(0); }} options={[['mine', 'Τα δικά μου'], ['all', 'Όλοι οι υπεύθυνοι'], ['none', 'Χωρίς υπεύθυνο'], ...agents.map((a) => [a.id, a.full_name ?? '—'] as [string, string])]} />
             <PopSelect ariaLabel="Στάδιο" width="min-w-[140px]" value={stageF} onChange={(v) => { setStageF(v); setPageNo(0); }} options={[['', 'Όλα τα στάδια'], ...working.map((st) => [enc.stage(st.key), st.label] as [string, string]), ...pipelines.lostReasons.map((r) => [enc.out(r.key), `✕ ${r.label}`] as [string, string])]} />
             {sources.length > 1 && <PopSelect ariaLabel="Πηγή" width="min-w-[130px]" value={source} onChange={(v) => { setSource(v); setPageNo(0); }} options={[['', 'Όλες οι πηγές'], ...sources.map((x) => [String(x), String(x)] as [string, string])]} />}
