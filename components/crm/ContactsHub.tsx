@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Plus, Download, Search, X, Users, Check, CalendarDays, ChevronLeft, ChevronRight, Columns3, SlidersHorizontal, Megaphone } from 'lucide-react';
 import { createContact, bulkUpdateContacts, updateContactBasics, deleteContact, importContacts, createContactGroup, updateContactGroup, deleteContactGroup } from '@/app/actions/contacts-hub';
-import { Eye, Pencil, Trash2, Filter, LayoutGrid, Upload, FileSpreadsheet, Mail, Phone, ExternalLink, Sparkles, ListChecks } from 'lucide-react';
+import { Eye, Pencil, Trash2, Filter, LayoutGrid, Upload, Mail, Phone, ExternalLink, Sparkles, ListChecks, UserCheck } from 'lucide-react';
 import {
   ALL_ROLES, CONTACT_STATUSES, DEFAULT_FILTERS, ROLE_EL, ROLE_TONE, SOURCE_EL, STATUS_EL, STATUS_TONE,
   contactsCsv, filterContacts, roleCounts, type ContactFilters, type ContactGroup, type ContactListRow, type ContactRole, type ContactStatus,
@@ -107,7 +107,7 @@ export function ContactsHub({ rows, staff, groupDefs = [], initialRole = '', ini
   const campaignHref = (q: Record<string, string>) => `/marketing?tab=email&${new URLSearchParams(q).toString()}`;
 
   const newThisMonth = rows.filter((r) => Date.parse(r.createdAt) >= new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime()).length;
-  const leadCount = counts.lead ?? 0;
+  const leadCount = rows.filter((r) => r.roles.includes('lead') || !!r.lead).length;
   const conv = leadCount + (counts.buyer ?? 0) > 0 ? Math.round(((counts.buyer ?? 0) / (leadCount + (counts.buyer ?? 0))) * 100) : 0;
   const groupStats = groups.map((g) => ({ g, def: groupDefs.find((d) => d.name === g), n: rows.filter((r) => r.groups.includes(g)).length }));
   const inAnyGroup = rows.filter((r) => r.groups.length > 0).length;
@@ -138,7 +138,10 @@ export function ContactsHub({ rows, staff, groupDefs = [], initialRole = '', ini
 
       {view === 'import' && <ImportPanel onDone={(t) => { setMsg({ ok: true, text: t }); setView('customers'); router.refresh(); }} />}
 
-      {(view === 'customers' || view === 'leads') && (
+      {view === 'leads' && <LeadsPanel rows={rows.filter((r) => r.roles.includes('lead') || !!r.lead)} canEdit={canEdit} canCreate={canCreate} onAdd={() => setAdding(true)} onEdit={setEditRow} onDelete={remove}
+        onConvert={(r) => start(async () => { const res = await bulkUpdateContacts([r.id], { addRole: 'buyer' }); setMsg(res.ok ? { ok: true, text: `Ο/Η «${r.name}» έγινε πελάτης (αγοραστής).` } : { ok: false, text: res.error }); router.refresh(); })} />}
+
+      {view === 'customers' && (
         <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
         <div className="flex min-w-0 flex-col self-stretch rounded-2xl border border-stone-line bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
           <div className="space-y-3 p-4 sm:p-5">
@@ -166,7 +169,7 @@ export function ContactsHub({ rows, staff, groupDefs = [], initialRole = '', ini
               </label>
               <button type="button" onClick={() => set({ status: f.status === 'active' ? '' : 'active' })} className={`inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-[13px] ${f.status === 'active' ? 'border-forest/40 bg-forest/[0.08] text-forest' : 'border-stone-line text-charcoal'}`}><Users size={13} /> {active} ενεργοί</button>
               <button type="button" onClick={() => setMore((m) => !m)} title="Περισσότερα φίλτρα" className={`inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-[13px] ${more || advanced ? 'border-forest/40 bg-forest/[0.08] text-forest' : 'border-stone-line text-charcoal'}`}><SlidersHorizontal size={13} />{advanced ? ` ${advanced}` : ''}</button>
-              {canCreate && <button type="button" onClick={() => setAdding(true)} className="btn-primary text-sm"><Plus size={15} /> {view === 'leads' ? 'Νέο lead' : 'Νέος πελάτης'}</button>}
+              {canCreate && <button type="button" onClick={() => setAdding(true)} className="btn-primary text-sm"><Plus size={15} /> Νέος πελάτης</button>}
             </div>
 
             {more && (
@@ -403,7 +406,7 @@ function GroupsPanel({ stats, canEdit, onNew, onEdit, onView, onDelete, campaign
   const members = stats.reduce((n, s) => n + s.n, 0);
   const largest = [...stats].sort((a, b) => b.n - a.n)[0];
   return (
-    <div className="space-y-5">
+    <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
       <div className="rounded-2xl border border-stone-line bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
         <div className="space-y-3 p-4 sm:p-5">
           <div className="flex flex-wrap items-center gap-2 text-[15px] text-charcoal-600">
@@ -442,12 +445,14 @@ function GroupsPanel({ stats, canEdit, onNew, onEdit, onView, onDelete, campaign
         </div>
         <Pager from={list.length ? pg * per + 1 : 0} to={Math.min(list.length, pg * per + per)} total={list.length} page={pg} pages={pages} onPage={setPg} />
       </div>
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Stat label="Σύνολο ομάδων" value={stats.length} note="Ομάδες για φίλτρο στη λίστα και στόχευση στο Marketing." />
-        <Stat label="Πελάτες σε ομάδες" value={members} note="Όσοι ανήκουν σε τουλάχιστον μία ομάδα." />
-        <Stat label="Μέσο μέγεθος" value={stats.length ? Math.round(members / stats.length) : 0} note="Μέσος όρος μελών ανά ομάδα." />
-        <Stat label="Μεγαλύτερη ομάδα" value={largest?.n ?? 0} note={largest ? `«${largest.g}» είναι η μεγαλύτερη ομάδα.` : '—'} />
-      </div>
+      <aside className="space-y-4">
+        <Briefing tag="Ενημέρωση ομάδων" title="Κρατήστε τις ομάδες καθαρές και χρήσιμες." text="Οι καλά οργανωμένες ομάδες βοηθούν την ομάδα πωλήσεων να φιλτράρει αμέσως και το Marketing να στοχεύει σωστά. Αρχειοθετήστε τις άδειες ομάδες και ελέγξτε τις πολύ μεγάλες."
+          metrics={[['Με μέλη', stats.filter((x) => x.n > 0).length, 'ομάδες'], ['Άδειες', stats.filter((x) => x.n === 0).length, 'χωρίς μέλη'], ['Μεγαλύτερη', largest?.n ?? 0, 'μέλη']]} />
+        <SideStat icon={LayoutGrid} label="Σύνολο ομάδων" value={stats.length} note="Ομάδες για φίλτρο στη λίστα πελατών και στόχευση στο Marketing." />
+        <SideStat icon={Users} label="Πελάτες σε ομάδες" value={members} note="Όσοι ανήκουν σε τουλάχιστον μία ομάδα. Όσοι δεν ανήκουν είναι πιο δύσκολο να παρακολουθηθούν." />
+        <SideStat icon={Filter} label="Μέσο μέγεθος" value={stats.length ? Math.round(members / stats.length) : 0} note="Μέσος όρος μελών ανά ομάδα. Πολύ μικρές ομάδες ίσως δεν αξίζει να κρατιούνται." />
+        <SideStat icon={Sparkles} label="Μεγαλύτερη ομάδα" value={largest?.n ?? 0} note={largest ? `Η «${largest.g}» είναι η μεγαλύτερη ομάδα σας με ${largest.n} μέλη.` : 'Δεν υπάρχουν ομάδες ακόμη.'} />
+      </aside>
     </div>
   );
 }
@@ -517,11 +522,166 @@ function GroupDialog({ group, rows, preselect, onClose, onSaved }: { group: Cont
   );
 }
 
+const LEAD_STATUS = (st: string | undefined) => (st === 'won' ? 'converted' : st === 'lost' ? 'lost' : 'lead');
+const LEAD_STATUS_EL: Record<string, string> = { lead: 'Lead', converted: 'Έγινε πελάτης', lost: 'Χάθηκε' };
+const PIPE: { key: string; label: string; stages: string[]; empty: string }[] = [
+  { key: 'new', label: 'Νέα', stages: ['new'], empty: 'Κανένα νέο lead.' },
+  { key: 'progress', label: 'Σε εξέλιξη', stages: ['contacted', 'engaged', 'waiting', 'no_response', 'nurture', 'retargeting', 'reactivation'], empty: 'Κανείς δεν βρίσκεται σε επικοινωνία τώρα.' },
+  { key: 'interested', label: 'Ενδιαφέρονται', stages: ['qualified', 'viewing', 'offer', 'negotiating', 'reserved'], empty: 'Κανείς δεν έχει πει ναι ακόμη.' },
+  { key: 'closed', label: 'Κλειστά', stages: ['won', 'lost'], empty: 'Τίποτα κλειστό ακόμη.' },
+];
+
+function LeadsPanel({ rows, canEdit, canCreate, onAdd, onEdit, onDelete, onConvert }: { rows: ContactListRow[]; canEdit: boolean; canCreate: boolean; onAdd: () => void; onEdit: (r: ContactListRow) => void; onDelete: (r: ContactListRow) => void; onConvert: (r: ContactListRow) => void }) {
+  const [per, setPer] = useState(25);
+  const [pg, setPg] = useState(0);
+  const [src, setSrc] = useState('');
+  const [st, setSt] = useState('');
+  const [q, setQ] = useState('');
+  const [mode, setMode] = useState<'list' | 'pipeline'>('list');
+  const [colsOpen, setColsOpen] = useState(false);
+  const LCOLS: [string, string][] = [['first', 'Όνομα'], ['last', 'Επώνυμο'], ['email', 'E-mail'], ['phone', 'Τηλέφωνο'], ['source', 'Πηγή'], ['status', 'Κατάσταση'], ['contact', 'Επικοινωνία'], ['approved', 'Συγκατάθεση'], ['added', 'Ημ. προσθήκης']];
+  const [cols, setCols] = useState<string[]>(LCOLS.map((c) => c[0]));
+  const has = (k: string) => cols.includes(k);
+  const sources = Array.from(new Set(rows.map((r) => r.lead?.source ?? r.source ?? 'manual')));
+  const ql = q.trim().toLowerCase();
+  const list = rows.filter((r) => (!src || (r.lead?.source ?? r.source ?? 'manual') === src) && (!st || LEAD_STATUS(r.lead?.status) === st) && (!ql || [r.name, r.email ?? '', r.phone ?? ''].join(' ').toLowerCase().includes(ql)))
+    .sort((a, b) => (b.lead?.createdAt ?? b.createdAt).localeCompare(a.lead?.createdAt ?? a.createdAt));
+  const pages = Math.max(1, Math.ceil(list.length / per));
+  const p = Math.min(pg, pages - 1);
+  const page = list.slice(p * per, p * per + per);
+  const total = rows.length;
+  const activeN = rows.filter((r) => LEAD_STATUS(r.lead?.status) === 'lead').length;
+  const conv = rows.filter((r) => LEAD_STATUS(r.lead?.status) === 'converted' || r.roles.includes('buyer')).length;
+  const rate = total ? Math.round((conv / total) * 100) : 0;
+  const srcCount = new Map<string, number>(); for (const r of rows) { const k = r.lead?.source ?? r.source ?? 'manual'; srcCount.set(k, (srcCount.get(k) ?? 0) + 1); }
+  const topSrc = [...srcCount.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+  return (
+    <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="min-w-0 rounded-2xl border border-stone-line bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+        <div className="space-y-3 p-4 sm:p-5">
+          <div className="flex flex-wrap items-center gap-2 text-[15px] text-charcoal-600">
+            <span>Εμφάνιση</span>
+            <select value={per} onChange={(e) => { setPer(Number(e.target.value)); setPg(0); }} className="input h-9 w-20 py-1 text-sm">{[10, 25, 50, 100].map((n) => <option key={n} value={n}>{n}</option>)}</select>
+            <span>εγγραφές</span>
+            <div className="relative">
+              <button type="button" onClick={() => setColsOpen((o) => !o)} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-stone-100 px-3 text-sm font-medium text-charcoal hover:bg-stone-200"><Columns3 size={15} /> Στήλες</button>
+              {colsOpen && <div className="absolute left-0 top-10 z-20 w-56 rounded-xl border border-stone-line bg-white p-1.5 shadow-overlay" onMouseLeave={() => setColsOpen(false)}>
+                <p className="px-2 py-1 text-[12px] text-charcoal-600">Εμφάνιση στηλών</p>
+                {LCOLS.map(([k, l]) => <label key={k} className="flex cursor-pointer items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-sm text-charcoal hover:bg-stone-50">{l}<input type="checkbox" className="accent-forest" checked={has(k)} onChange={() => setCols((c) => (c.includes(k) ? c.filter((x) => x !== k) : [...c, k]))} /></label>)}
+                <button type="button" onClick={() => setCols(LCOLS.map((c) => c[0]))} className="mt-1 w-full border-t border-stone-line px-2 py-1.5 text-left text-sm text-charcoal hover:bg-stone-50">↺ Επαναφορά</button>
+              </div>}
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <select value={src} onChange={(e) => { setSrc(e.target.value); setPg(0); }} className="input h-10 w-auto min-w-[160px] text-sm"><option value="">Όλες οι πηγές</option>{sources.map((x) => <option key={x} value={x}>{SOURCE_EL[x] ?? x}</option>)}</select>
+            <select value={st} onChange={(e) => { setSt(e.target.value); setPg(0); }} className="input h-10 w-auto min-w-[160px] text-sm"><option value="">Όλες οι καταστάσεις</option>{Object.entries(LEAD_STATUS_EL).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
+            <label className="relative min-w-[160px] flex-1 sm:max-w-[200px]"><Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-charcoal-600/60" /><input value={q} onChange={(e) => { setQ(e.target.value); setPg(0); }} placeholder="Αναζήτηση…" className="input h-10 pl-9" /></label>
+            <span className="inline-flex rounded-lg border border-stone-line p-0.5">
+              <button type="button" onClick={() => setMode('list')} className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-[13px] ${mode === 'list' ? 'bg-stone-100 font-medium text-charcoal' : 'text-charcoal-600'}`}><ListChecks size={14} /> Λίστα</button>
+              <button type="button" onClick={() => setMode('pipeline')} className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-[13px] ${mode === 'pipeline' ? 'bg-stone-100 font-medium text-charcoal' : 'text-charcoal-600'}`}><Columns3 size={14} /> Pipeline</button>
+            </span>
+            {canCreate && <button type="button" onClick={onAdd} className="btn-primary text-sm"><Plus size={15} /> Νέο lead</button>}
+          </div>
+        </div>
+        {mode === 'list' ? (
+          <>
+            <div className="overflow-x-auto border-t border-stone-line">
+              <table className="w-full min-w-[860px] text-[14px]">
+                <thead><tr className="border-b border-stone-line text-left text-[12px] font-semibold uppercase tracking-wide text-charcoal-600">
+                  {LCOLS.filter(([k]) => has(k)).map(([k, l]) => <th key={k} className="whitespace-nowrap px-3 py-3">{l}</th>)}<th className="px-3 py-3 text-right">Ενέργειες</th>
+                </tr></thead>
+                <tbody>
+                  {page.map((r) => {
+                    const n = splitName(r.name); const s2 = LEAD_STATUS(r.lead?.status);
+                    return (
+                      <tr key={r.id} className="border-b border-stone-line/70 last:border-0 hover:bg-stone-50">
+                        {has('first') && <td className="px-3 py-3 font-semibold text-charcoal" data-no-tr><Link href={r.lead ? `/crm/leads/${r.lead.id}` : `/crm/${r.id}`} className="hover:text-forest">{n.first || r.name}</Link></td>}
+                        {has('last') && <td className="px-3 py-3 font-semibold text-charcoal" data-no-tr>{n.last || '—'}</td>}
+                        {has('email') && <td className="px-3 py-3 text-charcoal-600" data-no-tr>{r.email || '—'}</td>}
+                        {has('phone') && <td className="whitespace-nowrap px-3 py-3 text-charcoal-600" data-no-tr>{r.phone || '—'}</td>}
+                        {has('source') && <td className="px-3 py-3"><span className="whitespace-nowrap rounded-full border border-stone-line px-2 py-0.5 text-[12px] text-charcoal">{SOURCE_EL[r.lead?.source ?? r.source ?? 'manual'] ?? r.lead?.source}</span></td>}
+                        {has('status') && <td className="px-3 py-3"><span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[12px] font-medium ${s2 === 'lost' ? 'bg-stone-100 text-charcoal-600' : 'bg-forest/[0.09] text-forest'}`}>{LEAD_STATUS_EL[s2]}</span></td>}
+                        {has('contact') && <td className="whitespace-nowrap px-3 py-3 text-charcoal-600">{r.lead?.contacted || r.lastContactAt ? 'Έγινε επικοινωνία' : 'Χωρίς επικοινωνία'}</td>}
+                        {has('approved') && <td className="px-3 py-3">{r.optIn ? <span className="inline-flex items-center gap-1 rounded-full bg-forest px-2 py-0.5 text-[12px] font-medium text-white"><Check size={12} /> Ναι</span> : <span className="text-[13px] text-charcoal-600">Όχι</span>}</td>}
+                        {has('added') && <td className="whitespace-nowrap px-3 py-3 text-charcoal-600">{ddmmyyyy(r.lead?.createdAt ?? r.createdAt)}</td>}
+                        <td className="px-3 py-2"><span className="flex justify-end gap-1">
+                          {canEdit && !r.roles.includes('buyer') && <button type="button" onClick={() => onConvert(r)} title="Μετατροπή σε πελάτη" aria-label="Μετατροπή σε πελάτη" className={iconBtn}><UserCheck size={15} /></button>}
+                          {canEdit && <button type="button" onClick={() => onEdit(r)} title="Επεξεργασία" aria-label="Επεξεργασία" className={iconBtn}><Pencil size={15} /></button>}
+                          {canEdit && <button type="button" onClick={() => onDelete(r)} title="Διαγραφή" aria-label="Διαγραφή" className="flex h-8 w-8 items-center justify-center rounded-full text-signal-danger hover:bg-rose-50"><Trash2 size={15} /></button>}
+                        </span></td>
+                      </tr>
+                    );
+                  })}
+                  {list.length === 0 && <tr><td colSpan={12} className="py-10 text-center text-sm text-charcoal-600">Κανένα lead.</td></tr>}
+                </tbody>
+              </table>
+            </div>
+            <Pager from={list.length ? p * per + 1 : 0} to={Math.min(list.length, p * per + per)} total={list.length} page={p} pages={pages} onPage={setPg} />
+          </>
+        ) : (
+          <>
+            <div className="grid gap-3 border-t border-stone-line p-4 sm:grid-cols-2 xl:grid-cols-4">
+              {PIPE.map((c) => {
+                const items = list.filter((r) => c.stages.includes(r.lead?.status ?? 'new'));
+                return (
+                  <div key={c.key}>
+                    <p className="mb-2 flex items-center justify-between text-[14px] font-semibold text-charcoal">{c.label}<span className="text-[12px] font-normal text-charcoal-600">{items.length}</span></p>
+                    <div className="space-y-2">
+                      {items.map((r) => <Link key={r.id} href={r.lead ? `/crm/leads/${r.lead.id}` : `/crm/${r.id}`} className="block rounded-xl border border-stone-line bg-white px-3 py-2.5 hover:border-forest/40"><span className="block text-[14px] font-semibold text-charcoal" data-no-tr>{r.name}</span>{r.phone && <span className="flex items-center gap-1 text-[12px] text-charcoal-600" data-no-tr><Phone size={11} /> {r.phone}</span>}</Link>)}
+                      {items.length === 0 && <p className="rounded-xl border border-stone-line px-3 py-3 text-center text-[12px] text-charcoal-600">{c.empty}</p>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="border-t border-stone-line px-5 py-3 text-sm text-charcoal-600">Εμφάνιση 1–{list.length} από {list.length}</div>
+          </>
+        )}
+      </div>
+      <aside className="space-y-4">
+        <Briefing tag="Ενημέρωση leads" title="Μετατρέψτε τα leads πριν «κρυώσουν»." text="Κάντε γρήγορα follow-up — τα leads χωρίς επικοινωνία πάνω από 7 μέρες κλείνουν στο μισό ποσοστό. Δώστε προτεραιότητα στα ενεργά και ξαναπροσεγγίστε όσα χάθηκαν με στοχευμένο μήνυμα."
+          metrics={[['Σύνολο leads', total, 'από πάντα'], ['Ενεργά', activeN, 'στο pipeline'], ['Έγιναν πελάτες', conv, `${rate}% ποσοστό`]]} />
+        <SideStat icon={Users} label="Ενεργά στο pipeline" value={activeN} note="Leads που δουλεύονται τώρα. Κάντε follow-up όσο το ενδιαφέρον είναι ζεστό." />
+        <SideStat icon={UserCheck} label="Έγιναν πελάτες" value={conv} note="Leads που έγιναν αγοραστές. Δείχνει πόσο καλά δουλεύει το follow-up." />
+        <SideStat icon={Filter} label="Ποσοστό μετατροπής" value={`${rate}%`} note="Ποσοστό των leads που έγιναν πελάτες." />
+        <SideStat icon={Sparkles} label="Κορυφαία πηγή" value={topSrc ? SOURCE_EL[topSrc] ?? topSrc : '—'} note={topSrc ? `Τα περισσότερα leads έρχονται από «${SOURCE_EL[topSrc] ?? topSrc}». Επενδύστε σε ό,τι δουλεύει.` : 'Δεν υπάρχουν leads ακόμη.'} />
+      </aside>
+    </div>
+  );
+}
+
+function Briefing({ tag, title, text, metrics }: { tag: string; title: string; text: string; metrics: [string, React.ReactNode, string][] }) {
+  return (
+    <div className="rounded-2xl bg-gradient-to-br from-forest to-forest-deep p-4 text-white shadow-[0_8px_24px_-12px_rgb(var(--c-forest)/0.6)]">
+      <span className="inline-flex items-center gap-1 rounded-full border border-white/25 bg-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.1em]"><Sparkles size={11} /> {tag}</span>
+      <p className="mt-2 text-[16px] font-semibold leading-snug">{title}</p>
+      <p className="mt-1 text-[13px] text-white/80">{text}</p>
+      <p className="mt-3 text-[10px] font-semibold uppercase tracking-[0.1em] text-white/70">Ζωντανές μετρήσεις</p>
+      <div className="mt-1.5 grid grid-cols-3 gap-2">
+        {metrics.map(([k, v, n]) => <div key={k} className="rounded-xl border border-white/20 bg-white/10 px-2 py-2 text-center"><p className="text-[10px] font-semibold uppercase text-white/70">{k}</p><p className="font-display text-xl">{v}</p><p className="text-[10px] text-white/70">{n}</p></div>)}
+      </div>
+    </div>
+  );
+}
+
+function SideStat({ icon: I, label, value, note }: { icon: any; label: string; value: React.ReactNode; note: string }) {
+  return (
+    <div className="rounded-2xl border border-stone-line bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+      <div className="flex items-center gap-3"><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-forest/[0.09] text-forest"><I size={18} /></span><div><p className="text-[13px] text-charcoal-600">{label}</p><p className="text-2xl font-semibold text-charcoal" data-no-tr>{value}</p></div></div>
+      <p className="mt-2 text-[13px] leading-snug text-charcoal-600">{note}</p>
+    </div>
+  );
+}
+
 function ImportPanel({ onDone }: { onDone: (msg: string) => void }) {
+  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [fileName, setFileName] = useState('');
   const [rows, setRows] = useState<Record<string, string>[]>([]);
   const [cols, setCols] = useState<string[]>([]);
   const [map, setMap] = useState<Record<string, string>>({});
   const [err, setErr] = useState<string | null>(null);
+  const [result, setResult] = useState<{ created: number; skipped: number; errors: string[] } | null>(null);
+  const [drag, setDrag] = useState(false);
   const [pending, start] = useTransition();
   const FIELDS: [string, string, RegExp][] = [['name', 'Ονοματεπώνυμο *', /^(full.?name|name|όνομα|ονοματεπώνυμο|πελάτης)$/i], ['email', 'Email', /e-?mail/i], ['phone', 'Τηλέφωνο', /phone|mobile|τηλ|κινητό/i], ['role', 'Ιδιότητα', /role|type|ιδιότητα|τύπος/i], ['source', 'Πηγή', /source|πηγή/i], ['tags', 'Tags', /tag/i], ['group', 'Ομάδα', /group|ομάδα/i]];
   const parse = (text: string) => {
@@ -529,43 +689,102 @@ function ImportPanel({ onDone }: { onDone: (msg: string) => void }) {
     if (lines.length < 2) { setErr('Το αρχείο χρειάζεται επικεφαλίδα και τουλάχιστον μία γραμμή.'); return; }
     const sep = (lines[0].match(/;/g)?.length ?? 0) > (lines[0].match(/,/g)?.length ?? 0) ? ';' : lines[0].includes('\t') ? '\t' : ',';
     const split = (l: string) => { const out: string[] = []; let cur = '', q = false; for (const ch of l) { if (ch === '"') q = !q; else if (ch === sep && !q) { out.push(cur); cur = ''; } else cur += ch; } out.push(cur); return out.map((x) => x.trim()); };
-    const head = split(lines[0].replace(/^\ufeff/, ''));
+    const head = split(lines[0].replace(/^﻿/, ''));
     setCols(head);
     setRows(lines.slice(1).map((l) => { const v = split(l); return Object.fromEntries(head.map((h, i) => [h, v[i] ?? ''])); }));
     const m: Record<string, string> = {}; for (const [k, , re] of FIELDS) { const hit = head.find((h) => re.test(h)); if (hit) m[k] = hit; } setMap(m); setErr(null);
   };
+  const pick = (f: File | undefined) => { if (!f) return; if (f.size > 50 * 1024 * 1024) { setErr('Μέγιστο μέγεθος αρχείου: 50 MB.'); return; } setFileName(f.name); void f.text().then(parse); };
+  const reset = () => { setStep(1); setFileName(''); setRows([]); setCols([]); setMap({}); setErr(null); setResult(null); };
   const run = () => start(async () => {
     if (!map.name) { setErr('Διαλέξτε ποια στήλη είναι το ονοματεπώνυμο.'); return; }
     const payload = rows.map((r) => ({ name: r[map.name] ?? '', email: map.email ? r[map.email] : '', phone: map.phone ? r[map.phone] : '', role: map.role ? r[map.role] : '', source: map.source ? r[map.source] : '', tags: map.tags ? r[map.tags] : '', group: map.group ? r[map.group] : '' })).filter((r) => r.name.trim());
     const res = await importContacts(payload);
     if (!res.ok) { setErr(res.error); return; }
-    if (res.errors.length) setErr(res.errors.join('\n'));
-    onDone(`Εισήχθησαν ${res.created} επαφές${res.skipped ? ` · ${res.skipped} υπήρχαν ήδη` : ''}.`);
+    setResult({ created: res.created, skipped: res.skipped, errors: res.errors }); setStep(3);
   });
+  const template = () => { const csv = '﻿Ονοματεπώνυμο,Email,Τηλέφωνο,Ιδιότητα,Πηγή,Tags,Ομάδα\nMaria Georgiou,maria@example.com,+35799000000,lead,website,VIP,Λεμεσός'; const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = 'oramira-pelates-protypo.csv'; a.click(); };
+  const card = 'rounded-2xl border border-stone-line bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]';
   return (
-    <div className="space-y-4 rounded-2xl border border-stone-line bg-white p-5">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="flex items-center gap-2 font-semibold text-charcoal"><FileSpreadsheet size={17} className="text-forest" /> Import επαφών από CSV / Excel</p>
-        <button type="button" onClick={() => { const csv = '\ufeffΟνοματεπώνυμο,Email,Τηλέφωνο,Ιδιότητα,Πηγή,Tags,Ομάδα\nMaria Georgiou,maria@example.com,+35799000000,lead,website,VIP,Λεμεσός'; const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = 'oramira-epafes-protypo.csv'; a.click(); }} className="text-xs font-medium text-forest hover:underline">Κατέβασμα προτύπου</button>
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-3 text-[14px]">
+        {[[1, 'Ανέβασμα αρχείου'], [2, 'Αντιστοίχιση στηλών'], [3, 'Αποτελέσματα']].map(([n, l], i) => (
+          <span key={n} className="flex items-center gap-2">
+            {i > 0 && <span className="h-px w-10 bg-stone-line" />}
+            <span className={`flex h-6 w-6 items-center justify-center rounded-full text-[12px] font-semibold ${step >= (n as number) ? 'bg-forest text-white' : 'bg-stone-100 text-charcoal-600'}`}>{n}</span>
+            <span className={step === n ? 'font-medium text-charcoal' : 'text-charcoal-600'}>{l}</span>
+          </span>
+        ))}
       </div>
-      <label className="flex cursor-pointer flex-col items-center gap-1 rounded-2xl border-2 border-dashed border-forest/25 bg-forest/[0.03] px-4 py-8 text-center text-sm text-charcoal-600 hover:border-forest/50">
-        <Upload size={22} className="text-forest" />
-        <span>Επιλέξτε αρχείο <b>.csv</b> (από Excel: Αποθήκευση ως → CSV)</span>
-        <input type="file" accept=".csv,text/csv" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) void f.text().then(parse); }} />
-      </label>
-      {cols.length > 0 && (
+
+      {step === 1 && (
         <>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            {FIELDS.map(([k, label]) => (
-              <label key={k} className="block"><span className="text-xs font-medium text-charcoal-600">{label}</span>
-                <select className="input mt-1" value={map[k] ?? ''} onChange={(e) => setMap((m) => ({ ...m, [k]: e.target.value }))}><option value="">—</option>{cols.map((c) => <option key={c} value={c}>{c}</option>)}</select></label>
-            ))}
+          <div className={card}>
+            <p className="text-[16px] font-semibold text-charcoal">Αρχείο CSV</p>
+            <p className="mt-1 text-[14px] text-charcoal-600">Ανεβάστε ένα αρχείο CSV με τα στοιχεία των πελατών. Η πρώτη γραμμή πρέπει να έχει τις επικεφαλίδες των στηλών.</p>
+            <p className="text-[14px] text-charcoal-600">Οι πελάτες θα προστεθούν αυτόματα στον λογαριασμό σας.</p>
+            <button type="button" onClick={template} className="mt-1 text-[14px] font-medium text-forest hover:underline">Κατεβάστε ένα πρότυπο CSV</button>
+            <label onDragOver={(e) => { e.preventDefault(); setDrag(true); }} onDragLeave={() => setDrag(false)} onDrop={(e) => { e.preventDefault(); setDrag(false); pick(e.dataTransfer.files?.[0]); }}
+              className={`mt-4 flex cursor-pointer flex-col items-center gap-1.5 rounded-2xl border-2 border-dashed px-4 py-12 text-center text-[14px] transition ${drag ? 'border-forest bg-forest/[0.05]' : 'border-stone-line hover:border-forest/40'}`}>
+              <Upload size={26} className="text-charcoal-600" />
+              <span className="font-semibold text-charcoal">{fileName || 'Σύρετε εδώ το αρχείο CSV'}</span>
+              <span className="text-charcoal-600">{fileName ? `${rows.length} γραμμές βρέθηκαν` : 'ή πατήστε για αναζήτηση'}</span>
+              <span className="mt-2 rounded-lg border border-stone-line bg-white px-3 py-1.5 text-[13px] font-medium text-charcoal">Επιλογή αρχείου</span>
+              <input type="file" accept=".csv,text/csv,.txt" hidden onChange={(e) => pick(e.target.files?.[0])} />
+            </label>
           </div>
-          <div className="overflow-x-auto rounded-xl border border-stone-line">
-            <table className="w-full text-xs"><thead className="bg-forest/[0.04]"><tr>{cols.map((c) => <th key={c} className="px-3 py-2 text-left font-semibold">{c}</th>)}</tr></thead>
-              <tbody>{rows.slice(0, 5).map((r, i) => <tr key={i} className="border-t border-stone-line">{cols.map((c) => <td key={c} className="px-3 py-1.5" data-no-tr>{r[c]}</td>)}</tr>)}</tbody></table>
+          <div className={card}>
+            <p className="text-[15px] font-semibold text-forest">Συμβουλές για το CSV</p>
+            <ul className="mt-1 space-y-0.5 text-[14px] text-charcoal-600">
+              <li>Η πρώτη γραμμή πρέπει να έχει επικεφαλίδες (π.χ. ονοματεπώνυμο, email, τηλέφωνο)</li>
+              <li>Υποστηρίζονται αρχεία με κόμμα (,), ερωτηματικό (;) και tab</li>
+              <li>Προτείνεται κωδικοποίηση UTF-8 (από Excel: Αποθήκευση ως → CSV UTF-8)</li>
+              <li>Μέγιστο μέγεθος αρχείου: 50 MB</li>
+            </ul>
           </div>
-          <div className="flex items-center gap-3"><span className="text-sm text-charcoal-600">{rows.length} γραμμές έτοιμες</span><button type="button" disabled={pending} onClick={run} className="ml-auto inline-flex items-center gap-1.5 rounded-full bg-forest px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"><Upload size={14} /> {pending ? 'Εισαγωγή…' : 'Εισαγωγή'}</button></div>
+          <div className="flex justify-center gap-2">
+            <button type="button" disabled={!rows.length} onClick={() => setStep(2)} className="btn-primary disabled:opacity-50">Επόμενο: Αντιστοίχιση στηλών</button>
+            <button type="button" onClick={reset} className="rounded-lg border border-stone-line bg-white px-4 py-2 text-sm text-charcoal">Ακύρωση</button>
+          </div>
+        </>
+      )}
+
+      {step === 2 && (
+        <>
+          <div className={card}>
+            <p className="text-[16px] font-semibold text-charcoal">Αντιστοίχιση στηλών</p>
+            <p className="mt-1 text-[14px] text-charcoal-600">Διαλέξτε ποια στήλη του αρχείου «<span data-no-tr>{fileName}</span>» αντιστοιχεί σε κάθε πεδίο.</p>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              {FIELDS.map(([k, label]) => (
+                <label key={k} className="block"><span className="mb-1 block text-[12px] font-semibold uppercase tracking-wide text-charcoal-600">{label}</span>
+                  <select className="input text-sm" value={map[k] ?? ''} onChange={(e) => setMap((m) => ({ ...m, [k]: e.target.value }))}><option value="">—</option>{cols.map((c) => <option key={c} value={c}>{c}</option>)}</select></label>
+              ))}
+            </div>
+            <div className="mt-4 overflow-x-auto rounded-xl border border-stone-line">
+              <table className="w-full text-[13px]"><thead><tr className="border-b border-stone-line">{cols.map((c) => <th key={c} className="px-3 py-2 text-left font-semibold text-charcoal-600">{c}</th>)}</tr></thead>
+                <tbody>{rows.slice(0, 5).map((r, i) => <tr key={i} className="border-t border-stone-line">{cols.map((c) => <td key={c} className="px-3 py-1.5" data-no-tr>{r[c]}</td>)}</tr>)}</tbody></table>
+            </div>
+            <p className="mt-2 text-[13px] text-charcoal-600">Προεπισκόπηση των 5 πρώτων από {rows.length} γραμμές.</p>
+          </div>
+          <div className="flex justify-center gap-2">
+            <button type="button" onClick={() => setStep(1)} className="rounded-lg border border-stone-line bg-white px-4 py-2 text-sm text-charcoal">Πίσω</button>
+            <button type="button" disabled={pending || !map.name} onClick={run} className="btn-primary disabled:opacity-50">{pending ? 'Εισαγωγή…' : `Εισαγωγή ${rows.length} πελατών`}</button>
+          </div>
+        </>
+      )}
+
+      {step === 3 && result && (
+        <>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <SideStat icon={UserCheck} label="Προστέθηκαν" value={result.created} note="Νέοι πελάτες στη λίστα." />
+            <SideStat icon={Users} label="Υπήρχαν ήδη" value={result.skipped} note="Ίδιο email ή τηλέφωνο — δεν διπλασιάστηκαν." />
+            <SideStat icon={X} label="Με λάθη" value={result.errors.length} note="Γραμμές που δεν μπήκαν." />
+          </div>
+          {result.errors.length > 0 && <div className={`${card} whitespace-pre-line text-[13px] text-signal-danger`}>{result.errors.join('\n')}</div>}
+          <div className="flex justify-center gap-2">
+            <button type="button" onClick={reset} className="rounded-lg border border-stone-line bg-white px-4 py-2 text-sm text-charcoal">Νέο import</button>
+            <button type="button" onClick={() => onDone(`Εισήχθησαν ${result.created} πελάτες${result.skipped ? ` · ${result.skipped} υπήρχαν ήδη` : ''}.`)} className="btn-primary">Προβολή πελατών</button>
+          </div>
         </>
       )}
       {err && <p className="whitespace-pre-line text-sm text-signal-danger">{err}</p>}

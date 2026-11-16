@@ -57,6 +57,8 @@ export interface ContactListRow {
   nationality: string | null;
   buyerType: string | null;
   optIn: boolean;
+  /** Το πιο πρόσφατο lead της επαφής (για την καρτέλα Leads). */
+  lead: { id: string; status: string; source: string | null; createdAt: string; contacted: boolean } | null;
   createdAt: string;
   lastContactAt: string | null;
   openLeads: number;
