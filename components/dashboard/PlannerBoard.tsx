@@ -252,7 +252,7 @@ export function PlannerBoard({ events: propEvents, leads = [], projects = [], te
             {completed && <span className="rounded-full bg-[#F5F1E8] px-1.5 text-[9px] font-semibold text-charcoal-600">✓</span>}
             {!live && !completed && highPriority && <span className={`rounded px-1 text-[9px] font-semibold ${e.priority === 'critical' ? 'bg-signal-danger text-white' : 'bg-signal-danger/15 text-signal-danger'}`}>{e.priority === 'critical' ? '!!' : '!'}</span>}
             {e.recurring && <Repeat size={10} className="text-charcoal-600/40" />}
-            {e.meetingLink && <a href={e.meetingLink} target="_blank" rel="noopener noreferrer" onPointerDown={(ev) => ev.stopPropagation()} onClick={(ev) => ev.stopPropagation()} className="text-violet-700"><Video size={11} /></a>}
+            {e.meetingLink && <a href={e.meetingLink} target="_blank" rel="noopener noreferrer" onPointerDown={(ev) => ev.stopPropagation()} onClick={(ev) => ev.stopPropagation()} className="text-forest"><Video size={11} /></a>}
             {e.eventId && <button onPointerDown={(ev) => ev.stopPropagation()} onClick={(ev) => { ev.stopPropagation(); setMenu({ eventId: e.eventId!, x: ev.clientX, y: ev.clientY, e }); }} className="text-charcoal-600/40 opacity-0 transition-opacity hover:text-charcoal group-hover:opacity-100"><MoreVertical size={12} /></button>}
           </span>
         </div>
@@ -372,7 +372,7 @@ export function PlannerBoard({ events: propEvents, leads = [], projects = [], te
               <span className="flex items-center gap-1 rounded-full bg-forest/10 px-2 py-0.5 text-[11px] font-semibold text-forest"><Radio size={11} /> Live now</span>
               <span className="text-sm font-medium text-charcoal">{currentEvent.title}</span>
               {mounted && <span className="figure text-xs text-charcoal-600/60">ends in {countdown(new Date(currentEvent.start).getTime() + (currentEvent.durationMin ?? 45) * 60000 - nowMs)}</span>}
-              {currentEvent.meetingLink && <a href={currentEvent.meetingLink} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 rounded-lg bg-violet-500/10 px-2 py-1 text-[11px] text-violet-700 hover:bg-violet-500/20"><Video size={12} /> Join</a>}
+              {currentEvent.meetingLink && <a href={currentEvent.meetingLink} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 rounded-lg bg-forest/[0.08] px-2 py-1 text-[11px] text-forest hover:bg-forest/[0.12]"><Video size={12} /> Join</a>}
             </div>
           )}
           {nextEvent && (
@@ -380,7 +380,7 @@ export function PlannerBoard({ events: propEvents, leads = [], projects = [], te
               <span className="flex items-center gap-1 rounded-full bg-[#F5F1E8] px-2 py-0.5 text-[11px] font-medium text-charcoal-600"><CalendarClock size={11} /> Next</span>
               <span className="text-sm text-charcoal">{nextEvent.title}</span>
               {mounted && <span className="figure text-xs text-charcoal-600/60">in {countdown(new Date(nextEvent.start).getTime() - nowMs)}</span>}
-              {nextEvent.meetingLink && <a href={nextEvent.meetingLink} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 rounded-lg bg-violet-500/10 px-2 py-1 text-[11px] text-violet-700 hover:bg-violet-500/20"><Video size={12} /> Join</a>}
+              {nextEvent.meetingLink && <a href={nextEvent.meetingLink} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 rounded-lg bg-forest/[0.08] px-2 py-1 text-[11px] text-forest hover:bg-forest/[0.12]"><Video size={12} /> Join</a>}
             </div>
           )}
         </div>

@@ -33,14 +33,14 @@ const DEFAULT_ACCENT: Accent = { dot: 'bg-stone-400', badge: 'badge-neutral', ba
 const STAGE_ACCENT: Record<string, Accent> = {
   overdue: { dot: 'bg-rose-500', badge: 'border-rose-200 bg-rose-50 text-rose-700', bar: 'border-l-rose-400' },
   today: { dot: 'bg-amber-500', badge: 'border-amber-200 bg-amber-50 text-amber-700', bar: 'border-l-amber-400' },
-  tomorrow: { dot: 'bg-forest', badge: 'border-forest/25 bg-forest/[0.06] text-forest', bar: 'border-l-sky-400' },
+  tomorrow: { dot: 'bg-forest', badge: 'border-forest/25 bg-forest/[0.06] text-forest', bar: 'border-l-forest/50' },
   unassigned: { dot: 'bg-stone-400', badge: 'badge-neutral', bar: 'border-l-stone-line' },
-  new: { dot: 'bg-forest', badge: 'border-forest/25 bg-forest/[0.06] text-forest', bar: 'border-l-sky-400' },
-  contacted: { dot: 'bg-forest', badge: 'border-forest/25 bg-forest/[0.06] text-forest', bar: 'border-l-indigo-400' },
-  engaged: { dot: 'bg-forest', badge: 'border-forest/25 bg-forest/[0.06] text-forest', bar: 'border-l-violet-400' },
+  new: { dot: 'bg-forest', badge: 'border-forest/25 bg-forest/[0.06] text-forest', bar: 'border-l-forest/50' },
+  contacted: { dot: 'bg-forest', badge: 'border-forest/25 bg-forest/[0.06] text-forest', bar: 'border-l-forest/50' },
+  engaged: { dot: 'bg-forest', badge: 'border-forest/25 bg-forest/[0.06] text-forest', bar: 'border-l-forest/50' },
   qualified: { dot: 'bg-forest', badge: 'border-forest/25 bg-forest/[0.06] text-forest', bar: 'border-l-emerald-400' },
   waiting: { dot: 'bg-amber-500', badge: 'border-amber-200 bg-amber-50 text-amber-700', bar: 'border-l-amber-400' },
-  viewing: { dot: 'bg-forest', badge: 'border-forest/25 bg-forest/[0.06] text-forest', bar: 'border-l-teal-400' },
+  viewing: { dot: 'bg-forest', badge: 'border-forest/25 bg-forest/[0.06] text-forest', bar: 'border-l-forest/50' },
   offer: { dot: 'bg-orange-500', badge: 'border-orange-200 bg-orange-50 text-orange-700', bar: 'border-l-orange-400' },
   negotiating: { dot: 'bg-rose-500', badge: 'border-rose-200 bg-rose-50 text-rose-700', bar: 'border-l-rose-400' },
   reserved: { dot: 'bg-forest', badge: 'badge-forest', bar: 'border-l-forest/50' },
@@ -48,8 +48,8 @@ const STAGE_ACCENT: Record<string, Accent> = {
   lost: { dot: 'bg-signal-danger', badge: 'border-red-200 bg-red-50 text-signal-danger', bar: 'border-l-signal-danger/60' },
   nurture: { dot: 'bg-amber-400', badge: 'border-amber-200 bg-amber-50 text-amber-700', bar: 'border-l-amber-300' },
   won: { dot: 'bg-forest', badge: 'badge-forest', bar: 'border-l-forest' },
-  reactivation: { dot: 'bg-forest', badge: 'border-forest/25 bg-forest/[0.06] text-forest', bar: 'border-l-sky-300' },
-  retargeting: { dot: 'bg-forest', badge: 'border-forest/25 bg-forest/[0.06] text-forest', bar: 'border-l-fuchsia-400' },
+  reactivation: { dot: 'bg-forest', badge: 'border-forest/25 bg-forest/[0.06] text-forest', bar: 'border-l-forest/50' },
+  retargeting: { dot: 'bg-forest', badge: 'border-forest/25 bg-forest/[0.06] text-forest', bar: 'border-l-forest/50' },
 };
 
 const URGENCY = [

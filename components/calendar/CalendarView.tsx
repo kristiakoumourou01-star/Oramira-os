@@ -1,5 +1,8 @@
 'use client';
 
+import { HubCards } from '@/components/ui/HubCards';
+import { CalendarDays, CalendarRange, RefreshCw } from 'lucide-react';
+
 import { DATE_TAG, currentLocale } from '@/lib/locale-shared';
 
 import { useEffect, useMemo, useState } from 'react';
@@ -19,12 +22,13 @@ const DAY_END = 21; // 21:00
 const HOUR_PX = 48;
 const GRID_PX = (DAY_END - DAY_START) * HOUR_PX;
 
+// Ένα χρώμα (της εταιρείας) σε αποχρώσεις, όπως στο FitnessCRM.
 const TYPE_STYLE: Record<string, { chip: string; dot: string; label: string }> = {
-  viewing: { chip: 'border-teal-500 bg-teal-50 text-teal-800', dot: 'bg-teal-500', label: 'Viewing' },
-  meeting: { chip: 'border-sky-500 bg-sky-50 text-sky-800', dot: 'bg-sky-500', label: 'Meeting' },
-  followup: { chip: 'border-violet-500 bg-violet-50 text-violet-800', dot: 'bg-violet-500', label: 'Follow-up' },
-  task: { chip: 'border-amber-500 bg-amber-50 text-amber-800', dot: 'bg-amber-500', label: 'Task' },
-  reminder: { chip: 'border-rose-500 bg-rose-50 text-rose-800', dot: 'bg-rose-500', label: 'Reminder' },
+  viewing: { chip: 'border-forest bg-forest/[0.10] text-forest', dot: 'bg-forest', label: 'Προβολή' },
+  meeting: { chip: 'border-forest/70 bg-forest/[0.06] text-forest', dot: 'bg-forest/70', label: 'Συνάντηση' },
+  followup: { chip: 'border-forest/45 bg-white text-charcoal', dot: 'bg-forest/45', label: 'Follow-up' },
+  task: { chip: 'border-charcoal-600/40 bg-stone-50 text-charcoal', dot: 'bg-charcoal-600/40', label: 'Εργασία' },
+  reminder: { chip: 'border-forest/30 bg-forest/[0.03] text-charcoal', dot: 'bg-forest/30', label: 'Υπενθύμιση' },
   google: { chip: 'border-stone-400 bg-stone-100 text-charcoal-600', dot: 'bg-stone-400', label: 'Google' },
 };
 const styleFor = (t: string) => TYPE_STYLE[t] ?? (['call', 'email', 'deadline', 'lunch'].includes(t) ? TYPE_STYLE.followup : TYPE_STYLE.meeting);
@@ -84,49 +88,58 @@ export function CalendarView({
 
   const title = view === 'month' ? formatMonthYear(anchor) : view === 'day' ? formatWeekdayLongDate(anchor) : (() => { const a = startOfWeek(anchor); const b = addDays(a, 6); const f = (d: Date, o: Intl.DateTimeFormatOptions) => d.toLocaleDateString(DATE_TAG[currentLocale().lang], o); return a.getMonth() === b.getMonth() ? `${f(a, { day: 'numeric' })} – ${f(b, { day: 'numeric', month: 'long', year: 'numeric' })}` : `${f(a, { day: 'numeric', month: 'short' })} – ${f(b, { day: 'numeric', month: 'short', year: 'numeric' })}`; })();
 
+  const today0 = atMidnight(ymd(new Date()));
+  const todayN = items.filter((it) => sameDay(new Date(it.start), today0)).length;
+  const viewingsN = items.filter((it) => it.type === 'viewing').length;
   return (
     <div className="space-y-4">
+      <HubCards active={useTeam ? 'team' : view === 'day' && sameDay(anchor, today0) ? 'today' : 'range'} onSelect={(k) => { if (k === 'today') go(new Date(), 'day', false); else if (k === 'range') go(anchor, 'week', false); else if (k === 'team') go(anchor, 'day', true); }} cards={[
+        { key: 'today', icon: CalendarDays, title: 'Σήμερα', value: todayN, sub: 'Ραντεβού και εργασίες σήμερα' },
+        { key: 'range', icon: CalendarRange, title: 'Σε αυτή την προβολή', value: items.length, sub: `${viewingsN} προβολές ακινήτων` },
+        { key: 'team', icon: Users, title: 'Ομάδα', value: team.length, sub: 'Μία στήλη ανά άτομο' },
+        { key: 'google', icon: RefreshCw, title: 'Google Calendar', value: googleConnected ? '✓' : '—', sub: googleConnected ? 'Συνδεδεμένο' : 'Δεν έχει συνδεθεί' },
+      ]} />
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-stone-line bg-white px-4 py-3 shadow-[0_1px_2px_rgba(17,49,36,0.04)]">
         <div className="flex items-center gap-1">
-          <button onClick={() => step(-1)} className="flex h-9 w-9 items-center justify-center rounded-full border border-stone-line text-charcoal-600 transition hover:border-forest/40 hover:text-forest" aria-label="Προηγούμενο"><ChevronLeft size={16} /></button>
-          <button onClick={() => go(new Date())} className="h-9 rounded-full border border-forest/40 bg-forest/[0.07] px-4 text-xs font-semibold text-forest transition hover:bg-forest hover:text-white">Σήμερα</button>
-          <button onClick={() => step(1)} className="flex h-9 w-9 items-center justify-center rounded-full border border-stone-line text-charcoal-600 transition hover:border-forest/40 hover:text-forest" aria-label="Επόμενο"><ChevronRight size={16} /></button>
+          <button onClick={() => step(-1)} className="flex h-8 w-8 items-center justify-center rounded-full border border-stone-line text-charcoal-600 transition-colors hover:border-forest/30 hover:text-charcoal" aria-label="Προηγούμενο"><ChevronLeft size={16} /></button>
+          <button onClick={() => go(new Date())} className="h-8 rounded-full border border-stone-line px-3 text-[13px] text-charcoal transition-colors hover:border-forest/30">Σήμερα</button>
+          <button onClick={() => step(1)} className="flex h-8 w-8 items-center justify-center rounded-full border border-stone-line text-charcoal-600 transition-colors hover:border-forest/30 hover:text-charcoal" aria-label="Επόμενο"><ChevronRight size={16} /></button>
         </div>
-        <h3 className="font-display sm:min-w-[180px] text-2xl capitalize tracking-tight text-charcoal">{title}</h3>
+        <h3 className="text-[18px] font-semibold capitalize text-charcoal sm:min-w-[180px]">{title}</h3>
 
         {/* Jump to any date (e.g. 2 months ahead) */}
         <input
           type="date"
           value={date}
           onChange={(e) => e.target.value && go(atMidnight(e.target.value))}
-          className="input h-9 w-auto rounded-full py-1 text-sm"
+          className="input h-8 w-auto py-1 text-[13px]"
           aria-label="Μετάβαση σε ημερομηνία"
         />
 
         <div className="ml-auto flex flex-wrap items-center gap-2">
           <button
             onClick={toggleTeam}
-            className={`inline-flex h-9 items-center gap-1.5 rounded-full border px-4 text-xs font-medium transition-colors ${teamMode ? 'border-forest bg-forest text-white' : 'border-stone-line text-charcoal-600 hover:border-forest/40 hover:text-forest'}`}
+            className={`inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-[13px] transition-colors ${teamMode ? 'border-forest/40 bg-forest/[0.08] text-forest' : 'border-stone-line text-charcoal hover:border-forest/30'}`}
             title="Προβολή ομάδας (στήλη ανά άτομο)"
           >
             <Users size={13} /> Ομάδα
           </button>
-          <div className="flex rounded-full bg-forest/[0.07] p-1">
+          <div className="flex rounded-lg bg-stone-100 p-0.5">
             {(['day', 'week', 'month'] as View[]).map((v) => (
-              <button key={v} onClick={() => go(anchor, v)} className={`rounded-full px-3.5 py-1 text-xs font-medium capitalize transition ${view === v ? 'bg-forest text-white shadow-sm' : 'text-forest hover:bg-forest/10'}`}>
+              <button key={v} onClick={() => go(anchor, v)} className={`inline-flex h-7 items-center rounded-md px-2.5 text-[13px] transition-colors ${view === v ? 'bg-white font-medium text-charcoal shadow-sm' : 'text-charcoal-600 hover:text-charcoal'}`}>
                 {v === 'day' ? 'Ημέρα' : v === 'week' ? 'Εβδομάδα' : 'Μήνας'}
               </button>
             ))}
           </div>
-          <button onClick={() => setPreset({ startISO: defaultSlot(anchor) })} className="inline-flex h-9 items-center gap-1.5 rounded-full bg-forest px-4 text-xs font-semibold text-white shadow-sm transition hover:bg-forest/90"><Plus size={14} /> Νέο ραντεβού</button>
+          <button onClick={() => setPreset({ startISO: defaultSlot(anchor) })} className="inline-flex h-8 items-center gap-1.5 rounded-[10px] bg-forest px-3 text-[14px] font-medium text-white transition hover:bg-forest/90"><Plus size={15} /> Νέο ραντεβού</button>
         </div>
       </div>
 
       {/* Legend + Google status */}
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-1 text-xs">
         {Object.entries(TYPE_STYLE).filter(([k]) => k !== 'google').map(([k, s]) => (
-          <span key={k} className="flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 text-charcoal-600 ring-1 ring-inset ring-stone-line"><span className={`h-2 w-2 rounded-full ${s.dot}`} /> {s.label}</span>
+          <span key={k} className="flex items-center gap-1.5 rounded-full border border-stone-line bg-white px-2.5 py-0.5 text-[12px] text-charcoal-600"><span className={`h-2 w-2 rounded-full ${s.dot}`} /> {s.label}</span>
         ))}
         <span className="ml-auto"><GoogleCalendarConnect connected={googleConnected} configured={googleConfigured} /></span>
       </div>

@@ -53,8 +53,8 @@ export default async function CalendarPage({ searchParams }: { searchParams: { d
   return (
     <div className="space-y-5">
       <WorkspaceHeader
-        eyebrow="Workspace"
-        title="Calendar"
+        eyebrow="Λειτουργία"
+        title="Ημερολόγιο"
         description="Ραντεβού, viewings και Google Calendar σε μία προβολή — ημέρα/εβδομάδα/μήνας, με μετάβαση σε οποιαδήποτε μέρα."
       />
       <CalendarView
