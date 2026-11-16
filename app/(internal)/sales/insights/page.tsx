@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { getEnrichedLeads } from '@/lib/leads';
 import { getOrgSettings } from '@/lib/org-settings';
 import { WorkspaceHeader } from '@/components/ui/WorkspaceHeader';
+import { SalesNav } from '@/components/sales/SalesNav';
 import { byOwner, conversionFunnel, dealsPerformance, lostReasons, revenueForecast } from '@/lib/sales-insights';
 import { ACTIVITY_TYPES, activityLabel } from '@/lib/activity-types';
 import { formatCurrency, formatDate } from '@/lib/format';
@@ -58,7 +59,8 @@ export default async function InsightsPage({ searchParams }: { searchParams: { p
 
   return (
     <div className="space-y-4">
-      <WorkspaceHeader eyebrow="Sales" title="Insights" description="Απόδοση deals, funnel μετατροπής, won/lost, activities και πρόβλεψη εσόδων." />
+      <WorkspaceHeader eyebrow="Sales" title="Πωλήσεις" description="Απόδοση deals, funnel μετατροπής, won/lost, activities και πρόβλεψη εσόδων." />
+      <SalesNav active="insights" />
       <div className="flex flex-wrap items-center gap-2 text-sm">
         <div className="flex gap-1 rounded-lg bg-stone p-1">{PERIODS.map(([k, l]) => <Link key={k} href={link({ period: k })} className={`rounded-md px-3 py-1 ${k === period[0] ? 'bg-white font-medium text-charcoal shadow-sm' : 'text-charcoal-600'}`}>{l}</Link>)}</div>
         <div className="flex flex-wrap gap-1">{cfg.pipelines.map((p) => <Link key={p.key} href={link({ pipeline: p.key })} className={`rounded-full px-3 py-1 ${p.key === pipeKey ? 'bg-forest text-white' : 'bg-stone text-charcoal-600'}`} data-no-tr>{p.name}</Link>)}</div>

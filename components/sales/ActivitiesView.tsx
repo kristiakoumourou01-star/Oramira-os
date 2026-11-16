@@ -9,6 +9,8 @@ import { ACTIVITY_TYPES, activityLabel } from '@/lib/activity-types';
 import { completeAndNext, updateFollowUp } from '@/app/actions/follow-ups';
 import { useBoardScroll } from '@/components/ui/useBoardScroll';
 import { DATE_TAG, currentLocale } from '@/lib/locale-shared';
+import { PopSelect } from '@/components/ui/PopSelect';
+import { Pager } from '@/components/ui/SidePanel';
 
 const ICON: Record<string, any> = { call: Phone, meeting: Users, task: CheckSquare, deadline: Flag, email: Mail, lunch: Utensils, viewing: Home };
 export interface ActivityRow {
@@ -33,6 +35,8 @@ export function ActivitiesView({ rows: initial, agents, currentUserId, initialTy
   const [types, setTypes] = useState<string[]>(initialTypes);
   const [owner, setOwner] = useState<string>(currentUserId);
   const [week, setWeek] = useState(() => weekStart(new Date()));
+  const [per, setPer] = useState(25);
+  const [pageNo, setPageNo] = useState(0);
   const scroller = useBoardScroll();
   const now = new Date();
   const t0 = dayStart(now), t1 = addDays(t0, 1), t2 = addDays(t0, 2), w0 = weekStart(now), w1 = addDays(w0, 7), w2 = addDays(w0, 14);
@@ -68,67 +72,70 @@ export function ActivitiesView({ rows: initial, agents, currentUserId, initialTy
   const time = (iso: string) => new Date(iso).toLocaleTimeString(DATE_TAG[currentLocale().lang], { hour: '2-digit', minute: '2-digit' });
   const date = (iso: string) => new Date(iso).toLocaleDateString(DATE_TAG[currentLocale().lang], { weekday: 'short', day: '2-digit', month: 'short' });
 
+  const pages = Math.max(1, Math.ceil(list.length / per));
+  const pg = Math.min(pageNo, pages - 1);
+  const page = list.slice(pg * per, pg * per + per);
+  const chip = (on: boolean) => `inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-[13px] transition-colors ${on ? 'border-forest/40 bg-forest/[0.08] text-forest' : 'border-stone-line text-charcoal hover:border-forest/30'}`;
+  const ownerOpts: [string, string][] = [[currentUserId, 'Οι δικές μου'], ['everyone', 'Όλοι'], ...agents.filter((a) => a.id !== currentUserId).map((a) => [a.id, a.full_name ?? '—'] as [string, string])];
+
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="flex overflow-hidden rounded-lg border border-stone-line">
-          {([['list', List, 'Λίστα'], ['calendar', CalendarDays, 'Ημερολόγιο']] as const).map(([v, I, l]) => (
-            <button key={v} type="button" onClick={() => setView(v)} aria-pressed={view === v} title={l} aria-label={l} className={`flex h-9 w-10 items-center justify-center ${view === v ? 'bg-forest/10 text-forest' : 'bg-white text-charcoal-600 hover:bg-stone'}`}><I size={17} /></button>
-          ))}
+      <div className="flex min-w-0 flex-col rounded-2xl border border-stone-line bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+        <div className="space-y-3 p-4 sm:p-5">
+          <div className="flex flex-wrap items-center gap-2 text-[14px] text-charcoal-600">
+            {view === 'list' && <><span>Εμφάνιση</span>
+              <PopSelect ariaLabel="Εγγραφές ανά σελίδα" width="w-[72px]" value={String(per)} onChange={(v) => { setPer(Number(v)); setPageNo(0); }} options={[['10', '10'], ['25', '25'], ['50', '50'], ['100', '100']]} />
+              <span>εγγραφές</span></>}
+            <span className="ml-auto flex items-center gap-2">
+              <span className="flex rounded-lg bg-stone-100 p-0.5">
+                {([['list', List, 'Λίστα'], ['calendar', CalendarDays, 'Ημερολόγιο']] as const).map(([v, I, l]) => (
+                  <button key={v} type="button" onClick={() => setView(v)} aria-pressed={view === v} className={`inline-flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[13px] transition-colors ${view === v ? 'bg-white font-medium text-charcoal shadow-sm' : 'text-charcoal-600 hover:text-charcoal'}`}><I size={14} /> {l}</button>
+                ))}
+              </span>
+            </span>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {view === 'list' && <PopSelect width="min-w-[170px]" ariaLabel="Περίοδος" value={period} onChange={(v) => { setPeriod(v as Period); setPageNo(0); }} options={PERIODS.map(([k, l]) => [k, k === 'overdue' && overdueCount ? `${l} (${overdueCount})` : l] as [string, string])} />}
+            <PopSelect width="min-w-[150px]" ariaLabel="Τύπος" value={types[0] ?? ''} onChange={(v) => { setTypes(v ? [v] : []); setPageNo(0); }} options={[['', 'Όλοι οι τύποι'], ...ACTIVITY_TYPES.map((x) => [x.key, x.label] as [string, string])]} />
+            <PopSelect searchable width="min-w-[150px]" ariaLabel="Υπεύθυνος" value={owner} onChange={(v) => { setOwner(v); setPageNo(0); }} options={ownerOpts} />
+            {overdueCount > 0 && <button type="button" onClick={() => { setView('list'); setPeriod(period === 'overdue' ? 'todo' : 'overdue'); setPageNo(0); }} className={chip(period === 'overdue')}><Flag size={13} /> {overdueCount} εκπρόθεσμες</button>}
+          </div>
         </div>
-        <div className="flex flex-wrap gap-1">
-          <button type="button" onClick={() => setTypes([])} className={`rounded-full px-3 py-1 text-xs ${types.length === 0 ? 'bg-forest text-white' : 'bg-stone text-charcoal-600'}`}>Όλοι οι τύποι</button>
-          {ACTIVITY_TYPES.map((a) => { const I = ICON[a.key]; const on = types.includes(a.key); return (
-            <button key={a.key} type="button" title={a.label} onClick={() => setTypes((t) => (on ? t.filter((x) => x !== a.key) : [...t, a.key]))}
-              className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-xs ${on ? 'bg-forest text-white' : 'bg-stone text-charcoal-600 hover:bg-stone-200'}`}><I size={12} /> {a.label}</button>
-          ); })}
-        </div>
-        <select className="input ml-auto h-9 w-auto py-1 text-sm" value={owner} onChange={(e) => setOwner(e.target.value)} aria-label="Υπεύθυνος">
-          <option value={currentUserId}>Οι δικές μου</option>
-          <option value="everyone">Όλοι</option>
-          {agents.filter((a) => a.id !== currentUserId).map((a) => <option key={a.id} value={a.id}>{a.full_name}</option>)}
-        </select>
+
+        {view === 'list' && (
+          <>
+            <div className="overflow-x-auto border-t border-stone-line">
+              <table className="o-table">
+                <thead><tr><th className="w-10">Έγινε</th><th>Θέμα</th><th>Deal</th><th>Πρόσωπο</th><th>Τηλέφωνο</th><th>Ημερομηνία</th><th>Διάρκεια</th><th>Υπεύθυνος</th></tr></thead>
+                <tbody>
+                  {page.map((r) => {
+                    const I = ICON[r.type] ?? CheckSquare;
+                    const late = !r.done && new Date(r.dueAt) < now;
+                    return (
+                      <tr key={r.id} className={r.done ? 'opacity-60' : ''}>
+                        <td><button type="button" disabled={pending || r.done || r.readOnly} title={r.readOnly ? 'Ολοκληρώνεται από την καρτέλα του deal' : 'Ολοκλήρωση'} onClick={() => toggleDone(r)} aria-label="Ολοκλήρωση" className={`flex h-5 w-5 items-center justify-center rounded-full border-2 transition-colors ${r.done ? 'border-forest bg-forest text-white' : 'border-stone-300 hover:border-forest'}`}>{r.done && <Check size={11} />}</button></td>
+                        <td className="o-strong"><span className="flex items-center gap-2"><I size={14} className="shrink-0 text-charcoal-600" /><span className={`block max-w-[220px] truncate ${r.done ? 'line-through' : ''}`} title={r.note ?? ''} data-no-tr>{r.note || activityLabel(r.type)}</span>{r.priority === 'high' && <span className="text-xs text-signal-danger">⚑</span>}{r.statusLabel && <span className="rounded-full border border-stone-line px-2 py-0.5 text-[11px]">{r.statusLabel}</span>}</span></td>
+                        <td>{r.leadId ? <Link href={`/crm/leads/${r.leadId}`} className="block max-w-[160px] truncate text-forest hover:underline" data-no-tr>{r.dealTitle ?? 'Deal'}</Link> : '—'}</td>
+                        <td data-no-tr>{r.contactName ?? '—'}</td>
+                        <td>{r.phone ? <a href={`tel:${r.phone}`} className="hover:text-forest">{r.phone}</a> : '—'}</td>
+                        <td className={late ? 'font-medium text-signal-danger' : ''}>{date(r.dueAt)} · {time(r.dueAt)}</td>
+                        <td>{r.durationMin ? `${r.durationMin}′` : '—'}</td>
+                        <td>{r.ownerName ?? '—'}</td>
+                      </tr>
+                    );
+                  })}
+                  {list.length === 0 && <tr><td colSpan={8} className="py-10 text-center text-sm text-charcoal-600">Καμία activity εδώ.</td></tr>}
+                </tbody>
+              </table>
+            </div>
+            <Pager from={list.length ? pg * per + 1 : 0} to={Math.min(list.length, pg * per + per)} total={list.length} page={pg} pages={pages} onPage={setPageNo} />
+          </>
+        )}
       </div>
 
-      {view === 'list' && (
-        <>
-          <div className="flex flex-wrap gap-1 border-b border-stone-line">
-            {PERIODS.map(([k, l]) => (
-              <button key={k} type="button" onClick={() => setPeriod(k)} className={`px-3 py-2 text-sm ${period === k ? 'border-b-2 border-forest font-medium text-forest' : 'text-charcoal-600 hover:text-charcoal'}`}>
-                {l}{k === 'overdue' && overdueCount ? <span className="ml-1 rounded-full bg-signal-danger px-1.5 text-[10px] text-white">{overdueCount}</span> : null}
-              </button>
-            ))}
-          </div>
-          <div className="panel overflow-x-auto">
-            <table className="table-base w-full min-w-[760px]">
-              <thead><tr><th className="w-10">Έγινε</th><th>Θέμα</th><th>Deal</th><th>Πρόσωπο</th><th>Τηλέφωνο</th><th>Ημερομηνία</th><th>Διάρκεια</th><th>Υπεύθυνος</th></tr></thead>
-              <tbody>
-                {list.length === 0 && <tr><td colSpan={8} className="py-8 text-center text-sm text-charcoal-600/70">Καμία activity εδώ. 🎉</td></tr>}
-                {list.map((r) => {
-                  const I = ICON[r.type] ?? CheckSquare;
-                  const late = !r.done && new Date(r.dueAt) < now;
-                  return (
-                    <tr key={r.id} className={r.done ? 'opacity-60' : ''}>
-                      <td><button type="button" disabled={pending || r.done || r.readOnly} title={r.readOnly ? 'Ολοκληρώνεται από την καρτέλα του deal' : undefined} onClick={() => toggleDone(r)} aria-label="Ολοκλήρωση" className={`flex h-5 w-5 items-center justify-center rounded-full border-2 ${r.done ? 'border-forest bg-forest text-white' : 'border-stone-300 hover:border-forest'}`}>{r.done && <Check size={11} />}</button></td>
-                      <td><span className="flex items-center gap-2"><I size={14} className="shrink-0 text-charcoal-600" /><span className={r.done ? 'line-through' : 'font-medium text-charcoal'} data-no-tr>{r.note || activityLabel(r.type)}</span>{r.priority === 'high' && <span className="text-xs text-signal-danger">⚑</span>}{r.statusLabel && <span className="badge-neutral text-[10px]">{r.statusLabel}</span>}</span></td>
-                      <td>{r.leadId ? <Link href={`/crm/leads/${r.leadId}`} className="text-forest hover:underline" data-no-tr>{r.dealTitle ?? 'Deal'}</Link> : '—'}</td>
-                      <td data-no-tr>{r.contactName ?? '—'}</td>
-                      <td>{r.phone ? <a href={`tel:${r.phone}`} className="text-forest hover:underline">{r.phone}</a> : '—'}</td>
-                      <td className={late ? 'font-medium text-signal-danger' : ''}>{date(r.dueAt)} · {time(r.dueAt)}</td>
-                      <td>{r.durationMin ? `${r.durationMin}′` : '—'}</td>
-                      <td>{r.ownerName ?? '—'}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </>
-      )}
-
       {view === 'calendar' && (
-        <div className="space-y-2">
-          <div className="flex items-center gap-2 text-sm">
+        <div className="anim-fade space-y-2">
+          <div className="flex flex-wrap items-center gap-2 text-sm">
             <button type="button" className="btn-secondary px-2 py-1" onClick={() => setWeek((w) => addDays(w, -7))} aria-label="Προηγούμενη εβδομάδα"><ChevronLeft size={15} /></button>
             <button type="button" className="btn-secondary px-2 py-1" onClick={() => setWeek(weekStart(new Date()))}><RotateCcw size={13} /> Σήμερα</button>
             <button type="button" className="btn-secondary px-2 py-1" onClick={() => setWeek((w) => addDays(w, 7))} aria-label="Επόμενη εβδομάδα"><ChevronRight size={15} /></button>

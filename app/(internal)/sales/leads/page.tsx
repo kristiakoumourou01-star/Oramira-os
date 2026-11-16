@@ -3,6 +3,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { getEnrichedLeads } from '@/lib/leads';
 import { getOrgSettings } from '@/lib/org-settings';
 import { WorkspaceHeader } from '@/components/ui/WorkspaceHeader';
+import { SalesNav } from '@/components/sales/SalesNav';
 import { LeadsInbox } from '@/components/sales/LeadsInbox';
 
 export const dynamic = 'force-dynamic';
@@ -18,7 +19,8 @@ export default async function LeadsInboxPage() {
   ]);
   return (
     <div className="space-y-4">
-      <WorkspaceHeader eyebrow="Sales" title="Leads Inbox" description="Τα νέα εισερχόμενα (φόρμες, Meta, WhatsApp, κράτηση προβολής) πριν μπουν στο pipeline. Αναθέστε, βάλτε label και «Μετατροπή σε deal»." />
+      <WorkspaceHeader eyebrow="Sales" title="Πωλήσεις" description="Τα νέα εισερχόμενα (φόρμες, Meta, WhatsApp, κράτηση προβολής) πριν μπουν στο pipeline." />
+      <SalesNav active="leads" />
       <LeadsInbox leads={leads.filter((l) => l.in_inbox)} cfg={settings.pipelines} agents={(agents ?? []) as any} />
     </div>
   );

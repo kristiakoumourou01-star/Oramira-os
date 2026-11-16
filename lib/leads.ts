@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import { getCurrentProfile } from '@/lib/auth';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { computePriority } from '@/lib/priority';
@@ -26,7 +27,7 @@ function deriveNeedsAction(status: string, lastContactedAt: string | null, creat
 }
 
 /** Fetches all leads, enriched + sorted by priority (desc). */
-export async function getEnrichedLeads(): Promise<LeadListItem[]> {
+export const getEnrichedLeads = cache(async function getEnrichedLeads(): Promise<LeadListItem[]> {
   const supabase = await createSupabaseServerClient();
 
   // Resilient select: prefer the full column set, but degrade gracefully if the
@@ -122,4 +123,4 @@ export async function getEnrichedLeads(): Promise<LeadListItem[]> {
 
   items.sort((a, b) => b.priority - a.priority);
   return items;
-}
+});

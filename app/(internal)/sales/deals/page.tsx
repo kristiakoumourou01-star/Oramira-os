@@ -3,6 +3,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { getEnrichedLeads } from '@/lib/leads';
 import { getOrgSettings, getOrgSettingsRaw } from '@/lib/org-settings';
 import { WorkspaceHeader } from '@/components/ui/WorkspaceHeader';
+import { SalesNav } from '@/components/sales/SalesNav';
 import { NewLeadForm } from '@/components/crm/NewLeadForm';
 import { DealsBoard } from '@/components/sales/DealsBoard';
 import type { Agent } from '@/components/crm/LeadBoard';
@@ -25,7 +26,8 @@ export default async function DealsPage({ searchParams }: { searchParams: { view
   const pipes = [cfg.pipelines.find((p) => p.key === cfg.defaultKey) ?? cfg.pipelines[0], ...cfg.pipelines.filter((p) => p.key !== cfg.defaultKey)].map((p) => ({ key: p.key, name: p.name }));
   return (
     <div className="space-y-4">
-      <WorkspaceHeader eyebrow="Sales" title="Deals" action={<NewLeadForm projects={projects ?? []} agents={(agents ?? []) as Agent[]} required={settings.fields.staff} pipelines={pipes} deal={{ pipelines: [cfg.pipelines.find((p) => p.key === cfg.defaultKey) ?? cfg.pipelines[0], ...cfg.pipelines.filter((p) => p.key !== cfg.defaultKey)].map((p) => ({ key: p.key, name: p.name, stages: p.stages.filter((x) => x.status !== 'won').map((x) => ({ key: x.key, label: x.label })) })), labels: cfg.dealLabels }} />} />
+      <WorkspaceHeader eyebrow="Sales" title="Πωλήσεις" description="Το pipeline των deals: πίνακας, λίστα, πρόβλεψη και αρχείο." action={<NewLeadForm projects={projects ?? []} agents={(agents ?? []) as Agent[]} required={settings.fields.staff} pipelines={pipes} deal={{ pipelines: [cfg.pipelines.find((p) => p.key === cfg.defaultKey) ?? cfg.pipelines[0], ...cfg.pipelines.filter((p) => p.key !== cfg.defaultKey)].map((p) => ({ key: p.key, name: p.name, stages: p.stages.filter((x) => x.status !== 'won').map((x) => ({ key: x.key, label: x.label })) })), labels: cfg.dealLabels }} />} />
+      <SalesNav active="deals" />
       <DealsBoard leads={leads} cfg={cfg} rawCfg={raw?.pipelines} canEditStages={profile.role === 'admin'} agents={(agents ?? []) as Agent[]} currentUserId={profile.id} initialView={view} />
     </div>
   );

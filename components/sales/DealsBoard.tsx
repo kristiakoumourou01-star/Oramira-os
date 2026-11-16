@@ -1,5 +1,6 @@
 'use client';
 
+import { PopSelect } from '@/components/ui/PopSelect';
 import { useEffect, useMemo, useRef, useState, useTransition, type DragEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -227,59 +228,43 @@ export function DealsBoard({ leads: initial, cfg, rawCfg, canEditStages = false,
 
   const ViewBtn = ({ v, icon: I, label }: { v: View; icon: any; label: string }) => (
     <button type="button" onClick={() => setView(v)} title={label} aria-label={label} aria-pressed={view === v}
-      className={`flex h-9 w-10 items-center justify-center border-r border-forest/25 last:border-r-0 ${view === v ? 'bg-forest text-white' : 'bg-white text-forest hover:bg-forest/10'}`}><I size={17} /></button>
+      className={`inline-flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[13px] transition-colors ${view === v ? 'bg-white font-medium text-charcoal shadow-sm' : 'text-charcoal-600 hover:text-charcoal'}`}><I size={14} /><span className="hidden sm:inline">{label}</span></button>
   );
 
   return (
     <div className="space-y-3">
       {/* Μπάρα εργαλείων — όπως στο Pipedrive */}
       <div className="flex flex-wrap items-center gap-2">
-        <div className="flex overflow-hidden rounded-lg border border-forest/40">
+        <div className="flex rounded-lg bg-stone-100 p-0.5">
           <ViewBtn v="board" icon={Columns3} label="Πίνακας" />
           <ViewBtn v="list" icon={List} label="Λίστα" />
           <ViewBtn v="forecast" icon={CircleDollarSign} label="Forecast" />
           <ViewBtn v="archive" icon={Archive} label="Αρχείο" />
         </div>
         <div className="flex items-center">
-          <select className={`input h-9 w-auto py-1 text-sm font-semibold !border-forest/40 !bg-forest/[0.07] text-forest ${canEditStages ? 'rounded-r-none' : ''}`} value={pipe.key} onChange={(e) => setPipeKey(e.target.value)} aria-label="Pipeline" data-no-tr>
-            {cfg.pipelines.map((p) => <option key={p.key} value={p.key}>{p.name}</option>)}
-          </select>
-          {canEditStages && <button type="button" onClick={() => setEditStages(true)} title="Επεξεργασία σταδίων" aria-label="Επεξεργασία σταδίων" className="-ml-px flex h-9 items-center rounded-r-lg border border-forest bg-forest px-2.5 text-white hover:bg-forest/90"><Pencil size={14} /></button>}
+          <PopSelect ariaLabel="Pipeline" width="min-w-[150px]" value={pipe.key} onChange={setPipeKey} options={cfg.pipelines.map((p) => [p.key, p.name] as [string, string])} />
+          {canEditStages && <button type="button" onClick={() => setEditStages(true)} title="Επεξεργασία σταδίων" aria-label="Επεξεργασία σταδίων" className="ml-1 flex h-8 w-8 items-center justify-center rounded-lg border border-stone-line text-charcoal-600 hover:border-forest/30 hover:text-forest"><Pencil size={14} /></button>}
         </div>
         {editStages && <StageEditor cfg={rawCfg ?? cfg} pipelineKey={pipe.key} onClose={() => setEditStages(false)} />}
-        <select className="input h-9 w-auto py-1 text-sm" value={owner} onChange={(e) => setOwner(e.target.value)} aria-label="Υπεύθυνος">
-          <option value="everyone">Όλοι</option>
-          <option value="me">Τα δικά μου</option>
-          <option value="none">Χωρίς υπεύθυνο</option>
-          {agents.map((a) => <option key={a.id} value={a.id}>{a.full_name ?? '—'}</option>)}
-        </select>
+        <PopSelect searchable ariaLabel="Υπεύθυνος" width="min-w-[140px]" value={owner} onChange={setOwner} options={[['everyone', 'Όλοι'], ['me', 'Τα δικά μου'], ['none', 'Χωρίς υπεύθυνο'], ...agents.map((a) => [a.id, a.full_name ?? '—'] as [string, string])]} />
         <label className="relative">
           <Search size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-charcoal-600/50" />
-          <input className="input h-9 w-48 py-1 pl-8 text-sm" placeholder="Αναζήτηση deal…" value={q} onChange={(e) => setQ(e.target.value)} />
+          <input className="input h-8 w-48 py-1 pl-8 text-[13px]" placeholder="Αναζήτηση deal…" value={q} onChange={(e) => setQ(e.target.value)} />
         </label>
-        <select className={`input h-9 w-auto py-1 text-sm ${preset !== 'all' ? 'border-forest text-forest' : ''}`} value={preset} aria-label="Αποθηκευμένα φίλτρα"
-          onChange={(e) => { const v = e.target.value as typeof preset; setPreset(v); if (v === 'won' || v === 'lost') { setShowClosed(true); setView('board'); } }}>
-          <option value="all">Όλα τα ανοιχτά deals</option>
-          <option value="rotten">«Σάπια» deals</option>
-          <option value="noact">Χωρίς προγραμματισμένη activity</option>
-          <option value="closepast">Αναμ. κλείσιμο στο παρελθόν</option>
-          <option value="old3m">Πάνω από 3 μήνες</option>
-          <option value="won">Won deals</option>
-          <option value="lost">Lost deals</option>
-        </select>
+        <PopSelect ariaLabel="Αποθηκευμένα φίλτρα" width="min-w-[190px]" value={preset}
+          onChange={(v) => { const x = v as typeof preset; setPreset(x); if (x === 'won' || x === 'lost') { setShowClosed(true); setView('board'); } }}
+          options={[['all', 'Όλα τα ανοιχτά deals'], ['rotten', '«Σάπια» deals'], ['noact', 'Χωρίς προγραμματισμένη activity'], ['closepast', 'Αναμ. κλείσιμο στο παρελθόν'], ['old3m', 'Πάνω από 3 μήνες'], ['won', 'Won deals'], ['lost', 'Lost deals']]} />
         <div className="relative">
-          <button type="button" onClick={() => setFilterOpen((x) => !x)} className={`btn-secondary h-9 text-sm !border-forest/40 !bg-forest/[0.07] !text-forest hover:!bg-forest/15 ${condCount ? '!bg-forest !text-white' : ''}`}><Filter size={14} /> Add condition{condCount ? ` (${condCount})` : ''}</button>
+          <button type="button" onClick={() => setFilterOpen((x) => !x)} className={`inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-[13px] transition-colors ${condCount || filterOpen ? 'border-forest/40 bg-forest/[0.08] text-forest' : 'border-stone-line text-charcoal hover:border-forest/30'}`}><Filter size={13} /> Φίλτρα{condCount ? ` (${condCount})` : ''}</button>
           {filterOpen && (
-            <div className="absolute left-0 top-full z-30 mt-1 w-[320px] space-y-2 rounded-xl border border-stone-line bg-white p-3 shadow-overlay">
+            <div className="anim-pop absolute left-0 top-full z-30 mt-1 w-[min(320px,calc(100vw-2rem))] space-y-2 rounded-xl border border-stone-line bg-white p-3 shadow-overlay">
               <div className="grid grid-cols-2 gap-2 text-sm">
                 <label className="col-span-2"><span className="text-xs text-charcoal-600/70">Label</span>
-                  <select className="input py-1" value={cond.label} onChange={(e) => setCond({ ...cond, label: e.target.value })}><option value="">Όλα</option>{cfg.dealLabels.map((l) => <option key={l.key} value={l.key}>{l.name}</option>)}</select></label>
+                  <PopSelect width="w-full" value={cond.label} onChange={(v) => setCond({ ...cond, label: v })} options={[['', 'Όλα'], ...cfg.dealLabels.map((l) => [l.key, l.name] as [string, string])]} /></label>
                 <label className="col-span-2"><span className="text-xs text-charcoal-600/70">Activity</span>
-                  <select className="input py-1" value={cond.activity} onChange={(e) => setCond({ ...cond, activity: e.target.value as Cond['activity'] })}>
-                    <option value="">Όλες</option><option value="none">Χωρίς activity</option><option value="overdue">Καθυστερημένη</option><option value="today">Σήμερα</option><option value="planned">Προγραμματισμένη</option>
-                  </select></label>
+                  <PopSelect width="w-full" value={cond.activity} onChange={(v) => setCond({ ...cond, activity: v as Cond['activity'] })} options={[['', 'Όλες'], ['none', 'Χωρίς activity'], ['overdue', 'Καθυστερημένη'], ['today', 'Σήμερα'], ['planned', 'Προγραμματισμένη']]} /></label>
                 <label className="col-span-2"><span className="text-xs text-charcoal-600/70">Πηγή</span>
-                  <select className="input py-1" value={cond.source} onChange={(e) => setCond({ ...cond, source: e.target.value })}><option value="">Όλες</option>{[...new Set(leads.map((l) => l.source).filter(Boolean))].map((s) => <option key={s} value={s}>{s}</option>)}</select></label>
+                  <PopSelect width="w-full" value={cond.source} onChange={(v) => setCond({ ...cond, source: v })} options={[['', 'Όλες'], ...[...new Set(leads.map((l) => l.source).filter(Boolean))].map((x) => [x, x] as [string, string])]} /></label>
                 <label><span className="text-xs text-charcoal-600/70">Αξία από €</span><input className="input py-1" inputMode="numeric" value={cond.valueMin} onChange={(e) => setCond({ ...cond, valueMin: e.target.value.replace(/\D/g, '') })} /></label>
                 <label><span className="text-xs text-charcoal-600/70">έως €</span><input className="input py-1" inputMode="numeric" value={cond.valueMax} onChange={(e) => setCond({ ...cond, valueMax: e.target.value.replace(/\D/g, '') })} /></label>
                 <label><span className="text-xs text-charcoal-600/70">Κλείσιμο από</span><input type="date" className="input py-1" value={cond.closeFrom} onChange={(e) => setCond({ ...cond, closeFrom: e.target.value })} /></label>
@@ -293,11 +278,9 @@ export function DealsBoard({ leads: initial, cfg, rawCfg, canEditStages = false,
             </div>
           )}
         </div>
-        {view === 'board' && <label className="flex items-center gap-1.5 text-sm text-charcoal-600"><input type="checkbox" checked={showClosed} onChange={(e) => setShowClosed(e.target.checked)} /> Κλειστά deals</label>}
-        <label className="ml-auto flex items-center gap-1.5 text-sm text-charcoal-600">Ταξινόμηση:
-          <select className="input h-9 w-auto py-1 text-sm" value={sort} onChange={(e) => setSort(e.target.value as Sort)}>
-            <option value="activity">Επόμενη activity</option><option value="value">Αξία</option><option value="created">Νεότερα</option><option value="close">Ημ. κλεισίματος</option><option value="title">Τίτλος</option><option value="owner">Υπεύθυνος</option>
-          </select>
+        {view === 'board' && <label className="flex items-center gap-1.5 text-[13px] text-charcoal-600"><input type="checkbox" checked={showClosed} onChange={(e) => setShowClosed(e.target.checked)} /> Κλειστά deals</label>}
+        <label className="flex items-center gap-1.5 text-[13px] text-charcoal-600 sm:ml-auto">Ταξινόμηση:
+          <PopSelect ariaLabel="Ταξινόμηση" width="min-w-[150px]" value={sort} onChange={(v) => setSort(v as Sort)} options={[['activity', 'Επόμενη activity'], ['value', 'Αξία'], ['created', 'Νεότερα'], ['close', 'Ημ. κλεισίματος'], ['title', 'Τίτλος'], ['owner', 'Υπεύθυνος']]} />
         </label>
       </div>
       <p className="text-sm text-charcoal-600"><span className="font-semibold text-charcoal">{formatCurrency(total)}</span> · {open.length} deals <span className="text-charcoal-600/60">· σταθμισμένη {formatCurrency(Math.round(weighted))}</span>{msg && <span className="ml-3 text-forest">{msg}</span>}</p>
@@ -378,19 +361,19 @@ export function DealsBoard({ leads: initial, cfg, rawCfg, canEditStages = false,
       {view === 'forecast' && <Forecast deals={live} pipeName={pipe.name} onMove={(l, ym) => { const d = ym ? lastDayOf(ym) : null; patchLocal(l.id, { expected_close_date: d }); start(async () => { await updateDeal(l.id, { expectedCloseDate: d }); router.refresh(); }); }} />}
 
       {view === 'archive' && (
-        <div className="panel overflow-x-auto">
-          <table className="table-base w-full min-w-[640px]">
-            <thead><tr><th>Deal</th><th>Αξία</th><th>Στάδιο</th><th>Υπεύθυνος</th><th>Αρχειοθετήθηκε</th><th /></tr></thead>
+        <div className="anim-fade overflow-x-auto rounded-2xl border border-stone-line bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+          <table className="o-table">
+            <thead><tr><th>Deal</th><th>Αξία</th><th>Στάδιο</th><th>Υπεύθυνος</th><th>Αρχειοθετήθηκε</th><th className="text-right">Ενέργειες</th></tr></thead>
             <tbody>
               {filtered.filter((l) => l.archived_at).length === 0 && <tr><td colSpan={6} className="py-6 text-center text-sm text-charcoal-600/70">Το αρχείο είναι άδειο.</td></tr>}
               {filtered.filter((l) => l.archived_at).map((l) => (
                 <tr key={l.id}>
-                  <td><Link href={`/crm/leads/${l.id}`} className="font-medium text-charcoal hover:text-forest" data-no-tr>{dealTitle(l)}</Link></td>
+                  <td className="o-strong"><Link href={`/crm/leads/${l.id}`} className="block max-w-[220px] truncate hover:text-forest" data-no-tr>{dealTitle(l)}</Link></td>
                   <td>{formatCurrency(dealValue(l))}</td>
                   <td data-no-tr>{l.status === 'won' ? 'Won' : isClosed(l.status) ? 'Lost' : stageOf(pipe, l.status, l.stage)?.label ?? '—'}</td>
                   <td>{l.owner_name ?? '—'}</td>
                   <td>{l.archived_at ? new Date(l.archived_at).toLocaleDateString(DATE_TAG[currentLocale().lang]) : ''}</td>
-                  <td className="text-right"><button type="button" className="btn-ghost text-xs" onClick={() => archive([l.id], false)}><ArchiveRestore size={14} /> Επαναφορά</button></td>
+                  <td className="text-right"><button type="button" className="inline-flex h-8 items-center gap-1 rounded-[10px] border border-stone-line px-2.5 text-[12px] text-charcoal hover:border-forest/30" onClick={() => archive([l.id], false)}><ArchiveRestore size={13} /> Επαναφορά</button></td>
                 </tr>
               ))}
             </tbody>
