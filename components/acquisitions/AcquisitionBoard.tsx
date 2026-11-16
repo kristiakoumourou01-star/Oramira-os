@@ -1,5 +1,7 @@
 'use client';
 
+import { PopSelect } from '@/components/ui/PopSelect';
+
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -37,7 +39,7 @@ export function AcquisitionBoard({ parcels }: { parcels: ParcelItem[] }) {
   const byStage = (s: string) => parcels.filter((p) => (local[p.id] ?? p.stage) === s);
 
   return (
-    <div className="-mx-1 overflow-x-auto px-1 pb-2">
+    <div className="-mx-1 overflow-x-auto rounded-2xl border border-stone-line bg-white p-3 pb-2 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
       <p className="mb-2 text-[13px] text-charcoal-600">Σύρετε ένα οικόπεδο σε άλλο στάδιο. Το «Deal Analyzer» το βάζει αυτόματα «Σε ανάλυση»· η έγκριση το περνά στο «Acquired» και η απόρριψη στο «Απορρίφθηκε».</p>
       {err && <p className="mb-2 rounded-xl border border-signal-danger/30 bg-rose-50 px-3 py-2 text-sm text-signal-danger">{err}</p>}
       <div className="flex min-h-[420px] min-w-max gap-3">
@@ -65,11 +67,9 @@ export function AcquisitionBoard({ parcels }: { parcels: ParcelItem[] }) {
                       {p.location && <span className="flex items-center gap-0.5"><MapPin size={10} /> {p.location}</span>}
                       {p.plotSizeSqm && <span className="flex items-center gap-0.5"><Ruler size={10} /> {formatNumber(Number(p.plotSizeSqm))}m²</span>}
                     </p>
-                    {p.uplift && <p className="font-medium text-forest">Uplift {formatCurrency(p.uplift.marginAbs)}{p.uplift.estimated ? ' (est.)' : ''}</p>}
+                    {p.uplift && <p className="font-medium text-forest">Υπεραξία {formatCurrency(p.uplift.marginAbs)}{p.uplift.estimated ? ' (εκτ.)' : ''}</p>}
                   </div>
-                  <select value={local[p.id] ?? p.stage} onChange={(e) => move(p.id, e.target.value)} className="mt-2 w-full rounded-full border border-forest/25 bg-white px-2.5 py-1 text-[11px] text-forest focus:border-forest focus:outline-none">
-                    {PARCEL_STAGES.map((s) => <option key={s} value={s}>{STAGE_LABEL[s]}</option>)}
-                  </select>
+                  <div className="mt-2"><PopSelect width="w-full" ariaLabel="Στάδιο" value={local[p.id] ?? p.stage} onChange={(v) => move(p.id, v)} options={PARCEL_STAGES.map((x) => [x, STAGE_LABEL[x]] as [string, string])} /></div>
                 </div>
               ))}
           </BoardLane>

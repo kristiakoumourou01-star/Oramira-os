@@ -3,7 +3,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server';
 import Link from 'next/link';
 import { getParcels, STAGE_LABEL } from '@/lib/acquisitions';
 import { detectAssembly } from '@/lib/land-assembly';
-import { Tabs, type TabDef } from '@/components/ui/Tabs';
+import { HubTabs, type HubTabDef } from '@/components/ui/HubTabs';
 import { WorkspaceHeader } from '@/components/ui/WorkspaceHeader';
 import { AcquisitionMap } from '@/components/acquisitions/AcquisitionMap';
 import { AcquisitionBoard } from '@/components/acquisitions/AcquisitionBoard';
@@ -41,69 +41,71 @@ export default async function AcquisitionsPage({ searchParams }: { searchParams:
 
   const avg = (xs: number[]) => (xs.length ? Math.round(xs.reduce((s, x) => s + x, 0) / xs.length) : 0);
   const kpis = [
-    { label: 'Active owners', value: String(active.length), icon: Users, tone: 'forest' },
-    { label: 'Negotiations', value: String(parcels.filter((p) => p.stage === 'negotiation').length), icon: Handshake, tone: 'forest' },
-    { label: 'Avg score', value: String(avg(active.map((p) => p.score.score))), icon: Gauge, tone: 'forest' },
-    { label: 'Avg readiness', value: String(avg(active.map((p) => p.readiness.score))), icon: HeartHandshake, tone: 'champagne' },
-    { label: 'Potential GDV', value: formatCurrencyCompact(parcels.reduce((s, p) => s + Number((p.offerInputs?.gdv as number) ?? p.uplift?.post ?? 0), 0)), icon: Landmark, tone: 'forest' },
-    { label: 'Est. profit', value: formatCurrencyCompact(parcels.reduce((s, p) => s + (p.uplift?.marginAbs ?? 0), 0)), icon: TrendingUp, tone: 'champagne' },
-    { label: 'Assembly plays', value: String(clusters.length), icon: Puzzle, tone: 'forest' },
-    { label: 'Contacted 7d', value: String(parcels.filter((p) => p.lastContactedAt && now - new Date(p.lastContactedAt).getTime() < 7 * DAY).length), icon: PhoneCall, tone: 'forest' },
-    { label: 'Meetings 7d', value: String(meetings), icon: CalendarCheck, tone: 'forest' },
-    { label: 'Offers pending', value: String(parcels.filter((p) => p.stage === 'offer_made').length), icon: FileSignature, tone: 'danger' },
+    { label: 'Ενεργοί ιδιοκτήτες', value: String(active.length), icon: Users, tone: 'forest' },
+    { label: 'Διαπραγματεύσεις', value: String(parcels.filter((p) => p.stage === 'negotiation').length), icon: Handshake, tone: 'forest' },
+    { label: 'Μέσο σκορ', value: String(avg(active.map((p) => p.score.score))), icon: Gauge, tone: 'forest' },
+    { label: 'Μέση ετοιμότητα', value: String(avg(active.map((p) => p.readiness.score))), icon: HeartHandshake, tone: 'champagne' },
+    { label: 'Δυνητική αξία (GDV)', value: formatCurrencyCompact(parcels.reduce((s, p) => s + Number((p.offerInputs?.gdv as number) ?? p.uplift?.post ?? 0), 0)), icon: Landmark, tone: 'forest' },
+    { label: 'Εκτ. κέρδος', value: formatCurrencyCompact(parcels.reduce((s, p) => s + (p.uplift?.marginAbs ?? 0), 0)), icon: TrendingUp, tone: 'champagne' },
+    { label: 'Ευκαιρίες συνένωσης', value: String(clusters.length), icon: Puzzle, tone: 'forest' },
+    { label: 'Επαφές 7 ημ.', value: String(parcels.filter((p) => p.lastContactedAt && now - new Date(p.lastContactedAt).getTime() < 7 * DAY).length), icon: PhoneCall, tone: 'forest' },
+    { label: 'Συναντήσεις 7 ημ.', value: String(meetings), icon: CalendarCheck, tone: 'forest' },
+    { label: 'Προσφορές σε αναμονή', value: String(parcels.filter((p) => p.stage === 'offer_made').length), icon: FileSignature, tone: 'danger' },
   ];
   const KTONE: Record<string, string> = { forest: 'text-forest', champagne: 'text-champagne-600', danger: 'text-signal-danger' };
 
   const outreachDue = active.filter((p) => ['contacted', 'interested', 'negotiation'].includes(p.stage) && (!p.lastContactedAt || now - new Date(p.lastContactedAt).getTime() > 7 * DAY)).sort((a, b) => b.score.score - a.score.score);
 
-  const tabs: TabDef[] = [
-    { id: 'map', label: 'Χάρτης', content: <AcquisitionMap parcels={parcels} /> },
-    { id: 'pipeline', label: 'Pipeline', content: parcels.length === 0 ? <Panel><p className="text-sm text-charcoal-600/70">No parcels yet — add your first off-market landowner to start sourcing.</p></Panel> : <AcquisitionBoard parcels={parcels} /> },
+  const tabs: HubTabDef[] = [
+    { id: 'map', label: 'Χάρτης', icon: 'Map', value: parcels.length, sub: 'Όλα τα οικόπεδα στον χάρτη', content: <AcquisitionMap parcels={parcels} /> },
+    { id: 'pipeline', label: 'Pipeline', icon: 'Columns', value: active.length, sub: `${acquired} αποκτήθηκαν`, content: parcels.length === 0 ? <Panel><p className="text-sm text-charcoal-600/70">Δεν υπάρχουν ακόμη οικόπεδα. Προσθέστε τον πρώτο ιδιοκτήτη γης για να ξεκινήσετε.</p></Panel> : <AcquisitionBoard parcels={parcels} /> },
     {
-      id: 'scoring', label: 'Αξιολόγηση γης', content: (
-        <Panel>
-          {parcels.length === 0 ? <p className="text-sm text-charcoal-600/70">No parcels scored yet.</p> : (
+      id: 'scoring', label: 'Αξιολόγηση γης', icon: 'Gauge', value: avg(active.map((p) => p.score.score)), sub: 'Μέσο σκορ ενεργών', content: (
+        <div className="overflow-hidden rounded-2xl border border-stone-line bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+          {parcels.length === 0 ? <p className="p-6 text-sm text-charcoal-600/70">Δεν έχουν αξιολογηθεί οικόπεδα ακόμη.</p> : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead><tr className="text-left text-xs uppercase tracking-wide text-charcoal-600/50"><th className="pb-2 pr-3">Parcel</th><th className="pb-2 pr-3">Location</th><th className="pb-2 pr-3 text-right">Readiness</th><th className="pb-2 pr-3 text-right">Uplift</th><th className="pb-2 text-right">Score</th></tr></thead>
+              <table className="o-table">
+                <thead><tr><th>Οικόπεδο</th><th>Ιδιοκτήτης</th><th>Τοποθεσία</th><th>Στάδιο</th><th className="text-right">Ετοιμότητα</th><th className="text-right">Υπεραξία</th><th className="text-right">Σκορ</th></tr></thead>
                 <tbody>
                   {parcels.map((p) => (
-                    <tr key={p.id} className="border-t border-stone-line">
-                      <td className="py-2.5 pr-3"><Link href={`/acquisitions/${p.id}`} className="font-medium text-charcoal hover:text-forest">{p.reference}</Link><br /><span className="text-[11px] text-charcoal-600/50">{p.ownerName ?? '—'}</span></td>
-                      <td className="py-2.5 pr-3 text-charcoal-600/70">{p.location ?? '—'}</td>
-                      <td className="py-2.5 pr-3 text-right figure text-champagne-600">{p.readiness.score}</td>
-                      <td className="py-2.5 pr-3 text-right figure text-forest">{p.uplift ? formatCurrency(p.uplift.marginAbs) : '—'}</td>
-                      <td className="py-2.5 text-right"><span className={`figure rounded-md px-2 py-0.5 text-xs font-semibold ${BAND[p.score.band]}`}>{p.score.score}</span></td>
+                    <tr key={p.id}>
+                      <td className="o-strong" data-no-tr><Link href={`/acquisitions/${p.id}`} className="hover:text-forest">{p.reference}</Link></td>
+                      <td data-no-tr>{p.ownerName ?? '—'}</td>
+                      <td data-no-tr><span className="block max-w-[160px] truncate">{p.location ?? '—'}</span></td>
+                      <td>{STAGE_LABEL[p.stage]}</td>
+                      <td className="text-right tabular-nums">{p.readiness.score}</td>
+                      <td className="text-right tabular-nums">{p.uplift ? formatCurrency(p.uplift.marginAbs) : '—'}</td>
+                      <td className="text-right"><span className={`figure rounded-md px-2 py-0.5 text-xs font-semibold ${BAND[p.score.band]}`}>{p.score.score}</span></td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
           )}
-        </Panel>
+        </div>
       ),
     },
-    { id: 'assembly', label: 'Συνένωση', content: <AssemblyPanel clusters={clusters} /> },
+    { id: 'assembly', label: 'Συνένωση', icon: 'Puzzle', value: clusters.length, sub: 'Γειτονικά οικόπεδα για ένωση', content: <AssemblyPanel clusters={clusters} /> },
     {
-      id: 'outreach', label: 'Επαφές ιδιοκτητών', content: (
+      id: 'outreach', label: 'Επαφές ιδιοκτητών', icon: 'PhoneCall', value: outreachDue.length, sub: 'Χρειάζονται επικοινωνία', content: (
         <div className="space-y-4">
           <Panel>
-            <h4 className="mb-1 text-charcoal">Automated outreach cadence</h4>
-            <p className="mb-3 text-xs text-charcoal-600/60">The <span className="font-medium">acquisition_cadence</span> job nudges quiet landowners — WhatsApp then email, audience-aware — and flags a call. Follow-ups, DD deadlines and stalled-negotiation escalations run automatically.</p>
+            <h4 className="mb-1 text-charcoal">Αυτόματη επικοινωνία</h4>
+            <p className="mb-3 text-xs text-charcoal-600/60">Ο αυτοματισμός υπενθυμίζει στους ιδιοκτήτες που δεν έχουν απαντήσει (πρώτα WhatsApp, μετά email) και σημειώνει πότε χρειάζεται τηλεφώνημα. Follow-ups, προθεσμίες ελέγχου και κολλημένες διαπραγματεύσεις τρέχουν αυτόματα.</p>
             <div className="flex flex-wrap gap-2 text-xs text-charcoal-600/70">
-              <span className="flex items-center gap-1 rounded-lg bg-sand-100 px-2.5 py-1"><Phone size={12} className="text-forest" /> Call</span>
+              <span className="flex items-center gap-1 rounded-lg bg-sand-100 px-2.5 py-1"><Phone size={12} className="text-forest" /> Κλήση</span>
               <span className="flex items-center gap-1 rounded-lg bg-sand-100 px-2.5 py-1"><MessageCircle size={12} className="text-forest" /> WhatsApp</span>
               <span className="flex items-center gap-1 rounded-lg bg-sand-100 px-2.5 py-1"><Mail size={12} className="text-forest" /> Email</span>
             </div>
           </Panel>
           <Panel>
-            <h4 className="mb-3 text-charcoal">Due for outreach · {outreachDue.length}</h4>
-            {outreachDue.length === 0 ? <p className="text-sm text-charcoal-600/60">Every active landowner has been contacted recently. 🎉</p> : (
+            <h4 className="mb-3 text-charcoal">Χρειάζονται επικοινωνία · {outreachDue.length}</h4>
+            {outreachDue.length === 0 ? <p className="text-sm text-charcoal-600/60">Όλοι οι ενεργοί ιδιοκτήτες έχουν ενημερωθεί πρόσφατα.</p> : (
               <ul className="divide-y divide-stone-line">
                 {outreachDue.map((p) => (
                   <li key={p.id} className="flex items-center justify-between gap-2 py-2.5 text-sm">
                     <div className="min-w-0"><Link href={`/acquisitions/${p.id}`} className="font-medium text-charcoal hover:text-forest">{p.reference}</Link><span className="text-[11px] text-charcoal-600/55">{p.ownerName ? ` · ${p.ownerName}` : ''} · {STAGE_LABEL[p.stage]}</span></div>
-                    <span className="shrink-0 text-[11px] text-signal-danger">{p.lastContactedAt ? `${Math.floor((now - new Date(p.lastContactedAt).getTime()) / DAY)}d quiet` : 'never contacted'}</span>
+                    <span className="shrink-0 text-[11px] text-signal-danger">{p.lastContactedAt ? `${Math.floor((now - new Date(p.lastContactedAt).getTime()) / DAY)} μέρες χωρίς επαφή` : 'καμία επαφή ακόμη'}</span>
                   </li>
                 ))}
               </ul>
@@ -116,20 +118,20 @@ export default async function AcquisitionsPage({ searchParams }: { searchParams:
 
   return (
     <div className="space-y-5">
-      <WorkspaceHeader eyebrow="Workspace" title="Acquisitions" description={`${active.length} active · ${acquired} acquired · a map-first off-market sourcing engine.`} action={<NewParcelForm agents={(agents ?? []) as any} />} />
+      <WorkspaceHeader eyebrow="Έργα" title="Αγορές γης" description={`${active.length} ενεργά · ${acquired} αποκτήθηκαν · εντοπισμός και διαπραγμάτευση οικοπέδων εκτός αγοράς.`} action={<NewParcelForm agents={(agents ?? []) as any} />} />
 
       {/* Executive KPI bar */}
-      <div className="ws-card grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-5 !py-4">
+      <div className="grid grid-cols-2 gap-x-4 gap-y-3 rounded-2xl border border-stone-line bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:grid-cols-5">
         {kpis.map((k) => (
           <div key={k.label} className="flex items-center gap-2.5">
             <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-forest/[0.06] ${KTONE[k.tone]}`}><k.icon size={15} strokeWidth={1.9} /></span>
-            <div><p className={`figure text-xl leading-none ${KTONE[k.tone]}`}>{k.value}</p><p className="mt-0.5 text-[10px] uppercase tracking-wide text-charcoal-600/50">{k.label}</p></div>
+            <div><p className="text-xl font-semibold leading-none tabular-nums text-charcoal">{k.value}</p><p className="mt-0.5 text-[11px] text-charcoal-600">{k.label}</p></div>
           </div>
         ))}
       </div>
 
       {/* Χάρτης / Pipeline / Αξιολόγηση / Συνένωση / Επαφές — αμέσως κάτω από τους αριθμούς */}
-      <Tabs tabs={tabs} initial={searchParams?.tab} />
+      <HubTabs tabs={tabs} initial={searchParams?.tab ?? 'pipeline'} cols={3} />
     </div>
   );
 }
