@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { History, Sparkles, ScrollText as Scroll2, Users, Plane, Wallet, FileSignature, FolderOpen, Gift, BarChart3, ShieldAlert, UserPlus, Receipt, Settings, User, Lock, Bell, Palette, LayoutGrid, Building2, Mail, ListChecks, Globe, KeyRound, ScrollText, Smartphone, Inbox, TrendingUp, LineChart, Hammer, Map as MapIcon, Calculator, Home, Wrench, CalendarDays, FileText, ShieldCheck, Users as Users2, type LucideIcon } from 'lucide-react';
+import { History, Sparkles, ScrollText as Scroll2, Users, Plane, Wallet, FileSignature, FolderOpen, Gift, BarChart3, ShieldAlert, UserPlus, Receipt, Settings, User, Lock, Bell, Palette, LayoutGrid, Building2, Mail, ListChecks, Globe, KeyRound, ScrollText, Smartphone, Inbox, TrendingUp, LineChart, Hammer, Map as MapIcon, Calculator, Home, Wrench, CalendarDays, FileText, ShieldCheck, type LucideIcon } from 'lucide-react';
 import { HubCards } from '@/components/ui/HubCards';
 
 const ICONS: Record<string, LucideIcon> = { History, Sparkles, Scroll2, Users, Plane, Wallet, FileSignature, FolderOpen, Gift, BarChart3, ShieldAlert, UserPlus, Receipt, Settings, User, Lock, Bell, Palette, LayoutGrid, Building2, Mail, ListChecks, Globe, KeyRound, ScrollText, Smartphone, Inbox, TrendingUp, LineChart, Hammer, Map: MapIcon, Calculator, Home, Wrench, CalendarDays, FileText, ShieldCheck };
