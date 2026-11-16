@@ -81,7 +81,7 @@ export default async function InvoicesPage({ searchParams }: { searchParams: { k
         ))}
       </div>
 
-      <form className="panel grid gap-3 p-4 sm:grid-cols-[2fr_1fr_1fr_1fr_auto] sm:items-end" method="get">
+      <form className="panel grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1fr_auto] sm:items-end" method="get">
         {kind && <input type="hidden" name="kind" value={kind} />}
         <label className="block"><span className="eyebrow mb-1 block">Αναζήτηση</span><input className="input" name="q" defaultValue={searchParams.q ?? ''} placeholder="Αριθμός, πελάτης, email" /></label>
         <label className="block"><span className="eyebrow mb-1 block">Κατάσταση</span>

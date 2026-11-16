@@ -388,7 +388,7 @@ export function PlannerBoard({ events: propEvents, leads = [], projects = [], te
 
       <div className="grid gap-4 lg:grid-cols-12">
       {/* LEFT — full-day planner (primary surface, ~65%) */}
-      <Card className="lg:col-span-8 ws-card-primary">
+      <Card className="min-w-0 lg:col-span-8 ws-card-primary">
         {routePlan && routePlan.stops.length > 0 && (
           <div className="mb-3 flex w-fit gap-0.5 rounded-lg bg-[#F0EADF] p-0.5">
             {([['timeline', 'Timeline'], ['route', `Route · ${routePlan.stops.length}`]] as const).map(([t, label]) => (
@@ -400,7 +400,7 @@ export function PlannerBoard({ events: propEvents, leads = [], projects = [], te
         {/* Quick add */}
         <div className="mb-2.5 flex items-center gap-2 rounded-xl bg-[#F5F1E8] px-3 py-1.5 shadow-[inset_0_0_0_1px_rgba(31,77,58,0.05)] transition-shadow focus-within:shadow-[inset_0_0_0_1px_rgba(200,169,107,0.55)]">
           <Plus size={14} className="text-forest" />
-          <input value={quickAdd} onChange={(e) => setQuickAdd(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); submitQuickAdd(); } }} placeholder="Quick add — e.g. Call Michael tomorrow at 11" className="flex-1 bg-transparent text-sm text-charcoal placeholder:text-charcoal-600/50 focus:outline-none" />
+          <input value={quickAdd} onChange={(e) => setQuickAdd(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); submitQuickAdd(); } }} placeholder="Quick add — e.g. Call Michael tomorrow at 11" className="min-w-0 flex-1 bg-transparent text-sm text-charcoal placeholder:text-charcoal-600/50 focus:outline-none" />
         </div>
         <div className="mb-2 flex items-center justify-between gap-2">
           <div className="flex items-center gap-1">

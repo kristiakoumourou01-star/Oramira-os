@@ -15,7 +15,7 @@ const MON = ['Ιαν', 'Φεβ', 'Μαρ', 'Απρ', 'Μάι', 'Ιούν', 'Ιο
 const mLabel = (k: string) => `${MON[Number(k.slice(5)) - 1]} ${k.slice(2, 4)}`;
 
 function Card({ title, sub, children }: { title: string; sub?: string; children: React.ReactNode }) {
-  return <section className="panel p-5"><p className="font-semibold text-charcoal">{title}</p>{sub && <p className="mb-3 text-xs text-charcoal-600/70">{sub}</p>}{!sub && <div className="mb-3" />}{children}</section>;
+  return <section className="panel min-w-0 p-5"><p className="font-semibold text-charcoal">{title}</p>{sub && <p className="mb-3 text-xs text-charcoal-600/70">{sub}</p>}{!sub && <div className="mb-3" />}{children}</section>;
 }
 
 /** Sales → Insights: αναφορές όπως στο Pipedrive. */

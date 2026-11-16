@@ -93,7 +93,7 @@ export function CalendarView({
           <button onClick={() => go(new Date())} className="h-9 rounded-full border border-forest/40 bg-forest/[0.07] px-4 text-xs font-semibold text-forest transition hover:bg-forest hover:text-white">Σήμερα</button>
           <button onClick={() => step(1)} className="flex h-9 w-9 items-center justify-center rounded-full border border-stone-line text-charcoal-600 transition hover:border-forest/40 hover:text-forest" aria-label="Επόμενο"><ChevronRight size={16} /></button>
         </div>
-        <h3 className="min-w-[180px] font-display text-2xl capitalize tracking-tight text-charcoal">{title}</h3>
+        <h3 className="font-display sm:min-w-[180px] text-2xl capitalize tracking-tight text-charcoal">{title}</h3>
 
         {/* Jump to any date (e.g. 2 months ahead) */}
         <input
@@ -104,7 +104,7 @@ export function CalendarView({
           aria-label="Μετάβαση σε ημερομηνία"
         />
 
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex flex-wrap items-center gap-2">
           <button
             onClick={toggleTeam}
             className={`inline-flex h-9 items-center gap-1.5 rounded-full border px-4 text-xs font-medium transition-colors ${teamMode ? 'border-forest bg-forest text-white' : 'border-stone-line text-charcoal-600 hover:border-forest/40 hover:text-forest'}`}

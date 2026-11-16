@@ -326,7 +326,7 @@ function CustomersSide({ rows, groups, newThisMonth, onGroup, onUngrouped, expor
       </div>
 
       <div className={card}>
-        <div className="flex items-center justify-between gap-2"><p className="text-[15px] font-semibold text-charcoal">Κορυφαίοι πελάτες</p>
+        <div className="flex flex-wrap items-center justify-between gap-2"><p className="text-[15px] font-semibold text-charcoal">Κορυφαίοι πελάτες</p>
           <span className="flex gap-1">{(['all', 'active', 'inactive'] as const).map((k) => <button key={k} type="button" onClick={() => setWho(k)} className={chip(who === k)}>{k === 'all' ? 'Όλοι' : k === 'active' ? 'Ενεργοί' : 'Ανενεργοί'}</button>)}</span></div>
         <div className="mt-2 flex flex-wrap gap-1">{(['value', 'paid', 'recent'] as const).map((k) => <button key={k} type="button" onClick={() => setMetric(k)} className={chip(metric === k)}>{k === 'value' ? 'Αξία' : k === 'paid' ? 'Εισπράξεις' : 'Πρόσφατη επαφή'}</button>)}</div>
         <ol className="mt-3 space-y-2.5">
