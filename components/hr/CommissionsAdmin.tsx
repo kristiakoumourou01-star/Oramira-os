@@ -42,7 +42,7 @@ export function CommissionsAdmin({ commissions }: { commissions: CommissionRow[]
               </div>
               <div className="flex items-center gap-2">
                 <span className="figure text-charcoal">{formatCurrency(c.amount)}</span>
-                <span className={c.status === 'paid' ? 'badge-forest' : 'badge-champagne'}>{c.status}</span>
+                <span className={c.status === 'paid' ? 'badge-forest' : 'badge-champagne'}>{({ active: 'Ενεργή', inactive: 'Ανενεργή', paid: 'Πληρώθηκε', pending: 'Εκκρεμεί' } as Record<string, string>)[c.status] ?? c.status}</span>
                 <button
                   onClick={() => startTransition(async () => { await setCommissionStatus(c.id, c.status === 'paid' ? 'pending' : 'paid'); router.refresh(); })}
                   disabled={isPending}

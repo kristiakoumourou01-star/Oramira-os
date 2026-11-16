@@ -27,8 +27,8 @@ export function PayrollApprovals({ payslips }: { payslips: PayslipRow[] }) {
   if (payslips.length === 0) return <p className="text-sm text-charcoal-600/70">No payslips generated yet.</p>;
 
   return (
-    <div className="panel overflow-x-auto">
-      <table className="table-base w-full">
+    <div className="overflow-x-auto rounded-2xl border border-stone-line bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+      <table className="o-table">
         <thead><tr><th>Employee</th><th>Period</th><th>Gross</th><th>Net payable</th><th>Employer cost</th><th>Status</th><th></th></tr></thead>
         <tbody>
           {payslips.map((p) => (
@@ -38,7 +38,7 @@ export function PayrollApprovals({ payslips }: { payslips: PayslipRow[] }) {
               <td className="figure">{formatCurrency(p.gross_amount)}</td>
               <td className="figure">{formatCurrency(p.net_amount)}</td>
               <td className="figure text-charcoal-600">{formatCurrency(p.employer_cost)}</td>
-              <td><span className={STATUS_CLASS[p.status] ?? 'badge-neutral'}>{p.status}</span></td>
+              <td><span className={STATUS_CLASS[p.status] ?? 'badge-neutral'}>{({ draft: 'Πρόχειρο', approved: 'Εγκρίθηκε', paid: 'Πληρώθηκε' } as Record<string, string>)[p.status] ?? p.status}</span></td>
               <td className="text-right">
                 <div className="flex items-center justify-end gap-2">
                   <Link href={`/payslips/${p.id}`} className="btn-ghost text-xs"><FileText size={13} strokeWidth={1.75} /> View</Link>

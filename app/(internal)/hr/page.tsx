@@ -87,7 +87,7 @@ export default async function HRWorkspacePage({ searchParams }: { searchParams: 
       ),
     },
     {
-      id: 'intelligence', label: 'Intelligence', icon: 'ShieldAlert', value: hrAlerts.filter((a) => a.severity === 'high').length, sub: 'Κίνδυνοι και ειδοποιήσεις HR',
+      id: 'intelligence', label: 'Ειδοποιήσεις HR', icon: 'ShieldAlert', value: hrAlerts.filter((a) => a.severity === 'high').length, sub: 'Κίνδυνοι και ειδοποιήσεις HR',
       content: (
         <Panel>
           <div className="mb-4">
@@ -100,12 +100,12 @@ export default async function HRWorkspacePage({ searchParams }: { searchParams: 
     },
     { id: 'contracts', label: 'Συμβάσεις', icon: 'FileSignature', value: contractRows.length, sub: 'Συμβάσεις εργασίας και λήξεις', content: <ContractsAdmin employees={emps} contracts={contractRows} /> },
     {
-      id: 'payslips', label: 'Payslips', icon: 'Receipt', value: payslipRows.length, sub: 'Εκκαθαριστικά ανά μήνα', content: (
-        <Panel>{payslipRows.length === 0 ? <p className="text-sm text-charcoal-600/70">No payslips yet.</p> : (
-          <div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="text-left text-xs uppercase tracking-wide text-charcoal-600/50"><th className="pb-2">Employee</th><th className="pb-2">Period</th><th className="pb-2 text-right">Net</th><th className="pb-2 text-right">Status</th></tr></thead>
-            <tbody>{payslipRows.map((p) => (<tr key={p.id} className="border-t border-stone-line"><td className="py-2 text-charcoal">{p.employee ?? '—'}</td><td className="py-2 text-charcoal-600">{p.period}</td><td className="py-2 text-right figure text-charcoal">{p.net_amount != null ? `${formatCurrency(Number(p.net_amount))}` : '—'}</td><td className="py-2 text-right"><span className={p.status === 'approved' ? 'badge-forest' : 'badge-neutral'}>{p.status}</span></td></tr>))}</tbody>
+      id: 'payslips', label: 'Εκκαθαριστικά', icon: 'Receipt', value: payslipRows.length, sub: 'Εκκαθαριστικά ανά μήνα', content: (
+        <div className="overflow-hidden rounded-2xl border border-stone-line bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">{payslipRows.length === 0 ? <p className="p-6 text-sm text-charcoal-600/70">Δεν υπάρχουν ακόμη εκκαθαριστικά.</p> : (
+          <div className="overflow-x-auto"><table className="o-table"><thead><tr><th>Υπάλληλος</th><th>Περίοδος</th><th className="text-right">Καθαρό</th><th className="text-right">Κατάσταση</th></tr></thead>
+            <tbody>{payslipRows.map((p) => (<tr key={p.id}><td className="o-strong" data-no-tr>{p.employee ?? '—'}</td><td>{p.period}</td><td className="text-right tabular-nums">{p.net_amount != null ? `${formatCurrency(Number(p.net_amount))}` : '—'}</td><td className="text-right"><span className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${p.status === 'approved' || p.status === 'paid' ? 'border-forest/30 bg-forest/[0.08] text-forest' : 'border-stone-line text-charcoal'}`}>{({ draft: 'Πρόχειρο', approved: 'Εγκρίθηκε', paid: 'Πληρώθηκε' } as Record<string, string>)[p.status] ?? p.status}</span></td></tr>))}</tbody>
           </table></div>
-        )}</Panel>
+        )}</div>
       ),
     },
     { id: 'documents', label: 'Έγγραφα', icon: 'FolderOpen', value: empDocs.length, sub: 'Ταυτότητες, συμβάσεις, πιστοποιητικά', content: <EmployeeDocuments docs={empDocs} employees={emps.map((e: any) => ({ id: e.id, name: e.full_name ?? '—' }))} canEdit={canEditHr} /> },

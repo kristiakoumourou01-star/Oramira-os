@@ -12,7 +12,7 @@ const MOD: Record<PriorityModule, { label: string; cls: string }> = {
 };
 
 const Block = ({ icon: Icon, title, children }: { icon: any; title: string; children: React.ReactNode }) => (
-  <div className="rounded-xl bg-white p-3.5 shadow-[0_1px_2px_rgba(31,77,58,0.04),0_6px_16px_rgba(31,77,58,0.06),inset_0_0_0_1px_rgba(31,77,58,0.04)]">
+  <div className="rounded-2xl border border-stone-line bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
     <p className="mb-2.5 flex items-center gap-2 border-b border-stone-line/70 pb-2 text-[12px] font-semibold uppercase tracking-wide text-charcoal"><Icon size={13} strokeWidth={2} className="text-forest" /> {title}</p>
     {children}
   </div>
@@ -31,7 +31,7 @@ export function CommandCenterBoard({ data }: { data: CommandCenter }) {
               {data.topPriorities.map((p, i) => (
                 <li key={p.id} className="flex items-center gap-2.5">
                   <span className="figure w-4 shrink-0 text-xs text-charcoal-600/40">{i + 1}</span>
-                  <Link href={p.href} className="min-w-0 flex-1"><span className="block truncate text-sm text-charcoal hover:text-champagne-600">{p.title}</span><span className="text-[11px] text-charcoal-600/55">{p.subtitle}</span></Link>
+                  <Link href={p.href} className="min-w-0 flex-1"><span className="block truncate text-sm text-charcoal hover:text-forest">{p.title}</span><span className="text-[11px] text-charcoal-600/55">{p.subtitle}</span></Link>
                   <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] ${MOD[p.module].cls}`}>{MOD[p.module].label}</span>
                   <span className="figure w-7 shrink-0 text-right text-xs text-forest">{p.score}</span>
                 </li>
@@ -57,12 +57,12 @@ export function CommandCenterBoard({ data }: { data: CommandCenter }) {
           <div className="mb-2 grid grid-cols-3 gap-2 text-center">
             {([['30d', cf.net30], ['60d', cf.net60], ['90d', cf.net90]] as const).map(([label, v]) => (
               <div key={label} className="rounded-lg bg-sand-100/70 p-2">
-                <p className="text-[10px] uppercase tracking-wide text-charcoal-600/50">Net {label}</p>
+                <p className="text-[10px] uppercase tracking-wide text-charcoal-600/50">Καθαρό {label}</p>
                 <p className={`figure text-sm ${v >= 0 ? 'text-signal-success' : 'text-signal-danger'}`}>{formatCurrency(v)}</p>
               </div>
             ))}
           </div>
-          <p className="text-[11px] text-charcoal-600/70">{cf.note}{cf.overdueReceivables > 0 ? ` ${formatCurrency(cf.overdueReceivables)} overdue to collect.` : ''}</p>
+          <p className="text-[11px] text-charcoal-600/70">{cf.note}{cf.overdueReceivables > 0 ? ` ${formatCurrency(cf.overdueReceivables)} ληξιπρόθεσμα προς είσπραξη.` : ''}</p>
         </Block>
 
         <Block icon={Users} title="Team bottlenecks">
@@ -99,7 +99,7 @@ export function CommandCenterBoard({ data }: { data: CommandCenter }) {
             <ul className="space-y-1.5">
               {data.urgentDeals.map((d) => (
                 <li key={d.id} className="flex items-center justify-between gap-2 text-sm">
-                  <Link href={`/crm/leads/${d.id}`} className="truncate text-charcoal hover:text-champagne-600">{d.name}</Link>
+                  <Link href={`/crm/leads/${d.id}`} className="truncate text-charcoal hover:text-forest">{d.name}</Link>
                   <span className="shrink-0 text-[11px] text-charcoal-600/55">{d.reason}</span>
                 </li>
               ))}

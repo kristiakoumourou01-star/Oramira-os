@@ -1,5 +1,7 @@
 'use client';
 
+import { PopSelect } from '@/components/ui/PopSelect';
+
 import { useMemo, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -68,14 +70,14 @@ export function TeamTasks({ tasks, staff, me, isLead, initialView }: { tasks: Te
 
       <div className="rounded-2xl border border-stone-line bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
         <div className="flex flex-wrap items-center gap-2 p-4 sm:p-5">
-          {(isLead || view === 'assigned') && <select value={who} onChange={(e) => setWho(e.target.value)} className="input h-10 w-auto min-w-[170px] text-sm"><option value="">Όλα τα άτομα</option>{staff.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select>}
-          <select value={pri} onChange={(e) => setPri(e.target.value)} className="input h-10 w-auto min-w-[150px] text-sm"><option value="">Κάθε προτεραιότητα</option>{Object.entries(PRI).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
-          {lists.length > 0 && <select value={list} onChange={(e) => setList(e.target.value)} className="input h-10 w-auto min-w-[150px] text-sm"><option value="">Όλες οι λίστες</option>{lists.map((l) => <option key={l} value={l}>{l}</option>)}</select>}
-          <label className="relative min-w-[200px] flex-1 sm:max-w-xs"><Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-charcoal-600/60" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Αναζήτηση…" className="input h-10 pl-9" /></label>
-          <button type="button" onClick={() => setDlg('new')} className="btn-primary ml-auto text-sm"><Plus size={15} /> Νέα εργασία</button>
+          {(isLead || view === 'assigned') && <PopSelect searchable width="min-w-[160px]" ariaLabel="Άτομο" value={who} onChange={setWho} options={[['', 'Όλα τα άτομα'], ...staff.map((x) => [x.id, x.name] as [string, string])]} />}
+          <PopSelect width="min-w-[150px]" ariaLabel="Προτεραιότητα" value={pri} onChange={setPri} options={[['', 'Κάθε προτεραιότητα'], ...(Object.entries(PRI) as [string, string][])]} />
+          {lists.length > 0 && <PopSelect width="min-w-[140px]" ariaLabel="Λίστα" value={list} onChange={setList} options={[['', 'Όλες οι λίστες'], ...lists.map((l) => [l, l] as [string, string])]} />}
+          <label className="relative w-full sm:w-[220px]"><Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-charcoal-600/60" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Αναζήτηση…" className="input h-8 py-1 pl-8 text-[13px]" /></label>
+          <button type="button" onClick={() => setDlg('new')} className="inline-flex h-8 items-center gap-1.5 rounded-[10px] bg-forest px-2.5 text-[14px] font-medium text-white transition-all hover:bg-forest/90 sm:ml-auto"><Plus size={15} /> Νέα εργασία</button>
         </div>
         <div className="overflow-x-auto border-t border-stone-line">
-          <table className="table-base w-full min-w-[820px]">
+          <table className="o-table">
             <thead><tr><th className="w-10" /><th>Εργασία</th><th>Ανατέθηκε σε</th><th>Προθεσμία</th><th>Προτεραιότητα</th><th>Από</th><th className="text-right">Ενέργειες</th></tr></thead>
             <tbody>
               {shown.map((t) => {
