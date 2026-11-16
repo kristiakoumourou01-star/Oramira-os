@@ -31,7 +31,7 @@ export function RoomsEditor({ unitId, projectId, initial, canEdit, missing }: { 
       </div>
       {rooms.length === 0 && !canEdit && <p className="text-sm text-charcoal-600/70">Δεν έχουν καταχωρηθεί δωμάτια.</p>}
       {rooms.length > 0 && (
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto"><table className="w-full text-sm">
           <thead><tr className="text-left text-[11px] uppercase tracking-wide text-charcoal-600/60"><th className="py-1">Χώρος</th><th className="py-1 text-right">Μήκος</th><th className="py-1 text-right">Πλάτος</th><th className="py-1 text-right">m²</th><th /></tr></thead>
           <tbody>
             {rooms.map((r, i) => (
@@ -45,7 +45,7 @@ export function RoomsEditor({ unitId, projectId, initial, canEdit, missing }: { 
             ))}
             <tr className="border-t border-charcoal/20 font-semibold"><td className="py-1.5">Σύνολο</td><td /><td /><td className="figure py-1.5 text-right">{formatDecimal(total, 2)}</td><td /></tr>
           </tbody>
-        </table>
+        </table></div>
       )}
       {canEdit && !missing && (
         <div className="flex flex-wrap items-center gap-2">

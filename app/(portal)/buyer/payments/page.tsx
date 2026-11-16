@@ -49,7 +49,7 @@ export default async function PaymentCenterPage() {
         <h1 className="font-display text-3xl">Payment Center</h1>
       </div>
 
-      <div className="grid grid-cols-3 gap-6">
+      <div className="grid gap-6 md:grid-cols-3">
         <div className="panel col-span-1 p-6">
           <p className="eyebrow mb-3">Paid to date</p>
           <PaymentProgress paid={paid} total={total} />
@@ -73,7 +73,7 @@ export default async function PaymentCenterPage() {
         {scheduleRows.length === 0 ? (
           <p className="text-sm text-charcoal-600/70">Your installment schedule will be published here.</p>
         ) : (
-          <table className="table-base w-full">
+          <div className="overflow-x-auto"><table className="table-base w-full">
             <thead>
               <tr><th>#</th><th>Description</th><th>Due date</th><th>Amount</th><th>Status</th></tr>
             </thead>
@@ -94,7 +94,7 @@ export default async function PaymentCenterPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         )}
       </div>
 

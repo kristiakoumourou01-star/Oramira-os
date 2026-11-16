@@ -48,7 +48,7 @@ export function PropertyUnitsTable({ units, contacts }: { units: PropertyUnit[];
         <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Owner, unit, or project…" className="w-full outline-none" />
       </div>
 
-      <div className="panel overflow-hidden">
+      <div className="panel overflow-x-auto">
         <table className="table-base w-full">
           <thead><tr><th>Unit</th><th>Project</th><th>Owner</th><th>Occupancy</th><th>Open tickets</th><th></th></tr></thead>
           <tbody>

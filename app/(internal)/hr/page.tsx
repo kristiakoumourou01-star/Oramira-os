@@ -102,9 +102,9 @@ export default async function HRWorkspacePage({ searchParams }: { searchParams: 
     {
       id: 'payslips', label: 'Payslips', icon: 'Receipt', value: payslipRows.length, sub: 'Εκκαθαριστικά ανά μήνα', content: (
         <Panel>{payslipRows.length === 0 ? <p className="text-sm text-charcoal-600/70">No payslips yet.</p> : (
-          <table className="w-full text-sm"><thead><tr className="text-left text-xs uppercase tracking-wide text-charcoal-600/50"><th className="pb-2">Employee</th><th className="pb-2">Period</th><th className="pb-2 text-right">Net</th><th className="pb-2 text-right">Status</th></tr></thead>
+          <div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="text-left text-xs uppercase tracking-wide text-charcoal-600/50"><th className="pb-2">Employee</th><th className="pb-2">Period</th><th className="pb-2 text-right">Net</th><th className="pb-2 text-right">Status</th></tr></thead>
             <tbody>{payslipRows.map((p) => (<tr key={p.id} className="border-t border-stone-line"><td className="py-2 text-charcoal">{p.employee ?? '—'}</td><td className="py-2 text-charcoal-600">{p.period}</td><td className="py-2 text-right figure text-charcoal">{p.net_amount != null ? `${formatCurrency(Number(p.net_amount))}` : '—'}</td><td className="py-2 text-right"><span className={p.status === 'approved' ? 'badge-forest' : 'badge-neutral'}>{p.status}</span></td></tr>))}</tbody>
-          </table>
+          </table></div>
         )}</Panel>
       ),
     },

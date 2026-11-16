@@ -52,7 +52,7 @@ export function RiskPanel({ risk, sensitivity }: { risk: RiskBreakdown; sensitiv
 
       <section className="panel p-6">
         <h4 className="mb-4">Sensitivity (±10%)</h4>
-        <table className="table-base w-full">
+        <div className="overflow-x-auto"><table className="table-base w-full">
           <thead>
             <tr><th>Variable</th><th>Downside</th><th>Base</th><th>Upside</th></tr>
           </thead>
@@ -66,7 +66,7 @@ export function RiskPanel({ risk, sensitivity }: { risk: RiskBreakdown; sensitiv
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></div>
         <p className="mt-3 text-[11px] text-charcoal-600/55">Net profit under a 10% move in each variable, holding others constant.</p>
       </section>
     </div>

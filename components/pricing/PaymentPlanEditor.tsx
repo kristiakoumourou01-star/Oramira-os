@@ -42,7 +42,7 @@ export function PaymentPlanEditor({ initial, target, price, canEdit, projectPlan
   if (!editing) {
     return (
       <div className="space-y-2">
-        <table className="table-base w-full">
+        <div className="overflow-x-auto"><table className="table-base w-full">
           <thead><tr><th>#</th><th>Δόση</th><th>Πότε</th><th className="text-right">%</th><th className="text-right">Ποσό</th></tr></thead>
           <tbody>
             {steps.map((s, i) => (
@@ -52,7 +52,7 @@ export function PaymentPlanEditor({ initial, target, price, canEdit, projectPlan
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></div>
         <div className="flex flex-wrap items-center gap-2 text-xs text-charcoal-600/70">
           <span>{target.kind === 'unit' && (target.custom ? 'Δικό της πρόγραμμα για αυτή τη μονάδα.' : 'Το πρόγραμμα του έργου.')}</span>
           {canEdit && target.kind === 'unit' && <button type="button" onClick={() => setEditing(true)} className="btn-secondary px-2.5 py-1 text-xs">Προσαρμογή για αυτή τη μονάδα</button>}

@@ -55,7 +55,7 @@ export default async function ContractorJobsPage() {
         />
       ) : (
         <>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid gap-4 md:grid-cols-3">
             <div className="panel p-5"><p className="eyebrow mb-1">Active</p><p className="figure text-3xl text-forest">{active.length}</p></div>
             <div className="panel p-5"><p className="eyebrow mb-1">Awaiting parts</p><p className="figure text-3xl text-forest">{all.filter((j) => j.status === 'awaiting_parts').length}</p></div>
             <div className="panel p-5"><p className="eyebrow mb-1">Completed</p><p className="figure text-3xl text-forest">{done.length}</p></div>

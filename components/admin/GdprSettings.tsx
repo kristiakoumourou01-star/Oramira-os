@@ -133,7 +133,7 @@ export function GdprSettings({ initial, canEdit, erasures, missing }: { initial:
         <h4>Ιστορικό διαγραφών</h4>
         <Help>Κρατιέται χωρίς προσωπικά στοιχεία, ως απόδειξη ότι το αίτημα εκτελέστηκε. Το πλήρες ιστορικό ενεργειών είναι στο Audit log.</Help>
         {erasures.length === 0 ? <p className="text-sm text-charcoal-600/70">Καμία διαγραφή ακόμη.</p> : (
-          <table className="table-base w-full">
+          <div className="overflow-x-auto"><table className="table-base w-full">
             <thead><tr><th>Πότε</th><th>Τρόπος</th><th>Αιτία</th><th>Από</th></tr></thead>
             <tbody>{erasures.map((e) => (
               <tr key={e.id}>
@@ -143,7 +143,7 @@ export function GdprSettings({ initial, canEdit, erasures, missing }: { initial:
                 <td className="text-sm text-charcoal-600">{e.by ?? (e.mode === 'retention' ? 'Σύστημα' : '—')}</td>
               </tr>
             ))}</tbody>
-          </table>
+          </table></div>
         )}
       </div>
     </div>

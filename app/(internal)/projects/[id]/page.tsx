@@ -159,8 +159,8 @@ export default async function ProjectDetailPage({ params, searchParams }: { para
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-6">
-        <div className="col-span-2 space-y-6">
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="space-y-6 lg:col-span-2">
           <div className="flex items-center justify-between">
             <h4>Houses <span className="text-charcoal-600/50">· {inventoryUnits.length}</span></h4>
             <div className="flex items-center gap-2">

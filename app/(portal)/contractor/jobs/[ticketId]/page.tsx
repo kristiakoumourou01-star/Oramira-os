@@ -72,8 +72,8 @@ export default async function ContractorJobDetailPage({ params }: { params: { ti
         <CompletionPhotoUpload ticketId={job.ticket_id} unitId={unitId} />
       </div>
 
-      <div className="grid grid-cols-3 gap-6">
-        <div className="col-span-2 space-y-6">
+      <div className="grid gap-6 md:grid-cols-3">
+        <div className="md:col-span-2 space-y-6">
           {job.description && (
             <div className="panel p-6">
               <h4 className="mb-2">Issue description</h4>

@@ -17,6 +17,7 @@ import { TopMenu } from '@/components/layout/TopMenu';
 import { BrandMark } from '@/components/layout/BrandMark';
 import { navLabel, t } from '@/lib/i18n';
 import { cookies } from 'next/headers';
+import { MobileNav } from '@/components/layout/MobileNav';
 import { SidebarToggle } from '@/components/layout/SidebarToggle';
 import { PerfReporter } from '@/components/layout/PerfReporter';
 import { Suspense } from 'react';
@@ -92,8 +93,8 @@ export default async function InternalLayout({ children }: { children: React.Rea
     <div className="min-w-0 flex-1">
       {profile.impersonator && <ImpersonationBanner name={profile.fullName} role={profile.role} />}
       <Suspense fallback={null}><PerfReporter /></Suspense>
-      <TopBar profile={profile} showSearch start={menu.position === 'top' ? undefined : <SidebarToggle mode={sidebarMode} />} />
-      <main className={`mx-auto px-6 py-5 ${CONTENT_WIDTH_CLASS[contentWidth]}`}>{children}</main>
+      <TopBar profile={profile} showSearch start={menu.position === 'top' ? undefined : <><MobileNav><Sidebar sections={sections} compact={false} accordion={layoutPrefs.sidebarAccordion !== false} footer={signOutFull} /></MobileNav><span className="hidden md:block"><SidebarToggle mode={sidebarMode} /></span></>} />
+      <main className={`mx-auto px-3 py-4 sm:px-6 sm:py-5 ${CONTENT_WIDTH_CLASS[contentWidth]}`}>{children}</main>
     </div>
   );
 
@@ -118,13 +119,13 @@ export default async function InternalLayout({ children }: { children: React.Rea
     <div className={`flex ${menu.position === 'right' ? 'flex-row-reverse' : ''}`}>
       {sidebarMode === 'auto' ? (
         // Αυτόματη απόκρυψη: στενό μενού με εικονίδια, ανοίγει ολόκληρο με το ποντίκι από πάνω.
-        <div className="group/sb sticky top-0 z-30 h-screen w-[72px] shrink-0 self-start">
+        <div className="group/sb sticky top-0 z-30 hidden h-screen w-[72px] shrink-0 self-start md:block">
           <div className="group-hover/sb:invisible"><Sidebar sections={sections} compact accordion={layoutPrefs.sidebarAccordion !== false} footer={signOut} /></div>
           <div className={`invisible absolute top-0 shadow-overlay group-hover/sb:visible ${menu.position === 'right' ? 'right-0' : 'left-0'}`}>
             <Sidebar sections={sections} compact={false} accordion={layoutPrefs.sidebarAccordion !== false} footer={signOutFull} />
           </div>
         </div>
-      ) : sidebarMode !== 'hidden' && <Sidebar sections={sections} compact={compact} accordion={layoutPrefs.sidebarAccordion !== false} footer={signOut} />}
+      ) : sidebarMode !== 'hidden' && <Sidebar className="hidden md:flex" sections={sections} compact={compact} accordion={layoutPrefs.sidebarAccordion !== false} footer={signOut} />}
       {content}
       <CommandPalette />
     </div>

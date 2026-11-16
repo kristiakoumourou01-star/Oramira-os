@@ -1,4 +1,5 @@
 import { requireProfile } from '@/lib/auth';
+import { MobileNav } from '@/components/layout/MobileNav';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { TopBar } from '@/components/layout/TopBar';
 import { ImpersonationBanner } from '@/components/layout/ImpersonationBanner';
@@ -90,24 +91,29 @@ export default async function PortalLayout({ children }: { children: React.React
   const sections = raw.map((sct: any) => ({ ...sct, items: sct.items.map((it: any) => ({ ...it, label: navLabel(it.href, it.label) })) }));
   const compact = (await getOrgSettings()).layout.sidebarCompact;
 
+  const footer = (
+    <form action={logout}>
+      <button type="submit" title={t('signOut')} className={`flex w-full items-center rounded py-2 text-sm text-stone-100/65 hover:bg-white/5 hover:text-stone-100 ${compact ? 'justify-center px-0' : 'gap-3 px-3'}`}>
+        <LogOut size={16} strokeWidth={1.75} />
+        {!compact && t('signOut')}
+      </button>
+    </form>
+  );
+  const footerFull = (
+    <form action={logout}>
+      <button type="submit" className="flex w-full items-center gap-3 rounded px-3 py-2 text-sm text-stone-100/65 hover:bg-white/5 hover:text-stone-100">
+        <LogOut size={16} strokeWidth={1.75} />{t('signOut')}
+      </button>
+    </form>
+  );
+
   return (
     <div className="flex">
-      <Sidebar
-        sections={sections}
-        compact={compact}
-        footer={
-          <form action={logout}>
-            <button type="submit" title={t('signOut')} className={`flex w-full items-center rounded py-2 text-sm text-stone-100/65 hover:bg-white/5 hover:text-stone-100 ${compact ? 'justify-center px-0' : 'gap-3 px-3'}`}>
-              <LogOut size={16} strokeWidth={1.75} />
-              {!compact && t('signOut')}
-            </button>
-          </form>
-        }
-      />
-      <div className="flex-1">
+      <Sidebar className="hidden md:flex" sections={sections} compact={compact} footer={footer} />
+      <div className="min-w-0 flex-1">
         {profile.impersonator && <ImpersonationBanner name={profile.fullName} role={profile.role} />}
-        <TopBar profile={profile} />
-        <main className="p-8">{children}</main>
+        <TopBar profile={profile} start={<MobileNav><Sidebar sections={sections} compact={false} footer={footerFull} /></MobileNav>} />
+        <main className="p-4 sm:p-6 lg:p-8">{children}</main>
       </div>
     </div>
   );

@@ -353,11 +353,11 @@ export default async function ContactDetailPage({ params, searchParams }: { para
         <div className="panel p-6">
           <h4 className="mb-3">Leads</h4>
           {(leads ?? []).length === 0 ? <p className="text-sm text-charcoal-600/60">Κανένα lead.</p> : (
-            <table className="table-base w-full"><thead><tr><th>Ημερομηνία</th><th>Κατάσταση</th><th>Έργο</th><th>Budget</th><th>Πηγή</th></tr></thead>
+            <div className="overflow-x-auto"><table className="table-base w-full"><thead><tr><th>Ημερομηνία</th><th>Κατάσταση</th><th>Έργο</th><th>Budget</th><th>Πηγή</th></tr></thead>
               <tbody>{(leads ?? []).map((l: any) => (
                 <tr key={l.id}><td><Link href={`/crm/leads/${l.id}`} className="text-forest hover:underline">{formatDate(l.created_at)}</Link></td><td>{LEAD[l.status] ?? l.status}</td><td>{l.projects?.name ?? '—'}</td>
                   <td className="figure">{l.budget_max ? `€${formatNumber(Number(l.budget_min ?? 0))}–${formatNumber(Number(l.budget_max))}` : '—'}</td><td className="capitalize">{l.source}</td></tr>
-              ))}</tbody></table>
+              ))}</tbody></table></div>
           )}
           {(negs ?? []).length > 0 && (
             <div className="mt-4">
@@ -404,12 +404,12 @@ export default async function ContactDetailPage({ params, searchParams }: { para
                 <span className="text-sm">{CON[k.status] ?? k.status} · <span className="figure">{formatCurrency(total)} πληρωμένα{k.total_price != null ? ` / ${formatCurrency(Number(k.total_price))}` : ''}</span></span>
               </div>
               {rows.length === 0 ? <p className="text-sm text-charcoal-600/60">Χωρίς δόσεις.</p> : (
-                <table className="table-base w-full"><thead><tr><th>#</th><th>Δόση</th><th>Λήξη</th><th className="text-right">Ποσό</th><th className="text-right">Πληρώθηκε</th></tr></thead>
+                <div className="overflow-x-auto"><table className="table-base w-full"><thead><tr><th>#</th><th>Δόση</th><th>Λήξη</th><th className="text-right">Ποσό</th><th className="text-right">Πληρώθηκε</th></tr></thead>
                   <tbody>{rows.map((s) => {
                     const p = paid.filter((x) => x.payment_schedule_id === s.id).reduce((a, x) => a + Number(x.amount_paid), 0);
                     const late = !!s.due_date && s.due_date < today && p < Number(s.amount);
                     return <tr key={s.id}><td className="figure">{s.installment_number}</td><td>{s.description ?? '—'}</td><td className={`figure ${late ? 'text-signal-danger' : ''}`}>{s.due_date ? formatDate(s.due_date) : '—'}</td><td className="figure text-right">{formatCurrency(Number(s.amount))}</td><td className="figure text-right">{p ? formatCurrency(p) : '—'}</td></tr>;
-                  })}</tbody></table>
+                  })}</tbody></table></div>
               )}
             </div>
           );

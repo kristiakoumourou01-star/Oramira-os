@@ -46,7 +46,7 @@ export default async function DealAnalyzerPage() {
           action={<NewDealButton />}
         />
       ) : (
-        <div className="panel overflow-hidden">
+        <div className="panel overflow-x-auto">
           <table className="table-base w-full">
             <thead>
               <tr><th>Deal</th><th>Status</th><th>Units</th><th>Net profit</th><th>ROI</th><th>Margin</th><th>Risk</th><th></th></tr>

@@ -21,9 +21,6 @@ export async function SettingsShell({ children }: { children: React.ReactNode })
     .filter((g) => g.items.length > 0);
 
   return (
-    <div className="space-y-5">
-      <SettingsHubNav groups={groups} />
-      <div className="min-w-0">{children}</div>
-    </div>
+    <SettingsHubNav groups={groups}>{children}</SettingsHubNav>
   );
 }

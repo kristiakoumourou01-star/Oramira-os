@@ -49,7 +49,7 @@ export function MaintenanceDashboard({ tickets, contractors }: { tickets: AdminT
         ))}
       </div>
 
-      <div className="panel overflow-hidden">
+      <div className="panel overflow-x-auto">
         <table className="table-base w-full">
           <thead><tr><th>Issue</th><th>Property</th><th>Owner</th><th>Priority</th><th>Status</th><th>Contractor</th></tr></thead>
           <tbody>

@@ -19,14 +19,16 @@ export function Sidebar({
   footer,
   compact = false,
   accordion = true,
+  className = '',
 }: {
   sections: SidebarSection[];
   footer?: React.ReactNode;
   compact?: boolean;
   accordion?: boolean;
+  className?: string;
 }) {
   return (
-    <aside className={`sticky top-0 flex h-screen shrink-0 flex-col self-start [background:var(--sidebar-bg)] border-r border-[color:var(--sb-line)] py-4 ${compact ? 'w-[72px] px-2' : 'w-56 px-3'}`}>
+    <aside className={`${className} sticky top-0 flex h-screen shrink-0 flex-col self-start [background:var(--sidebar-bg)] border-r border-[color:var(--sb-line)] py-4 ${compact ? 'w-[72px] px-2' : 'w-56 px-3'}`}>
       <div className={`pb-5 ${compact ? 'flex justify-center' : 'px-2'}`}>
         <span className="sb-logo-on-dark"><BrandMark tone="light" compact={compact} /></span>
         <span className="sb-logo-on-light"><BrandMark tone="dark" compact={compact} /></span>

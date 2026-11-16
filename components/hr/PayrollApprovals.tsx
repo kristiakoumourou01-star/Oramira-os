@@ -27,7 +27,7 @@ export function PayrollApprovals({ payslips }: { payslips: PayslipRow[] }) {
   if (payslips.length === 0) return <p className="text-sm text-charcoal-600/70">No payslips generated yet.</p>;
 
   return (
-    <div className="panel overflow-hidden">
+    <div className="panel overflow-x-auto">
       <table className="table-base w-full">
         <thead><tr><th>Employee</th><th>Period</th><th>Gross</th><th>Net payable</th><th>Employer cost</th><th>Status</th><th></th></tr></thead>
         <tbody>
