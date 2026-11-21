@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { DATE_TAG, currentLocale } from '@/lib/locale-shared';
 import { requirePermission } from '@/lib/auth';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { getEnrichedLeads } from '@/lib/leads';
@@ -12,8 +13,7 @@ import { computeSalesKpis, formatMinutes } from '@/lib/sales-kpi';
 
 export const dynamic = 'force-dynamic';
 const PERIODS: [string, string, number][] = [['30', '30 μέρες', 30], ['90', '3 μήνες', 90], ['180', '6 μήνες', 180], ['365', '12 μήνες', 365]];
-const MON = ['Ιαν', 'Φεβ', 'Μαρ', 'Απρ', 'Μάι', 'Ιούν', 'Ιούλ', 'Αύγ', 'Σεπ', 'Οκτ', 'Νοέ', 'Δεκ'];
-const mLabel = (k: string) => `${MON[Number(k.slice(5)) - 1]} ${k.slice(2, 4)}`;
+const mLabel = (k: string) => `${new Date(Number(k.slice(0, 4)), Number(k.slice(5)) - 1, 1).toLocaleDateString(DATE_TAG[currentLocale().lang], { month: 'short' }).replace('.', '')} ${k.slice(2, 4)}`;
 
 function Card({ title, sub, children }: { title: string; sub?: string; children: React.ReactNode }) {
   return <section className="panel min-w-0 p-5"><p className="font-semibold text-charcoal">{title}</p>{sub && <p className="mb-3 text-xs text-charcoal-600/70">{sub}</p>}{!sub && <div className="mb-3" />}{children}</section>;
@@ -135,7 +135,7 @@ export default async function InsightsPage({ searchParams }: { searchParams: { p
               </tbody>
             </table>
           </div>
-          <p className="mt-2 text-xs text-charcoal-600/60">Τύποι: {ACTIVITY_TYPES.map((a) => activityLabel(a.key)).join(' · ')}</p>
+          <p className="mt-2 text-xs text-charcoal-600/60">Τύποι: {ACTIVITY_TYPES.map((a, i) => <span key={a.key}>{i > 0 && ' · '}<span>{activityLabel(a.key)}</span></span>)}</p>
         </Card>
 
         <Card title="Πρόβλεψη εσόδων" sub="Ανοιχτά deals ανά μήνα αναμενόμενου κλεισίματος · σταθμισμένα με την πιθανότητα σταδίου">
@@ -151,7 +151,7 @@ export default async function InsightsPage({ searchParams }: { searchParams: { p
           {(reservations ?? []).length === 0 ? <p className="text-sm text-charcoal-600/70">Καμία κράτηση ακόμη.</p> : (
             <ul className="divide-y divide-stone-line text-sm">{((reservations ?? []) as any[]).map((r) => (
               <li key={r.id} className="flex items-center justify-between gap-3 py-2">
-                <span><span className="text-charcoal" data-no-tr>{r.contacts?.full_name ?? '—'}</span><span className="block text-xs text-charcoal-600/70" data-no-tr>{[r.units?.projects?.name, r.units?.unit_number].filter(Boolean).join(' · ')}{r.reserved_at ? ` · ${formatDate(r.reserved_at)}` : ''}{r.deposit_amount ? ` · προκαταβολή ${formatCurrency(Number(r.deposit_amount))}${r.deposit_paid ? ' ✓' : ''}` : ''}</span></span>
+                <span><span className="text-charcoal" data-no-tr>{r.contacts?.full_name ?? '—'}</span><span className="block text-xs text-charcoal-600/70" data-no-tr>{[r.units?.projects?.name, r.units?.unit_number].filter(Boolean).join(' · ')}{r.reserved_at ? ` · ${formatDate(r.reserved_at)}` : ''}</span>{r.deposit_amount ? <span className="block text-xs text-charcoal-600/70">προκαταβολή {formatCurrency(Number(r.deposit_amount))}{r.deposit_paid ? ' ✓' : ''}</span> : null}</span>
                 <span className={r.status === 'active' ? 'badge-forest' : 'badge-neutral'}>{r.status}</span>
               </li>
             ))}</ul>

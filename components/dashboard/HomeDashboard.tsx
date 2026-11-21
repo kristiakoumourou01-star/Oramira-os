@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Sparkles, AlertTriangle, Info, ArrowRight, Plus, LayoutGrid, CalendarDays, Download, CreditCard, UserPlus, KeyRound, FileSignature, Eye, CalendarClock, Video } from 'lucide-react';
 import type { HomeData } from '@/lib/dashboard-home-shared';
+import { DATE_TAG, currentLocale } from '@/lib/locale-shared';
 
 const eur = (n: number) => `€${Math.round(n).toLocaleString('el-GR')}`;
 const eurShort = (n: number) => (n >= 1_000_000 ? `€${(n / 1_000_000).toFixed(1)}M` : n >= 1000 ? `€${Math.round(n / 1000)}k` : `€${Math.round(n)}`);
@@ -18,13 +19,13 @@ const hm = (iso: string) => { const d = new Date(iso); return `${String(d.getHou
 export function HomeDashboard({ d, name, planner }: { d: HomeData; name: string; planner?: React.ReactNode }) {
   const hour = new Date().getHours();
   const greet = hour < 12 ? 'Καλημέρα' : hour < 18 ? 'Καλησπέρα' : 'Καλό βράδυ';
-  const date = new Date().toLocaleDateString('el-GR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  const date = new Date().toLocaleDateString(DATE_TAG[currentLocale().lang], { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
   const vsAvg = d.avgDailyIn > 0 ? Math.round(((d.todayIn - d.avgDailyIn) / d.avgDailyIn) * 100) : 0;
   const brief = [
     d.today.length ? `Σήμερα έχετε ${d.today.length === 1 ? '1 ραντεβού' : `${d.today.length} ραντεβού`}` : 'Σήμερα δεν έχετε ραντεβού',
     `${d.activeLeads} ενεργά leads με αξία ${eur(d.pipelineValue)}`,
     `${d.available} διαθέσιμες μονάδες από ${d.totalUnits}`,
-  ].join(' · ') + '.';
+  ];
 
   return (
     <div className="space-y-5">
@@ -36,7 +37,7 @@ export function HomeDashboard({ d, name, planner }: { d: HomeData; name: string;
             <span className="inline-flex items-center gap-1.5 rounded-full border border-white/25 bg-white/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em]"><Sparkles size={12} /> Καθημερινή ενημέρωση</span>
             <h1 className="mt-3 font-display text-3xl leading-tight text-white">{greet}{name ? `, ${name.split(' ')[0]}` : ''}</h1>
             <p className="mt-0.5 text-[14px] capitalize text-white/80">{date}</p>
-            <p className="mt-4 text-[15px] leading-relaxed text-white/90">{brief}</p>
+            <p className="mt-4 text-[15px] leading-relaxed text-white/90">{brief.map((b, i) => <span key={i}>{i > 0 && ' · '}<span>{b}</span></span>)}.</p>
           </div>
           <div className="flex gap-3">
             <HeroStat label="Εισπράξεις σήμερα" value={eur(d.todayIn)} note={`${vsAvg >= 0 ? '+' : ''}${vsAvg}% από τον μέσο όρο`} />
@@ -313,7 +314,7 @@ function PaymentSchedule({ rows }: { rows: HomeData['schedule'] }) {
         {list.length === 0 ? <p className={muted}>Καμία δόση.</p> : (
           <ul className="divide-y divide-stone-line">{list.slice(0, 12).map((r) => (
             <li key={r.id} className="flex items-center gap-3 py-2 text-[14px]">
-              <span className="min-w-0 flex-1"><span className="block font-medium text-charcoal" data-no-tr>{r.buyer}</span><span className="text-[12px] text-charcoal-600">Μονάδα {r.unit} · {new Date(r.due).toLocaleDateString('el-GR')}</span></span>
+              <span className="min-w-0 flex-1"><span className="block font-medium text-charcoal" data-no-tr>{r.buyer}</span><span className="text-[12px] text-charcoal-600">Μονάδα {r.unit} · {new Date(r.due).toLocaleDateString(DATE_TAG[currentLocale().lang])}</span></span>
               <span className={`rounded-full px-2 py-0.5 text-[12px] font-medium ${r.status === 'overdue' ? 'bg-rose-50 text-signal-danger' : 'bg-forest/[0.08] text-forest'}`}>{L[r.status]}</span>
               <span className="w-24 text-right font-semibold tabular-nums">{eur(r.amount)}</span>
             </li>))}</ul>

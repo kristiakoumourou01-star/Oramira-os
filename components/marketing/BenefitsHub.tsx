@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Gift, Handshake, Eye, MousePointerClick, Plus, Search, Pencil, Trash2, X, ExternalLink } from 'lucide-react';
 import { HubCards } from '@/components/ui/HubCards';
 import { saveBenefit, deleteBenefit } from '@/app/actions/benefits';
+import { DATE_TAG, currentLocale } from '@/lib/locale-shared';
 
 export interface Benefit { id: string; partner: string; title: string; description: string | null; discount: string | null; category: string | null; code: string | null; link: string | null; audience: string[]; active: boolean; validUntil: string | null; views: number; taps: number }
 const AUD: [string, string][] = [['buyer', 'Αγοραστές'], ['homeowner', 'Ιδιοκτήτες'], ['investor', 'Επενδυτές'], ['lead', 'Leads']];
@@ -48,9 +49,9 @@ export function BenefitsHub({ rows, canEdit }: { rows: Benefit[]; canEdit: boole
               {list.map((b) => (
                 <tr key={b.id} className={live(b) ? '' : 'opacity-60'}>
                   <td><span className="font-semibold text-charcoal" data-no-tr>{b.partner}</span>{b.category && <span className="block text-[12px] text-charcoal-600">{b.category}</span>}</td>
-                  <td><span className="text-charcoal" data-no-tr>{b.title}</span> {b.discount && <span className="ml-1 rounded-full bg-forest/[0.08] px-2 py-0.5 text-[12px] font-semibold text-forest" data-no-tr>{b.discount}</span>}{b.code && <span className="block font-mono text-[12px] text-charcoal-600" data-no-tr>Κωδικός: {b.code}</span>}</td>
+                  <td><span className="text-charcoal" data-no-tr>{b.title}</span> {b.discount && <span className="ml-1 rounded-full bg-forest/[0.08] px-2 py-0.5 text-[12px] font-semibold text-forest" data-no-tr>{b.discount}</span>}{b.code && <span className="block font-mono text-[12px] text-charcoal-600">Κωδικός: <span data-no-tr>{b.code}</span></span>}</td>
                   <td className="text-sm text-charcoal-600">{b.audience.map((a) => AUD.find((x) => x[0] === a)?.[1] ?? a).join(', ') || '—'}</td>
-                  <td className="text-sm text-charcoal-600">{b.validUntil ? new Date(b.validUntil).toLocaleDateString('el-GR') : 'Χωρίς λήξη'}</td>
+                  <td className="text-sm text-charcoal-600">{b.validUntil ? new Date(b.validUntil).toLocaleDateString(DATE_TAG[currentLocale().lang]) : 'Χωρίς λήξη'}</td>
                   <td className="text-right tabular-nums">{b.views}</td><td className="text-right tabular-nums">{b.taps}</td>
                   <td><span className="flex justify-end gap-1">
                     {b.link && <a href={b.link} target="_blank" rel="noopener noreferrer" className={iconBtn} title="Σύνδεσμος" aria-label="Σύνδεσμος"><ExternalLink size={15} /></a>}

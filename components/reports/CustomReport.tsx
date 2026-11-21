@@ -9,6 +9,7 @@ import { saveReportTemplate, deleteReportTemplate } from '@/app/actions/report-t
 import { createContactGroup } from '@/app/actions/contacts-hub';
 import { DataReportView } from '@/components/reports/DataReportView';
 import type { DataReport } from '@/lib/data-reports';
+import { DATE_TAG, currentLocale } from '@/lib/locale-shared';
 
 const eur = (n: number) => `€${Math.round(n).toLocaleString('el-GR')}`;
 
@@ -38,7 +39,7 @@ export function CustomReport({ rows, fields, templates, canExport }: { rows: Cus
       if (Array.isArray(v)) return v.map((x) => label(k, String(x))).join(', ');
       if (['budget', 'value', 'paid', 'balance'].includes(k)) return v ? eur(Number(v)) : '';
       if (k === 'optIn') return v ? 'Ναι' : 'Όχι';
-      if (k === 'createdAt' || k === 'lastContactAt') return v ? new Date(v).toLocaleDateString('el-GR') : '';
+      if (k === 'createdAt' || k === 'lastContactAt') return v ? new Date(v).toLocaleDateString(DATE_TAG[currentLocale().lang]) : '';
       if (['status', 'source', 'language', 'buyerType'].includes(k)) return v ? label(k, String(v)) : '';
       return v ?? '';
     };

@@ -16,6 +16,7 @@ import { resetUserMfa } from '@/app/actions/mfa';
 import { INTERNAL_ROLES, ROLE_LABEL, defaultPermissionsFor, type AppRole, type UserPermissions } from '@/lib/permissions';
 import { PermissionMatrix } from '@/components/admin/PermissionMatrix';
 import { DEFAULT_ROLES, resolveRole, type RolesSettings } from '@/lib/roles-shared';
+import { DATE_TAG, currentLocale } from '@/lib/locale-shared';
 
 /** One dropdown for built-in roles and the company's own roles ("custom:<id>"). */
 function RoleOptions({ roles }: { roles: RolesSettings }) {
@@ -606,7 +607,7 @@ function HistoryDrawer({ user, onClose }: { user: AdminUser; onClose: () => void
                 <li key={r.id} className="relative">
                   <span className={`absolute -left-[23px] top-1 h-3 w-3 rounded-full ring-2 ring-white ${r.action === 'login_failed' || r.action.includes('delet') ? 'bg-rose-500' : r.action === 'login' ? 'bg-forest' : 'bg-[rgb(var(--c-forest))]'}`} />
                   <p className="text-sm font-medium text-charcoal">{ACT[r.action] ?? r.action.replace(/_/g, ' ')} <span className="font-normal text-charcoal-600/60">· {ENT[r.entity] ?? r.entity}</span></p>
-                  <p className="text-xs tabular-nums text-charcoal-600/70">{new Date(r.at).toLocaleString('el-GR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Nicosia' })}</p>
+                  <p className="text-xs tabular-nums text-charcoal-600/70">{new Date(r.at).toLocaleString(DATE_TAG[currentLocale().lang], { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Nicosia' })}</p>
                   {r.details && <p className="text-xs text-charcoal-600/60" data-no-tr>{r.details}</p>}
                 </li>
               ))}

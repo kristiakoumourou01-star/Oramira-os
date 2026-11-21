@@ -7,6 +7,7 @@ import { HubCards } from '@/components/ui/HubCards';
 import { PopSelect } from '@/components/ui/PopSelect';
 import { Briefing, SideStat, Pager } from '@/components/ui/SidePanel';
 import { runJobManual } from '@/app/actions/automation';
+import { DATE_TAG, currentLocale } from '@/lib/locale-shared';
 
 export interface AutoJob { key: string; label: string; description: string; schedule: string; category: string; lastStatus: string | null; lastAt: string | null; lastSummary: string | null }
 export interface AutoRun { id: string; job: string; label: string; status: string; processed: number; summary: string | null; error: string | null; trigger: string; at: string }
@@ -14,7 +15,7 @@ export interface AutoRun { id: string; job: string; label: string; status: strin
 const CAT_ICON: Record<string, LucideIcon> = { 'Πωλήσεις': TrendingUp, 'Αγορές γης': Map, 'Ακίνητα': Home, 'Ομάδα & HR': Users, 'Οικονομικά': Wallet, 'AI': Sparkles, 'Σύστημα': Settings };
 const ST: Record<string, string> = { success: 'Επιτυχία', failed: 'Σφάλμα', partial: 'Μερική' };
 const TRIG: Record<string, string> = { cron: 'Αυτόματα', manual: 'Χειροκίνητα', event: 'Από γεγονός' };
-const dt = (iso: string) => new Date(iso).toLocaleString('el-GR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+const dt = (iso: string) => new Date(iso).toLocaleString(DATE_TAG[currentLocale().lang], { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 
 /** Αυτοματισμοί (στο στυλ του FitnessCRM): κάρτες ανά κατηγορία, από κάτω οι αυτοματισμοί της, δεξιά η ενημέρωση. */
 export function AutomationHub({ jobs, runs, categories }: { jobs: AutoJob[]; runs: AutoRun[]; categories: string[] }) {
