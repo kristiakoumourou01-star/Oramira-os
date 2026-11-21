@@ -372,6 +372,7 @@ export const ROUTE_MODULES: [string, Module][] = [
   ['/calendar', 'calendar'],
   ['/tasks', 'tasks'],
   ['/sales/activities', 'followups'],
+  ['/sales/follow-ups', 'followups'],
   ['/financials/invoices', 'invoices'],
   ['/reports', 'reports'],
   ['/settings/mobile-app', 'mobileapp'],
@@ -388,7 +389,7 @@ export function moduleForPath(path: string | null | undefined): Module | null {
 
 /** Where to send someone who may not open a page: the first area they can. */
 const LANDINGS: [string, Module | null][] = [
-  ['/dashboard', 'dashboard'], ['/sales/leads', 'leads'], ['/projects', 'projects'], ['/property', 'property'],
+  ['/dashboard', 'dashboard'], ['/sales/deals', 'leads'], ['/projects', 'projects'], ['/property', 'property'],
   ['/acquisitions', 'acquisitions'], ['/financials', 'financials'], ['/marketing', 'marketing'], ['/hr', 'hr'],
   ['/tasks', 'tasks'], ['/calendar', 'calendar'], ['/account', null],
 ];
