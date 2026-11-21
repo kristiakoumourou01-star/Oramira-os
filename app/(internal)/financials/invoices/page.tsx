@@ -47,15 +47,14 @@ export default async function InvoicesPage({ searchParams }: { searchParams: { k
   return (
     <div className="space-y-5">
       <WorkspaceHeader
-        eyebrow="Οικονομικά"
         title="Τιμολόγια"
         description="Τιμολόγια, αποδείξεις και πιστωτικά με αρίθμηση χωρίς κενά. Ένα εκδοθέν παραστατικό δεν αλλάζει — διορθώνεται με πιστωτικό."
         action={canIssue && !missing ? <Link href="/financials/invoices/new" className="inline-flex h-9 items-center gap-1.5 rounded-[10px] bg-forest px-3 text-[14px] font-medium text-white hover:bg-forest/90"><Plus size={15} /> Νέο τιμολόγιο</Link> : undefined}
       />
       <HubLinks cols={3} active="invoices" cards={[
-        { key: 'overview', icon: 'Wallet', title: 'Επισκόπηση', sub: 'Εισπράξεις, υπόλοιπα, απόδοση έργων', href: '/financials' },
+        { key: 'overview', icon: 'Wallet', title: 'Επισκόπηση', sub: 'Εισπράξεις, ταμειακή ροή, έργα', href: '/financials' },
         { key: 'invoices', icon: 'Receipt', title: 'Τιμολόγια', value: invoices.length, sub: `${money(open)} προς είσπραξη`, href: '/financials/invoices' },
-        { key: 'reports', icon: 'BarChart3', title: 'Αναφορές', sub: 'Έτοιμες και δικές σας αναφορές', href: '/reports' },
+        { key: 'reports', icon: 'BarChart3', title: 'Αναφορές', sub: 'Εισπράξεις & δόσεις, πωλήσεις', href: '/reports?tab=collections' },
       ]} />
 
       {missing && (
