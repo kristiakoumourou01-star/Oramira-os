@@ -25,7 +25,7 @@ export function HomeDashboard({ d, name, planner }: { d: HomeData; name: string;
     d.today.length ? `Σήμερα έχετε ${d.today.length === 1 ? '1 ραντεβού' : `${d.today.length} ραντεβού`}` : 'Σήμερα δεν έχετε ραντεβού',
     `${d.activeLeads} ενεργά leads με αξία ${eur(d.pipelineValue)}`,
     `${d.available} διαθέσιμες μονάδες από ${d.totalUnits}`,
-  ].join(' · ') + '.';
+  ];
 
   return (
     <div className="space-y-5">
@@ -37,7 +37,7 @@ export function HomeDashboard({ d, name, planner }: { d: HomeData; name: string;
             <span className="inline-flex items-center gap-1.5 rounded-full border border-white/25 bg-white/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em]"><Sparkles size={12} /> Καθημερινή ενημέρωση</span>
             <h1 className="mt-3 font-display text-3xl leading-tight text-white">{greet}{name ? `, ${name.split(' ')[0]}` : ''}</h1>
             <p className="mt-0.5 text-[14px] capitalize text-white/80">{date}</p>
-            <p className="mt-4 text-[15px] leading-relaxed text-white/90">{brief}</p>
+            <p className="mt-4 text-[15px] leading-relaxed text-white/90">{brief.map((b, i) => <span key={i}>{i > 0 && ' · '}<span>{b}</span></span>)}.</p>
           </div>
           <div className="flex gap-3">
             <HeroStat label="Εισπράξεις σήμερα" value={eur(d.todayIn)} note={`${vsAvg >= 0 ? '+' : ''}${vsAvg}% από τον μέσο όρο`} />

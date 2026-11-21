@@ -49,7 +49,7 @@ export function BenefitsHub({ rows, canEdit }: { rows: Benefit[]; canEdit: boole
               {list.map((b) => (
                 <tr key={b.id} className={live(b) ? '' : 'opacity-60'}>
                   <td><span className="font-semibold text-charcoal" data-no-tr>{b.partner}</span>{b.category && <span className="block text-[12px] text-charcoal-600">{b.category}</span>}</td>
-                  <td><span className="text-charcoal" data-no-tr>{b.title}</span> {b.discount && <span className="ml-1 rounded-full bg-forest/[0.08] px-2 py-0.5 text-[12px] font-semibold text-forest" data-no-tr>{b.discount}</span>}{b.code && <span className="block font-mono text-[12px] text-charcoal-600" data-no-tr>Κωδικός: {b.code}</span>}</td>
+                  <td><span className="text-charcoal" data-no-tr>{b.title}</span> {b.discount && <span className="ml-1 rounded-full bg-forest/[0.08] px-2 py-0.5 text-[12px] font-semibold text-forest" data-no-tr>{b.discount}</span>}{b.code && <span className="block font-mono text-[12px] text-charcoal-600">Κωδικός: <span data-no-tr>{b.code}</span></span>}</td>
                   <td className="text-sm text-charcoal-600">{b.audience.map((a) => AUD.find((x) => x[0] === a)?.[1] ?? a).join(', ') || '—'}</td>
                   <td className="text-sm text-charcoal-600">{b.validUntil ? new Date(b.validUntil).toLocaleDateString(DATE_TAG[currentLocale().lang]) : 'Χωρίς λήξη'}</td>
                   <td className="text-right tabular-nums">{b.views}</td><td className="text-right tabular-nums">{b.taps}</td>

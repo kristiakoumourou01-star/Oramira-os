@@ -135,7 +135,7 @@ export default async function InsightsPage({ searchParams }: { searchParams: { p
               </tbody>
             </table>
           </div>
-          <p className="mt-2 text-xs text-charcoal-600/60">Τύποι: {ACTIVITY_TYPES.map((a) => activityLabel(a.key)).join(' · ')}</p>
+          <p className="mt-2 text-xs text-charcoal-600/60">Τύποι: {ACTIVITY_TYPES.map((a, i) => <span key={a.key}>{i > 0 && ' · '}<span>{activityLabel(a.key)}</span></span>)}</p>
         </Card>
 
         <Card title="Πρόβλεψη εσόδων" sub="Ανοιχτά deals ανά μήνα αναμενόμενου κλεισίματος · σταθμισμένα με την πιθανότητα σταδίου">
@@ -151,7 +151,7 @@ export default async function InsightsPage({ searchParams }: { searchParams: { p
           {(reservations ?? []).length === 0 ? <p className="text-sm text-charcoal-600/70">Καμία κράτηση ακόμη.</p> : (
             <ul className="divide-y divide-stone-line text-sm">{((reservations ?? []) as any[]).map((r) => (
               <li key={r.id} className="flex items-center justify-between gap-3 py-2">
-                <span><span className="text-charcoal" data-no-tr>{r.contacts?.full_name ?? '—'}</span><span className="block text-xs text-charcoal-600/70" data-no-tr>{[r.units?.projects?.name, r.units?.unit_number].filter(Boolean).join(' · ')}{r.reserved_at ? ` · ${formatDate(r.reserved_at)}` : ''}{r.deposit_amount ? ` · προκαταβολή ${formatCurrency(Number(r.deposit_amount))}${r.deposit_paid ? ' ✓' : ''}` : ''}</span></span>
+                <span><span className="text-charcoal" data-no-tr>{r.contacts?.full_name ?? '—'}</span><span className="block text-xs text-charcoal-600/70" data-no-tr>{[r.units?.projects?.name, r.units?.unit_number].filter(Boolean).join(' · ')}{r.reserved_at ? ` · ${formatDate(r.reserved_at)}` : ''}</span>{r.deposit_amount ? <span className="block text-xs text-charcoal-600/70">προκαταβολή {formatCurrency(Number(r.deposit_amount))}{r.deposit_paid ? ' ✓' : ''}</span> : null}</span>
                 <span className={r.status === 'active' ? 'badge-forest' : 'badge-neutral'}>{r.status}</span>
               </li>
             ))}</ul>

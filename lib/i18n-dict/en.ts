@@ -4224,4 +4224,5 @@ export const EN: Record<string, string> = {
 "Χωρίς επαφή {} μέρες": "No contact {} days",
 "Ποσοστό και τελευταίες φωτογραφίες από το εργοτάξιο.": "Progress and the latest photos from the site.",
 "Ανοιχτά leads που ταιριάζουν σε αυτή τη μονάδα: προϋπολογισμός, περιοχή που θέλουν (σε σχέση με την τοποθεσία του έργου), έργο που προτιμούν και ό,τι ζητούν στα πεδία της μονάδας (θέα, επίπλωση κ.λπ.){}.": "Open leads that match this unit: budget, preferred area (relative to the project location), preferred project and whatever they ask for in the unit fields (view, furnishing etc.){}.",
+"προκαταβολή": "deposit",
 };

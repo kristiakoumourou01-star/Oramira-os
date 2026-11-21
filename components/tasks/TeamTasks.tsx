@@ -92,7 +92,7 @@ export function TeamTasks({ tasks, staff, me, isLead, initialView }: { tasks: Te
                       <span className="mt-0.5 flex flex-wrap gap-1.5 text-[12px] text-charcoal-600">
                         {t.list && <span className="rounded-full border border-stone-line px-2 py-0.5" data-no-tr>{t.list}</span>}
                         {g && g.n > 1 && <span className="rounded-full bg-forest/[0.08] px-2 py-0.5 text-forest">Ομάδα · {g.done}/{g.n} ολοκλήρωσαν</span>}
-                        {t.outcome && <span data-no-tr>Αποτέλεσμα: {t.outcome}</span>}
+                        {t.outcome && <span>Αποτέλεσμα: <span data-no-tr>{t.outcome}</span></span>}
                       </span>
                     </td>
                     <td className="text-sm" data-no-tr>{t.assignee}</td>
