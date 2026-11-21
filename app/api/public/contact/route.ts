@@ -76,6 +76,21 @@ export async function POST(request: NextRequest) {
   if (secret && request.headers.get('x-intake-key') !== secret && body?.key !== secret) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: CORS });
   }
+  // Αντιστοίχιση πεδίων από τη διεύθυνση (όταν μια φόρμα έχει «περίεργα» ονόματα πεδίων), π.χ.
+  // ?map=phone:name-3,project:select-1,Τρόπος επικοινωνίας:checkbox-1 — αριστερά το δικό μας πεδίο
+  // (ή ένα όνομα για να φαίνεται ωραία στο μήνυμα), δεξιά το πεδίο της φόρμας. ?form=… = όνομα φόρμας.
+  const qs = request.nextUrl.searchParams;
+  for (const pair of (qs.get('map') ?? '').split(',')) {
+    const i = pair.indexOf(':');
+    if (i < 1) continue;
+    const target = pair.slice(0, i).trim(); const src = pair.slice(i + 1).trim();
+    const hit = Object.keys(body).find((k) => k === src || k.startsWith(`${src}-`));
+    if (!hit || !target) continue;
+    const parts = Object.keys(body).filter((k) => k === src || k.startsWith(`${src}-`));
+    body[target] = parts.map((k) => body[k]).filter((v) => v != null && String(v).trim() !== '').join(' ');
+    for (const k of parts) if (k !== target) delete body[k];
+  }
+  if (qs.get('form') && !body['Φόρμα']) body['Φόρμα'] = qs.get('form');
   const htmlPost = !(request.headers.get('content-type') ?? '').includes('json');
   const redirectTo = typeof body.redirect === 'string' && /^https?:\/\//.test(body.redirect) ? body.redirect : null;
 
