@@ -41,7 +41,8 @@ export async function createTeamTask(input: TaskInput): Promise<R<{ count: numbe
   return { ok: true, count: ids.length };
 }
 
-export async function updateTeamTask(id: string, patch: { title?: string; description?: string; dueAt?: string | null; priority?: string; list?: string; assignedTo?: string }): Promise<R> {
+/** Αλλαγή εργασίας. Με wholeGroup, τίτλος / περιγραφή / προθεσμία / προτεραιότητα / λίστα αλλάζουν σε όλα τα άτομα της ίδιας εργασίας. */
+export async function updateTeamTask(id: string, patch: { title?: string; description?: string; dueAt?: string | null; priority?: string; list?: string; assignedTo?: string }, wholeGroup = false): Promise<R> {
   await requireProfile();
   if (!UUID.test(id)) return { ok: false, error: 'Άκυρη εργασία.' };
   const db = (await createSupabaseServerClient()) as any;
@@ -52,6 +53,17 @@ export async function updateTeamTask(id: string, patch: { title?: string; descri
   if (patch.priority !== undefined && PRIORITIES.includes(patch.priority)) row.priority = patch.priority;
   if (patch.list !== undefined) row.list = patch.list.trim().slice(0, 60) || null;
   if (patch.assignedTo !== undefined && UUID.test(patch.assignedTo)) row.assigned_to = patch.assignedTo;
+  if (wholeGroup) {
+    const { data: t } = await db.from('tasks').select('group_id').eq('id', id).maybeSingle();
+    if (t?.group_id) {
+      const shared = { ...row };
+      delete shared.assigned_to;
+      const { error } = await db.from('tasks').update(shared).eq('group_id', t.group_id);
+      if (error) return { ok: false, error: error.message };
+      refresh();
+      return { ok: true };
+    }
+  }
   const { error } = await db.from('tasks').update(row).eq('id', id);
   if (error) return { ok: false, error: error.message };
   if (row.assigned_to) await notifyUser({ userId: row.assigned_to as string, title: 'Σας ανατέθηκε εργασία', body: String(row.title ?? ''), link: '/tasks', event: 'task_assigned' }).catch(() => {});

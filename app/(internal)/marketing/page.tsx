@@ -8,7 +8,7 @@ import type { CampaignRow } from '@/lib/campaigns-shared';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
-/** Marketing (όπως στο FitnessCRM): Email · WhatsApp · Push · Συστάσεις · Αναφορές · Benefits. */
+/** Marketing ανά κανάλι: Email · SMS (και WhatsApp) · Push · Συστάσεις · Αναφορές · Benefits. */
 export default async function MarketingPage({ searchParams }: { searchParams: { tab?: string; group?: string; tag?: string; role?: string; ids?: string } }) {
   const profile = await requirePermission('marketing');
   const supabase = await createSupabaseServerClient();
@@ -34,7 +34,7 @@ export default async function MarketingPage({ searchParams }: { searchParams: { 
   const canEdit = effectiveCan(profile.role, profile.moduleAccess, 'marketing', 'edit', profile.permissions);
   return (
     <div className="space-y-5">
-      <WorkspaceHeader eyebrow="Marketing" title="Marketing" description="Επικοινωνήστε με τους πελάτες σας σε κάθε κανάλι — email, WhatsApp, push και συστάσεις — από ένα σημείο." />
+      <WorkspaceHeader eyebrow="Marketing" title="Marketing" description="Καμπάνιες προς τους πελάτες σας ανά κανάλι: email, SMS στο κινητό και ειδοποιήσεις στην εφαρμογή τους." />
       <MarketingHub campaigns={campaigns} groups={groups} contacts={picks} tags={tagList} prefill={searchParams} referrals={referrals} canEdit={canEdit} />
     </div>
   );
