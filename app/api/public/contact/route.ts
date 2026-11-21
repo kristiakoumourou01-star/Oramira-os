@@ -28,18 +28,18 @@ export async function OPTIONS() {
 /** Ονόματα πεδίων που χρησιμοποιούν τα συνήθη website builders → τα δικά μας πεδία. */
 const ALIASES: Record<string, string[]> = {
   name: ['name', 'full_name', 'fullname', 'your-name', 'your_name', 'nome', 'όνομα', 'ονοματεπώνυμο', 'имя'],
-  first: ['first_name', 'firstname', 'fname', 'first-name', 'given_name'],
-  last: ['last_name', 'lastname', 'lname', 'last-name', 'surname', 'family_name', 'επώνυμο', 'фамилия'],
+  first: ['first_name', 'firstname', 'fname', 'first-name', 'given_name', 'name-first-name', 'name_first_name'],
+  last: ['last_name', 'lastname', 'lname', 'last-name', 'surname', 'family_name', 'επώνυμο', 'фамилия', 'name-last-name', 'name_last_name'],
   email: ['email', 'e-mail', 'mail', 'your-email', 'your_email', 'email_address', 'emailaddress'],
   phone: ['phone', 'tel', 'telephone', 'mobile', 'phone_number', 'phonenumber', 'your-phone', 'your-tel', 'cell', 'whatsapp', 'τηλέφωνο', 'κινητό', 'телефон'],
-  message: ['message', 'msg', 'comments', 'comment', 'your-message', 'your_message', 'enquiry', 'inquiry', 'notes', 'details', 'μήνυμα', 'сообщение'],
+  message: ['message', 'msg', 'comments', 'comment', 'your-message', 'your_message', 'enquiry', 'inquiry', 'notes', 'details', 'textarea', 'μήνυμα', 'сообщение'],
   budget: ['budget', 'price_range', 'budget_range', 'προϋπολογισμός', 'бюджет'],
   project: ['project', 'property', 'project_interest', 'interested_in', 'unit', 'έργο', 'ακίνητο'],
   area: ['area', 'areas', 'location', 'city', 'region', 'περιοχή'],
   source: ['source', 'utm_source', 'lead_source'],
 };
 /** Τεχνικά πεδία των φορμών που δεν έχουν νόημα για το lead. */
-const IGNORE = /^(_|g-recaptcha|recaptcha|h-captcha|cf-turnstile|key|redirect|lang|consent|marketing|form_id|form-id|post_id|referer|referrer|nonce|action|submit|wpcf7|_wp|utm_medium|utm_campaign|utm_term|utm_content|gclid|fbclid)/i;
+const IGNORE = /^(_|form-title|form_title|entry-time|entry_time|site-url|site_url|referer-url|referer_url|page-id|page_id|captcha|g-recaptcha|recaptcha|h-captcha|cf-turnstile|key|redirect|lang|consent|marketing|form_id|form-id|post_id|referer|referrer|nonce|action|submit|wpcf7|_wp|utm_medium|utm_campaign|utm_term|utm_content|gclid|fbclid)/i;
 
 async function readBody(request: NextRequest): Promise<Record<string, any>> {
   const type = request.headers.get('content-type') ?? '';
@@ -56,7 +56,8 @@ async function readBody(request: NextRequest): Promise<Record<string, any>> {
 
 function pick(body: Record<string, any>, field: keyof typeof ALIASES, used: Set<string>): string | undefined {
   for (const k of Object.keys(body)) {
-    const norm = k.toLowerCase().trim().replace(/\s+/g, '_').replace(/\[\]$/, '');
+    // Forminator / Gravity κ.ά. αριθμούν τα πεδία: «email-1», «name-1-first-name» → «email», «name-first-name».
+    const norm = k.toLowerCase().trim().replace(/\s+/g, '_').replace(/\[\]$/, '').replace(/-\d+(?=-|$)/g, '');
     if (ALIASES[field].includes(norm)) {
       const v = body[k];
       const s = Array.isArray(v) ? v.join(', ') : v == null ? '' : String(v);
