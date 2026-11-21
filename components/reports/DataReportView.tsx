@@ -5,6 +5,7 @@ import { Download, Printer, Search, FileSpreadsheet } from 'lucide-react';
 import { PopSelect } from '@/components/ui/PopSelect';
 import { Pager } from '@/components/ui/SidePanel';
 import { formatCurrency, formatDate, formatDecimal, formatMonthYear, formatNumber, formatDateTime } from '@/lib/format';
+import { buildXlsx } from '@/lib/xlsx-write';
 import type { CellFmt, DataReport, ReportColumn, ReportRow } from '@/lib/reports-shared';
 
 /** Μορφοποίηση τιμής κελιού (ίδια σε οθόνη, export και εκτύπωση). */
@@ -57,6 +58,12 @@ export function DataReportView({ report, title, canExport, pageSize = 25, render
     const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
     return [exportCols.map((c) => esc(c.label)).join(sep), ...rows.map((r) => exportCols.map((c) => esc(fmtCell(r[c.key], c.fmt))).join(sep))].join('\r\n');
   };
+  const xlsx = () => {
+    const data = [exportCols.map((c) => c.label), ...rows.map((r) => exportCols.map((c) => { const v = r[c.key]; return isNum(c) && v != null && v !== '' ? Number(v) : fmtCell(v, c.fmt); }))];
+    const bytes = buildXlsx([{ name: title.slice(0, 31), rows: data, widths: exportCols.map(() => 18) }]);
+    const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+    const a = document.createElement('a'); a.href = url; a.download = `oramira-${slug}-${day}.xlsx`; a.click(); URL.revokeObjectURL(url);
+  };
   const file = (name: string, body: string, type: string) => {
     const url = URL.createObjectURL(new Blob(['﻿' + body], { type }));
     const a = document.createElement('a'); a.href = url; a.download = name; a.click(); URL.revokeObjectURL(url);
@@ -83,7 +90,7 @@ export function DataReportView({ report, title, canExport, pageSize = 25, render
           <label className="relative w-full sm:w-[200px]"><Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-charcoal-600/60" /><input value={q} onChange={(e) => { setQ(e.target.value); setPg(0); }} placeholder="Αναζήτηση…" className="input h-8 py-1 pl-8 text-[13px]" /></label>
           {canExport && <>
             <button type="button" onClick={() => file(`oramira-${slug}-${day}.csv`, csv(','), 'text/csv;charset=utf-8')} className="inline-flex h-8 items-center gap-1.5 rounded-[10px] border border-stone-line bg-white px-2.5 text-[13px] font-medium text-charcoal hover:border-forest/40"><Download size={14} /> CSV</button>
-            <button type="button" onClick={() => file(`oramira-${slug}-${day}.xls`, csv('\t'), 'application/vnd.ms-excel;charset=utf-8')} className="inline-flex h-8 items-center gap-1.5 rounded-[10px] border border-stone-line bg-white px-2.5 text-[13px] font-medium text-charcoal hover:border-forest/40"><FileSpreadsheet size={14} /> Excel</button>
+            <button type="button" onClick={xlsx} className="inline-flex h-8 items-center gap-1.5 rounded-[10px] border border-stone-line bg-white px-2.5 text-[13px] font-medium text-charcoal hover:border-forest/40"><FileSpreadsheet size={14} /> Excel (.xlsx)</button>
             <button type="button" onClick={print} className="inline-flex h-8 items-center gap-1.5 rounded-[10px] border border-stone-line bg-white px-2.5 text-[13px] font-medium text-charcoal hover:border-forest/40"><Printer size={14} /> PDF</button>
           </>}
         </span>

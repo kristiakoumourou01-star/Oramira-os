@@ -11,6 +11,12 @@ export interface CustomRow {
   leadStages: string[]; budget: number; projects: string[]; areas: string[]; bedrooms: number | null;
   reservations: number; contracts: number; value: number; paid: number; balance: number; ownedProjects: string[]; units: string[];
   viewings: number;
+  // Επέκταση (όπως οι ~35 συνθήκες του FitnessCRM, για real estate)
+  city: string | null; country: string | null; age: number | null; birthMonth: string | null;
+  hasEmail: boolean; hasMobile: boolean; receivesSms: boolean; receivesEmail: boolean; receivesPush: boolean;
+  fromLead: boolean; leadSources: string[]; propertyTypes: string[]; timeline: string | null; cashBuyer: boolean;
+  ownsUnit: boolean; handover: boolean; unitStatuses: string[]; rents: boolean; formerOwner: boolean;
+  overdue: boolean; depositPaid: boolean; feeUnpaid: boolean; openFollowUp: boolean; kycStatus: string | null;
 }
 
 export type FieldType = 'enum' | 'multi' | 'number' | 'money' | 'date' | 'bool' | 'text' | 'days';
@@ -55,5 +61,6 @@ export const COLUMNS: [string, string][] = [
   ['ownerName', 'Υπεύθυνος'], ['leadStages', 'Στάδιο lead'], ['budget', 'Budget'], ['projects', 'Ενδιαφέρον για έργο'], ['areas', 'Περιοχές'],
   ['bedrooms', 'Υπνοδωμάτια'], ['viewings', 'Viewings'], ['reservations', 'Κρατήσεις'], ['contracts', 'Συμβόλαια'], ['value', 'Αξία συμβολαίων'],
   ['paid', 'Εισπραγμένα'], ['balance', 'Υπόλοιπο'], ['units', 'Μονάδες'], ['ownedProjects', 'Ιδιοκτήτης σε έργο'], ['createdAt', 'Καταχώριση'], ['lastContactAt', 'Τελευταία επαφή'],
+  ['city', 'Πόλη / περιοχή'], ['country', 'Χώρα διαμονής'], ['age', 'Ηλικία'], ['kycStatus', 'KYC'],
 ];
 export const DEFAULT_COLUMNS = ['name', 'email', 'phone', 'roles', 'leadStages', 'budget', 'projects', 'nationality', 'ownerName'];
