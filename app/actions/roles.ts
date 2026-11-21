@@ -6,8 +6,8 @@ import { getOrgSettingsRaw } from '@/lib/org-settings';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import { logActivity } from '@/lib/activity';
 import { saveOrgSlice } from '@/app/actions/org-settings';
-import { mergeRoles, roleIdFrom, type CustomRole, type RolesSettings, type SystemRoleAdjustment } from '@/lib/roles-shared';
-import type { AppRole } from '@/lib/permissions';
+import { mergeRoles, roleIdFrom, SLUG_RE, type CustomRole, type RolesSettings, type SystemRoleAdjustment } from '@/lib/roles-shared';
+import { INTERNAL_ROLES, type AppRole } from '@/lib/permissions';
 
 export type RoleResult = { ok: true; id?: string } | { ok: false; error: string };
 
@@ -26,7 +26,7 @@ async function store(next: RolesSettings, action: string, meta: Record<string, u
 }
 
 /** Create (no id) or update a custom role. */
-export async function saveCustomRole(input: Omit<CustomRole, 'id'> & { id?: string }): Promise<RoleResult> {
+export async function saveCustomRole(input: Omit<CustomRole, 'id'> & { id?: string; slug?: string }): Promise<RoleResult> {
   await requireRole(['admin']);
   const name = (input.name || '').trim();
   if (!name) return { ok: false, error: 'Δώστε όνομα στον ρόλο.' };
@@ -34,8 +34,17 @@ export async function saveCustomRole(input: Omit<CustomRole, 'id'> & { id?: stri
   if (roles.custom.some((r) => r.name.toLowerCase() === name.toLowerCase() && r.id !== input.id)) {
     return { ok: false, error: 'Υπάρχει ήδη ρόλος με αυτό το όνομα.' };
   }
-  const id = input.id && roles.custom.some((r) => r.id === input.id) ? input.id : roleIdFrom(name, roles.custom.map((r) => r.id));
-  const role: CustomRole = { ...input, id, name };
+  const taken = [...roles.custom.map((r) => r.id), ...INTERNAL_ROLES];
+  let id: string;
+  if (input.id && roles.custom.some((r) => r.id === input.id)) id = input.id;
+  else if (input.slug && input.slug.trim()) {
+    // A slug chosen by the owner; it stays fixed once the role exists.
+    const slug = input.slug.trim().toLowerCase();
+    if (!SLUG_RE.test(slug)) return { ok: false, error: 'Το slug θέλει 2–40 λατινικά πεζά, αριθμούς ή παύλες.' };
+    if (taken.includes(slug)) return { ok: false, error: 'Το slug χρησιμοποιείται ήδη.' };
+    id = slug;
+  } else id = roleIdFrom(name, taken);
+  const role: CustomRole = { name, id, description: input.description, base: input.base, permissions: input.permissions, rights: input.rights };
 
   // Changing the base type moves this role's users with it, so the database
   // protection (e.g. only own leads) always matches what the role says.

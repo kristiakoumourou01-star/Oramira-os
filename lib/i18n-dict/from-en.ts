@@ -1192,6 +1192,8 @@ export const EN_EL: Record<string, string> = {
 "Activities": "Activities",
 "Insights": "Insights",
 "Follow-ups": "Follow-ups",
+"Slug": "Slug",
+"follow-ups": "follow-ups",
 };
 
 export const EN_RU: Record<string, string> = {
@@ -2387,4 +2389,6 @@ export const EN_RU: Record<string, string> = {
 "Activities": "Активности",
 "Insights": "Аналитика",
 "Follow-ups": "Напоминания",
+"Slug": "Slug",
+"follow-ups": "follow-ups",
 };

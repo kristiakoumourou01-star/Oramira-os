@@ -7,7 +7,13 @@ import { NextResponse, type NextRequest } from 'next/server';
  * root middleware can make a routing decision without a second round trip.
  */
 export async function updateSession(request: NextRequest) {
-  let response = NextResponse.next({ request });
+  // Pages read the path (lib/auth per-route permission guard) from this header.
+  const next = () => {
+    const headers = new Headers(request.headers);
+    headers.set('x-pathname', request.nextUrl.pathname);
+    return NextResponse.next({ request: { headers } });
+  };
+  let response = next();
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -19,7 +25,7 @@ export async function updateSession(request: NextRequest) {
         },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-          response = NextResponse.next({ request });
+          response = next();
           cookiesToSet.forEach(({ name, value, options }) =>
             response.cookies.set(name, value, options)
           );

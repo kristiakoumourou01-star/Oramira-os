@@ -1,5 +1,8 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { EMPTY_HR, type EmployeeDoc, type EmployeeHr } from '@/lib/staff-shared';
+import { INTERNAL_ROLES } from '@/lib/permissions';
+import { getCurrentProfile } from '@/lib/auth';
+import type { RolePerson } from '@/lib/roles-shared';
 
 /** Φορτώνει τα στοιχεία HR, τα έγγραφα και τις άδειες για τους υπαλλήλους. Δεν σπάει ποτέ: ό,τι λείπει απλώς δεν εμφανίζεται. */
 export async function loadEmployeeHr(ids: string[]): Promise<Map<string, EmployeeHr>> {
@@ -44,4 +47,37 @@ export async function loadEmployeeHr(ids: string[]): Promise<Map<string, Employe
     });
   }
   return out;
+}
+
+/** Πόσα μέλη, ρόλοι και άδειες σε αναμονή (για τις κάρτες του Staff). */
+export async function loadStaffCounts(customRoles: number): Promise<{ employees: number; roles: number; leave: number }> {
+  const db = (await createSupabaseServerClient()) as any;
+  const [team, pending] = await Promise.all([
+    db.from('profiles').select('id', { count: 'exact', head: true }).in('role', INTERNAL_ROLES).eq('is_active', true),
+    db.from('leave_requests').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+  ]);
+  return { employees: team.count ?? 0, roles: INTERNAL_ROLES.length + customRoles, leave: pending.count ?? 0 };
+}
+
+/**
+ * Ποιος έχει ποιον ρόλο ("sales" ή "custom:<id>"), για τη σελίδα Ρόλοι.
+ * Το custom_role (migration 0054) διαβάζεται χωριστά: αν λείπει, όλοι μετρούν στον βασικό τους ρόλο.
+ */
+export async function loadRolePeople(): Promise<{ people: RolePerson[]; counts: Record<string, number>; migrationMissing: boolean }> {
+  const db = (await createSupabaseServerClient()) as any;
+  const me = await getCurrentProfile();
+  const [{ data: base }, cr] = await Promise.all([
+    db.from('profiles').select('id, full_name, role, is_active').in('role', INTERNAL_ROLES).order('full_name'),
+    db.from('profiles').select('id, custom_role').not('custom_role', 'is', null),
+  ]);
+  const custom = new Map<string, string>();
+  for (const row of (cr.data ?? []) as any[]) if (row.custom_role) custom.set(row.id, row.custom_role);
+  const counts: Record<string, number> = {};
+  const people: RolePerson[] = [];
+  for (const p of (base ?? []) as any[]) {
+    const choice = p.role !== 'admin' && custom.has(p.id) ? `custom:${custom.get(p.id)}` : p.role;
+    counts[choice] = (counts[choice] ?? 0) + 1;
+    if (p.is_active !== false) people.push({ id: p.id, name: p.full_name ?? '—', choice, self: p.id === me?.id });
+  }
+  return { people, counts, migrationMissing: !!cr.error };
 }
