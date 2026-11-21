@@ -43,7 +43,8 @@ export const getEnrichedLeads = cache(async function getEnrichedLeads(): Promise
   // session, so apply the same rule here — the admin sees exactly what they see.
   const viewer = await getCurrentProfile();
   const ownOnly = viewer?.impersonator && viewer.role === 'sales' ? viewer.id : null;
-  const scoped = (q: any) => (ownOnly ? q.eq('assigned_to', ownOnly) : q);
+  // …συν τα leads χωρίς υπεύθυνο, που ο agent βλέπει για «Ανάληψη» (migration 0090).
+  const scoped = (q: any) => (ownOnly ? q.or(`assigned_to.eq.${ownOnly},assigned_to.is.null`) : q);
 
   const [leads, { data: followUps }] = await Promise.all([
     selectResilient(

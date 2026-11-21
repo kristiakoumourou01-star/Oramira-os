@@ -6,10 +6,8 @@ import { getEnrichedLeads } from '@/lib/leads';
 import { getOrgSettings } from '@/lib/org-settings';
 import { WorkspaceHeader } from '@/components/ui/WorkspaceHeader';
 import { SalesNav } from '@/components/sales/SalesNav';
-import { byOwner, conversionFunnel, dealsPerformance, lostReasons, revenueForecast } from '@/lib/sales-insights';
-import { ACTIVITY_TYPES, activityLabel } from '@/lib/activity-types';
+import { conversionFunnel, dealsPerformance, lostReasons, revenueForecast } from '@/lib/sales-insights';
 import { formatCurrency, formatDate } from '@/lib/format';
-import { computeSalesKpis, formatMinutes } from '@/lib/sales-kpi';
 
 export const dynamic = 'force-dynamic';
 const PERIODS: [string, string, number][] = [['30', '30 μέρες', 30], ['90', '3 μήνες', 90], ['180', '6 μήνες', 180], ['365', '12 μήνες', 365]];
@@ -25,10 +23,8 @@ export default async function InsightsPage({ searchParams }: { searchParams: { p
   const period = PERIODS.find((p) => p[0] === searchParams.period) ?? PERIODS[2];
   const since = new Date(Date.now() - period[2] * 86400000).toISOString();
   const supabase = await createSupabaseServerClient() as any;
-  const [allLeads, settings, { data: acts }, kpis, { data: reservations }] = await Promise.all([
+  const [allLeads, settings, { data: reservations }] = await Promise.all([
     getEnrichedLeads(), getOrgSettings(),
-    supabase.from('follow_up_tasks').select('type, is_done, done_at, due_at, assigned_to, owner:assigned_to(full_name)').gte('due_at', since).limit(5000),
-    computeSalesKpis(supabase),
     supabase.from('reservations').select('id, status, deposit_amount, deposit_paid, reserved_at, contacts(full_name), units(unit_number, projects(name))').order('reserved_at', { ascending: false }).limit(15),
   ]);
   const cfg = settings.pipelines;
@@ -38,28 +34,18 @@ export default async function InsightsPage({ searchParams }: { searchParams: { p
   const months = Math.max(3, Math.min(12, Math.round(period[2] / 30)));
   const perf = dealsPerformance(leads, months);
   const funnel = conversionFunnel(leads, cfg, pipeKey, since);
-  const owners = byOwner(allLeads, since);
   const lost = lostReasons(leads, cfg, since);
   const fc = revenueForecast(leads, cfg);
   const maxPerf = Math.max(1, ...perf.map((r) => Math.max(r.started, r.won, r.lost)));
   const maxLost = Math.max(1, ...lost.map((r) => r.count));
   const maxFc = Math.max(1, ...fc.map((r) => r.value));
   const wonTotal = perf.reduce((s, r) => s + r.wonValue, 0), wonCount = perf.reduce((s, r) => s + r.won, 0), lostCount = perf.reduce((s, r) => s + r.lost, 0);
-  // Activities ανά χρήστη / τύπο
-  const actRows = new Map<string, { name: string; done: number; planned: number; byType: Record<string, number> }>();
-  for (const a of (acts ?? []) as any[]) {
-    if (owner !== 'all' && a.assigned_to !== owner) continue;
-    const k = a.assigned_to ?? 'none';
-    const r = actRows.get(k) ?? { name: a.owner?.full_name ?? '—', done: 0, planned: 0, byType: {} as Record<string, number> };
-    if (a.is_done) { const tk: string = a.type ?? 'task'; r.done++; r.byType[tk] = (r.byType[tk] ?? 0) + 1; } else r.planned++;
-    actRows.set(k, r);
-  }
   const link = (p: Record<string, string>) => `/sales/insights?${new URLSearchParams({ period: period[0], pipeline: pipeKey, owner, ...p })}`;
   const agents = [...new Map(allLeads.filter((l) => l.owner_id).map((l) => [l.owner_id!, l.owner_name ?? '—'])).entries()];
 
   return (
     <div className="space-y-4">
-      <WorkspaceHeader eyebrow="Sales" title="Πωλήσεις" description="Απόδοση deals, funnel μετατροπής, won/lost, activities και πρόβλεψη εσόδων." />
+      <WorkspaceHeader eyebrow="Sales" title="Διαχείριση leads" description="Όλα τα leads και deals: pipeline, λίστα, πρόβλεψη, activities και στατιστικά." />
       <SalesNav active="insights" />
       <div className="flex flex-wrap items-center gap-2 text-sm">
         <div className="flex rounded-lg bg-stone-100 p-0.5">{PERIODS.map(([k, l]) => <Link key={k} href={link({ period: k })} scroll={false} className={`inline-flex h-7 items-center rounded-md px-2.5 text-[13px] transition-colors ${k === period[0] ? 'bg-forest font-medium text-white shadow-sm' : 'text-charcoal-600 hover:text-charcoal'}`}>{l}</Link>)}</div>
@@ -70,12 +56,6 @@ export default async function InsightsPage({ searchParams }: { searchParams: { p
       <div className="grid gap-3 sm:grid-cols-4">
         {[['Won', formatCurrency(wonTotal), `${wonCount} deals`], ['Lost', String(lostCount), 'deals'], ['Win rate', `${wonCount + lostCount ? Math.round((wonCount / (wonCount + lostCount)) * 100) : 0}%`, 'won / (won + lost)'], ['Νέα deals', String(perf.reduce((s, r) => s + r.started, 0)), formatCurrency(perf.reduce((s, r) => s + r.startedValue, 0))]].map(([a, b, c]) => (
           <div key={a} className="rounded-[14px] border border-stone-line bg-white p-4 shadow-sm"><p className="text-[11px] font-semibold uppercase tracking-wide text-charcoal-600">{a}</p><p className="mt-1 text-2xl font-semibold tabular-nums text-charcoal">{b}</p><p className="text-xs text-charcoal-600/60">{c}</p></div>
-        ))}
-      </div>
-
-      <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-6">
-        {[['Ταχύτητα απάντησης', formatMinutes(kpis.speedToLeadAvgMinutes), `διάμεσος ${formatMinutes(kpis.speedToLeadMedianMinutes)}`], ['Απαντήθηκαν', `${kpis.responseRatePct}%`, `${kpis.totalLeads} leads`], ['Με προβολή', `${kpis.bookingRatePct}%`, 'leads με προβολή'], ['Προβολή → κράτηση', `${kpis.viewingToReservationPct}%`, `${kpis.reservationsCount} κρατήσεις`], ['Κράτηση → πώληση', `${kpis.reservationToSalePct}%`, `${kpis.wonCount} won`], ['Προμήθειες σε εκκρεμότητα', formatCurrency(kpis.commissionsPending), `${formatCurrency(kpis.commissionsPaid)} πληρωμένες`]].map(([a, b, c]) => (
-          <div key={a} className="panel p-3"><p className="text-[11px] uppercase tracking-wide text-charcoal-600/70">{a}</p><p className="figure text-xl text-charcoal">{b}</p><p className="text-[11px] text-charcoal-600/60">{c}</p></div>
         ))}
       </div>
 
@@ -108,34 +88,12 @@ export default async function InsightsPage({ searchParams }: { searchParams: { p
           </div>
         </Card>
 
-        <Card title="Ανά υπεύθυνο" sub="Ανοιχτά τώρα · won / lost στο διάστημα">
-          <div className="overflow-x-auto">
-            <table className="o-table">
-              <thead><tr><th>Υπεύθυνος</th><th className="text-right">Ανοιχτά</th><th className="text-right">Αξία</th><th className="text-right">Won</th><th className="text-right">Won €</th><th className="text-right">Lost</th><th className="text-right">Win rate</th></tr></thead>
-              <tbody>{owners.map((r) => <tr key={r.ownerId ?? 'none'}><td>{r.name}</td><td className="text-right">{r.open}</td><td className="text-right">{formatCurrency(r.openValue)}</td><td className="text-right text-forest">{r.won}</td><td className="text-right">{formatCurrency(r.wonValue)}</td><td className="text-right text-signal-danger">{r.lost}</td><td className="text-right font-medium">{r.winRate}%</td></tr>)}</tbody>
-            </table>
-          </div>
-        </Card>
-
         <Card title="Γιατί χάνονται" sub="Λόγοι lost στο διάστημα">
           {lost.length === 0 ? <p className="text-sm text-charcoal-600/70">Κανένα lost deal στο διάστημα.</p> : (
             <div className="space-y-1.5">{lost.map((r) => (
               <div key={r.label} className="flex items-center gap-2 text-sm"><span className="w-44 shrink-0 truncate" data-no-tr>{r.label}</span><div className="h-4 flex-1 rounded bg-stone"><div className="h-4 rounded bg-rose-400" style={{ width: `${(r.count / maxLost) * 100}%` }} /></div><span className="w-8 text-right">{r.count}</span></div>
             ))}</div>
           )}
-        </Card>
-
-        <Card title="Activities ανά χρήστη" sub="Ολοκληρωμένες και προγραμματισμένες στο διάστημα">
-          <div className="overflow-x-auto">
-            <table className="o-table">
-              <thead><tr><th>Χρήστης</th><th className="text-right">Έγιναν</th><th className="text-right">Ανοιχτές</th>{ACTIVITY_TYPES.slice(0, 4).map((a) => <th key={a.key} className="text-right">{a.label}</th>)}</tr></thead>
-              <tbody>
-                {actRows.size === 0 && <tr><td colSpan={7} className="py-4 text-center text-charcoal-600/70">Καμία activity στο διάστημα.</td></tr>}
-                {[...actRows.values()].sort((a, b) => b.done - a.done).map((r) => <tr key={r.name}><td>{r.name}</td><td className="text-right font-medium">{r.done}</td><td className="text-right">{r.planned}</td>{ACTIVITY_TYPES.slice(0, 4).map((a) => <td key={a.key} className="text-right">{r.byType[a.key] ?? 0}</td>)}</tr>)}
-              </tbody>
-            </table>
-          </div>
-          <p className="mt-2 text-xs text-charcoal-600/60">Τύποι: {ACTIVITY_TYPES.map((a, i) => <span key={a.key}>{i > 0 && ' · '}<span>{activityLabel(a.key)}</span></span>)}</p>
         </Card>
 
         <Card title="Πρόβλεψη εσόδων" sub="Ανοιχτά deals ανά μήνα αναμενόμενου κλεισίματος · σταθμισμένα με την πιθανότητα σταδίου">

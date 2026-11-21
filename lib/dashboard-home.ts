@@ -100,13 +100,13 @@ export async function loadHome(): Promise<HomeData> {
   const push = (n: number, text: string, href: string, tone: 'warn' | 'info' = 'warn') => { if (n > 0) attention.push({ text, href, tone }); };
   push(overdue.length, `${overdue.length} δόσεις καθυστερούν (${eur(overdue.reduce((s, x) => s + x.amount, 0))})`, '/financials');
   push(expiring.length, `${expiring.length} κρατήσεις λήγουν μέσα σε 7 μέρες`, '/sales/deals');
-  push(uncontacted.length, `${uncontacted.length} leads χωρίς πρώτη επικοινωνία πάνω από 48 ώρες`, '/sales/leads');
-  push(quiet.length, `${quiet.length} leads χωρίς επαφή πάνω από 14 μέρες`, '/sales/leads');
+  push(uncontacted.length, `${uncontacted.length} leads χωρίς πρώτη επικοινωνία πάνω από 48 ώρες`, '/sales/follow-ups');
+  push(quiet.length, `${quiet.length} leads χωρίς επαφή πάνω από 14 μέρες`, '/sales/deals?view=list');
   push(unsigned.length, `${unsigned.length} συμβόλαια περιμένουν υπογραφή`, '/sales/deals');
   push(tickets.length, `${tickets.length} ανοιχτά αιτήματα ιδιοκτητών`, '/property', 'info');
   push(leaveReq.length, `${leaveReq.length} αιτήματα άδειας για έγκριση`, '/hr?tab=leave', 'info');
   push(st('available'), `${st('available')} διαθέσιμες μονάδες προς πώληση`, '/projects', 'info');
-  push(new30.length, `${new30.length} νέα leads τις τελευταίες 30 μέρες`, '/sales/leads', 'info');
+  push(new30.length, `${new30.length} νέα leads τις τελευταίες 30 μέρες`, '/sales/new', 'info');
 
   // ── Ζωντανή δραστηριότητα ──
   const activity: ActivityItem[] = [

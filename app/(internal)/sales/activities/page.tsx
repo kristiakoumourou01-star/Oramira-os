@@ -33,7 +33,7 @@ export default async function ActivitiesPage({ searchParams }: { searchParams: {
   const rows = [...(open.data ?? []), ...(done.data ?? [])].map(map).concat(viewingRows);
   return (
     <div className="space-y-4">
-      <WorkspaceHeader eyebrow="Sales" title="Πωλήσεις" description="Κλήσεις, συναντήσεις, εργασίες και προβολές της ομάδας." />
+      <WorkspaceHeader eyebrow="Sales" title="Διαχείριση leads" description="Όλα τα leads και deals: pipeline, λίστα, πρόβλεψη, activities και στατιστικά." />
       <SalesNav active="activities" />
       {open.error && <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">{open.error.message}</p>}
       <ActivitiesView rows={rows} agents={(agents ?? []) as any} currentUserId={profile.id} initialTypes={searchParams.type ? [searchParams.type] : []} />

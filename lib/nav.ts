@@ -27,11 +27,13 @@ export const DEFAULT_NAV: NavDef[] = [
   {
     label: 'Sales',
     items: [
-      { href: '/sales/leads', label: 'Leads Inbox', icon: 'Inbox', module: 'leads' },
-      { href: '/sales/deals', label: 'Deals', icon: 'TrendingUp', module: 'leads' },
+      // Διαχείριση leads: Pipeline (με κάρτες Λίστα · Πρόβλεψη · Activities · Insights · Agents), Νέα leads, Follow-ups.
+      { href: '/sales/deals', label: 'Διαχείριση leads', icon: 'TrendingUp', module: 'leads', children: [
+        { href: '/sales/deals', label: 'Pipeline' },
+        { href: '/sales/new', label: 'Νέα leads' },
+        { href: '/sales/follow-ups', label: 'Follow-ups' },
+      ] },
       { href: '/crm/customers', label: 'Πελάτες', icon: 'Contact', module: 'leads' },
-      { href: '/sales/activities', label: 'Activities', icon: 'ListChecks', module: 'leads' },
-      { href: '/sales/insights', label: 'Insights', icon: 'LineChart', module: 'leads' },
     ],
   },
   {
