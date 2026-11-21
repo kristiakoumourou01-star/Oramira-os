@@ -1,6 +1,15 @@
 /** Campaigns του Marketing — client-safe τύποι και βοηθήματα. */
 
-export type CampaignChannel = 'email' | 'whatsapp' | 'push';
+export type CampaignChannel = 'email' | 'sms' | 'whatsapp' | 'push';
+export const CHANNEL_NAME: Record<CampaignChannel, string> = { email: 'Email', sms: 'SMS', whatsapp: 'WhatsApp', push: 'Push' };
+
+/** Τμήματα SMS: 160 χαρακτήρες (λατινικά) ή 70 (ελληνικά / unicode)· με συνένωση 153 / 67. */
+export function smsParts(text: string): { chars: number; parts: number; unicode: boolean } {
+  const unicode = /[^\x00-\x7F€]/.test(text);
+  const chars = text.length;
+  const one = unicode ? 70 : 160, multi = unicode ? 67 : 153;
+  return { chars, parts: chars === 0 ? 0 : chars <= one ? 1 : Math.ceil(chars / multi), unicode };
+}
 export type CampaignAudience =
   | { kind: 'groups'; groups: string[] }
   | { kind: 'contacts'; ids: string[] }

@@ -62,9 +62,9 @@ export interface CampaignInput { id?: string; name: string; channel: CampaignCha
 /** Αποθήκευση ως πρόχειρο, ή αποθήκευση και αποστολή. */
 export async function saveCampaign(input: CampaignInput, send: boolean): Promise<R<{ id: string; sent?: number; failed?: number; queued?: number; providerMissing?: boolean }>> {
   const me = await requirePermission('marketing', 'edit');
-  const channel: CampaignChannel = input.channel === 'whatsapp' ? 'whatsapp' : input.channel === 'push' ? 'push' : 'email';
+  const channel: CampaignChannel = (['sms', 'whatsapp', 'push'] as const).find((c) => c === input.channel) ?? 'email';
   const name = (input.name ?? '').trim().slice(0, 120);
-  const body = (input.body ?? '').trim().slice(0, 20000);
+  const body = (input.body ?? '').trim().slice(0, channel === 'sms' ? 1000 : 20000);
   const audience = cleanAudience(input.audience, channel);
   if (!name) return { ok: false, error: 'Γράψτε όνομα campaign.' };
   if (!audience) return { ok: false, error: 'Διαλέξτε κοινό.' };
@@ -100,10 +100,10 @@ export async function saveCampaign(input: CampaignInput, send: boolean): Promise
     if (channel === 'push') {
       try { await notifyUser({ userId: r.to, title: renderCampaign(row.subject ?? name, r.name), body: text.slice(0, 500), link: '/' }); status = 'sent'; } catch { status = 'failed'; }
     } else if (r.contactId) {
-      const res = await sendMessage({ contactId: r.contactId, channel: channel as 'email' | 'whatsapp', to: r.to, subject, body: html, templateKey: `campaign:${id}` });
+      const res = await sendMessage({ contactId: r.contactId, channel: channel as 'email' | 'sms' | 'whatsapp', to: r.to, subject, body: html, templateKey: `campaign:${id}` });
       status = res.status;
     } else {
-      const res = await getChannelAdapter(channel as 'email' | 'whatsapp').send(r.to, { subject, body: html });
+      const res = await getChannelAdapter(channel as 'email' | 'sms' | 'whatsapp').send(r.to, { subject, body: html });
       status = res.status;
     }
     if (status === 'sent') sent++; else if (status === 'queued') queued++; else failed++;
