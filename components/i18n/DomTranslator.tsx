@@ -18,7 +18,8 @@ function compile(dict: Record<string, string>) {
       // Σύντομα μοτίβα (π.χ. «{} μέρες») δέχονται στη θέση του {} μόνο αριθμούς /
       // λατινικά — αλλιώς «πιάνουν» και ελληνικές λέξεις και βγαίνουν μισομεταφρασμένα.
       const words = k.split('{}').join(' ').trim().split(/\s+/).filter(Boolean).length;
-      const hole = words >= 3 ? '(.+?)' : '([^\u0370-\u03FF\u1F00-\u1FFF]+?)';
+      // Το {} δεν «περνάει» πάνω από διαχωριστικό « · » (εκεί μεταφράζεται κάθε κομμάτι χωριστά).
+      const hole = words >= 3 ? '((?:(?! · ).)+?)' : '((?:(?! · )[^\u0370-\u03FF\u1F00-\u1FFF])+?)';
       const src = k.split('{}').map((s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join(hole);
       patterns.push({ re: new RegExp(`^${src}$`, 's'), to: v });
     } else exact.set(k, v);
