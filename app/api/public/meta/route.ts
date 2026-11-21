@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { intakeInboundLead } from '@/lib/intake';
 
 /**
- * Meta capture webhook — Lead Ads forms, Messenger, and Instagram DMs. Verifies
+ * Meta capture webhook — Lead Ads forms only (Messenger / Instagram DMs are ignored). Verifies
  * the Meta handshake (GET), then normalizes each inbound event into the intake
  * chokepoint so it becomes a CRM lead (deduped, auto-detected, automations
  * triggered). Lead Ads field data is fetched from the Graph API when a page
@@ -19,25 +19,12 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const object = body?.object; // 'page' | 'instagram'
     for (const entry of body?.entry ?? []) {
       // Lead Ads form submissions
       for (const change of entry?.changes ?? []) {
         if (change?.field === 'leadgen') await handleLeadgen(change.value);
       }
-      // Messenger / Instagram DMs
-      for (const m of entry?.messaging ?? []) {
-        const text = m?.message?.text;
-        const senderId = m?.sender?.id;
-        if (text && senderId) {
-          await intakeInboundLead({
-            channel: object === 'instagram' ? 'instagram' : 'facebook',
-            message: text,
-            externalId: senderId,
-            source: object === 'instagram' ? 'instagram' : 'facebook',
-          });
-        }
-      }
+      // Μηνύματα Messenger / Instagram ΔΕΝ γίνονται leads (απόφαση ιδιοκτήτριας) — μόνο οι φόρμες Lead Ads.
     }
   } catch (err) {
     console.error('meta webhook error', err);
