@@ -8,7 +8,9 @@ import { COLUMNS, DEFAULT_COLUMNS, OPS, evaluate, type Condition, type CustomRow
 import { saveReportTemplate, deleteReportTemplate } from '@/app/actions/report-templates';
 import { createContactGroup } from '@/app/actions/contacts-hub';
 import { DataReportView } from '@/components/reports/DataReportView';
-import type { DataReport } from '@/lib/data-reports';
+import { SummaryTiles, CallListButton } from '@/components/reports/ReportParts';
+import { CallListDialog } from '@/components/tasks/TeamTasks';
+import type { DataReport } from '@/lib/reports-shared';
 import { DATE_TAG, currentLocale } from '@/lib/locale-shared';
 
 const eur = (n: number) => `€${Math.round(n).toLocaleString('el-GR')}`;
@@ -18,11 +20,11 @@ const eur = (n: number) => `€${Math.round(n).toLocaleString('el-GR')}`;
  * στοιβάζεις συνθήκες (ιδιότητα, ομάδα, budget, έργο, περιοχή, κράτηση,
  * υπόλοιπο…) και τρέχεις την αναφορά για την ακριβή λίστα πελατών.
  */
-export function CustomReport({ rows, fields, templates, canExport }: { rows: CustomRow[]; fields: FieldDef[]; templates: { id: string; name: string; definition: any }[]; canExport: boolean }) {
+export function CustomReport({ rows, fields, templates, canExport, staff, me }: { rows: CustomRow[]; fields: FieldDef[]; templates: { id: string; name: string; definition: any }[]; canExport: boolean; staff: { id: string; name: string }[]; me: string }) {
   const router = useRouter();
   const [def, setDef] = useState<ReportDef>({ match: 'all', conditions: [{ field: 'roles', op: 'has', value: 'buyer' }], columns: DEFAULT_COLUMNS });
   const [ran, setRan] = useState<ReportDef | null>(null);
-  const [per, setPer] = useState(25);
+  const [callDlg, setCallDlg] = useState(false);
   const [tpl, setTpl] = useState('');
   const [colsOpen, setColsOpen] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
@@ -45,7 +47,7 @@ export function CustomReport({ rows, fields, templates, canExport }: { rows: Cus
     };
     const cols = COLUMNS.filter(([k]) => ran.columns.includes(k));
     return {
-      columns: cols.map(([key, l]) => ({ key, label: l, align: ['budget', 'value', 'paid', 'balance', 'viewings', 'reservations', 'contracts'].includes(key) ? 'right' as const : undefined })),
+      columns: cols.map(([key, l]) => ({ key, label: l, data: ['name', 'email', 'phone', 'groups', 'tags', 'ownerName', 'projects', 'areas', 'units', 'ownedProjects', 'nationality'].includes(key), align: ['budget', 'value', 'paid', 'balance', 'viewings', 'reservations', 'contracts'].includes(key) ? 'right' as const : undefined })),
       rows: result.map((r) => Object.fromEntries(cols.map(([k]) => [k, fmt(k, (r as any)[k])]))),
       summary: [
         { label: 'Πελάτες', value: String(result.length) },
@@ -54,7 +56,7 @@ export function CustomReport({ rows, fields, templates, canExport }: { rows: Cus
         { label: 'Συνολικό budget', value: eur(result.reduce((s, r) => s + r.budget, 0)) },
         { label: 'Υπόλοιπο προς είσπραξη', value: eur(result.reduce((s, r) => s + r.balance, 0)) },
       ],
-      note: `${ran.conditions.length} συνθήκ${ran.conditions.length === 1 ? 'η' : 'ες'} · ${ran.match === 'all' ? 'όλες' : 'οποιαδήποτε'}`,
+
     };
   }, [ran, result]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -116,7 +118,6 @@ export function CustomReport({ rows, fields, templates, canExport }: { rows: Cus
             </div>}
           </div>
           <span className="ml-auto flex items-center gap-2">
-            <select value={per} onChange={(e) => setPer(Number(e.target.value))} className="input h-9 w-auto py-1 text-sm">{[25, 50, 100, 1000].map((n) => <option key={n} value={n}>{n === 1000 ? 'Όλοι' : `${n} ανά σελίδα`}</option>)}</select>
             <button type="button" onClick={() => setRan({ ...def })} className="btn-primary text-sm"><Search size={15} /> Εκτέλεση αναφοράς</button>
           </span>
         </div>
@@ -128,13 +129,16 @@ export function CustomReport({ rows, fields, templates, canExport }: { rows: Cus
         <div className="space-y-3">
           {result.length > 0 && (
             <div className="flex flex-wrap justify-end gap-2">
+              <CallListButton onClick={() => setCallDlg(true)} />
               <button type="button" onClick={toGroup} disabled={pending} className="inline-flex items-center gap-1.5 rounded-lg border border-stone-line bg-white px-3 py-1.5 text-[13px] font-medium text-charcoal hover:border-forest/40"><FolderPlus size={14} /> Αποθήκευση ως ομάδα</button>
               <Link href={`/marketing?tab=email&ids=${result.slice(0, 300).map((r) => r.id).join(',')}`} className="inline-flex items-center gap-1.5 rounded-lg border border-stone-line bg-white px-3 py-1.5 text-[13px] font-medium text-charcoal hover:border-forest/40"><Megaphone size={14} /> Campaign σε αυτούς</Link>
             </div>
           )}
-          <DataReportView report={report} title="Custom report πελατών" canExport={canExport} pageSize={per >= 1000 ? undefined : per} />
+          <SummaryTiles items={report.summary.slice(0, 4)} />
+          <DataReportView report={report} title="Custom report πελατών" canExport={canExport} />
         </div>
       )}
+      {callDlg && <CallListDialog staff={staff} me={me} fixed={{ ids: result.map((r) => r.id), label: tpl ? `Αναφορά: ${templates.find((t) => t.id === tpl)?.name ?? ''}` : 'Custom report πελατών' }} onClose={() => setCallDlg(false)} onDone={(t, ok = true) => { setCallDlg(false); setMsg({ ok, text: t }); }} />}
     </div>
   );
 }

@@ -1,53 +1,62 @@
+import Link from 'next/link';
+import { ArrowLeft } from 'lucide-react';
 import { requirePermission, hasRight } from '@/lib/auth';
+import { effectiveCan } from '@/lib/permissions';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { buildBoardReport } from '@/lib/board-report';
 import { buildInvestorReport } from '@/lib/investor-report';
 import { buildStrategicPlan } from '@/lib/strategic-planning';
 import { getKnowledgeOverview } from '@/lib/knowledge-graph';
 import { searchMemory } from '@/lib/executive-memory';
-import { buildDataReport } from '@/lib/data-reports';
+import { loadCustomReport } from '@/lib/custom-report';
+import { buildReReport, reportPickers, staffList } from '@/lib/re-reports';
+import { REPORT_TILES, REPORT_ALIAS, type ReportFilters } from '@/lib/reports-shared';
 import { WorkspaceHeader } from '@/components/ui/WorkspaceHeader';
 import { ReportView } from '@/components/reports/ReportView';
 import { DownloadReportButton } from '@/components/reports/DownloadReportButton';
 import { StrategyView } from '@/components/reports/StrategyView';
 import { KnowledgePanel } from '@/components/reports/KnowledgePanel';
 import { MemoryPanel } from '@/components/reports/MemoryPanel';
-import { ReportsHub, type ReportTile } from '@/components/reports/ReportsHub';
-import { DataReportView } from '@/components/reports/DataReportView';
+import { ReportsHub } from '@/components/reports/ReportsHub';
 import { CustomReport } from '@/components/reports/CustomReport';
-import { loadCustomReport } from '@/lib/custom-report';
+import { SummaryTiles, ReportChart, ReportFilterBar, ReportBody } from '@/components/reports/ReportParts';
 import { boardReportPdfWeekly, boardReportPdfMonthly, investorReportPdf } from '@/app/actions/reports';
 
 export const dynamic = 'force-dynamic';
 
-const TILES: ReportTile[] = [
-  { key: 'pipeline', title: 'Πωλήσεις', desc: 'Ανοιχτά deals και αξία σε κάθε στάδιο', icon: 'Layers' },
-  { key: 'leads_source', title: 'Leads', desc: 'Πηγές leads και μετατροπή (90 ημ.)', icon: 'Users' },
-  { key: 'reservations', title: 'Κρατήσεις', desc: 'Κρατήσεις, προκαταβολές και λήξεις', icon: 'CalendarCheck' },
-  { key: 'custom', title: 'Custom report', desc: 'Φτιάξτε το δικό σας φίλτρο πελατών', icon: 'SlidersHorizontal' },
-  { key: 'inventory', title: 'Μονάδες', desc: 'Απόθεμα με τιμή, εμβαδόν και κατάσταση', icon: 'Home' },
-  { key: 'invoices', title: 'Τιμολόγια', desc: 'ΦΠΑ, παραστατικά και σύνολα', icon: 'Receipt' },
-  { key: 'commissions', title: 'Προμήθειες', desc: 'Προμήθειες πωλητών και συνεργατών', icon: 'BadgePercent' },
-  { key: 'activities', title: 'Tasks', desc: 'Εργασίες και κλήσεις ανά χρήστη', icon: 'ListChecks' },
-  { key: 'maintenance', title: 'Συντήρηση', desc: 'Αιτήματα ιδιοκτητών ανά έργο', icon: 'Wrench' },
-  { key: 'leave', title: 'Άδειες', desc: 'Αιτήματα αδειών και εγκεκριμένες ημέρες', icon: 'Plane' },
-  { key: 'board', title: 'Board pack', desc: 'Εικόνα για τη διοίκηση — PDF εβδομάδας / μήνα', icon: 'Briefcase' },
-  { key: 'investor', title: 'Investor report', desc: 'Αναφορά για επενδυτές σε PDF', icon: 'LineChart' },
-  { key: 'strategy', title: 'Strategy', desc: 'Στρατηγικό πλάνο και προτεραιότητες', icon: 'Target' },
-  { key: 'knowledge', title: 'Knowledge graph', desc: 'Σχέσεις επαφών, έργων και deals', icon: 'Network' },
-  { key: 'memory', title: 'Executive memory', desc: 'Αποφάσεις και σημειώσεις διοίκησης', icon: 'Brain' },
-];
+// Παλιές αναφορές που δεν φαίνονται πια στο πλέγμα, αλλά οι σύνδεσμοί τους δουλεύουν.
+const HIDDEN: Record<string, [string, string]> = {
+  strategy: ['Strategy', 'Στρατηγικό πλάνο και προτεραιότητες'],
+  knowledge: ['Knowledge graph', 'Σχέσεις επαφών, έργων και deals'],
+  memory: ['Executive memory', 'Αποφάσεις και σημειώσεις διοίκησης'],
+};
 
-/** Reports: κουτάκια πάνω (όπως στο FitnessCRM), η επιλεγμένη αναφορά από κάτω με export. */
-export default async function ReportsPage({ searchParams }: { searchParams: { tab?: string } }) {
+type SP = { tab?: string; view?: string; period?: string; from?: string; to?: string; project?: string; agent?: string; channel?: string };
+
+/** Reports όπως στο FitnessCRM: πλέγμα αναφορών· κάθε αναφορά ανοίγει σε δική της καθαρή σελίδα με φίλτρα, γράφημα και πίνακα. */
+export default async function ReportsPage({ searchParams }: { searchParams: SP }) {
   const profile = await requirePermission('financials');
   const canExport = hasRight(profile, 'export_data');
-  const supabase = await createSupabaseServerClient();
-  const active = TILES.some((t) => t.key === searchParams?.tab) ? searchParams.tab! : null;
-  const title = TILES.find((t) => t.key === active)?.title ?? '';
+  const raw = searchParams?.tab ?? '';
+  const key = REPORT_ALIAS[raw] ?? raw;
+  const tile = REPORT_TILES.find((t) => t.key === key);
+  const hidden = HIDDEN[key];
 
+  if (!tile && !hidden) {
+    return (
+      <div className="space-y-5">
+        <WorkspaceHeader title="Αναφορές" description="Πωλήσεις, leads, πωλητές, μονάδες, εισπράξεις, διαχείριση ακινήτων, καμπάνιες και λίστες κλήσεων — με φίλτρα και export." />
+        <ReportsHub tiles={REPORT_TILES} />
+      </div>
+    );
+  }
+
+  const title = tile?.title ?? hidden![0];
+  const desc = tile?.desc ?? hidden![1];
+  const supabase = await createSupabaseServerClient();
   let body: React.ReactNode = null;
-  if (active === 'board') {
+
+  if (key === 'board') {
     const board = await buildBoardReport(supabase, 'monthly');
     body = (
       <div className="space-y-4">
@@ -55,7 +64,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: { ta
         <ReportView report={board} />
       </div>
     );
-  } else if (active === 'investor') {
+  } else if (key === 'investor') {
     const investor = await buildInvestorReport(supabase);
     body = (
       <div className="space-y-4">
@@ -63,46 +72,42 @@ export default async function ReportsPage({ searchParams }: { searchParams: { ta
         <ReportView report={investor} />
       </div>
     );
-  } else if (active === 'strategy') {
+  } else if (key === 'strategy') {
     body = <StrategyView plan={await buildStrategicPlan(supabase)} />;
-  } else if (active === 'knowledge') {
+  } else if (key === 'knowledge') {
     const [knowledge, { data: contacts }] = await Promise.all([getKnowledgeOverview(supabase), supabase.from('contacts').select('id, full_name').order('full_name').limit(500)]);
     body = <KnowledgePanel overview={knowledge} contacts={(contacts ?? []).map((c: any) => ({ id: c.id, name: c.full_name ?? 'Contact' }))} />;
-  } else if (active === 'custom') {
-    const c = await loadCustomReport();
-    body = <CustomReport rows={c.rows} fields={c.fields} templates={c.templates} canExport={canExport} />;
-  } else if (active === 'memory') {
+  } else if (key === 'memory') {
     body = <MemoryPanel initial={await searchMemory(supabase, { limit: 50 })} />;
-  } else if (active) {
-    const rep = await buildDataReport(supabase, active);
-    body = rep ? <div className="space-y-4"><h2 className="font-display text-2xl text-charcoal">{title}</h2><DataReportView report={rep} title={title} canExport={canExport} pageSize={25} /></div> : null;
+  } else if (key === 'custom') {
+    const [c, staff] = await Promise.all([loadCustomReport(), staffList()]);
+    body = <CustomReport rows={c.rows} fields={c.fields} templates={c.templates} canExport={canExport} staff={staff} me={profile.id} />;
+  } else {
+    const filters: ReportFilters = {
+      period: searchParams.period ?? (key === 'collections' ? 'all' : '365'),
+      from: searchParams.from ?? null, to: searchParams.to ?? null,
+      project: searchParams.project ?? '', agent: searchParams.agent ?? '', channel: searchParams.channel ?? '',
+    };
+    const [rep, pick] = await Promise.all([buildReReport(key, filters), reportPickers()]);
+    const canEdit = effectiveCan(profile.role, profile.moduleAccess, 'financials', 'edit', profile.permissions);
+    body = rep && (
+      <div className="space-y-5">
+        <ReportFilterBar keys={rep.filters} value={filters} projects={pick.projects} agents={pick.agents} />
+        <SummaryTiles items={rep.summary} />
+        {rep.chart && <ReportChart chart={rep.chart} />}
+        <ReportBody reportKey={key} report={rep} title={title} canExport={canExport} canEdit={canEdit} initialView={searchParams.view} />
+        {rep.note && <p className="text-[12px] text-charcoal-600">{rep.note}</p>}
+      </div>
+    );
   }
-
-  const { data: campRows } = await (supabase as any).from('marketing_campaigns').select('channel, sent, failed, skipped, opened, status');
-  const cr = (campRows ?? []) as any[];
-  const sum = (k: string, ch?: string) => cr.filter((c) => !ch || c.channel === ch).reduce((n, c) => n + Number(c[k] ?? 0), 0);
-  const { count: optedOut } = await (supabase as any).from('contacts').select('id', { count: 'exact', head: true }).eq('marketing_opt_in', false).not('marketing_opt_in_at', 'is', null);
-  const delivery = (
-    <div className="space-y-4">
-      <p className="text-[12px] font-semibold uppercase tracking-[0.1em] text-charcoal-600">Αποστολές campaigns</p>
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {[['Στάλθηκαν', sum('sent') + sum('failed'), 'Σύνολο μηνυμάτων που φύγανε'], ['Παραδόθηκαν', sum('sent'), 'Έφτασαν επιτυχώς'], ['Απέτυχαν', sum('failed'), 'Λάθος διεύθυνση ή πάροχος'], ['Χωρίς συγκατάθεση', optedOut ?? 0, 'Έχουν αποσύρει τη συγκατάθεση']].map(([k, v, n]) => (
-          <div key={String(k)} className="rounded-[14px] border border-stone-line bg-white p-4 shadow-sm"><p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-charcoal-600">{k}</p><p className="mt-1 text-3xl font-semibold tabular-nums text-charcoal">{v}</p><p className="text-[12px] text-charcoal-600">{n}</p></div>
-        ))}
-      </div>
-      <p className="pt-2 text-[12px] font-semibold uppercase tracking-[0.1em] text-charcoal-600">Ανά κανάλι</p>
-      <div className="grid gap-4 sm:grid-cols-3">
-        {[['Email', 'email'], ['WhatsApp', 'whatsapp'], ['Push', 'push']].map(([k, ch]) => (
-          <div key={ch} className="rounded-[14px] border border-stone-line bg-white p-4 shadow-sm"><p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-charcoal-600">{k}</p><p className="mt-1 text-3xl font-semibold tabular-nums text-charcoal">{sum('sent', ch) + sum('failed', ch)}</p><p className="text-[12px] text-charcoal-600">{sum('sent', ch)} παραδόθηκαν</p></div>
-        ))}
-      </div>
-    </div>
-  );
 
   return (
     <div className="space-y-5">
-      <WorkspaceHeader eyebrow="Marketing" title="Αναφορές" description="Πωλήσεις, leads, κρατήσεις, μονάδες, τιμολόγια, προμήθειες και custom αναφορές — με export." />
-      <ReportsHub tiles={TILES} active={active} footer={delivery}>{body}</ReportsHub>
+      <div>
+        <Link href="/reports" className="mb-2 inline-flex items-center gap-1.5 text-[13px] text-charcoal-600 hover:text-forest"><ArrowLeft size={14} /> Αναφορές</Link>
+        <WorkspaceHeader title={title} description={desc} />
+      </div>
+      {body}
     </div>
   );
 }
