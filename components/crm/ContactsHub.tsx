@@ -1,5 +1,7 @@
 'use client';
 
+import { STATUS_EL as STATUS_EL_PIPE } from '@/lib/pipeline-shared';
+
 import { useEffect, useMemo, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -257,38 +259,41 @@ function F({ label, children, wide }: { label: string; children: React.ReactNode
 }
 
 
+const LEAD_STAGE: Record<string, string> = STATUS_EL_PIPE;
+
 function QuickView({ r, onClose }: { r: ContactListRow; onClose: () => void }) {
-  const days = r.lastContactAt ? Math.floor((Date.now() - Date.parse(r.lastContactAt)) / 86_400_000) : null;
-  const risk = days === null ? 'Δεν έγινε ποτέ επικοινωνία' : days > 60 ? 'Υψηλός' : days > 30 ? 'Μέτριος' : 'Χαμηλός';
-  const Row = ({ label, value, icon: I }: { label: string; value: React.ReactNode; icon?: any }) => (
+  const Row = ({ label, value, icon: I, tr }: { label: string; value: React.ReactNode; icon?: any; tr?: boolean }) => (
     <div className="flex items-center justify-between gap-3 border-b border-stone-line/70 py-2 text-[14px] last:border-0">
-      <span className="flex items-center gap-2 text-charcoal-600">{I && <I size={14} />}{label}</span><span className="truncate text-right font-medium text-charcoal" data-no-tr>{value}</span>
+      <span className="flex items-center gap-2 text-charcoal-600">{I && <I size={14} />}{label}</span><span className="truncate text-right font-medium text-charcoal" {...(tr ? {} : { 'data-no-tr': true })}>{value}</span>
     </div>
   );
+  const Eyebrow = ({ children }: { children: React.ReactNode }) => <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-forest">{children}</p>;
+  const stage = r.lead ? (LEAD_STAGE[r.lead.status] ?? r.lead.status) : '—';
   return (
-    <div className="anim-fade fixed inset-0 z-50 flex items-center justify-center bg-charcoal/30 p-4 backdrop-blur-[2px]" onClick={onClose}>
-      <div className="anim-zoom w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-overlay" onClick={(e) => e.stopPropagation()}>
+    <div className="anim-fade fixed inset-0 z-50 flex items-end justify-center bg-charcoal/30 p-0 backdrop-blur-[2px] sm:items-center sm:p-4" onClick={onClose}>
+      <div className="anim-zoom max-h-[92vh] w-full max-w-md overflow-y-auto rounded-t-2xl bg-white shadow-overlay sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start gap-3 border-b border-stone-line px-5 py-4">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-forest/[0.09] text-[14px] font-semibold text-forest">{r.name.split(' ').map((x) => x[0]).slice(0, 2).join('').toUpperCase()}</span>
-          <div className="min-w-0 flex-1"><p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-charcoal-600">Πελάτης</p><p className="truncate font-display text-lg text-charcoal" data-no-tr>{r.name}</p><p className="truncate text-[13px] text-charcoal-600" data-no-tr>{r.email ?? r.phone ?? ''}</p></div>
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-forest/[0.09] text-[15px] font-semibold text-forest">{r.name.split(' ').map((x) => x[0]).slice(0, 2).join('').toUpperCase()}</span>
+          <div className="min-w-0 flex-1"><p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-charcoal-600">Πελάτης</p><p className="truncate font-display text-lg text-charcoal" data-no-tr>{r.name}</p><p className="truncate text-[13px] text-charcoal-600" data-no-tr>{r.phone ?? r.email ?? ''}</p></div>
           <button type="button" onClick={onClose} aria-label="Κλείσιμο" className="text-charcoal-600 hover:text-charcoal"><X size={18} /></button>
         </div>
         <div className="space-y-4 px-5 py-4">
-          <section><p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-charcoal-600">Επικοινωνία</p>
+          <section><Eyebrow>Επικοινωνία</Eyebrow>
             <Row icon={Mail} label="E-mail" value={r.email || '—'} />
             <Row icon={Phone} label="Τηλέφωνο" value={r.phone || '—'} />
-            <Row label="Ομάδα" value={r.groups.join(', ') || 'Χωρίς ομάδα'} />
-            <Row label="Ημ. εγγραφής" value={ddmmyyyy(r.createdAt)} />
+            <Row label="Ομάδα" value={r.groups.join(', ') || '—'} />
+            <Row label="Εγγραφή" value={ddmmyyyy(r.createdAt)} tr />
           </section>
-          <section><p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-charcoal-600">Αγορά</p>
-            <Row label="Ιδιότητα" value={r.roles.map((x) => ROLE_EL[x]).join(', ') || '—'} />
-            <Row label="Αξία συμβολαίων" value={r.value ? formatCurrency(r.value) : '—'} />
-            <Row label="Υπόλοιπο" value={r.value ? formatCurrency(Math.max(0, r.value - r.paid)) : '—'} />
+          <section><Eyebrow>Ακίνητα</Eyebrow>
+            <Row label="Μονάδες (αγορά)" value={r.units ?? 0} tr />
+            <Row label="Κρατήσεις" value={r.reservations ?? 0} tr />
+            <Row label="Συνολική αξία" value={r.value ? formatCurrency(r.value) : '—'} tr />
+            <Row label="Υπόλοιπο" value={r.value ? formatCurrency(Math.max(0, r.value - r.paid)) : '—'} tr />
           </section>
-          <section><p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-charcoal-600">Δραστηριότητα</p>
-            <Row label="Τελευταία επαφή" value={ddmmyyyy(r.lastContactAt)} />
-            <Row label="Ανοιχτά leads" value={r.openLeads} />
-            <Row label="Κίνδυνος" value={risk} />
+          <section><Eyebrow>Δραστηριότητα</Eyebrow>
+            <Row label="Τελευταία επαφή" value={ddmmyyyy(r.lastContactAt)} tr />
+            <Row label="Υπεύθυνος" value={r.ownerName ?? '—'} />
+            <Row label="Στάδιο" value={stage} tr />
           </section>
         </div>
         <div className="px-5 pb-5"><Link href={`/crm/${r.id}`} className="flex w-full items-center justify-center gap-2 rounded-xl bg-forest py-2.5 text-sm font-semibold text-white hover:bg-forest/90"><ExternalLink size={15} /> Άνοιγμα πλήρους προφίλ</Link></div>

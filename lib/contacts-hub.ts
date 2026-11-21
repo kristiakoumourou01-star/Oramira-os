@@ -46,7 +46,7 @@ export async function loadContactList(): Promise<{ rows: ContactListRow[]; staff
       nationality: c.nationality ?? null, buyerType: c.buyer_type ?? null, optIn: !!c.marketing_opt_in,
       lead: latestLead.has(c.id) ? (() => { const l = latestLead.get(c.id); return { id: l.id, status: l.status, source: l.source ?? null, createdAt: l.created_at, contacted: !!l.last_contacted_at }; })() : null,
       createdAt: c.created_at, lastContactAt: o.last_contact_at ?? null, openLeads: Number(o.open_leads ?? 0), kycStatus: o.kyc_status ?? null,
-      value: m?.contractValue ?? 0, paid: m?.paid ?? 0,
+      value: m?.contractValue ?? 0, paid: m?.paid ?? 0, units: m?.units ?? 0, reservations: m?.reservations ?? 0,
     };
   });
   return { rows, staff, groups, missing: false };
