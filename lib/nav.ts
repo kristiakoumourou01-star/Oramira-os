@@ -19,36 +19,38 @@ export const DEFAULT_NAV: NavDef[] = [
   {
     label: 'Operations',
     items: [
-      { href: '/dashboard', label: 'Dashboard', icon: 'LayoutDashboard' },
-      { href: '/calendar', label: 'Ημερολόγιο', icon: 'CalendarDays' },
+      { href: '/dashboard', label: 'Dashboard', icon: 'LayoutDashboard', module: 'dashboard' },
+      { href: '/calendar', label: 'Ημερολόγιο', icon: 'CalendarDays', module: 'calendar' },
       { href: '/command-center', label: 'Command Center', icon: 'Gauge', module: 'operations' },
     ],
   },
   {
     label: 'Sales',
     items: [
-      { href: '/sales/leads', label: 'Leads Inbox', icon: 'Inbox', module: 'leads' },
-      { href: '/sales/deals', label: 'Deals', icon: 'TrendingUp', module: 'leads' },
-      { href: '/crm/customers', label: 'Πελάτες', icon: 'Contact', module: 'leads' },
-      { href: '/sales/activities', label: 'Activities', icon: 'ListChecks', module: 'leads' },
+      // Leads (νέα, χωρίς υπεύθυνο) · Pipeline (με κάρτες Λίστα · Πρόβλεψη · Activities · Agents) · Follow-ups · Insights — χωρίς υπομενού.
+      { href: '/sales/new', label: 'Leads', icon: 'Inbox', module: 'leads' },
+      { href: '/sales/deals', label: 'Pipeline', icon: 'TrendingUp', module: 'leads' },
+      { href: '/sales/follow-ups', label: 'Follow-ups', icon: 'ListChecks', module: 'followups' },
       { href: '/sales/insights', label: 'Insights', icon: 'LineChart', module: 'leads' },
+      { href: '/crm/customers', label: 'Πελάτες', icon: 'Contact', module: 'leads' },
     ],
   },
   {
     label: 'Projects',
     items: [
+      // Με τη σειρά της διαδικασίας: οικόπεδο (αξιολόγηση) → ανάλυση → έργο & μονάδες → property management.
+      { href: '/acquisitions', label: 'Οικόπεδα', icon: 'Map', module: 'acquisitions' },
+      { href: '/deal-analyzer', label: 'Ανάλυση (Deal Analyzer)', icon: 'Calculator', module: 'deals' },
       { href: '/projects', label: 'Έργα & μονάδες', icon: 'Building2', module: 'projects' },
-      { href: '/map', label: 'Χάρτης', icon: 'MapPin', module: 'projects' },
-      { href: '/deal-analyzer', label: 'Deal Analyzer', icon: 'Calculator', module: 'deals' },
-      { href: '/acquisitions', label: 'Αγορές γης', icon: 'Map', module: 'acquisitions' },
       { href: '/property', label: 'Property Management', icon: 'Home', module: 'property' },
+      { href: '/map', label: 'Χάρτης', icon: 'MapPin', module: 'projects' },
     ],
   },
   {
     label: 'Finance',
     items: [
       { href: '/financials', label: 'Οικονομικά', icon: 'Wallet', module: 'financials' },
-      { href: '/financials/invoices', label: 'Τιμολόγια', icon: 'Receipt', module: 'financials' },
+      { href: '/financials/invoices', label: 'Τιμολόγια', icon: 'Receipt', module: 'invoices' },
     ],
   },
   {
@@ -56,8 +58,8 @@ export const DEFAULT_NAV: NavDef[] = [
     items: [
       { href: '/marketing', label: 'Marketing', icon: 'Megaphone', module: 'marketing' },
       { href: '/automation', label: 'Αυτοματισμοί', icon: 'Zap', module: 'automation' },
-      { href: '/reports', label: 'Αναφορές', icon: 'FileBarChart', module: 'financials' },
-      { href: '/tasks', label: 'Tasks', icon: 'ListChecks' },
+      { href: '/reports', label: 'Αναφορές', icon: 'FileBarChart', module: 'reports' },
+      { href: '/tasks', label: 'Tasks', icon: 'ListChecks', module: 'tasks' },
       { href: '/benefits', label: 'Benefits', icon: 'Gift', module: 'marketing' },
     ],
   },
@@ -71,7 +73,7 @@ export const DEFAULT_NAV: NavDef[] = [
     label: 'Admin',
     items: [
       { href: '/settings/users', label: 'Staff', icon: 'Users', module: 'users' },
-      { href: '/settings/mobile-app', label: 'Mobile app', icon: 'Smartphone', module: 'users' },
+      { href: '/settings/mobile-app', label: 'Mobile app', icon: 'Smartphone', module: 'mobileapp' },
       { href: '/settings', label: 'Settings', icon: 'Settings', module: 'users' },
       { href: '/account', label: 'My account', icon: 'UserCog' },
     ],

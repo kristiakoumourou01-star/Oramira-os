@@ -33,6 +33,8 @@ import type { LocalePrefs } from '@/lib/locale-shared';
 import { GoogleCalendarConnect } from '@/components/dashboard/GoogleCalendarConnect';
 import type { Branding } from '@/lib/branding-shared';
 import type { OrgSettings } from '@/lib/org-settings-shared';
+import type { ExtraSettings } from '@/lib/settings-extra-shared';
+import { SignInCodeSection, ReceiptExtras, PaymentsSection, AtlasSection, SessionCard } from '@/components/admin/ExtraSettings';
 
 
 export function SettingsScreen({
@@ -54,6 +56,9 @@ export function SettingsScreen({
   team = [],
   myLocale = null,
   emailConnected = false,
+  extra,
+  payConnected = {},
+  aiConnected = false,
 }: {
   initialSection: SettingsKey;
   branding: Branding;
@@ -73,6 +78,9 @@ export function SettingsScreen({
   startSteps?: StartStep[];
   myLocale?: LocalePrefs | null;
   emailConnected?: boolean;
+  extra: ExtraSettings;
+  payConnected?: Record<string, boolean>;
+  aiConnected?: boolean;
 }) {
   // The section comes from the URL (?section=…) — the page is keyed by it, so
   // switching in the Settings menu re-renders with the new section.
@@ -115,8 +123,26 @@ export function SettingsScreen({
             </div>
           ) : section.key === 'business' ? (
             <BusinessSection initial={settings.business} companyName={branding.companyName || agencyName} canEdit={canEdit} logoUrl={branding.logoUrl} colorPrimary={branding.colorPrimary} colorSecondary={branding.colorSecondary} />
-          ) : section.key === 'invoices' ? (
-            <InvoicesSettings initial={settings.invoices} series={series} seriesMissing={seriesMissing} canEdit={canEdit} company={company} />
+          ) : section.key === 'vats' ? (
+            <InvoicesSettings part="vats" initial={settings.invoices} series={series} seriesMissing={seriesMissing} canEdit={canEdit} company={company} />
+          ) : section.key === 'receipts' ? (
+            <div className="space-y-6">
+              <ReceiptExtras initial={extra} canEdit={canEdit} />
+              <InvoicesSettings part="receipts" initial={settings.invoices} series={series} seriesMissing={seriesMissing} canEdit={canEdit} company={company} />
+            </div>
+          ) : section.key === 'privacy' ? (
+            <div className="space-y-6">
+              <SessionCard isAdmin={canEdit} />
+              <SecuritySection initial={settings.security} canEdit={canEdit} currentIp={currentIp} />
+              <GdprSettings initial={settings.gdpr} canEdit={canEdit} erasures={erasures} missing={gdprMissing} />
+              <AmlSettingsForm initial={settings.aml} canEdit={canEdit} />
+            </div>
+          ) : section.key === 'otp' ? (
+            <SignInCodeSection initial={extra} canEdit={canEdit} />
+          ) : section.key === 'payments' ? (
+            <PaymentsSection initial={extra} canEdit={canEdit} connected={payConnected} />
+          ) : section.key === 'atlas' ? (
+            <AtlasSection initial={extra} canEdit={canEdit} connected={aiConnected} />
           ) : section.key === 'notifications' ? (
             <NotificationsSection initial={settings.notifications} canEdit={canEdit} />
           ) : section.key === 'security' ? (
@@ -126,7 +152,10 @@ export function SettingsScreen({
           ) : section.key === 'customerFields' ? (
             <CustomerFieldsSettings initial={settings.fields} tags={settings.tags} canEdit={canEdit} />
           ) : section.key === 'communication' ? (
-            <CommunicationSettingsForm initial={settings.communication} canEdit={canEdit} emailConnected={emailConnected} />
+            <div className="space-y-6">
+              <CommunicationSettingsForm initial={settings.communication} canEdit={canEdit} emailConnected={emailConnected} />
+              <IntegrationsSection googleConnected={googleConnected} googleConfigured={googleConfigured} />
+            </div>
           ) : section.key === 'departments' ? (
             <DepartmentsSettings initial={settings.departments} canEdit={canEdit} />
           ) : section.key === 'unitforms' ? (
@@ -163,43 +192,18 @@ export function SettingsScreen({
   );
 }
 
-/* Integrations — Calendar is live (Google); the rest are faithful to the prototype. */
-const INTEGRATIONS: { group: string; items: { name: string; desc: string; on: boolean }[] }[] = [
-  { group: 'Payments', items: [{ name: 'Viva Wallet', desc: 'Cards on file, 3-D Secure, payouts to landlords.', on: false }, { name: 'SEPA direct debit', desc: 'Monthly rent by direct debit, mandate signed online.', on: false }] },
-  { group: 'Messages', items: [{ name: 'SMS provider', desc: 'Bulk and single SMS.', on: false }, { name: 'Email provider', desc: 'Sends from your own domain.', on: false }, { name: 'WhatsApp Business', desc: 'Two-way chat with clients from the contact record.', on: false }] },
-  { group: 'Documents and AI', items: [{ name: 'E-signature', desc: 'Sign mandates, reservations and leases online.', on: false }, { name: 'AI assistant', desc: 'Answers questions from your data and drafts listing texts.', on: false }] },
-];
-
+/* Ημερολόγιο Google — συγχρονισμός ραντεβού και ξεναγήσεων. */
 function IntegrationsSection({ googleConnected, googleConfigured }: { googleConnected: boolean; googleConfigured: boolean }) {
   return (
-    <div className="space-y-4">
-      <div className="panel p-5">
-        <p className="eyebrow mb-3">Calendar</p>
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <p className="text-sm font-medium text-charcoal">Google Calendar</p>
-            <p className="text-xs text-charcoal-600/60">Two-way sync of viewings & appointments with the agent&apos;s calendar.</p>
-          </div>
-          <GoogleCalendarConnect connected={googleConnected} configured={googleConfigured} />
+    <section className="rounded-2xl border border-stone-line bg-white p-5 shadow-[0_1px_2px_rgba(17,49,36,0.04)]">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h3 className="font-semibold text-charcoal">Google Calendar</h3>
+          <p className="text-sm text-charcoal-600/75">Συγχρονισμός ραντεβού και ξεναγήσεων με το ημερολόγιο κάθε συνεργάτη.</p>
         </div>
+        <GoogleCalendarConnect connected={googleConnected} configured={googleConfigured} />
       </div>
-      {INTEGRATIONS.map((grp) => (
-        <div key={grp.group} className="panel p-5">
-          <p className="eyebrow mb-3">{grp.group}</p>
-          <div className="space-y-2.5">
-            {grp.items.map((it) => (
-              <div key={it.name} className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm font-medium text-charcoal">{it.name}</p>
-                  <p className="text-xs text-charcoal-600/60">{it.desc}</p>
-                </div>
-                <span className="badge-neutral">{it.on ? 'On' : 'Not connected'}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      ))}
-    </div>
+    </section>
   );
 }
 

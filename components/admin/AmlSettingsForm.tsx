@@ -1,6 +1,7 @@
 'use client';
 
-import { useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useState, useTransition } from 'react';
+import { currentLocale, type Lang } from '@/lib/locale-shared';
 import { useRouter } from 'next/navigation';
 import { Check, ShieldAlert, RotateCcw, ExternalLink } from 'lucide-react';
 import { saveOrgSlice } from '@/app/actions/org-settings';
@@ -8,7 +9,9 @@ import { UndoButton } from '@/components/admin/UndoButton';
 import { DEFAULT_AML, countryName, countryOptions, type AmlSettings } from '@/lib/kyc-shared';
 
 function CountryList({ title, hint, value, onChange, disabled, tone }: { title: string; hint: string; value: string[]; onChange: (v: string[]) => void; disabled: boolean; tone: string }) {
-  const opts = useMemo(() => countryOptions('el'), []);
+  const [lang, setLang] = useState<Lang>('el');
+  useEffect(() => { setLang(currentLocale().lang); }, []);
+  const opts = useMemo(() => countryOptions(lang), [lang]);
   return (
     <div>
       <p className="text-sm font-medium">{title}</p>
@@ -16,7 +19,7 @@ function CountryList({ title, hint, value, onChange, disabled, tone }: { title: 
       <div className="mb-2 flex flex-wrap gap-1">
         {value.map((c) => (
           <span key={c} className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs ${tone}`}>
-            {countryName(c)}
+            {countryName(c, lang)}
             {!disabled && <button type="button" onClick={() => onChange(value.filter((x) => x !== c))} className="opacity-60 hover:opacity-100">×</button>}
           </span>
         ))}

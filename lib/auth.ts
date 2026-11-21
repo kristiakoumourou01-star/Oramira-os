@@ -1,7 +1,7 @@
 import { getAuthUser, createSupabaseServerClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { cache } from 'react';
-import { effectiveCan, isInternalRole, sanitizePermissions, type Module, type Action, type UserPermissions } from '@/lib/permissions';
+import { effectiveCan, isInternalRole, landingFor, moduleForPath, sanitizePermissions, type Module, type Action, type UserPermissions } from '@/lib/permissions';
 import { readImpersonationTarget } from '@/lib/impersonation';
 import { getOrgSettingsRaw } from '@/lib/org-settings';
 import { resolveRole, type RightKey } from '@/lib/roles-shared';
@@ -162,7 +162,24 @@ export async function requireProfile(opts: { allowPasswordChange?: boolean; allo
     await enforceSessionRules();
     if ((profile.mustChangePassword || profile.passwordExpired) && !opts.allowPasswordChange) redirect('/account/password');
   }
+  await enforceRouteModule(profile);
   return profile;
+}
+
+/**
+ * Per-route guard (Staff → Ρόλοι): pages such as Dashboard, Calendar, Tasks,
+ * Follow-ups, Invoices and Reports need their own permission, even where the
+ * page itself only checks its parent area. The path comes from the middleware.
+ */
+async function enforceRouteModule(profile: CurrentProfile): Promise<void> {
+  if (!isInternalRole(profile.role) || profile.role === 'admin') return;
+  let path: string | null = null;
+  try { path = (await headers()).get('x-pathname'); } catch { return; }
+  const m = moduleForPath(path);
+  if (m && !effectiveCan(profile.role, profile.moduleAccess, m, 'view', profile.permissions)) {
+    const to = landingFor(profile.role, profile.moduleAccess, profile.permissions);
+    if (to !== path) redirect(to);
+  }
 }
 
 /** Redirects to login if not signed in, or to /dashboard if signed in but wrong role. */
@@ -208,8 +225,9 @@ export function homeRouteForRole(role: UserRole): string {
  */
 export async function requirePermission(module: Module, action: Action = 'view'): Promise<CurrentProfile> {
   const profile = await requireProfile();
-  if (!isInternalRole(profile.role) || !effectiveCan(profile.role, profile.moduleAccess, module, action, profile.permissions)) {
-    redirect(homeRouteForRole(profile.role));
+  if (!isInternalRole(profile.role)) redirect(homeRouteForRole(profile.role));
+  if (!effectiveCan(profile.role, profile.moduleAccess, module, action, profile.permissions)) {
+    redirect(landingFor(profile.role, profile.moduleAccess, profile.permissions));
   }
   return profile;
 }

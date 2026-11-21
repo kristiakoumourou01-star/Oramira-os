@@ -16,6 +16,7 @@ import { getOrgSettingsRaw } from '@/lib/org-settings';
 import { STAFF_FIELD_OPTIONS } from '@/lib/org-settings-shared';
 import { cleanAreas } from '@/lib/areas';
 import { applyOptInDefault } from '@/lib/opt-in-default';
+import { syncAssignedLead } from '@/lib/lead-assign';
 
 /**
  * Creates a lead from the internal CRM. Goes through the SAME
@@ -191,9 +192,10 @@ export async function updateLeadStatus(leadId: string, status: string, reason?: 
 }
 
 export async function assignLead(leadId: string, assignedTo: string) {
-  await requireRole(['admin', 'sales', 'management']);
+  const profile = await requireRole(['admin', 'sales', 'management']);
   const supabase = await createSupabaseServerClient();
   await supabase.from('leads').update({ assigned_to: assignedTo }).eq('id', leadId);
+  await syncAssignedLead(supabase, leadId, { to: assignedTo, by: profile.id, note: 'Assigned' });
   await logActivity({ entityType: 'lead', entityId: leadId, action: 'reassigned' });
   revalidatePath('/crm/leads');
 }
@@ -215,16 +217,17 @@ export async function reassignLead(leadId: string, assignedTo: string, note?: st
     await supabase.from('leads').update({ assigned_to: assignedTo }).eq('id', leadId);
   }
 
-  // Assignment history + to-do hand-off are best-effort — never block the assign.
-  try { await supabase.from('lead_assignments').insert({ lead_id: leadId, assigned_to: assignedTo, assigned_by: profile.id, note: note ?? 'Reassigned' }); } catch { /* table may be absent */ }
-  // Move the lead's open to-dos to the new owner so they land on the right
-  // person's list (an unassigned lead's first-touch task follows the assignment).
-  await supabase.from('follow_up_tasks').update({ assigned_to: assignedTo }).eq('lead_id', leadId).eq('is_done', false);
+  // Assignment history, to-do hand-off and pipeline stage sync are best-effort —
+  // never block the assign (lib/lead-assign). The lead leaves «Νέα leads» and
+  // shows in the pipeline at the stage of its status.
+  await syncAssignedLead(supabase, leadId, { to: assignedTo, by: profile.id, note: note ?? 'Reassigned' });
 
   await logActivity({ entityType: 'lead', entityId: leadId, action: 'reassigned', metadata: { to: assignedTo } });
   await onLeadAssigned(leadId, assignedTo);
   revalidatePath('/crm/leads');
   revalidatePath(`/crm/leads/${leadId}`);
+  revalidatePath('/sales/new');
+  revalidatePath('/sales/deals');
 }
 
 /** Set the lead's next action (date + type) — this is what the priority board groups on. */

@@ -1,33 +1,20 @@
 import { requireRole } from '@/lib/auth';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { getOrgSettingsRaw } from '@/lib/org-settings';
-import { INTERNAL_ROLES } from '@/lib/permissions';
 import { RolesAdmin } from '@/components/admin/RolesAdmin';
 import { StaffTabs } from '@/components/admin/StaffTabs';
+import { loadStaffCounts, loadRolePeople } from '@/lib/staff';
 
 export const dynamic = 'force-dynamic';
 
-/** Settings → Χρήστες → Ρόλοι & δικαιώματα (admin only). */
+/** Staff → Ρόλοι: κάρτες ρόλων, νέος ρόλος, δικαιώματα ανά περιοχή, ανάθεση σε ανθρώπους (μόνο Owner). */
 export default async function RolesPage() {
   await requireRole(['admin']);
-  const supabase = await createSupabaseServerClient();
   const { roles } = await getOrgSettingsRaw();
-
-  // How many people hold each role (custom_role is best-effort: migration 0054).
-  const counts: Record<string, number> = {};
-  const { data: base } = await supabase.from('profiles').select('id, role').in('role', INTERNAL_ROLES);
-  const custom = new Map<string, string>();
-  const { data: cr, error: crError } = await supabase.from('profiles').select('id, custom_role').not('custom_role' as any, 'is', null);
-  for (const row of (cr ?? []) as any[]) if (row.custom_role) custom.set(row.id, row.custom_role);
-  for (const p of (base ?? []) as any[]) {
-    const key = custom.has(p.id) ? `custom:${custom.get(p.id)}` : p.role;
-    counts[key] = (counts[key] ?? 0) + 1;
-  }
-
+  const [{ people, counts, migrationMissing }, staffCounts] = await Promise.all([loadRolePeople(), loadStaffCounts(roles.custom.length)]);
   return (
     <div className="space-y-5">
-      <StaffTabs active="roles" />
-      <RolesAdmin roles={roles} counts={counts} migrationMissing={!!crError} />
+      <StaffTabs active="roles" counts={staffCounts} />
+      <RolesAdmin roles={roles} counts={counts} people={people} migrationMissing={migrationMissing} />
     </div>
   );
 }

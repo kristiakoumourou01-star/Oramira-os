@@ -27,17 +27,20 @@ function riskBand(score: number | null): { label: string; cls: string } {
   return { label: 'Υψηλό', cls: `${pill} border-signal-danger/40 text-signal-danger` };
 }
 
-export default async function DealAnalyzerPage() {
+export default async function DealAnalyzerPage({ searchParams }: { searchParams?: { f?: string } }) {
   await requirePermission('deals');
   const supabase = await createSupabaseServerClient();
 
   const { data: deals } = await supabase
     .from('deals')
-    .select('id, name, status, net_profit, roi, profit_margin, estimated_units, risk_score, updated_at')
+    .select('id, name, status, project_id, net_profit, roi, profit_margin, estimated_units, risk_score, updated_at')
     .order('updated_at', { ascending: false });
 
-  const list = deals ?? [];
-  const reviewing = list.filter((d) => d.status === 'reviewing' || d.status === 'draft').length;
+  const all = deals ?? [];
+  const f = ['open', 'approved', 'project', 'rejected'].includes(searchParams?.f ?? '') ? searchParams!.f! : 'all';
+  const list = all;
+  const shown = all.filter((d) => f === 'all' || (f === 'open' ? ['draft', 'reviewing', 'on_hold'].includes(d.status) : f === 'approved' ? d.status === 'approved' : f === 'project' ? d.status === 'acquired' : d.status === 'rejected'));
+  const reviewing = list.filter((d) => ['reviewing', 'draft', 'on_hold'].includes(d.status)).length;
   const approved = list.filter((d) => d.status === 'approved' || d.status === 'acquired').length;
   const profit = list.filter((d) => d.status !== 'rejected').reduce((s2, d) => s2 + Number(d.net_profit ?? 0), 0);
   const rois = list.filter((d) => d.roi != null && d.status !== 'rejected').map((d) => Number(d.roi));
@@ -45,11 +48,11 @@ export default async function DealAnalyzerPage() {
   return (
     <div className="space-y-5">
       <WorkspaceHeader eyebrow="Αγορές γης" title="Deal Analyzer" description="Ανάλυση οικοπέδων και έργων: εμβαδά, κόστη, απόδοση, ρίσκο και πρόταση AI πριν δεσμεύσετε κεφάλαια." action={<NewDealButton />} />
-      {list.length > 0 && <HubLinks cols={4} cards={[
-        { key: 'all', icon: 'Calculator', title: 'Αναλύσεις', value: list.length, sub: `${reviewing} σε εξέλιξη`, href: '/deal-analyzer' },
-        { key: 'ok', icon: 'ShieldCheck', title: 'Εγκρίθηκαν', value: approved, sub: 'Έγιναν ή θα γίνουν έργα', href: '/deal-analyzer' },
-        { key: 'profit', icon: 'TrendingUp', title: 'Καθαρό κέρδος', value: eur(profit, { compact: true }), sub: 'Χωρίς τις απορριφθείσες', href: '/deal-analyzer' },
-        { key: 'roi', icon: 'LineChart', title: 'Μέσο ROI', value: avgRoi != null ? pct(avgRoi) : '—', sub: 'Των ενεργών αναλύσεων', href: '/deal-analyzer' },
+      {list.length > 0 && <HubLinks cols={4} active={f} cards={[
+        { key: 'all', icon: 'Calculator', title: 'Όλες οι αναλύσεις', value: list.length, sub: `Καθαρό κέρδος ${eur(profit, { compact: true })}`, href: '/deal-analyzer' },
+        { key: 'open', icon: 'Gauge', title: 'Σε εξέλιξη', value: reviewing, sub: avgRoi != null ? `Μέσο ROI ${pct(avgRoi)}` : 'Πρόχειρα και σε αναμονή', href: '/deal-analyzer?f=open' },
+        { key: 'approved', icon: 'ShieldCheck', title: 'Εγκρίθηκαν', value: list.filter((d) => d.status === 'approved').length, sub: 'Έτοιμα για μετατροπή σε έργο', href: '/deal-analyzer?f=approved' },
+        { key: 'project', icon: 'Building2', title: 'Έγιναν έργα', value: approved - list.filter((d) => d.status === 'approved').length, sub: 'Με σύνδεσμο προς το έργο', href: '/deal-analyzer?f=project' },
       ]} />}
 
       {!deals || deals.length === 0 ? (
@@ -66,7 +69,8 @@ export default async function DealAnalyzerPage() {
               <tr><th>Ανάλυση</th><th>Κατάσταση</th><th>Μονάδες</th><th>Καθαρό κέρδος</th><th>ROI</th><th>Περιθώριο</th><th>Ρίσκο</th><th className="text-right">Ενέργειες</th></tr>
             </thead>
             <tbody>
-              {deals.map((d) => {
+              {shown.length === 0 && <tr><td colSpan={8} className="py-10 text-center text-sm text-charcoal-600">Καμία ανάλυση σε αυτή την προβολή.</td></tr>}
+              {shown.map((d) => {
                 const band = riskBand(d.risk_score);
                 return (
                   <tr key={d.id}>
@@ -77,7 +81,7 @@ export default async function DealAnalyzerPage() {
                     <td className="tabular-nums">{d.roi != null ? pct(d.roi) : '—'}</td>
                     <td className="tabular-nums">{d.profit_margin != null ? pct(d.profit_margin) : '—'}</td>
                     <td><span className={band.cls}>{band.label}</span></td>
-                    <td className="whitespace-nowrap text-right"><DealRowActions id={d.id} name={d.name} /><Link href={`/deal-analyzer/${d.id}`} className="ml-1 inline-block align-middle"><ChevronRight size={16} className="text-charcoal-600/40" strokeWidth={1.75} /></Link></td>
+                    <td className="whitespace-nowrap text-right">{(d as any).project_id && <Link href={`/projects/${(d as any).project_id}`} className="mr-1 align-middle text-[13px] text-forest hover:underline">Έργο</Link>}<DealRowActions id={d.id} name={d.name} /><Link href={`/deal-analyzer/${d.id}`} className="ml-1 inline-block align-middle"><ChevronRight size={16} className="text-charcoal-600/40" strokeWidth={1.75} /></Link></td>
                   </tr>
                 );
               })}

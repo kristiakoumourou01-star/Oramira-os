@@ -85,8 +85,13 @@ export async function createTicket(params: {
     const where = [(u as any)?.projects?.name, (u as any)?.unit_number].filter(Boolean).join(' · ');
     await notifyStaffRoles(['admin', 'management', 'construction'], {
       title: `${params.warrantyId ? 'Αίτημα εγγύησης' : 'Νέο αίτημα ιδιοκτήτη'}${where ? ` — ${where}` : ''}`,
-      body: [params.title, params.priority === 'emergency' ? 'ΕΠΕΙΓΟΝ' : null].filter(Boolean).join(' · '),
-      link: `/property?dev=${projectId}&tab=maintenance`,
+      body: [
+        params.priority === 'emergency' ? 'ΕΠΕΙΓΟΝ' : null,
+        ({ plumbing: 'Υδραυλικά', electrical: 'Ηλεκτρολογικά', hvac: 'Κλιματισμός / θέρμανση', appliance: 'Συσκευές', pool: 'Πισίνα', garden: 'Κήπος', cleaning: 'Καθαρισμός', structural: 'Δομικά', cosmetic: 'Φινιρίσματα', warranty: 'Εγγύηση', other: 'Άλλο' } as Record<string, string>)[params.category ?? ''] ?? null,
+        params.title,
+        params.description ? params.description.slice(0, 140) : null,
+      ].filter(Boolean).join(' · '),
+      link: '/property/maintenance',
       event: 'owner_request',
     });
   }

@@ -4,7 +4,8 @@ import { useMemo, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Columns3, Search, X, Pencil, FileText, Eye, Upload, Users, UserMinus, CalendarClock, Plane, Phone, Mail } from 'lucide-react';
 import { PopSelect } from '@/components/ui/PopSelect';
-import { Briefing, SideStat, Pager } from '@/components/ui/SidePanel';
+import { PhoneInput } from '@/components/ui/PhoneInput';
+import { Pager } from '@/components/ui/SidePanel';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 import { getDocumentUrl } from '@/app/actions/storage';
 import { getEmployeeDocUploadUrl, recordEmployeeDoc } from '@/app/actions/hr-docs';
@@ -33,7 +34,7 @@ export function EmployeesPanel({ rows, actions, toolbar, canEdit, canEditDocs, m
   rows: EmployeeRowIn[]; actions: (id: string) => React.ReactNode; toolbar?: React.ReactNode; canEdit: boolean; canEditDocs: boolean; msg?: React.ReactNode;
 }) {
   const [q, setQ] = useState('');
-  const [status, setStatus] = useState<'active' | 'terminated' | 'inactive' | ''>('active');
+  const [status, setStatus] = useState<'active' | 'terminated' | 'inactive' | 'expiring' | 'leave' | ''>('active');
   const [dept, setDept] = useState('');
   const [role, setRole] = useState('');
   const [per, setPer] = useState(25);
@@ -47,9 +48,14 @@ export function EmployeesPanel({ rows, actions, toolbar, canEdit, canEditDocs, m
 
   const depts = useMemo(() => [...new Set(rows.map((r) => r.hr?.department).filter(Boolean) as string[])].sort(), [rows]);
   const roles = useMemo(() => [...new Set(rows.map((r) => r.roleLabel))].sort(), [rows]);
+  const today = new Date().toISOString().slice(0, 10);
+  const in30 = new Date(Date.now() + 30 * 864e5).toISOString().slice(0, 10);
+  const expiringSoon = (r: EmployeeRowIn) => !!r.hr?.contractExpiry && r.hr.contractExpiry >= today && r.hr.contractExpiry <= in30;
   const list = rows.filter((r) => {
     const hr = r.hr ?? EMPTY_HR;
     const term = isTerminated(hr);
+    if (status === 'expiring' && !expiringSoon(r)) return false;
+    if (status === 'leave' && !hr.onLeaveToday) return false;
     if (status === 'active' && (term || !r.is_active)) return false;
     if (status === 'terminated' && !term) return false;
     if (status === 'inactive' && r.is_active) return false;
@@ -62,19 +68,14 @@ export function EmployeesPanel({ rows, actions, toolbar, canEdit, canEditDocs, m
   const pg = Math.min(pageNo, pages - 1);
   const page = list.slice(pg * per, pg * per + per);
 
-  const today = new Date().toISOString().slice(0, 10);
-  const in30 = new Date(Date.now() + 30 * 864e5).toISOString().slice(0, 10);
-  const monthStart = today.slice(0, 8) + '01';
   const activeN = rows.filter((r) => r.is_active && !isTerminated(r.hr ?? EMPTY_HR)).length;
   const terminatedN = rows.filter((r) => isTerminated(r.hr ?? EMPTY_HR)).length;
-  const expiring = rows.filter((r) => r.hr?.contractExpiry && r.hr.contractExpiry >= today && r.hr.contractExpiry <= in30);
-  const noContract = rows.filter((r) => r.is_active && !isTerminated(r.hr ?? EMPTY_HR) && !r.hr?.contract).length;
-  const newThisMonth = rows.filter((r) => (r.hr?.startDate ?? '') >= monthStart).length;
+  const expiringN = rows.filter(expiringSoon).length;
   const onLeave = rows.filter((r) => r.hr?.onLeaveToday).length;
   const chip = (on: boolean) => `inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-[13px] transition-colors ${on ? 'border-forest bg-forest text-white' : 'border-stone-line text-charcoal hover:border-forest/30'}`;
 
   return (
-    <div className="grid items-start gap-5 2xl:grid-cols-[minmax(0,1fr)_300px]">
+    <div className="space-y-5">
       <div className="flex min-w-0 flex-col rounded-2xl border border-stone-line bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
         <div className="space-y-3 p-4 sm:p-5">
           <div className="flex flex-wrap items-center gap-2 text-[14px] text-charcoal-600">
@@ -99,7 +100,9 @@ export function EmployeesPanel({ rows, actions, toolbar, canEdit, canEditDocs, m
           <div className="flex flex-wrap items-center gap-2">
             <button type="button" onClick={() => { setStatus(status === 'active' ? '' : 'active'); setPageNo(0); }} className={chip(status === 'active')}><Users size={13} /> {activeN} ενεργοί</button>
             <button type="button" onClick={() => { setStatus(status === 'terminated' ? '' : 'terminated'); setPageNo(0); }} className={chip(status === 'terminated')}><UserMinus size={13} /> {terminatedN} τερματισμένοι</button>
-            <PopSelect width="min-w-[140px]" ariaLabel="Κατάσταση" value={status} onChange={(v) => { setStatus(v as typeof status); setPageNo(0); }} options={[['', 'Όλοι'], ['active', 'Ενεργοί'], ['terminated', 'Τερματισμένοι'], ['inactive', 'Χωρίς πρόσβαση']]} />
+            {onLeave > 0 && <button type="button" onClick={() => { setStatus(status === 'leave' ? '' : 'leave'); setPageNo(0); }} className={chip(status === 'leave')}><Plane size={13} /> {onLeave} σε άδεια σήμερα</button>}
+            {expiringN > 0 && <button type="button" onClick={() => { setStatus(status === 'expiring' ? '' : 'expiring'); setPageNo(0); }} className={chip(status === 'expiring')}><CalendarClock size={13} /> {expiringN} συμβάσεις λήγουν σε 30 ημ.</button>}
+            <PopSelect width="min-w-[140px]" ariaLabel="Κατάσταση" value={status} onChange={(v) => { setStatus(v as typeof status); setPageNo(0); }} options={[['', 'Όλοι'], ['active', 'Ενεργοί'], ['terminated', 'Τερματισμένοι'], ['inactive', 'Χωρίς πρόσβαση'], ['leave', 'Σε άδεια σήμερα'], ['expiring', 'Σύμβαση λήγει σύντομα']]} />
             {depts.length > 0 && <PopSelect searchable width="min-w-[140px]" ariaLabel="Τμήμα" value={dept} onChange={(v) => { setDept(v); setPageNo(0); }} options={[['', 'Όλα τα τμήματα'], ...depts.map((d) => [d, d] as [string, string])]} />}
             <PopSelect width="min-w-[140px]" ariaLabel="Ρόλος" value={role} onChange={(v) => { setRole(v); setPageNo(0); }} options={[['', 'Όλοι οι ρόλοι'], ...roles.map((r) => [r, r] as [string, string])]} />
             <label className="relative w-full sm:ml-auto sm:w-[220px]">
@@ -156,14 +159,6 @@ export function EmployeesPanel({ rows, actions, toolbar, canEdit, canEditDocs, m
           </table>
         </div>
         <Pager from={list.length ? pg * per + 1 : 0} to={Math.min(list.length, pg * per + per)} total={list.length} page={pg} pages={pages} onPage={setPageNo} />
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-1">
-        <Briefing tag="Ομάδα" title="Η ομάδα σας με μια ματιά." text="Ποιος δουλεύει, ποιος έφυγε, ποιες συμβάσεις λήγουν και ποιοι δεν έχουν ακόμη σύμβαση στο αρχείο."
-          metrics={[['Ενεργοί', activeN, 'σήμερα'], ['Νέοι', newThisMonth, 'αυτόν τον μήνα'], ['Σε άδεια', onLeave, 'σήμερα']]} />
-        <SideStat icon={CalendarClock} label="Συμβάσεις που λήγουν" value={expiring.length} note={expiring.length ? expiring.slice(0, 3).map((r) => `${r.full_name} · ${ddmmyyyy(r.hr?.contractExpiry)}`).join(' · ') : 'Καμία τις επόμενες 30 ημέρες.'} />
-        <SideStat icon={FileText} label="Χωρίς σύμβαση στο αρχείο" value={noContract} note="Ενεργοί υπάλληλοι χωρίς ανεβασμένη σύμβαση." />
-        <SideStat icon={Plane} label="Σε άδεια σήμερα" value={onLeave} note="Με εγκεκριμένη άδεια για σήμερα." />
       </div>
 
       {view && <QuickView r={view} canEdit={canEdit} canEditDocs={canEditDocs} onClose={() => setView(null)} onEdit={() => { setEdit(view); setView(null); }} />}
@@ -223,7 +218,7 @@ function QuickView({ r, canEdit, canEditDocs, onClose, onEdit }: { r: EmployeeRo
             <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-forest/[0.09] text-[15px] font-semibold text-forest">{(r.full_name ?? '?').split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase()}</span>
             <div className="min-w-0">
               <p className="truncate text-[18px] font-semibold text-charcoal" data-no-tr>{r.full_name ?? '—'}</p>
-              <p className="truncate text-[13px] text-charcoal-600">{[hr.jobTitle, hr.department, r.roleLabel].filter(Boolean).join(' · ')}</p>
+              <p className="flex flex-wrap gap-x-1.5 text-[13px] text-charcoal-600">{[hr.jobTitle, hr.department, r.roleLabel].filter(Boolean).map((x, i) => <span key={i}>{i > 0 && <span className="mr-1.5 opacity-60">·</span>}<span>{x}</span></span>)}</p>
               <div className="mt-1"><StatusPill active={r.is_active} terminated={term} onLeave={hr.onLeaveToday} /></div>
             </div>
           </div>
@@ -335,7 +330,7 @@ function EditDialog({ r, onClose }: { r: EmployeeRowIn; onClose: () => void }) {
           <div>
             <p className="mb-2 text-[14px] font-semibold text-charcoal">Προσωπικά στοιχεία</p>
             <div className="grid gap-3 sm:grid-cols-2">
-              {field('phone', 'Κινητό')}
+              <div className="block"><span className={lbl}>Κινητό</span><PhoneInput value={(f.phone as string) ?? ''} onChange={(v) => setF((x) => ({ ...x, phone: v }))} /></div>
               {field('personalEmail', 'Προσωπικό e-mail', 'email')}
               {field('dateOfBirth', 'Ημ. γέννησης', 'date')}
               {field('nationality', 'Υπηκοότητα')}

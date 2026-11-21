@@ -8,7 +8,7 @@ import { logActivity } from '@/lib/activity';
 import { queueNotificationEmail } from '@/lib/notifications';
 import { randomBytes } from 'crypto';
 import { revalidatePath } from 'next/cache';
-import { isInternalRole, sanitizePermissions, type AppRole, type UserPermissions } from '@/lib/permissions';
+import { isInternalRole, sanitizePermissions, storedPermissions, type AppRole, type UserPermissions } from '@/lib/permissions';
 
 /**
  * Admin user management. Inviting staff reuses the same invite → accept_invite
@@ -266,7 +266,7 @@ export async function createUserWithPassword(params: {
     role: chosen.role,
     full_name: fullName,
     is_active: true,
-    permissions: params.permissions ? sanitizePermissions(params.permissions) : null,
+    permissions: params.permissions ? storedPermissions(sanitizePermissions(params.permissions, false)) : null,
     must_change_password: params.mustChangePassword,
   } as any);
   if (profileError) {
@@ -293,7 +293,7 @@ export async function setUserPermissions(profileId: string, permissions: UserPer
   const admin = await requireRole(['admin']);
   if (profileId === admin.id) return { ok: false, error: 'Τα δικαιώματα του admin δεν αλλάζουν.' };
   const service = createSupabaseServiceRoleClient();
-  const value = permissions ? sanitizePermissions(permissions) : null;
+  const value = permissions ? storedPermissions(sanitizePermissions(permissions, false)) : null;
   const { error } = await service.from('profiles').update({ permissions: value } as any).eq('id', profileId);
   if (error) return { ok: false, error: error.message };
   await logActivity({ entityType: 'profile', entityId: profileId, action: 'permissions_changed', metadata: { permissions: value } });

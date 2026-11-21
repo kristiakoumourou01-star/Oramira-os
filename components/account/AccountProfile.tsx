@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { Check, Camera, Trash2 } from 'lucide-react';
 import { updateMyProfile } from '@/app/actions/account';
 import { PhoneInput } from '@/components/ui/PhoneInput';
-import { FieldLabel } from '@/components/admin/settings-ui';
 import { fileToDataUrl } from '@/lib/image-upload';
 
 export interface MyProfile { fullName: string; email: string; phone: string; jobTitle: string; avatarUrl: string | null; roleName: string; department: string }
@@ -32,8 +31,8 @@ export function AccountProfile({ initial, readOnly }: { initial: MyProfile; read
 
   return (
     <div className="panel overflow-hidden">
-      <div className="border-b border-stone-line px-5 py-3.5"><p className="font-semibold text-charcoal">Προφίλ</p></div>
       <div className="space-y-5 p-5">
+        <p className="text-lg font-semibold text-charcoal">Προφίλ</p>
         <div className="flex items-center gap-4">
           {v.avatarUrl
             // eslint-disable-next-line @next/next/no-img-element
@@ -52,15 +51,15 @@ export function AccountProfile({ initial, readOnly }: { initial: MyProfile; read
           </div>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
-          <label className="block"><FieldLabel>Ονοματεπώνυμο</FieldLabel><input className="input" disabled={readOnly} value={v.fullName} onChange={(e) => set({ fullName: e.target.value })} /></label>
-          <label className="block"><FieldLabel>Email σύνδεσης</FieldLabel><input className="input" disabled value={v.email} /><span className="mt-1 block text-xs text-charcoal-600/60">Το αλλάζει ο διαχειριστής (Staff → Χρήστες).</span></label>
-          <div className="block"><FieldLabel>Κινητό</FieldLabel><PhoneInput value={v.phone} disabled={readOnly} onChange={(x) => set({ phone: x })} /></div>
-          <label className="block"><FieldLabel>Θέση</FieldLabel><input className="input" disabled={readOnly} value={v.jobTitle} placeholder="π.χ. Sales agent" onChange={(e) => set({ jobTitle: e.target.value })} /></label>
+          <label className="block"><span className="mb-1.5 block text-sm font-medium text-charcoal">Ονοματεπώνυμο</span><input className="input" disabled={readOnly} value={v.fullName} onChange={(e) => set({ fullName: e.target.value })} /></label>
+          <label className="block"><span className="mb-1.5 block text-sm font-medium text-charcoal">Email σύνδεσης</span><input className="input" disabled value={v.email} /><span className="mt-1 block text-xs text-charcoal-600/60">Το αλλάζει ο διαχειριστής (Staff → Χρήστες).</span></label>
+          <div className="block"><span className="mb-1.5 block text-sm font-medium text-charcoal">Κινητό</span><PhoneInput value={v.phone} disabled={readOnly} onChange={(x) => set({ phone: x })} /></div>
+          <label className="block"><span className="mb-1.5 block text-sm font-medium text-charcoal">Θέση</span><input className="input" disabled={readOnly} value={v.jobTitle} placeholder="π.χ. Sales agent" onChange={(e) => set({ jobTitle: e.target.value })} /></label>
         </div>
         {!readOnly && (
           <div className="flex flex-wrap items-center justify-end gap-3">
             {msg && <span className={`text-sm ${msg.ok ? 'text-forest' : 'text-signal-danger'}`}>{msg.text}</span>}
-            <button type="button" onClick={save} disabled={pending || !dirty} className="btn-primary disabled:opacity-50"><Check size={15} /> {pending ? 'Αποθήκευση…' : 'Αποθήκευση'}</button>
+            <button type="button" onClick={save} disabled={pending || !dirty} className="btn-primary disabled:opacity-50"><Check size={15} /> {pending ? 'Αποθήκευση…' : 'Αποθήκευση αλλαγών'}</button>
           </div>
         )}
         {readOnly && <p className="text-sm text-charcoal-600/75">Βλέπετε ως άλλος χρήστης — το προφίλ το αλλάζει μόνο ο ίδιος.</p>}

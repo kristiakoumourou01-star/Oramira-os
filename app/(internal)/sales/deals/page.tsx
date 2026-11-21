@@ -7,10 +7,11 @@ import { SalesNav } from '@/components/sales/SalesNav';
 import { NewLeadForm } from '@/components/crm/NewLeadForm';
 import { DealsBoard } from '@/components/sales/DealsBoard';
 import type { Agent } from '@/components/crm/LeadBoard';
+import { canClaimLeads } from '@/lib/sales-hub-shared';
 
 export const dynamic = 'force-dynamic';
 
-/** Sales → Deals: ο πίνακας του pipeline (όπως Pipedrive). */
+/** Διαχείριση leads → Pipeline / Λίστα / Πρόβλεψη (οι κάρτες κορυφής αλλάζουν την προβολή). */
 export default async function DealsPage({ searchParams }: { searchParams: { view?: string } }) {
   const profile = await requirePermission('leads');
   const supabase = await createSupabaseServerClient();
@@ -26,9 +27,9 @@ export default async function DealsPage({ searchParams }: { searchParams: { view
   const pipes = [cfg.pipelines.find((p) => p.key === cfg.defaultKey) ?? cfg.pipelines[0], ...cfg.pipelines.filter((p) => p.key !== cfg.defaultKey)].map((p) => ({ key: p.key, name: p.name }));
   return (
     <div className="space-y-4">
-      <WorkspaceHeader eyebrow="Sales" title="Πωλήσεις" description="Το pipeline των deals: πίνακας, λίστα, πρόβλεψη και αρχείο." action={<NewLeadForm projects={projects ?? []} agents={(agents ?? []) as Agent[]} required={settings.fields.staff} pipelines={pipes} deal={{ pipelines: [cfg.pipelines.find((p) => p.key === cfg.defaultKey) ?? cfg.pipelines[0], ...cfg.pipelines.filter((p) => p.key !== cfg.defaultKey)].map((p) => ({ key: p.key, name: p.name, stages: p.stages.filter((x) => x.status !== 'won').map((x) => ({ key: x.key, label: x.label })) })), labels: cfg.dealLabels }} />} />
-      <SalesNav active="deals" />
-      <DealsBoard leads={leads} cfg={cfg} rawCfg={raw?.pipelines} canEditStages={profile.role === 'admin'} agents={(agents ?? []) as Agent[]} currentUserId={profile.id} initialView={view} />
+      <WorkspaceHeader eyebrow="Sales" title="Pipeline" description="Όλα τα deals: pipeline, λίστα, πρόβλεψη, activities και agents." action={<NewLeadForm projects={projects ?? []} agents={(agents ?? []) as Agent[]} required={settings.fields.staff} pipelines={pipes} deal={{ pipelines: [cfg.pipelines.find((p) => p.key === cfg.defaultKey) ?? cfg.pipelines[0], ...cfg.pipelines.filter((p) => p.key !== cfg.defaultKey)].map((p) => ({ key: p.key, name: p.name, stages: p.stages.filter((x) => x.status !== 'won').map((x) => ({ key: x.key, label: x.label })) })), labels: cfg.dealLabels }} />} />
+      <SalesNav active={view === 'archive' ? 'board' : view} />
+      <DealsBoard leads={leads} cfg={cfg} rawCfg={raw?.pipelines} canEditStages={profile.role === 'admin'} canClaim={canClaimLeads(profile)} agents={(agents ?? []) as Agent[]} currentUserId={profile.id} initialView={view} />
     </div>
   );
 }

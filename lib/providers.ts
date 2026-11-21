@@ -7,10 +7,10 @@
  * Adding a provider is a new adapter + a registry branch — no caller changes.
  * Server-only (reads secrets, never imported into the client).
  *
- * WhatsApp: Meta Cloud API or Twilio. Email: Resend or Postmark.
+ * WhatsApp: Meta Cloud API or Twilio. Email: Resend or Postmark. SMS: Twilio.
  */
 
-export type Channel = 'whatsapp' | 'email';
+export type Channel = 'whatsapp' | 'email' | 'sms';
 
 export interface SendResult {
   status: 'queued' | 'sent' | 'failed';
@@ -63,6 +63,32 @@ const twilioWhatsAppAdapter: ChannelAdapter = {
       const sid = process.env.TWILIO_ACCOUNT_SID!;
       const from = process.env.TWILIO_WHATSAPP_FROM ?? 'whatsapp:+14155238886';
       const form = new URLSearchParams({ From: from, To: `whatsapp:${to.replace(/[^\d+]/g, '')}`, Body: payload.body });
+      const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
+        method: 'POST',
+        headers: {
+          authorization: `Basic ${Buffer.from(`${sid}:${process.env.TWILIO_AUTH_TOKEN}`).toString('base64')}`,
+          'content-type': 'application/x-www-form-urlencoded',
+        },
+        body: form.toString(),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) return { status: 'failed', provider: 'twilio', error: data?.message ?? `HTTP ${res.status}` };
+      return { status: 'sent', provider: 'twilio', providerMessageId: data?.sid ?? null };
+    } catch (err: any) {
+      return { status: 'failed', provider: 'twilio', error: err?.message ?? 'send failed' };
+    }
+  },
+};
+
+// ── SMS: Twilio (TWILIO_SMS_FROM = αριθμός ή alphanumeric sender, ή TWILIO_MESSAGING_SERVICE_SID) ──
+const twilioSmsAdapter: ChannelAdapter = {
+  provider: 'twilio',
+  async send(to, payload) {
+    try {
+      const sid = process.env.TWILIO_ACCOUNT_SID!;
+      const form = new URLSearchParams({ To: to.replace(/[^\d+]/g, ''), Body: payload.body });
+      if (process.env.TWILIO_MESSAGING_SERVICE_SID) form.set('MessagingServiceSid', process.env.TWILIO_MESSAGING_SERVICE_SID);
+      else form.set('From', process.env.TWILIO_SMS_FROM ?? 'Oramira');
       const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
         method: 'POST',
         headers: {
@@ -138,6 +164,10 @@ export function getChannelAdapter(channel: Channel): ChannelAdapter {
   if (channel === 'whatsapp') {
     if (process.env.META_WHATSAPP_TOKEN && process.env.META_WHATSAPP_PHONE_ID) return metaWhatsAppAdapter;
     if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) return twilioWhatsAppAdapter;
+    return logAdapter;
+  }
+  if (channel === 'sms') {
+    if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && (process.env.TWILIO_SMS_FROM || process.env.TWILIO_MESSAGING_SERVICE_SID)) return twilioSmsAdapter;
     return logAdapter;
   }
   if (channel === 'email') {

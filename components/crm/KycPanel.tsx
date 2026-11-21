@@ -1,6 +1,7 @@
 'use client';
 
-import { useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useState, useTransition } from 'react';
+import { currentLocale, type Lang } from '@/lib/locale-shared';
 import { useRouter } from 'next/navigation';
 import { ShieldCheck, ShieldAlert, Check, X, ExternalLink, AlertTriangle } from 'lucide-react';
 import { saveKyc } from '@/app/actions/contact-card';
@@ -27,7 +28,9 @@ export function KycPanel({ contactId, initial, meta, aml, canEdit, missing, cont
   const [k, setK] = useState<KycData>(initial);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [pending, start] = useTransition();
-  const countries = useMemo(() => countryOptions('el'), []);
+  const [lang, setLang] = useState<Lang>('el');
+  useEffect(() => { setLang(currentLocale().lang); }, []);
+  const countries = useMemo(() => countryOptions(lang), [lang]);
   const risk = computeRisk(k, aml);
   const miss = verifyMissing(k);
   const rl = RISK_LABEL[risk.level];

@@ -15,7 +15,7 @@ import { readMeta } from '@/lib/contact-meta-shared';
 import { rankPropertiesForLead } from '@/lib/matching';
 import { cleanRequirements, cleanValues } from '@/lib/unit-forms-shared';
 import { pipelineOf } from '@/lib/pipeline-shared';
-import { BEST_TIME, CHANNELS, EMPTY_KYC, KYC_STATUS, LANGUAGES, RISK_LABEL, cleanKyc, type RiskLevel } from '@/lib/kyc-shared';
+import { BEST_TIME, CHANNELS, EMPTY_KYC, KYC_STATUS, LANGUAGES, cleanKyc, countryName, type RiskLevel } from '@/lib/kyc-shared';
 import { formatCurrency, formatDate, formatDateTime, formatNumber } from '@/lib/format';
 import { ContactMetaPanel } from '@/components/crm/ContactMetaPanel';
 import { GdprPanel } from '@/components/crm/GdprPanel';
@@ -26,7 +26,12 @@ import { ContactTimeline, type TimelineEntry } from '@/components/crm/ContactTim
 import { UnitLinkCard } from '@/components/crm/UnitLinkCard';
 import { RecommendedProperties } from '@/components/crm/RecommendedProperties';
 import { ContactPreferences } from '@/components/crm/ContactPreferences';
-import { ContactRelations, type RelationRow } from '@/components/crm/ContactRelations';
+import { FamilyContacts } from '@/components/crm/FamilyContacts';
+import { CustomerActions, CustomerMessage, ProfileToolbar, type ConversationRow } from '@/components/crm/CustomerCardParts';
+import { loadFamily, loadGroupTagOptions, loadOtpStatus, loadPhotoUrl } from '@/lib/customer-card';
+import { genderLabel, profileFromRow } from '@/lib/customer-card-shared';
+import { getCustomers } from '@/lib/customers';
+import { loadContactProperties } from '@/lib/unit-history';
 import { ContactDocuments, type DocRow } from '@/components/crm/ContactDocuments';
 import { KycPanel } from '@/components/crm/KycPanel';
 import { TaskList } from '@/components/ui/TaskList';
@@ -34,23 +39,25 @@ import { DATE_TAG, currentLocale } from '@/lib/locale-shared';
 
 export const dynamic = 'force-dynamic';
 
+// Όπως στο FitnessCRM: κύριες καρτέλες και, στο «Προφίλ», υπο-καρτέλες.
 const TABS = [
-  { key: 'overview', label: 'Πληροφορίες' },
+  { key: 'info', label: 'Πληροφορίες' },
+  { key: 'notes', label: 'Σημειώσεις' },
   { key: 'documents', label: 'Έγγραφα' },
-  { key: 'people', label: 'Οικογένεια & συνεργάτες' },
-  { key: 'deals', label: 'Αγορά & πληρωμές' },
-  { key: 'properties', label: 'Ακίνητα & viewings' },
-  { key: 'activity', label: 'Επικοινωνία' },
-  { key: 'kyc', label: 'Ταυτότητα & AML' },
+  { key: 'contacts', label: 'Επαφές' },
+  { key: 'deals', label: 'Μονάδες & πληρωμές' },
+  { key: 'activity', label: 'Προβολές & δραστηριότητα' },
+  { key: 'comms', label: 'Επικοινωνία' },
 ] as const;
-// Όπως στο FitnessCRM: κύριες καρτέλες (pill) και, στο «Προφίλ», υπο-καρτέλες.
+const PROFILE_TABS = ['info', 'notes', 'documents', 'contacts'] as const;
 const MAIN = [
-  { key: 'profile', label: 'Προφίλ', tabs: ['overview', 'documents', 'people'] },
-  { key: 'deals', label: 'Αγορά & πληρωμές', tabs: ['deals'] },
-  { key: 'properties', label: 'Ακίνητα & viewings', tabs: ['properties'] },
-  { key: 'activity', label: 'Επικοινωνία', tabs: ['activity'] },
-  { key: 'kyc', label: 'Ταυτότητα & AML', tabs: ['kyc'] },
+  { key: 'profile', label: 'Προφίλ', tabs: PROFILE_TABS as readonly string[] },
+  { key: 'deals', label: 'Μονάδες & πληρωμές', tabs: ['deals'] },
+  { key: 'activity', label: 'Προβολές & δραστηριότητα', tabs: ['activity'] },
+  { key: 'comms', label: 'Επικοινωνία', tabs: ['comms'] },
 ] as const;
+/** Παλιοί σύνδεσμοι (?tab=overview, people, properties, kyc) → νέες καρτέλες. */
+const LEGACY: Record<string, string> = { overview: 'info', people: 'contacts', properties: 'activity', kyc: 'documents' };
 type TabKey = (typeof TABS)[number]['key'];
 const VIEWING: Record<string, string> = { scheduled: 'Προγραμματισμένη', attended: 'Έγινε', no_show: 'Δεν ήρθε', cancelled: 'Ακυρώθηκε' };
 const LEAD: Record<string, string> = { new: 'Νέο', contacted: 'Επικοινωνία', engaged: 'Ενδιαφέρον', qualified: 'Κατάλληλο', waiting: 'Αναμονή', viewing: 'Προβολή', offer: 'Προσφορά', negotiating: 'Διαπραγμάτευση', reserved: 'Κράτηση', won: 'Κλείσιμο', lost: 'Χάθηκε', nurture: 'Nurture', no_response: 'Χωρίς απάντηση', retargeting: 'Retargeting', reactivation: 'Επανενεργοποίηση' };
@@ -66,7 +73,8 @@ const label = (list: { v: string; l: string }[], v: string | null | undefined) =
 export default async function ContactDetailPage({ params, searchParams }: { params: { id: string }; searchParams: { tab?: string; edit?: string } }) {
   const profile = await requirePermission('leads');
   const canEdit = effectiveCan(profile.role, profile.moduleAccess, 'leads', 'edit', profile.permissions);
-  const tab: TabKey = (TABS.find((t) => t.key === searchParams.tab)?.key ?? 'overview') as TabKey;
+  const wanted = LEGACY[searchParams.tab ?? ''] ?? searchParams.tab;
+  const tab: TabKey = (TABS.find((t) => t.key === wanted)?.key ?? 'info') as TabKey;
   const supabase = await createSupabaseServerClient();
   const db = supabase as any;
 
@@ -102,71 +110,81 @@ export default async function ContactDetailPage({ params, searchParams }: { para
   const STATUS_LABEL: Record<string, string> = { active: 'Ενεργός', inactive: 'Ανενεργός', do_not_contact: 'Όχι επικοινωνία', archived: 'Αρχειοθετημένος' };
   const joined = contact.created_at ? new Date(contact.created_at).toLocaleDateString(DATE_TAG[currentLocale().lang], { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';
   const interest = lead?.projects?.name ?? (lead ? (LEAD[lead.status] ?? lead.status) : null);
-  const counts: Partial<Record<TabKey, number>> = { properties: viewCount ?? 0, documents: docCount ?? 0, people: relCount ?? 0, deals: (leads ?? []).length };
+  const counts: Partial<Record<TabKey, number>> = { activity: viewCount ?? 0, documents: docCount ?? 0, contacts: relCount ?? 0, deals: (leads ?? []).length };
+  const [staffList, ledger, family, otp, photoUrl, groupTags, unitRows] = await Promise.all([
+    loadStaff(), getCustomers(), loadFamily(contact.id), loadOtpStatus(contact.id), loadPhotoUrl(c.photo_path), loadGroupTagOptions(settings.tags),
+    supabase.from('units').select('id, unit_number, project_id, projects(name)').in('status', ['available', 'reserved']).order('unit_number').limit(400),
+  ]);
+  const money = ledger.rows.find((r) => r.contactId === contact.id);
+  const unitsCount = (money?.units ?? 0) + (money?.reservations ?? 0);
+  const groups: string[] = c.groups ?? [];
+  const canMerge = canEdit && ['admin', 'management', 'sales'].includes(profile.role);
+  const tabHref = (k: string) => (k === 'info' ? here : `${here}?tab=${k}`);
 
   return (
     <div className="space-y-5">
       <Link href="/crm/customers" className="inline-flex items-center gap-1 text-[14px] text-charcoal-600 hover:text-charcoal">‹ Πίσω στους πελάτες</Link>
       <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-forest/[0.09] text-[16px] font-semibold text-forest">{(contact.full_name ?? '?').split(' ').map((x: string) => x[0]).slice(0, 2).join('').toUpperCase()}</span>
+        <div className="flex min-w-0 items-center gap-4">
+          {photoUrl
+            // eslint-disable-next-line @next/next/no-img-element -- signed storage URL
+            ? <img src={photoUrl} alt="" className="h-16 w-16 shrink-0 rounded-full object-cover" />
+            : <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-forest/[0.09] text-[18px] font-semibold text-forest">{(contact.full_name ?? '?').split(' ').map((x: string) => x[0]).slice(0, 2).join('').toUpperCase()}</span>}
           <div className="min-w-0">
-            <h1 className="font-display text-3xl text-charcoal" data-no-tr>{contact.full_name ?? 'Χωρίς όνομα'}</h1>
-            <p className="text-[14px] text-charcoal-600" data-no-tr>{[contact.email, contact.phone].filter(Boolean).join(' · ') || '—'}</p>
-            <p className="mt-0.5 flex items-center gap-1 text-[13px] text-charcoal-600"><CalendarDays size={13} /> Εγγραφή {joined}</p>
+            <h1 className="truncate font-display text-3xl text-charcoal" data-no-tr>{contact.full_name ?? 'Χωρίς όνομα'}</h1>
+            <p className="text-[14px] text-charcoal-600" data-no-tr>{contact.phone || contact.email || '—'}</p>
+            <p className="mt-1 flex flex-wrap items-center gap-2 text-[13px] text-charcoal-600">
+              <span className="inline-flex items-center gap-1"><CalendarDays size={13} /> <span>Εγγραφή</span> <span>{c.registered_at ? new Date(c.registered_at).toLocaleDateString(DATE_TAG[currentLocale().lang], { day: '2-digit', month: '2-digit', year: 'numeric' }) : joined}</span></span>
+              {groups.length ? groups.map((g) => <span key={g} className="rounded-full bg-forest px-2.5 py-0.5 text-[12px] font-medium text-white" data-no-tr>{g}</span>) : <span className="rounded-full border border-stone-line px-2.5 py-0.5 text-[12px]">Χωρίς ομάδα</span>}
+            </p>
           </div>
         </div>
-        <div className="flex flex-wrap gap-2">
-          {contact.phone && <a href={`https://wa.me/${String(contact.phone).replace(/[^\d]/g, '')}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-lg border border-stone-line bg-white px-3 py-2 text-sm text-charcoal hover:border-forest/40"><MessageCircle size={15} /> Μήνυμα</a>}
-          <Link href={`/marketing?tab=email&ids=${contact.id}`} className="inline-flex items-center gap-1.5 rounded-lg border border-stone-line bg-white px-3 py-2 text-sm text-charcoal hover:border-forest/40"><Mail size={15} /> Email</Link>
-          <Link href={`${here}?tab=properties`} className="inline-flex items-center gap-1.5 rounded-lg border border-stone-line bg-white px-3 py-2 text-sm text-charcoal hover:border-forest/40"><Home size={15} /> Ακίνητα</Link>
-          <Link href="/calendar" className="inline-flex items-center gap-1.5 rounded-lg bg-forest px-3 py-2 text-sm font-semibold text-white hover:bg-forest/90"><CalendarDays size={15} /> Νέο viewing</Link>
-        </div>
+        <CustomerActions contactId={contact.id} here={here} leadId={lead?.id ?? null} canEdit={canEdit} currentUserId={profile.id}
+          agents={staffList} units={((unitRows.data ?? []) as any[]).map((u) => ({ id: u.id, label: [u.projects?.name, u.unit_number].filter(Boolean).join(' · '), projectId: u.project_id ?? null }))} />
       </div>
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {[
-          ['Κατάσταση', STATUS_LABEL[c.status ?? 'active'] ?? c.status],
-          ['Ενδιαφέρον', interest ?? '—'],
-          ['Ομάδα', (c.groups ?? []).join(', ') || 'Χωρίς ομάδα'],
-          ['Υπόλοιπο', formatCurrency(balance)],
-        ].map(([k, v]) => (
-          <div key={k} className="rounded-2xl border border-stone-line bg-white px-5 py-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]"><p className="text-[13px] text-charcoal-600">{k}</p><p className="mt-1 text-[19px] font-semibold leading-snug text-charcoal" data-no-tr>{v}</p></div>
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+        {([
+          ['Κατάσταση', STATUS_LABEL[c.status ?? 'active'] ?? c.status, false],
+          ['Μονάδες', String(unitsCount), false],
+          ['Ομάδα', groups.join(', ') || 'Χωρίς ομάδα', true],
+          ['Υπόλοιπο', formatCurrency(balance), false],
+        ] as [string, string, boolean][]).map(([k, v, data]) => (
+          <div key={k} className="min-w-0 rounded-2xl border border-stone-line bg-white px-4 py-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:px-5 sm:py-4"><p className="text-[13px] text-charcoal-600">{k}</p><p className="mt-1 truncate text-[17px] font-semibold leading-snug text-charcoal sm:text-[19px]" {...(data ? { 'data-no-tr': true } : {})}>{v}</p></div>
         ))}
       </div>
 
       <DuplicateBanner contactId={contact.id} matches={dupes} canMerge={canEdit && ['admin', 'management', 'sales'].includes(profile.role)} />
 
-      <div className="space-y-2">
-        <nav className="inline-flex flex-wrap gap-1 rounded-xl border border-stone-line bg-white p-1">
+      <div className="space-y-3">
+        <nav className="-mx-1 flex gap-1 overflow-x-auto px-1">
           {MAIN.map((m) => {
             const on = (m.tabs as readonly string[]).includes(tab);
             const n = m.tabs.reduce((x, k) => x + (counts[k as TabKey] ?? 0), 0);
-            return <Link key={m.key} href={m.tabs[0] === 'overview' ? here : `${here}?tab=${m.tabs[0]}`} scroll={false} className={`rounded-lg px-3.5 py-1.5 text-[14px] font-medium transition ${on ? 'bg-forest/[0.09] text-forest' : 'text-charcoal-600 hover:text-charcoal'}`}>{m.label}{m.key !== 'profile' && n > 0 && <span className="ml-1.5 rounded-full bg-forest/10 px-1.5 text-[11px] text-forest">{n}</span>}</Link>;
+            return <Link key={m.key} href={tabHref(m.tabs[0])} scroll={false} className={`inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border px-4 text-[14px] font-medium transition-colors ${on ? 'border-forest bg-forest text-white' : 'border-stone-line bg-white text-charcoal-600 hover:border-forest/40 hover:text-charcoal'}`}><span>{m.label}</span>{m.key !== 'profile' && n > 0 && <span className={`rounded-full px-1.5 text-[11px] ${on ? 'bg-white/20 text-white' : 'bg-forest/10 text-forest'}`}>{n}</span>}</Link>;
           })}
         </nav>
-        {['overview', 'documents', 'people'].includes(tab) && (
-          <nav className="flex gap-1 border-b border-stone-line">
-            {TABS.filter((t) => ['overview', 'documents', 'people'].includes(t.key)).map((t) => (
-              <Link key={t.key} href={t.key === 'overview' ? here : `${here}?tab=${t.key}`} scroll={false} className={`-mb-px border-b-2 px-3 py-2 text-[14px] ${tab === t.key ? 'border-forest font-medium text-charcoal' : 'border-transparent text-charcoal-600 hover:text-charcoal'}`}>{t.label}{(counts[t.key] ?? 0) > 0 && <span className="ml-1 text-[12px] text-charcoal-600">({counts[t.key]})</span>}</Link>
-            ))}
-          </nav>
+        {(PROFILE_TABS as readonly string[]).includes(tab) && (
+          <div className="flex flex-wrap items-end justify-between gap-2 border-b border-stone-line">
+            <nav className="-mb-px flex gap-1 overflow-x-auto">
+              {TABS.filter((t) => (PROFILE_TABS as readonly string[]).includes(t.key)).map((t) => (
+                <Link key={t.key} href={tabHref(t.key)} scroll={false} className={`shrink-0 border-b-2 px-3 py-2 text-[14px] ${tab === t.key ? 'border-forest font-medium text-charcoal' : 'border-transparent text-charcoal-600 hover:text-charcoal'}`}>{t.label}{(counts[t.key] ?? 0) > 0 && <span className="ml-1 text-[12px] text-charcoal-600">({counts[t.key]})</span>}</Link>
+              ))}
+            </nav>
+            <span className="pb-2"><ProfileToolbar contactId={contact.id} name={contact.full_name ?? ''} canEdit={canEdit} canMerge={canMerge}
+              edit={{ initial: profileFromRow(c, kyc), photoUrl, groupOptions: groupTags.groups, tagOptions: groupTags.tags, otp }} /></span>
+          </div>
         )}
       </div>
 
-      {tab === 'overview' && await Overview()}
+      {tab === 'info' && await Overview()}
+      {tab === 'notes' && await Notes()}
       {tab === 'activity' && await Activity()}
-      {tab === 'properties' && await Properties()}
       {tab === 'deals' && await Deals()}
       {tab === 'documents' && await Documents()}
-      {tab === 'people' && await People()}
-      {tab === 'kyc' && await Gdpr()}
-      {tab === 'kyc' && (
-        <KycPanel contactId={contact.id} initial={kyc ? cleanKyc(kyc) : EMPTY_KYC} aml={settings.aml} canEdit={canEdit} missing={migMissing} contactNationality={contact.nationality}
-          meta={{ verifiedAt: kyc?.verified_at ?? null, verifiedBy: kyc?.verifier?.full_name ?? null, reviewDue: kyc?.review_due ?? null, updatedAt: kyc?.updated_at ?? null }} />
-      )}
+      {tab === 'contacts' && <FamilyContacts contactId={contact.id} name={contact.full_name ?? '—'} rows={family.rows} canEdit={canEdit} missing={family.missing} />}
+      {tab === 'comms' && await Comms()}
     </div>
   );
-
   /* ------------------------------------------------------------ tabs -- */
 
   async function Overview() {
@@ -174,54 +192,54 @@ export default async function ContactDetailPage({ params, searchParams }: { para
     if (searchParams.edit === '1' && canEdit) {
       return (
         <div className="space-y-5">
-          <div className="flex items-center justify-between"><h2 className="text-[18px] font-semibold text-charcoal">Επεξεργασία στοιχείων</h2><Link href={here} scroll={false} className="btn-primary text-sm">Τέλος</Link></div>
+          <div className="flex items-center justify-between"><h2 className="text-[18px] font-semibold text-charcoal">Ιδιότητες & προτιμήσεις</h2><Link href={here} scroll={false} className="btn-primary text-sm">Τέλος</Link></div>
           <div className="grid gap-5 lg:grid-cols-2">
             <ContactRolesPanel contactId={contact!.id} roles={rolesFromRow(c)} status={(c.status ?? 'active') as ContactStatus} ownerId={c.owner_id ?? null} staff={hub.staff} canEdit={canEdit} />
             <ContactPreferences contactId={contact!.id} canEdit={canEdit && !migMissing} initial={{ language: c.preferred_language ?? null, channel: c.communication_preference ?? null, bestTime: c.best_time ?? null, bestTimeNote: c.best_time_note ?? null }} />
             <ContactMetaPanel contactId={contact!.id} initial={readMeta(contact)} defs={settings.tags} canEdit={canEdit} />
           </div>
-          <p className="text-[13px] text-charcoal-600">Ταυτότητα, ημ. γέννησης, διεύθυνση και επάγγελμα αλλάζουν στην καρτέλα «Ταυτότητα & AML».</p>
+          <p className="text-[13px] text-charcoal-600">Τα υπόλοιπα στοιχεία αλλάζουν με το κουμπί «Επεξεργασία».</p>
         </div>
       );
     }
     const dash = (v: unknown) => (v === null || v === undefined || v === '' ? '—' : String(v));
     const dmy = (v: string | null | undefined) => (v ? new Date(v).toLocaleDateString(DATE_TAG[currentLocale().lang], { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—');
-    const nm = String(contact!.full_name ?? '').trim().split(/\s+/);
-    const InfoCard = ({ title, rows }: { title: string; rows: [string, React.ReactNode][] }) => (
-      <div className="rounded-2xl border border-stone-line bg-white p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-        <h3 className="mb-3 text-[18px] font-semibold text-charcoal">{title}</h3>
-        <dl className="space-y-3">{rows.map(([k, v]) => <div key={k} className="flex items-baseline justify-between gap-4 text-[15px]"><dt className="text-charcoal-600">{k}</dt><dd className="text-right font-medium text-charcoal" data-no-tr>{v}</dd></div>)}</dl>
+    const pf = profileFromRow(c, kyc);
+    const yes = (v: boolean) => (v ? 'Ναι' : 'Όχι');
+    const InfoCard = ({ title, rows }: { title: string; rows: [string, React.ReactNode, boolean?][] }) => (
+      <div className="rounded-2xl border border-stone-line bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:p-6">
+        <h3 className="mb-3 text-[17px] font-semibold text-charcoal">{title}</h3>
+        <dl className="divide-y divide-stone-line/70">{rows.map(([k, v, tr]) => <div key={k} className="flex items-baseline justify-between gap-4 py-2 text-[14px]"><dt className="shrink-0 text-charcoal-600">{k}</dt><dd className="min-w-0 break-words text-right font-medium text-charcoal" {...(tr ? {} : { 'data-no-tr': true })}>{v}</dd></div>)}</dl>
       </div>
     );
     const BUYER_TYPE: Record<string, string> = { investor: 'Επενδυτής', end_user: 'Ιδιοκατοίκηση', holiday: 'Εξοχικό', relocation: 'Μετεγκατάσταση', other: 'Άλλο' };
     const SRC: Record<string, string> = { website: 'Ιστοσελίδα', meta: 'Facebook / Instagram', google: 'Google', organic: 'Οργανικά', referral: 'Σύσταση', walk_in: 'Επίσκεψη', whatsapp: 'WhatsApp', other: 'Άλλο', manual: 'Καταχώριση' };
     const ownerName = hub.staff.find((x) => x.id === c.owner_id)?.name ?? '—';
+    const lang = currentLocale().lang;
     return (
       <div className="space-y-5">
-      <div className="flex justify-end gap-2">
-        {canEdit && <Link href={`${here}?edit=1`} scroll={false} className="inline-flex items-center gap-1.5 rounded-lg border border-stone-line bg-white px-3 py-1.5 text-sm text-charcoal hover:border-forest/40"><Pencil size={14} /> Επεξεργασία</Link>}
-      </div>
-      <div className="grid gap-5 lg:grid-cols-2">
-        <InfoCard title="Προσωπικά στοιχεία" rows={[
-          ['Όνομα', dash(nm[0])], ['Επώνυμο', dash(nm.slice(1).join(' '))], ['Ημ. γέννησης', dmy(kyc?.date_of_birth)], ['Αρ. ταυτότητας / διαβατηρίου', dash(kyc?.id_number)],
-          ['Εθνικότητα', dash(contact!.nationality ?? kyc?.nationality)], ['Τύπος αγοραστή', dash(BUYER_TYPE[c.buyer_type] ?? c.buyer_type)], ['Εγγραφή', joined], ['Επάγγελμα', dash(kyc?.occupation)],
-        ]} />
-        <InfoCard title="Επικοινωνία & διεύθυνση" rows={[
-          ['Email', dash(contact!.email)], ['Κινητό', dash(contact!.phone)], ['Γλώσσα', dash(label(LANGUAGES, c.preferred_language) ?? c.preferred_language)],
-          ['Προτιμώμενο κανάλι', dash(label(CHANNELS, c.communication_preference) ?? c.communication_preference)], ['Καλύτερη ώρα', dash(label(BEST_TIME, c.best_time))],
-          ['Λαμβάνει marketing', c.marketing_opt_in ? 'Ναι' : 'Όχι'], ['Διεύθυνση', dash(kyc?.address)], ['Χώρα διαμονής', dash(kyc?.residence_country)],
-        ]} />
-        <InfoCard title="Ομαδοποίηση" rows={[
-          ['Ομάδες', (c.groups ?? []).join(', ') || 'Χωρίς ομάδα'], ['Ιδιότητες', rolesFromRow(c).map((r) => ROLE_EL[r]).join(', ') || '—'],
-          ['Υπεύθυνος', ownerName], ['Πηγή', dash(SRC[c.first_touch_source ?? 'manual'] ?? c.first_touch_source)], ['AML', dash(kycStatus?.label)],
-        ]} />
-        <div className="rounded-2xl border border-stone-line bg-white p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-          <h3 className="mb-3 text-[18px] font-semibold text-charcoal">Tags</h3>
-          {(c.tags ?? []).length ? <div className="flex flex-wrap gap-1.5">{(c.tags as string[]).map((t) => <span key={t} className="rounded-full border border-stone-line px-2.5 py-0.5 text-[13px] text-charcoal" data-no-tr>{t}</span>)}</div> : <p className="text-[15px] text-charcoal-600">Δεν βρέθηκαν tags.</p>}
+        <div className="grid gap-5 lg:grid-cols-2">
+          <InfoCard title="Προσωπικά στοιχεία" rows={[
+            ['Όνομα', dash(pf.firstName)], ['Επώνυμο', dash(pf.lastName)], ['Φύλο', dash(genderLabel(pf.gender)), true], ['Ημ. γέννησης', dmy(pf.dateOfBirth)],
+            ['Αρ. ταυτότητας / διαβατηρίου', dash(pf.idNumber)], ['Κωδικός πελάτη', dash(pf.memberCode)], ['Εγγραφή', dmy(pf.registeredAt)], ['Επάγγελμα', dash(pf.profession)],
+            ['Εταιρεία', dash(pf.company)], ['Εθνικότητα', dash(countryName(contact!.nationality ?? kyc?.nationality, lang) || contact!.nationality)], ['Τύπος αγοραστή', dash(BUYER_TYPE[c.buyer_type] ?? c.buyer_type), true],
+          ]} />
+          <InfoCard title="Επικοινωνία & διεύθυνση" rows={[
+            ['Email', dash(contact!.email)], ['Κινητό', dash(contact!.phone)], ['Σταθερό', dash(pf.phone2)], ['Fax', dash(pf.fax)],
+            ['Λαμβάνει SMS', yes(pf.receiveSms), true], ['Λαμβάνει email', yes(pf.receiveEmail), true], ['Λαμβάνει push', yes(pf.receivePush), true],
+            ['Διεύθυνση', dash(pf.address)], ['Πόλη', dash(pf.city)], ['Τ.Κ.', dash(pf.postcode)], ['Χώρα', dash(countryName(pf.country, lang) || pf.country)],
+            ['Γλώσσα', dash(label(LANGUAGES, c.preferred_language) ?? c.preferred_language), true], ['Προτιμώμενο κανάλι', dash(label(CHANNELS, c.communication_preference) ?? c.communication_preference), true], ['Καλύτερη ώρα', dash(label(BEST_TIME, c.best_time)), true],
+          ]} />
+          <InfoCard title="Ομαδοποίηση" rows={[
+            ['Ομάδες', (c.groups ?? []).join(', ') || '—'], ['Tags', (c.tags ?? []).join(', ') || '—'], ['Ιδιότητες', rolesFromRow(c).map((r) => ROLE_EL[r]).join(', ') || '—', true],
+            ['Υπεύθυνος', ownerName], ['Πηγή', dash(SRC[c.first_touch_source ?? 'manual'] ?? c.first_touch_source), true], ['AML', dash(kycStatus?.label), true],
+          ]} />
+          <div className="rounded-2xl border border-stone-line bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:p-6">
+            <h3 className="mb-3 text-[17px] font-semibold text-charcoal">Σημειώσεις</h3>
+            {c.notes || lead?.message ? <p className="whitespace-pre-line text-[14px] text-charcoal" data-no-tr>{c.notes ?? lead?.message}</p> : <p className="text-[14px] text-charcoal-600">Καμία σημείωση.</p>}
+          </div>
         </div>
-      </div>
-      <InfoCard title="Σχόλιο" rows={[['Σχόλιο', dash(lead?.message ?? kyc?.notes)]]} />
-
+        {canEdit && <p className="text-[13px] text-charcoal-600"><Link href={`${here}?edit=1`} scroll={false} className="font-medium text-forest hover:underline">Ιδιότητες, υπεύθυνος & προτιμήσεις επικοινωνίας →</Link></p>}
       </div>
     );
   }
@@ -236,7 +254,7 @@ export default async function ContactDetailPage({ params, searchParams }: { para
     );
   }
 
-  async function Activity() {
+  async function Notes() {
     const [{ data: notes }, { data: comms }] = await Promise.all([
       supabase.from('notes').select('id, body, created_at, profiles(full_name)').eq('entity_type', 'contact').eq('entity_id', contact!.id),
       supabase.from('contact_communications').select('id, channel, direction, summary, status, ai_generated, occurred_at, profiles(full_name)').eq('contact_id', contact!.id),
@@ -245,17 +263,27 @@ export default async function ContactDetailPage({ params, searchParams }: { para
       ...(notes ?? []).map((n: any) => ({ id: n.id, kind: 'note' as const, body: n.body, author: n.profiles?.full_name, occurred_at: n.created_at })),
       ...(comms ?? []).map((m: any) => ({ id: m.id, kind: 'communication' as const, body: m.summary, channel: m.channel, direction: m.direction, status: m.status, ai_generated: m.ai_generated, author: m.profiles?.full_name, occurred_at: m.occurred_at })),
     ].sort((a, b) => new Date(b.occurred_at).getTime() - new Date(a.occurred_at).getTime());
+    return <div className="max-w-4xl"><ContactTimeline contactId={contact!.id} leadId={lead?.id} entries={timeline} /></div>;
+  }
+
+  async function Activity() {
     const { events, names } = await loadContactEvents(contact!.id);
     const { data: followUps } = await supabase.from('follow_up_tasks').select('id, note, due_at, is_done').eq('contact_id', contact!.id);
     return (
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2"><ContactTimeline contactId={contact!.id} leadId={lead?.id} entries={timeline} /></div>
-        <div className="space-y-6">
+      <div className="space-y-6">
+        {await Properties()}
+        <div className="grid gap-6 lg:grid-cols-2">
           <div className="panel p-6"><h4 className="mb-3">Follow-ups</h4><TaskList table="follow_up_tasks" tasks={(followUps ?? []).map((t) => ({ id: t.id, title: t.note ?? 'Follow up', due_at: t.due_at, is_done: t.is_done }))} /></div>
           <ContactHistory events={events} names={names} />
         </div>
       </div>
     );
+  }
+
+  async function Comms() {
+    const { data } = await (supabase as any).from('contact_communications').select('id, channel, direction, summary, body, status, occurred_at, profiles(full_name)').eq('contact_id', contact!.id).order('occurred_at', { ascending: false }).limit(30);
+    const rows: ConversationRow[] = ((data ?? []) as any[]).map((m) => ({ id: m.id, channel: m.channel, direction: m.direction, subject: null, body: m.body ?? m.summary ?? '', status: m.status ?? null, author: m.profiles?.full_name ?? null, at: m.occurred_at }));
+    return <CustomerMessage contactId={contact!.id} hasEmail={!!contact!.email} hasPhone={!!contact!.phone} rows={rows} canEdit={canEdit} />;
   }
 
   async function Properties() {
@@ -334,8 +362,17 @@ export default async function ContactDetailPage({ params, searchParams }: { para
       (inv as any)?.id ? supabase.from('investor_holdings').select('id, capital_invested, ownership_percentage, projects(name), units(unit_number)').eq('investor_id', (inv as any).id) : Promise.resolve({ data: [] as any[] }),
     ]);
     const today = new Date().toISOString().slice(0, 10);
+    const props = await loadContactProperties(contact!.id);
+    const ROLE: Record<string, string> = { owner: 'Ιδιοκτήτης', former_owner: 'Πρώην ιδιοκτήτης', buyer: 'Αγοραστής', tenant: 'Ενοικιαστής' };
     return (
       <div className="space-y-6">
+        <div className="rounded-2xl border border-stone-line bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+          <h3 className="px-5 pt-5 text-[17px] font-semibold text-charcoal">Μονάδες του πελάτη</h3>
+          {props.length === 0 ? <p className="px-5 py-6 text-sm text-charcoal-600">Καμία μονάδα ακόμη.</p> : (
+            <div className="mt-3 overflow-x-auto border-t border-stone-line"><table className="o-table"><thead><tr><th>Μονάδα</th><th>Ρόλος</th><th>Από</th><th>Έως</th></tr></thead>
+              <tbody>{props.map((u, i) => <tr key={`${u.unitId}-${i}`}><td className="o-strong"><Link href={`/projects/${u.projectId}/units/${u.unitId}`} className="hover:text-forest" data-no-tr>{u.label}</Link></td><td>{ROLE[u.role] ?? u.role}</td><td>{u.since ? formatDate(u.since) : '—'}</td><td>{u.until ? formatDate(u.until) : '—'}</td></tr>)}</tbody></table></div>
+          )}
+        </div>
         {lead && (
           <div className="panel p-6">
             <div className="mb-4 flex items-center justify-between"><h4>Πορεία πώλησης</h4><Link href={`/crm/leads/${lead.id}`} className="text-xs text-forest hover:underline">Άνοιγμα lead →</Link></div>
@@ -441,19 +478,14 @@ export default async function ContactDetailPage({ params, searchParams }: { para
     ]);
     const map = (d: any, source: string | null): DocRow => ({ id: d.id, title: d.title, category: d.category, bucket: d.bucket, path: d.storage_path, createdAt: d.created_at, source });
     const unitNo = new Map(((units ?? []) as any[]).map((u) => [u.id, u.unit_number]));
-    return <ContactDocuments contactId={contact!.id} canEdit={canEdit} own={((own ?? []) as any[]).map((d) => map(d, null))}
-      related={[...((ud ?? []) as any[]).map((d) => map(d, `μονάδα ${unitNo.get(d.entity_id) ?? ''}`)), ...((cd ?? []) as any[]).map((d) => map(d, 'συμβόλαιο'))]} />;
-  }
-
-  async function People() {
-    const [{ data: out }, { data: inc }] = await Promise.all([
-      db.from('contact_relations').select('id, relation, is_decision_maker, note, related_contact_id, related_name, related_phone, related_email, other:related_contact_id(full_name, email, phone)').eq('contact_id', contact!.id).order('created_at'),
-      db.from('contact_relations').select('id, relation, is_decision_maker, note, contact_id, other:contact_id(full_name, email, phone)').eq('related_contact_id', contact!.id).order('created_at'),
-    ]);
-    const rows: RelationRow[] = [
-      ...((out ?? []) as any[]).map((r) => ({ id: r.id, direction: 'out' as const, relation: r.relation, decisionMaker: r.is_decision_maker, note: r.note, contactId: r.related_contact_id, name: r.other?.full_name ?? r.related_name ?? '—', phone: r.other?.phone ?? r.related_phone, email: r.other?.email ?? r.related_email })),
-      ...((inc ?? []) as any[]).map((r) => ({ id: r.id, direction: 'in' as const, relation: r.relation, decisionMaker: false, note: r.note, contactId: r.contact_id, name: r.other?.full_name ?? '—', phone: r.other?.phone ?? null, email: r.other?.email ?? null })),
-    ];
-    return <div className="max-w-3xl"><ContactRelations contactId={contact!.id} rows={rows} canEdit={canEdit} missing={migMissing} /></div>;
+    return (
+      <div className="space-y-6">
+        <ContactDocuments contactId={contact!.id} canEdit={canEdit} own={((own ?? []) as any[]).map((d) => map(d, null))}
+          related={[...((ud ?? []) as any[]).map((d) => map(d, `μονάδα ${unitNo.get(d.entity_id) ?? ''}`)), ...((cd ?? []) as any[]).map((d) => map(d, 'συμβόλαιο'))]} />
+        <KycPanel contactId={contact!.id} initial={kyc ? cleanKyc(kyc) : EMPTY_KYC} aml={settings.aml} canEdit={canEdit} missing={migMissing} contactNationality={contact!.nationality}
+          meta={{ verifiedAt: kyc?.verified_at ?? null, verifiedBy: kyc?.verifier?.full_name ?? null, reviewDue: kyc?.review_due ?? null, updatedAt: kyc?.updated_at ?? null }} />
+        {await Gdpr()}
+      </div>
+    );
   }
 }

@@ -9,8 +9,9 @@ import { AcquisitionMap } from '@/components/acquisitions/AcquisitionMap';
 import { AcquisitionBoard } from '@/components/acquisitions/AcquisitionBoard';
 import { NewParcelForm } from '@/components/acquisitions/NewParcelForm';
 import { AssemblyPanel } from '@/components/acquisitions/AssemblyPanel';
-import { Users, Handshake, Gauge, HeartHandshake, Landmark, TrendingUp, Puzzle, PhoneCall, CalendarCheck, FileSignature, Phone, MessageCircle, Mail } from 'lucide-react';
-import { formatCurrency, formatCurrencyCompact } from '@/lib/format';
+import { Phone, MessageCircle, Mail } from 'lucide-react';
+import { parcelProjects } from '@/lib/project-flow';
+import { formatCurrency } from '@/lib/format';
 
 const DAY = 86400000;
 const BAND: Record<string, string> = { Prime: 'bg-forest text-white', Strong: 'bg-forest/12 text-forest', Moderate: 'bg-champagne-50 text-champagne-600', Weak: 'bg-sand-100 text-charcoal-600/70' };
@@ -21,9 +22,10 @@ export default async function AcquisitionsPage({ searchParams }: { searchParams:
   const supabase = await createSupabaseServerClient();
   const now = Date.now();
 
-  const [parcels, { data: agents }] = await Promise.all([
+  const [parcels, { data: agents }, converted] = await Promise.all([
     getParcels(),
     supabase.from('profiles').select('id, full_name').in('role', ['admin', 'sales', 'management']).order('full_name'),
+    parcelProjects(),
   ]);
 
   const clusters = detectAssembly(parcels.map((p) => ({ id: p.id, reference: p.reference, areaRef: p.areaRef, plotSizeSqm: p.plotSizeSqm, stage: p.stage, ownerName: p.ownerName, score: p.score.score, marginAbs: p.uplift?.marginAbs ?? 0 })));
@@ -31,41 +33,20 @@ export default async function AcquisitionsPage({ searchParams }: { searchParams:
   const active = parcels.filter((p) => !['acquired', 'lost'].includes(p.stage));
   const acquired = parcels.filter((p) => p.stage === 'acquired').length;
 
-  // Meetings booked this week (landowner meetings from the comms timeline).
-  const contactIds = parcels.map((p) => p.contactId).filter(Boolean) as string[];
-  let meetings = 0;
-  if (contactIds.length) {
-    const { count } = await supabase.from('contact_communications').select('id', { count: 'exact', head: true }).eq('channel', 'meeting').in('contact_id', contactIds).gte('occurred_at', new Date(now - 7 * DAY).toISOString());
-    meetings = count ?? 0;
-  }
-
   const avg = (xs: number[]) => (xs.length ? Math.round(xs.reduce((s, x) => s + x, 0) / xs.length) : 0);
-  const kpis = [
-    { label: 'Ενεργοί ιδιοκτήτες', value: String(active.length), icon: Users, tone: 'forest' },
-    { label: 'Διαπραγματεύσεις', value: String(parcels.filter((p) => p.stage === 'negotiation').length), icon: Handshake, tone: 'forest' },
-    { label: 'Μέσο σκορ', value: String(avg(active.map((p) => p.score.score))), icon: Gauge, tone: 'forest' },
-    { label: 'Μέση ετοιμότητα', value: String(avg(active.map((p) => p.readiness.score))), icon: HeartHandshake, tone: 'champagne' },
-    { label: 'Δυνητική αξία (GDV)', value: formatCurrencyCompact(parcels.reduce((s, p) => s + Number((p.offerInputs?.gdv as number) ?? p.uplift?.post ?? 0), 0)), icon: Landmark, tone: 'forest' },
-    { label: 'Εκτ. κέρδος', value: formatCurrencyCompact(parcels.reduce((s, p) => s + (p.uplift?.marginAbs ?? 0), 0)), icon: TrendingUp, tone: 'champagne' },
-    { label: 'Ευκαιρίες συνένωσης', value: String(clusters.length), icon: Puzzle, tone: 'forest' },
-    { label: 'Επαφές 7 ημ.', value: String(parcels.filter((p) => p.lastContactedAt && now - new Date(p.lastContactedAt).getTime() < 7 * DAY).length), icon: PhoneCall, tone: 'forest' },
-    { label: 'Συναντήσεις 7 ημ.', value: String(meetings), icon: CalendarCheck, tone: 'forest' },
-    { label: 'Προσφορές σε αναμονή', value: String(parcels.filter((p) => p.stage === 'offer_made').length), icon: FileSignature, tone: 'danger' },
-  ];
-  const KTONE: Record<string, string> = { forest: 'text-forest', champagne: 'text-champagne-600', danger: 'text-signal-danger' };
 
   const outreachDue = active.filter((p) => ['contacted', 'interested', 'negotiation'].includes(p.stage) && (!p.lastContactedAt || now - new Date(p.lastContactedAt).getTime() > 7 * DAY)).sort((a, b) => b.score.score - a.score.score);
 
   const tabs: HubTabDef[] = [
     { id: 'map', label: 'Χάρτης', icon: 'Map', value: parcels.length, sub: 'Όλα τα οικόπεδα στον χάρτη', content: <AcquisitionMap parcels={parcels} /> },
-    { id: 'pipeline', label: 'Pipeline', icon: 'Columns', value: active.length, sub: `${acquired} αποκτήθηκαν`, content: parcels.length === 0 ? <Panel><p className="text-sm text-charcoal-600/70">Δεν υπάρχουν ακόμη οικόπεδα. Προσθέστε τον πρώτο ιδιοκτήτη γης για να ξεκινήσετε.</p></Panel> : <AcquisitionBoard parcels={parcels} /> },
+    { id: 'pipeline', label: 'Pipeline', icon: 'Columns', value: active.length, sub: `${acquired} αποκτήθηκαν`, content: parcels.length === 0 ? <Panel><p className="text-sm text-charcoal-600/70">Δεν υπάρχουν ακόμη οικόπεδα. Προσθέστε τον πρώτο ιδιοκτήτη γης για να ξεκινήσετε.</p></Panel> : <AcquisitionBoard parcels={parcels} projects={converted} /> },
     {
       id: 'scoring', label: 'Αξιολόγηση γης', icon: 'Gauge', value: avg(active.map((p) => p.score.score)), sub: 'Μέσο σκορ ενεργών', content: (
         <div className="overflow-hidden rounded-2xl border border-stone-line bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
           {parcels.length === 0 ? <p className="p-6 text-sm text-charcoal-600/70">Δεν έχουν αξιολογηθεί οικόπεδα ακόμη.</p> : (
             <div className="overflow-x-auto">
               <table className="o-table">
-                <thead><tr><th>Οικόπεδο</th><th>Ιδιοκτήτης</th><th>Τοποθεσία</th><th>Στάδιο</th><th className="text-right">Ετοιμότητα</th><th className="text-right">Υπεραξία</th><th className="text-right">Σκορ</th></tr></thead>
+                <thead><tr><th>Οικόπεδο</th><th>Ιδιοκτήτης</th><th>Τοποθεσία</th><th>Στάδιο</th><th className="text-right">Ετοιμότητα</th><th className="text-right">Υπεραξία</th><th className="text-right">Σκορ</th><th>Έργο</th></tr></thead>
                 <tbody>
                   {parcels.map((p) => (
                     <tr key={p.id}>
@@ -76,6 +57,7 @@ export default async function AcquisitionsPage({ searchParams }: { searchParams:
                       <td className="text-right tabular-nums">{p.readiness.score}</td>
                       <td className="text-right tabular-nums">{p.uplift ? formatCurrency(p.uplift.marginAbs) : '—'}</td>
                       <td className="text-right"><span className={`figure rounded-md px-2 py-0.5 text-xs font-semibold ${BAND[p.score.band]}`}>{p.score.score}</span></td>
+                      <td>{converted[p.id] ? <Link href={`/projects/${converted[p.id]}`} className="text-forest hover:underline">Άνοιγμα έργου</Link> : '—'}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -118,17 +100,7 @@ export default async function AcquisitionsPage({ searchParams }: { searchParams:
 
   return (
     <div className="space-y-5">
-      <WorkspaceHeader eyebrow="Έργα" title="Αγορές γης" description={`${active.length} ενεργά · ${acquired} αποκτήθηκαν · εντοπισμός και διαπραγμάτευση οικοπέδων εκτός αγοράς.`} action={<NewParcelForm agents={(agents ?? []) as any} />} />
-
-      {/* Executive KPI bar */}
-      <div className="grid grid-cols-2 gap-x-4 gap-y-3 rounded-2xl border border-stone-line bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:grid-cols-5">
-        {kpis.map((k) => (
-          <div key={k.label} className="flex items-center gap-2.5">
-            <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-forest/[0.06] ${KTONE[k.tone]}`}><k.icon size={15} strokeWidth={1.9} /></span>
-            <div><p className="text-xl font-semibold leading-none tabular-nums text-charcoal">{k.value}</p><p className="mt-0.5 text-[11px] text-charcoal-600">{k.label}</p></div>
-          </div>
-        ))}
-      </div>
+      <WorkspaceHeader eyebrow="Έργα" title="Αγορές γης" description="Οικόπεδο → Deal Analyzer → Έργο. Εντοπισμός, ανάλυση και διαπραγμάτευση οικοπέδων, με μετατροπή σε έργο σε οποιοδήποτε στάδιο." action={<NewParcelForm agents={(agents ?? []) as any} />} />
 
       {/* Χάρτης / Pipeline / Αξιολόγηση / Συνένωση / Επαφές — αμέσως κάτω από τους αριθμούς */}
       <HubTabs tabs={tabs} initial={searchParams?.tab ?? 'pipeline'} cols={3} />

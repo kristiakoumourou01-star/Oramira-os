@@ -1,7 +1,7 @@
 'use client';
 
 import { usePathname, useSearchParams } from 'next/navigation';
-import type { SettingsNavGroup } from '@/lib/settings-sections';
+import { getSection, type SettingsNavGroup } from '@/lib/settings-sections';
 import { navLabel } from '@/lib/i18n';
 import { SettingsFrame } from '@/components/ui/SettingsFrame';
 
@@ -9,7 +9,8 @@ import { SettingsFrame } from '@/components/ui/SettingsFrame';
 export function SettingsHubNav({ groups, company, children }: { groups: SettingsNavGroup[]; company?: string; children: React.ReactNode }) {
   const pathname = usePathname() ?? '';
   const sp = useSearchParams();
-  const section = sp?.get('section') ?? (pathname === '/settings' ? 'business' : null);
+  const raw = sp?.get('section') ?? (pathname === '/settings' ? 'business' : null);
+  const section = raw ? getSection(raw).key : null;
   const isActive = (href: string) => {
     const [base, query] = href.split('?');
     if (pathname !== base && !pathname.startsWith(base + '/')) return false;

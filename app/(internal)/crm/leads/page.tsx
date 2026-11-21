@@ -12,10 +12,11 @@ import { WorkspaceHeader } from '@/components/ui/WorkspaceHeader';
 export default async function SalesPage({ searchParams }: { searchParams: { tab?: string } }) {
   const tab = searchParams?.tab;
   if (!tab || tab === 'pipeline') redirect('/sales/deals');
-  if (tab === 'inbox') redirect('/sales/deals?view=list');
-  if (tab === 'followups') redirect('/sales/activities');
+  if (tab === 'inbox') redirect('/sales/new');
+  if (tab === 'followups') redirect('/sales/follow-ups');
   if (tab === 'viewings') redirect('/sales/activities?type=viewing');
-  if (tab === 'kpis' || tab === 'closings') redirect('/sales/insights');
+  if (tab === 'kpis') redirect('/sales/agents');
+  if (tab === 'closings') redirect('/sales/insights');
   if (tab === 'command') redirect('/command-center');
   await requirePermission('leads');
   const retarget = await getRetargetingAudiences();

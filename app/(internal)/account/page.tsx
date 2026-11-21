@@ -1,24 +1,24 @@
 import Link from 'next/link';
-import { KeyRound, ShieldCheck, MonitorSmartphone, Bell, LogOut, LifeBuoy } from 'lucide-react';
+import { KeyRound, ShieldCheck, MonitorSmartphone, Bell, LogOut } from 'lucide-react';
 import { requireProfile } from '@/lib/auth';
 import { createSupabaseServerClient, createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import { listTrustedDevices, listTotpFactors } from '@/lib/mfa';
 import { requestLocale } from '@/lib/locale-server';
+import { LanguagePick } from '@/components/account/LanguagePick';
+import { TicketsView, type TicketRow } from '@/components/account/TicketsView';
+import { FaqView, NewsView } from '@/components/account/HelpContent';
 import { tx } from '@/lib/locale-shared';
 import { logout } from '@/app/actions/auth';
 import { signOutEverywhere } from '@/app/actions/account';
 import { AccountProfile } from '@/components/account/AccountProfile';
-import { PersonalDisplay } from '@/components/account/PersonalDisplay';
 import { NotificationPrefs } from '@/components/account/NotificationPrefs';
-import { AuditLogView } from '@/components/admin/AuditLogView';
 import { LogsView, type LogRow } from '@/components/account/LogsView';
-import { getAuditLog } from '@/lib/audit';
 import { DATE_TAG, currentLocale } from '@/lib/locale-shared';
 import { SettingsFrame, type FrameGroup } from '@/components/ui/SettingsFrame';
 
 export const dynamic = 'force-dynamic';
 
-type Tab = 'info' | 'logs' | 'audit' | 'display' | 'notifications' | 'news';
+type Tab = 'info' | 'logs' | 'tickets' | 'faq' | 'news' | 'notifications' | 'logout';
 
 const ACTION_LABEL: Record<string, string> = {
   login: 'Σύνδεση', login_failed: 'Αποτυχημένη σύνδεση', logout: 'Αποσύνδεση', impersonation_started: 'Προβολή ως χρήστης', impersonation_stopped: 'Τέλος προβολής ως χρήστης', reassigned: 'Ανάθεση', completed: 'Ολοκλήρωση', created_from_deal: 'Δημιουργία από Deal Analyzer', converted_to_project: 'Μετατροπή σε έργο', prices_changed: 'Αλλαγή τιμών', role_changed: 'Αλλαγή ρόλου', permissions_changed: 'Αλλαγή δικαιωμάτων', follow_up_done: 'Follow-up ολοκληρώθηκε', milestone_added: 'Νέο στάδιο κατασκευής', contacts_merged: 'Συγχώνευση επαφών', communication_logged: 'Καταγραφή επικοινωνίας', password_changed: 'Αλλαγή κωδικού', logout_everywhere: 'Αποσύνδεση από όλες τις συσκευές', profile_updated: 'Ενημέρωση προφίλ',
@@ -27,28 +27,21 @@ const ACTION_LABEL: Record<string, string> = {
 const ENTITY_LABEL: Record<string, string> = { deal: 'Deal', task: 'Εργασία', impersonation: 'Admin', invite: 'Πρόσκληση', lead: 'Lead', contact: 'Επαφή', auth: 'Λογαριασμός', profile: 'Προφίλ', unit: 'Μονάδα', project: 'Έργο', invoice: 'Τιμολόγιο', follow_up: 'Follow-up', org_settings: 'Ρυθμίσεις' };
 const pretty = (s: string) => s.replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase());
 
-const NEWS: { date: string; title: string; text: string }[] = [
-  { date: 'Νοέ 2026', title: 'Ο λογαριασμός μου', text: 'Προφίλ, ασφάλεια, προσωπική εμφάνιση και ειδοποιήσεις σε ένα σημείο — χωριστά από τις ρυθμίσεις της εταιρείας.' },
-  { date: 'Νοέ 2026', title: 'Admin στο μενού', text: 'My account, Settings, Mobile app και Staff (χρήστες, ρόλοι, προβολή ως χρήστης) κάτω από το Admin.' },
-  { date: 'Νοέ 2026', title: 'Drag & drop', text: 'Dashboard, μενού, στάδια pipeline και στήλες leads αλλάζουν σειρά σέρνοντας.' },
-  { date: 'Νοέ 2026', title: 'Πεδία πελατών & Επικοινωνία', text: 'Όλα τα πεδία σε έναν πίνακα, και ρυθμίσεις SMS / email / push.' },
-  { date: 'Νοέ 2026', title: 'Lead management', text: 'Lost / Δεν ενδιαφέρεται, κλειστά leads, διαγραφή με αιτιολογία, λίστα με φίλτρα και μαζικές ενέργειες.' },
-];
 
 function fmt(d: string) {
   return new Date(d).toLocaleString(DATE_TAG[currentLocale().lang], { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Nicosia' });
 }
 
 /** Ο λογαριασμός μου — όπως το My Account του demo, χωριστά από τις ρυθμίσεις εταιρείας. */
-export default async function AccountPage({ searchParams }: { searchParams: { tab?: string } }) {
+export default async function AccountPage({ searchParams }: { searchParams: { tab?: string; t?: string } }) {
   const me = await requireProfile();
   const isAdmin = me.role === 'admin';
-  const allowed: Tab[] = ['info', 'logs', 'display', 'notifications', 'news', ...(isAdmin ? ['audit' as const] : [])];
+  const allowed: Tab[] = ['info', 'logs', 'tickets', 'faq', 'news', 'notifications', 'logout'];
   const tab: Tab = allowed.includes(searchParams.tab as Tab) ? (searchParams.tab as Tab) : 'info';
   const supabase = await createSupabaseServerClient();
   const { data: auth } = await supabase.auth.getUser();
   const svc = createSupabaseServiceRoleClient() as any;
-  const { data: row } = await svc.from('profiles').select('full_name, phone, job_title, avatar_url, department').eq('id', me.id).maybeSingle();
+  const { data: row } = await svc.from('profiles').select('full_name, phone, job_title, avatar_url, department, notification_prefs').eq('id', me.id).maybeSingle();
 
   let body: React.ReactNode = null;
   if (tab === 'info') {
@@ -61,25 +54,27 @@ export default async function AccountPage({ searchParams }: { searchParams: { ta
       { icon: Bell, title: 'Προτιμήσεις ειδοποιήσεων', text: 'Ήχος και ειδοποιήσεις στην οθόνη.', href: '/account?tab=notifications', cta: 'Διαχείριση' },
     ];
     body = (
-      <div className="grid items-start gap-5 2xl:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="space-y-5">
+        <div><h2 className="font-display text-xl text-charcoal">Πληροφορίες</h2><p className="text-sm text-charcoal-600/75">Το προφίλ σας και τα στοιχεία σύνδεσης</p></div>
         <AccountProfile readOnly={!!me.impersonator} initial={{ fullName: row?.full_name ?? me.fullName ?? '', email: auth.user?.email ?? '', phone: row?.phone ?? '', jobTitle: row?.job_title ?? '', avatarUrl: row?.avatar_url ?? null, roleName: me.roleName, department: row?.department ?? '' }} />
-        <div className="overflow-hidden rounded-2xl border border-stone-line bg-white shadow-[0_1px_2px_rgba(17,49,36,0.04)] 2xl:sticky 2xl:top-[72px]">
-          <div className="flex items-center gap-2.5 border-b border-stone-line px-4 py-3.5"><span className="flex h-8 w-8 items-center justify-center rounded-lg bg-forest/[0.09] text-forest"><ShieldCheck size={15} /></span><p className="font-semibold text-charcoal">Ασφάλεια</p></div>
-          <ul className="divide-y divide-stone-line">
-            {sec.map((s) => (
-              <li key={s.title} className="flex items-center gap-3 px-4 py-3">
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-forest/[0.07] text-forest"><s.icon size={15} /></span>
-                <span className="min-w-0 flex-1"><span className="block text-sm font-medium text-charcoal">{s.title}</span><span className="block text-xs leading-snug text-charcoal-600/70">{s.text}</span></span>
-                <Link href={s.href} className="shrink-0 rounded-[10px] border border-stone-line px-3 py-1 text-xs font-medium text-charcoal transition hover:border-forest/30">{s.cta}</Link>
-              </li>
-            ))}
-            <li className="flex items-center gap-3 px-4 py-3">
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-rose-50 text-signal-danger"><LogOut size={15} /></span>
-              <span className="min-w-0 flex-1"><span className="block text-sm font-medium text-charcoal">Αποσύνδεση από παντού</span><span className="block text-xs leading-snug text-charcoal-600/70">Αν χάσατε κινητό ή συνδεθήκατε σε ξένο υπολογιστή.</span></span>
-              <form action={signOutEverywhere}><button className="shrink-0 rounded-full border border-rose-200 px-3 py-1 text-xs font-medium text-signal-danger transition hover:bg-signal-danger hover:text-white">Όλες</button></form>
-            </li>
-          </ul>
-        </div>
+        <LanguagePick lang={requestLocale().lang} num={requestLocale().num} />
+        <section className="space-y-3 rounded-2xl border border-stone-line bg-white p-5 shadow-[0_1px_2px_rgba(17,49,36,0.04)]">
+          <p className="text-lg font-semibold text-charcoal">Ασφάλεια</p>
+          {sec.slice(0, 3).map((s) => (
+            <div key={s.title} className="flex items-center gap-3 rounded-xl border border-stone-line px-4 py-3 transition-colors hover:border-forest/30">
+              <span className="min-w-0 flex-1"><span className="block text-sm font-medium text-charcoal">{s.title}</span><span className="block text-xs leading-snug text-charcoal-600/70">{s.text}</span></span>
+              <Link href={s.href} className="shrink-0 rounded-full border border-stone-line px-3.5 py-1 text-xs font-medium text-charcoal transition hover:border-forest/40">{s.cta}</Link>
+            </div>
+          ))}
+          <div className="flex items-center gap-3 rounded-xl border border-stone-line px-4 py-3">
+            <span className="min-w-0 flex-1"><span className="block text-sm font-medium text-charcoal">Αποσύνδεση από παντού</span><span className="block text-xs leading-snug text-charcoal-600/70">Αν χάσατε κινητό ή συνδεθήκατε σε ξένο υπολογιστή.</span></span>
+            <form action={signOutEverywhere}><button className="shrink-0 rounded-full border border-rose-200 px-3.5 py-1 text-xs font-medium text-signal-danger transition hover:bg-signal-danger hover:text-white">Όλες</button></form>
+          </div>
+        </section>
+        <section className="flex items-center gap-3 rounded-2xl border border-stone-line bg-white p-5 shadow-[0_1px_2px_rgba(17,49,36,0.04)]">
+          <span className="min-w-0 flex-1"><span className="block text-lg font-semibold text-charcoal">Προτιμήσεις ειδοποιήσεων</span><span className="block text-sm text-charcoal-600/75">Διαχειριστείτε πώς σας ενημερώνουμε.</span></span>
+          <Link href="/account?tab=notifications" className="btn-secondary shrink-0">Διαχείριση</Link>
+        </section>
       </div>
     );
   } else if (tab === 'logs') {
@@ -98,53 +93,58 @@ export default async function AccountPage({ searchParams }: { searchParams: { ta
       return { id: l.id, at: l.created_at, actor: l.actor_id ? (nameOf.get(l.actor_id) ?? '—') : (m.email ?? 'Άγνωστος'), action: l.action, actionLabel: ACTION_LABEL[l.action] ?? pretty(l.action), entity: ENTITY_LABEL[l.entity_type] ?? pretty(l.entity_type), details };
     });
     body = <LogsView rows={rows} showActor={isAdmin} lang={DATE_TAG[currentLocale().lang]} />;
-  } else if (tab === 'audit') {
-    const rows = await getAuditLog(500);
-    body = (
-      <div className="space-y-3">
-        <div className="panel px-5 py-3.5"><p className="font-semibold text-charcoal">Audit log</p><p className="text-sm text-charcoal-600/75">Ποιος, πότε, από πού — όλοι οι χρήστες (τελευταίες 500 εγγραφές). Το βλέπει μόνο ο διαχειριστής.</p></div>
-        <AuditLogView rows={rows} />
-      </div>
-    );
-  } else if (tab === 'display') {
-    const loc = requestLocale();
-    body = <div className="panel p-5"><PersonalDisplay lang={loc.lang} num={loc.num} /></div>;
+  } else if (tab === 'tickets') {
+    let tq = svc.from('staff_tickets').select('id, created_by, subject, body, priority, status, first_response_at, resolved_at, created_at, updated_at').order('updated_at', { ascending: false }).limit(500);
+    if (!isAdmin) tq = tq.eq('created_by', me.id);
+    const { data: tks } = await tq;
+    const tIds = ((tks ?? []) as any[]).map((x) => x.id);
+    const { data: reps } = tIds.length ? await svc.from('staff_ticket_replies').select('id, ticket_id, author_id, body, created_at').in('ticket_id', tIds).order('created_at') : { data: [] };
+    const pIds = Array.from(new Set([...((tks ?? []) as any[]).map((x) => x.created_by), ...((reps ?? []) as any[]).map((x) => x.author_id)].filter(Boolean)));
+    const { data: ppl } = pIds.length ? await svc.from('profiles').select('id, full_name').in('id', pIds) : { data: [] };
+    const nm = new Map(((ppl ?? []) as any[]).map((x) => [x.id, (x.full_name as string) ?? '—']));
+    const rows: TicketRow[] = ((tks ?? []) as any[]).map((x) => ({
+      id: x.id, subject: x.subject, body: x.body, priority: x.priority, status: x.status, createdBy: nm.get(x.created_by) ?? '—', mine: x.created_by === me.id,
+      createdAt: x.created_at, updatedAt: x.updated_at, firstResponseAt: x.first_response_at, resolvedAt: x.resolved_at,
+      replies: ((reps ?? []) as any[]).filter((r) => r.ticket_id === x.id).map((r) => ({ id: r.id, author: nm.get(r.author_id) ?? '—', mine: r.author_id === me.id, body: r.body, at: r.created_at })),
+    }));
+    body = <TicketsView rows={rows} isAdmin={isAdmin} lang={DATE_TAG[currentLocale().lang]} openId={searchParams.t} />;
+  } else if (tab === 'faq') {
+    body = <FaqView />;
+  } else if (tab === 'news') {
+    body = <NewsView />;
   } else if (tab === 'notifications') {
-    body = <div className="panel p-5"><NotificationPrefs /></div>;
+    const np = (row?.notification_prefs ?? {}) as Record<string, unknown>;
+    body = <div className="panel p-5"><NotificationPrefs marketing={{ inApp: np.marketingInApp !== false, email: np.marketingEmail !== false, push: np.marketingPush !== false }} /></div>;
   } else {
     body = (
-      <div className="panel overflow-hidden">
-        <div className="border-b border-stone-line px-5 py-3.5"><p className="font-semibold text-charcoal">Τι νέο</p></div>
-        <ul className="divide-y divide-stone-line">
-          {NEWS.map((n) => (
-            <li key={n.title} className="px-5 py-3.5"><p className="text-xs uppercase tracking-wide text-charcoal-600/60">{n.date}</p><p className="font-medium text-charcoal">{n.title}</p><p className="text-sm text-charcoal-600/80">{n.text}</p></li>
-          ))}
-        </ul>
+      <div className="panel flex flex-col items-start gap-3 p-6">
+        <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-rose-50 text-signal-danger"><LogOut size={20} /></span>
+        <div><p className="font-semibold text-charcoal">Αποσύνδεση</p><p className="text-sm text-charcoal-600/75">Θα αποσυνδεθείτε από αυτή τη συσκευή.</p></div>
+        <form action={logout}><button className="inline-flex h-10 items-center gap-2 rounded-full bg-signal-danger px-5 text-sm font-medium text-white transition hover:opacity-90"><LogOut size={15} /> Αποσύνδεση</button></form>
       </div>
     );
   }
 
   const groups: FrameGroup[] = [
-    { label: 'Ο λογαριασμός μου', items: [
-      { label: 'Πληροφορίες', href: '/account?tab=info', icon: 'user', sub: 'Τα στοιχεία σας και η ασφάλεια του λογαριασμού.' },
-      { label: 'Εμφάνιση', href: '/account?tab=display', icon: 'appearance', sub: 'Γλώσσα, μορφή αριθμών και θέμα, μόνο για εσάς.' },
-      { label: 'Ειδοποιήσεις', href: '/account?tab=notifications', icon: 'notifications', sub: 'Ήχος και ειδοποιήσεις στην οθόνη.' },
+    { label: 'Προφίλ', items: [
+      { label: 'Πληροφορίες', href: '/account?tab=info', icon: 'user', sub: 'Το προφίλ σας και τα στοιχεία σύνδεσης.' },
+      { label: 'Logs', href: '/account?tab=logs', icon: 'logs' },
     ] },
-    { label: 'Ασφάλεια', items: [
-      { label: 'Κωδικός', href: '/account/password', icon: 'password' },
-      { label: 'Έλεγχος δύο βημάτων', href: '/account/security', icon: 'security' },
-      { label: 'Logs', href: '/account?tab=logs', icon: 'logs', sub: 'Συνδέσεις και ενέργειες των τελευταίων 30 ημερών.' },
-      ...(isAdmin ? [{ label: 'Audit log', href: '/account?tab=audit', icon: 'audit', sub: 'Όλοι οι χρήστες: ποιος, πότε, από πού.' }] : []),
+    { label: 'Υποστήριξη', items: [
+      { label: 'Τα tickets μου', href: '/account?tab=tickets', icon: 'tickets' },
+      { label: 'Συχνές ερωτήσεις', href: '/account?tab=faq', icon: 'help' },
+      { label: 'Τι νέο', href: '/account?tab=news', icon: 'news' },
     ] },
-    { label: 'Βοήθεια', items: [
-      { label: 'Τι νέο', href: '/account?tab=news', icon: 'news', sub: 'Οι τελευταίες αλλαγές στην πλατφόρμα.' },
+    { label: 'Λογαριασμός', items: [
+      { label: 'Ειδοποιήσεις', href: '/account?tab=notifications', icon: 'notifications' },
+      { label: 'Αποσύνδεση', href: '/account?tab=logout', icon: 'logout' },
     ] },
   ];
 
   return (
-    <SettingsFrame icon="user" title="Ο λογαριασμός μου" subtitle="Τα δικά σας στοιχεία, ασφάλεια, logs και προτιμήσεις. Οι ρυθμίσεις της εταιρείας είναι στις Ρυθμίσεις."
+    <SettingsFrame icon="user" title="Ο λογαριασμός μου" subtitle="Διαχειριστείτε το προφίλ σας και την υποστήριξη."
       groups={groups} activeHref={`/account?tab=${tab}`}
-      aside={<span className="flex flex-wrap gap-2"><a href="mailto:info@oramiraltd.com" className="inline-flex h-8 items-center gap-1.5 rounded-[10px] border border-stone-line bg-white px-3 text-[13px] text-charcoal hover:border-forest/30"><LifeBuoy size={14} /> Βοήθεια</a><form action={logout}><button className="inline-flex h-8 items-center gap-1.5 rounded-[10px] border border-stone-line bg-white px-3 text-[13px] text-signal-danger hover:border-signal-danger/40"><LogOut size={14} /> Αποσύνδεση</button></form></span>}>
+      aside={<span className="flex items-center gap-2" data-no-tr><span>{me.fullName}</span><span className="text-charcoal-600/60">·</span><span className="text-charcoal-600">{me.roleName}</span></span>}>
       {body}
     </SettingsFrame>
   );

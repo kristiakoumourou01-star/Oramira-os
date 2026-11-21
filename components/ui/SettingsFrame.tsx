@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   Settings, User, Building2, Palette, LayoutGrid, LayoutDashboard, Bell, ShieldCheck, Tags, Network, ListChecks, Workflow, Zap, FileText, Globe,
-  Users, KeyRound, Eye, Receipt, MessageSquare, Smartphone, Plug, Database, History, ScrollText, Sparkles, Lock, MonitorSmartphone, LifeBuoy, LogOut, type LucideIcon,
+  Users, KeyRound, Eye, Receipt, MessageSquare, Smartphone, Plug, Database, History, ScrollText, Sparkles, Lock, MonitorSmartphone, LifeBuoy, LogOut, Ticket, Percent, ReceiptText, CreditCard, type LucideIcon,
 } from 'lucide-react';
 import { PopSelect } from '@/components/ui/PopSelect';
 
@@ -13,7 +13,7 @@ const ICONS: Record<string, LucideIcon> = {
   security: ShieldCheck, tags: Tags, departments: Network, customerFields: ListChecks, pipelines: Workflow, leads: Zap, unitforms: FileText,
   portals: Globe, templates: FileText, automation: Workflow, users: Users, roles: KeyRound, viewas: Eye, invoices: Receipt, communication: MessageSquare,
   mobile: Smartphone, integrations: Plug, gdpr: Database, logs: History, audit: ScrollText, news: Sparkles, password: Lock, devices: MonitorSmartphone,
-  help: LifeBuoy, logout: LogOut,
+  help: LifeBuoy, logout: LogOut, tickets: Ticket, vat: Percent, receipts: ReceiptText, payments: CreditCard, atlas: Sparkles, otp: KeyRound, staff: Users, privacy: ShieldCheck,
 };
 
 export interface FrameItem { label: string; href: string; icon: string; sub?: string }

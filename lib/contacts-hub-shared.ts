@@ -65,6 +65,9 @@ export interface ContactListRow {
   kycStatus: string | null;
   value: number;  // αξία συμβολαίων
   paid: number;   // εισπραγμένα
+  /** Μονάδες με συμβόλαιο και ενεργές κρατήσεις (καρτέλα πελάτη / γρήγορη προβολή). */
+  units?: number;
+  reservations?: number;
 }
 
 export interface ContactFilters {

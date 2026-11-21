@@ -13,11 +13,11 @@ const STATUS_CLASS: Record<string, string> = {
 };
 
 const STATUS_LABEL: Record<string, string> = {
-  available: 'Available',
-  reserved: 'Reserved',
-  sold: 'Sold',
-  handed_over: 'Handed over',
-  blocked: 'Blocked',
+  available: 'Διαθέσιμη',
+  reserved: 'Κρατημένη',
+  sold: 'Πωλημένη',
+  handed_over: 'Παραδόθηκε',
+  blocked: 'Μη διαθέσιμη',
 };
 
 export function UnitStatusBadge({ status }: { status: string }) {

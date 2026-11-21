@@ -6,7 +6,8 @@ import { UsersAdmin, type AdminUser, type AdminInvite } from '@/components/admin
 import { StaffTabs } from '@/components/admin/StaffTabs';
 import { LeaveManager } from '@/components/hr/LeaveManager';
 import { effectiveCan } from '@/lib/permissions';
-import { loadEmployeeHr } from '@/lib/staff';
+import { loadEmployeeHr, loadStaffCounts } from '@/lib/staff';
+import Link from 'next/link';
 import { EMPTY_HR } from '@/lib/staff-shared';
 
 const PORTAL_ROLES = ['buyer', 'homeowner', 'investor', 'contractor'];
@@ -59,7 +60,7 @@ export default async function UsersSettingsPage({ searchParams }: { searchParams
     };
   };
 
-  const counts = { employees: (users ?? []).length, external: (portalUsers ?? []).length };
+  const counts = await loadStaffCounts(roles.custom.length);
   if (tab === 'leave') {
     const canEditHr = effectiveCan(profile.role, profile.moduleAccess, 'hr', 'edit', profile.permissions);
     const [{ data: allLeave }, { data: balances }] = await Promise.all([
@@ -76,9 +77,20 @@ export default async function UsersSettingsPage({ searchParams }: { searchParams
     );
   }
 
+  // Μέλη: η ομάδα, και δίπλα οι λογαριασμοί πελατών/συνεργατών (πύλες) σε δεύτερη προβολή.
+  const seg = (k: 'employees' | 'external', label: string, n: number) => (
+    <Link href={k === 'employees' ? '/settings/users' : '/settings/users?tab=external'} scroll={false}
+      className={`inline-flex h-8 items-center gap-1.5 rounded-[10px] px-3 text-[13px] font-medium transition-colors ${tab === k ? 'bg-forest text-white' : 'text-charcoal-600 hover:bg-stone-100'}`}>
+      <span>{label}</span> <span className="tabular-nums opacity-75">{n}</span>
+    </Link>
+  );
   return (
     <div className="space-y-5">
       <StaffTabs active={tab} counts={counts} />
+      <div className="inline-flex flex-wrap gap-1 rounded-xl border border-stone-line bg-white p-1">
+        {seg('employees', 'Ομάδα', (users ?? []).length)}
+        {seg('external', 'Πελάτες & συνεργάτες', (portalUsers ?? []).length)}
+      </div>
       <UsersAdmin
         mode={tab}
         users={(users ?? []).map(enrich)}

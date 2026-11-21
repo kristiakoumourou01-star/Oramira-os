@@ -9,7 +9,8 @@ import {
 } from 'lucide-react';
 import { updateLeadStatus, reassignLead, addNote, logCommunication } from '@/app/actions/leads';
 import { addFollowUp, completeAndNext } from '@/app/actions/follow-ups';
-import { updateDeal, setDealsArchived, setLeadsInbox } from '@/app/actions/sales-deals';
+import { updateDeal, setDealsArchived } from '@/app/actions/sales-deals';
+import { claimLead } from '@/app/actions/lead-claim';
 import { DeleteLeadDialog } from '@/components/crm/DeleteLeadDialog';
 import { ACTIVITY_TYPES, activityLabel } from '@/lib/activity-types';
 import { LABEL_CLASS, daysSince, lateBy, stageIndex, type DealLabel, type LostReason, type PipelineDef } from '@/lib/pipeline-shared';
@@ -23,7 +24,7 @@ const fmtD = (iso: string) => new Date(iso).toLocaleDateString(DATE_TAG[currentL
 
 /* ---------------------------------------------------------------- Header */
 
-export function DealHeader({ leadId, title, fallbackTitle, status, ownerId, agents, followers, archived, lostReasons, wonStageKey, contactName, inInbox = false }: {
+export function DealHeader({ leadId, title, fallbackTitle, status, ownerId, agents, followers, archived, lostReasons, wonStageKey, contactName }: {
   leadId: string; title: string | null; fallbackTitle: string; status: string; ownerId: string | null; agents: Person[]; followers: string[]; archived: boolean; inInbox?: boolean;
   lostReasons: LostReason[]; wonStageKey: string | null; contactName: string;
 }) {
@@ -43,7 +44,7 @@ export function DealHeader({ leadId, title, fallbackTitle, status, ownerId, agen
     <div className="space-y-3">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <p className="text-xs text-charcoal-600/70"><Link href="/sales/deals" className="hover:text-forest">Deals</Link> ›</p>
+          <p className="text-xs text-charcoal-600/70"><Link href="/sales/deals" className="hover:text-forest">Διαχείριση leads</Link> ›</p>
           {editing ? (
             <div className="flex items-center gap-2">
               <input className="input text-2xl font-semibold" autoFocus value={t} placeholder={fallbackTitle} onChange={(e) => setT(e.target.value)}
@@ -95,7 +96,6 @@ export function DealHeader({ leadId, title, fallbackTitle, status, ownerId, agen
                 <button type="button" className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm hover:bg-stone" onClick={() => { setMenu(false); run(() => setDealsArchived([leadId], !archived)); }}>
                   {archived ? <><ArchiveRestore size={14} /> Επαναφορά από αρχείο</> : <><Archive size={14} /> Αρχειοθέτηση</>}
                 </button>
-                {!inInbox && <button type="button" className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm hover:bg-stone" onClick={() => { setMenu(false); run(() => setLeadsInbox([leadId], true)); }}><ArchiveRestore size={14} /> Πίσω στο Leads Inbox</button>}
                 <button type="button" className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm text-signal-danger hover:bg-stone" onClick={() => { setMenu(false); setDel(true); }}><Trash2 size={14} /> Διαγραφή</button>
               </div>
             )}
@@ -103,10 +103,10 @@ export function DealHeader({ leadId, title, fallbackTitle, status, ownerId, agen
         </div>
       </div>
       {archived && <p className="rounded-lg bg-stone px-3 py-2 text-sm text-charcoal-600"><Archive size={13} className="mr-1 inline" /> Αυτό το deal είναι στο αρχείο.</p>}
-      {inInbox && (
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-forest/25 bg-forest/[0.06] px-3 py-2 text-sm">
-          <span className="text-charcoal">Αυτό είναι lead στο <Link href="/sales/leads" className="font-medium text-forest hover:underline">Leads Inbox</Link> — δεν εμφανίζεται ακόμη στο pipeline.</span>
-          <button type="button" disabled={pending} className="btn-primary text-sm" onClick={() => run(() => setLeadsInbox([leadId], false))}>Μετατροπή σε deal</button>
+      {!ownerId && !closed && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-sm">
+          <span className="text-charcoal">Χωρίς υπεύθυνο — εμφανίζεται στα <Link href="/sales/new" className="font-medium text-forest hover:underline">Νέα leads</Link>.</span>
+          <button type="button" disabled={pending} className="btn-primary text-sm" onClick={() => run(() => claimLead(leadId))}>Ανάληψη</button>
         </div>
       )}
       {lost && (

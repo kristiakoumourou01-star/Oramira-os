@@ -33,10 +33,15 @@ export interface FinanceSnapshot {
   avgSalesCycleDays: number | null;
   reservationsLast90: number;
   totalRevenue: number;
+  /** Αναμενόμενα ετήσια τέλη συντήρησης (από το ετήσιο τέλος κάθε μονάδας)· null = δεν έχει οριστεί ακόμη. */
+  maintenanceFeesAnnual: number | null;
   projects: ProjectPerformance[];
 }
 
 const SOLD = ['sold', 'handed_over'];
+/** Ετήσιο τέλος συντήρησης μονάδας — η στήλη προστίθεται από τη Διαχείριση ακινήτων (δοκιμάζονται τα πιθανά ονόματα). */
+const FEE_COLS = ['annual_maintenance_fee', 'maintenance_fee', 'annual_fee', 'service_charge'];
+function feeOf(u: unknown): number { const r = u as Record<string, unknown>; for (const k of FEE_COLS) { const v = Number(r?.[k]); if (r?.[k] != null && v > 0) return v; } return 0; }
 const CLOSED_TICKET = ['resolved', 'closed'];
 const OPEN_INVOICE = ['submitted', 'approved'];
 
@@ -54,7 +59,7 @@ export async function getFinanceSnapshot(): Promise<FinanceSnapshot> {
     { data: leads },
   ] = await Promise.all([
     supabase.from('projects').select('id, name'),
-    supabase.from('units').select('id, project_id, status'),
+    supabase.from('units').select('*'),
     supabase.from('contracts').select('id, unit_id, total_price, status'),
     supabase.from('payments').select('contract_id, amount_paid'),
     supabase.from('reservations').select('buyer_contact_id, reserved_at, status'),
@@ -141,6 +146,7 @@ export async function getFinanceSnapshot(): Promise<FinanceSnapshot> {
     avgSalesCycleDays,
     reservationsLast90,
     totalRevenue,
+    maintenanceFeesAnnual: (() => { const t = (units ?? []).reduce((acc, u) => acc + feeOf(u), 0); return t > 0 ? t : null; })(),
     projects: Array.from(perProject.values()).sort((a, b) => b.revenue - a.revenue),
   };
 }
