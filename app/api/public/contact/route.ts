@@ -106,6 +106,11 @@ export async function POST(request: NextRequest) {
   const area = pick(body, 'area', used);
   const source = pick(body, 'source', used) ?? 'website';
 
+  // Έλεγχος σύνδεσης από plugins (π.χ. Forminator «Set up webhook»): απαντάμε OK χωρίς να φτιάξουμε lead.
+  const isPing = !email && !phone && (!htmlPost || body.test != null || body.sample != null || Object.keys(body).length === 0
+    || Object.keys(body).every((k) => IGNORE.test(k) || /^(test|sample|name|message|Φόρμα)$/i.test(k)));
+  if (isPing) return NextResponse.json({ ok: true, test: true }, { headers: CORS });
+
   if (!email && !phone) {
     return NextResponse.json({ error: (body.lang ?? '').startsWith?.('el') ? 'Συμπληρώστε email ή τηλέφωνο.' : 'Please enter your email or phone.' }, { status: 400, headers: CORS });
   }
