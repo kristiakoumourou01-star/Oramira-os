@@ -5135,4 +5135,6 @@ export const EN: Record<string, string> = {
 "Γυναίκα": "Female",
 "Οικόπεδα": "Plots",
 "Ανάλυση (Deal Analyzer)": "Analysis (Deal Analyzer)",
+"Η χώρα αναγνωρίστηκε αυτόματα:": "Country detected automatically:",
+"· αλλάξτε την από τη λίστα αν δεν είναι σωστή.": "· change it from the list if it's wrong.",
 };

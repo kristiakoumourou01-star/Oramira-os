@@ -4,6 +4,7 @@ import { useMemo, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Columns3, Search, X, Pencil, FileText, Eye, Upload, Users, UserMinus, CalendarClock, Plane, Phone, Mail } from 'lucide-react';
 import { PopSelect } from '@/components/ui/PopSelect';
+import { PhoneInput } from '@/components/ui/PhoneInput';
 import { Pager } from '@/components/ui/SidePanel';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 import { getDocumentUrl } from '@/app/actions/storage';
@@ -329,7 +330,7 @@ function EditDialog({ r, onClose }: { r: EmployeeRowIn; onClose: () => void }) {
           <div>
             <p className="mb-2 text-[14px] font-semibold text-charcoal">Προσωπικά στοιχεία</p>
             <div className="grid gap-3 sm:grid-cols-2">
-              {field('phone', 'Κινητό')}
+              <div className="block"><span className={lbl}>Κινητό</span><PhoneInput value={(f.phone as string) ?? ''} onChange={(v) => setF((x) => ({ ...x, phone: v }))} /></div>
               {field('personalEmail', 'Προσωπικό e-mail', 'email')}
               {field('dateOfBirth', 'Ημ. γέννησης', 'date')}
               {field('nationality', 'Υπηκοότητα')}

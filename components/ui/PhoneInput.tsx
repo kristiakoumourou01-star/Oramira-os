@@ -36,6 +36,30 @@ export function splitPhone(v: string | null | undefined, fallback = '+357'): { c
 }
 
 /**
+ * Έξυπνη αναγνώριση χώρας από αριθμό γραμμένο χωρίς «+».
+ * - Κύπρος: 8 ψηφία που αρχίζουν από 9 ή 2 → +357
+ * - Ελλάδα: 10 ψηφία που αρχίζουν από 69 ή 2 → +30
+ * - Ην. Βασίλειο: 11 ψηφία που αρχίζουν από 07 → +44 (φεύγει το 0)
+ * - Ρωσία: 11 ψηφία που αρχίζουν από 89 → +7 (φεύγει το 8)
+ * - Αλλιώς, αν ο αριθμός αρχίζει με κωδικό χώρας και είναι αρκετά μακρύς
+ *   (π.χ. 447700900123, 35799123456) → εκείνη η χώρα.
+ * Επιστρέφει null αν δεν είναι σίγουρο — τότε μένει η χώρα που διάλεξε ο χρήστης.
+ */
+export function guessCountry(raw: string): { code: string; rest: string } | null {
+  const d = raw.replace(/[^\d]/g, '');
+  if (!d) return null;
+  if (/^[29]\d{7}$/.test(d)) return { code: '+357', rest: d };
+  if (/^(69\d{8}|2\d{9})$/.test(d)) return { code: '+30', rest: d };
+  if (/^07\d{9}$/.test(d)) return { code: '+44', rest: d.slice(1) };
+  if (/^89\d{9}$/.test(d)) return { code: '+7', rest: d.slice(1) };
+  if (d.length >= 10) {
+    const c = BY_LEN.find((x) => d.startsWith(x.code.slice(1)) && d.length - (x.code.length - 1) >= 7);
+    if (c) return { code: c.code, rest: d.slice(c.code.length - 1) };
+  }
+  return null;
+}
+
+/**
  * Τηλέφωνο με επιλογή χώρας μπροστά (σημαία + κωδικός). Δίνει πάντα
  * «+κωδικός αριθμός», ή κενό αν δεν γράφτηκε αριθμός. Με `name` στέλνεται
  * και σε κανονική φόρμα (hidden input).
@@ -50,6 +74,16 @@ export function PhoneInput({ value, onChange, name, defaultValue, placeholder = 
   const parsed = splitPhone(current, defaultCountry);
   const [code, setCode] = useState(parsed.code);
   const [rest, setRest] = useState(parsed.rest);
+  const [auto, setAuto] = useState<string | null>(null);
+  // Όταν φεύγει ο κέρσορας από το πεδίο: αν ο αριθμός «δείχνει» άλλη χώρα, αλλάζει μόνη της.
+  const detect = () => {
+    const g = guessCountry(rest);
+    if (!g) return;
+    if (g.code === code && g.rest === rest.replace(/[^\d]/g, '')) return;
+    setCode(g.code); setRest(g.rest); emit(g.code, g.rest);
+    const c = COUNTRIES.find((x) => x.code === g.code);
+    setAuto(c ? `${flag(c.iso)} ${c.code}` : g.code);
+  };
   // Όταν αλλάζει η τιμή απ' έξω (π.χ. φόρτωσε το lead), ενημερώνονται τα πεδία.
   useEffect(() => {
     const out = rest.trim() ? `${code} ${rest.trim()}` : '';
@@ -64,14 +98,16 @@ export function PhoneInput({ value, onChange, name, defaultValue, placeholder = 
   };
 
   return (
-    <div className={`flex gap-1.5 ${className}`}>
+    <div className={className}>
+    <div className="flex gap-1.5">
       <select aria-label="Χώρα" disabled={disabled} value={code} className="input w-[6.5rem] shrink-0 px-2 text-sm"
-        onChange={(e) => { setCode(e.target.value); emit(e.target.value, rest); }}>
+        onChange={(e) => { setAuto(null); setCode(e.target.value); emit(e.target.value, rest); }}>
         {COUNTRIES.map((c) => <option key={c.iso} value={c.code} title={c.name}>{flag(c.iso)} {c.code}</option>)}
       </select>
       <input id={id} type="tel" inputMode="tel" autoComplete="tel-national" disabled={disabled} required={required} placeholder={placeholder}
-        className="input min-w-0 flex-1 text-sm" value={rest}
+        className="input min-w-0 flex-1 text-sm" value={rest} onBlur={detect}
         onChange={(e) => {
+          setAuto(null);
           let r = e.target.value;
           // Επικόλληση με κωδικό (π.χ. +44 7700…) → αλλάζει και η χώρα.
           if (/^\s*(\+|00)/.test(r)) { const p = splitPhone(r, code); setCode(p.code); r = p.rest; setRest(r); emit(p.code, r); return; }
@@ -79,6 +115,8 @@ export function PhoneInput({ value, onChange, name, defaultValue, placeholder = 
           setRest(r); emit(code, r);
         }} />
       {name && <input type="hidden" name={name} value={rest.trim() ? `${code} ${rest.trim()}` : ''} />}
+    </div>
+    {auto && <p className="mt-1 text-xs text-forest"><span>Η χώρα αναγνωρίστηκε αυτόματα:</span> <span data-no-tr>{auto}</span> <span className="text-charcoal-600/70">· αλλάξτε την από τη λίστα αν δεν είναι σωστή.</span></p>}
     </div>
   );
 }
