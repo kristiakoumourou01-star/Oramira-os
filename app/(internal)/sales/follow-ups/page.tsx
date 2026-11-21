@@ -11,7 +11,7 @@ export default async function FollowUpsPage() {
   const [rows, agents] = await Promise.all([getOpenFollowUps(), getSalesAgents()]);
   return (
     <div className="space-y-4">
-      <WorkspaceHeader eyebrow="Διαχείριση leads" title="Follow-ups" description="Ποιον πρέπει να πάρετε τηλέφωνο: καθυστερημένα, σήμερα και επόμενα. Κλήση, «Έγινε» ή αναβολή με ένα κλικ." />
+      <WorkspaceHeader eyebrow="Sales" title="Follow-ups" description="Ποιον πρέπει να πάρετε τηλέφωνο: καθυστερημένα, σήμερα και επόμενα. Κλήση, «Έγινε» ή αναβολή με ένα κλικ." />
       <FollowUpsView rows={rows} agents={agents} currentUserId={profile.id} />
     </div>
   );

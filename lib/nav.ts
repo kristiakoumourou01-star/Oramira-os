@@ -27,23 +27,23 @@ export const DEFAULT_NAV: NavDef[] = [
   {
     label: 'Sales',
     items: [
-      // Διαχείριση leads: Pipeline (με κάρτες Λίστα · Πρόβλεψη · Activities · Insights · Agents), Νέα leads, Follow-ups.
-      { href: '/sales/deals', label: 'Διαχείριση leads', icon: 'TrendingUp', module: 'leads', children: [
-        { href: '/sales/deals', label: 'Pipeline' },
-        { href: '/sales/new', label: 'Νέα leads' },
-        { href: '/sales/follow-ups', label: 'Follow-ups' },
-      ] },
+      // Leads (νέα, χωρίς υπεύθυνο) · Pipeline (με κάρτες Λίστα · Πρόβλεψη · Activities · Agents) · Follow-ups · Insights — χωρίς υπομενού.
+      { href: '/sales/new', label: 'Leads', icon: 'Inbox', module: 'leads' },
+      { href: '/sales/deals', label: 'Pipeline', icon: 'TrendingUp', module: 'leads' },
+      { href: '/sales/follow-ups', label: 'Follow-ups', icon: 'ListChecks', module: 'followups' },
+      { href: '/sales/insights', label: 'Insights', icon: 'LineChart', module: 'leads' },
       { href: '/crm/customers', label: 'Πελάτες', icon: 'Contact', module: 'leads' },
     ],
   },
   {
     label: 'Projects',
     items: [
-      { href: '/projects', label: 'Έργα & μονάδες', icon: 'Building2', module: 'projects' },
+      // Με τη σειρά της διαδικασίας: οικόπεδο (αξιολόγηση) → ανάλυση → έργο & μονάδες → property management.
+      { href: '/acquisitions', label: '1. Οικόπεδα', icon: 'Map', module: 'acquisitions' },
+      { href: '/deal-analyzer', label: '2. Ανάλυση (Deal Analyzer)', icon: 'Calculator', module: 'deals' },
+      { href: '/projects', label: '3. Έργα & μονάδες', icon: 'Building2', module: 'projects' },
+      { href: '/property', label: '4. Property Management', icon: 'Home', module: 'property' },
       { href: '/map', label: 'Χάρτης', icon: 'MapPin', module: 'projects' },
-      { href: '/deal-analyzer', label: 'Deal Analyzer', icon: 'Calculator', module: 'deals' },
-      { href: '/acquisitions', label: 'Αγορές γης', icon: 'Map', module: 'acquisitions' },
-      { href: '/property', label: 'Property Management', icon: 'Home', module: 'property' },
     ],
   },
   {

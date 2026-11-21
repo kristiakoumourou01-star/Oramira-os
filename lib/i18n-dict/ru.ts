@@ -4887,4 +4887,5 @@ export const RU: Record<string, string> = {
 "Διαχείριση leads → Νέα leads": "Управление лидами → Новые лиды",
 "Διαχείριση leads → Follow-ups": "Управление лидами → Follow-ups",
 "Διαχείριση leads → Pipeline": "Управление лидами → Воронка",
+"Όλα τα deals: pipeline, λίστα, πρόβλεψη, activities και agents.": "Все сделки: воронка, список, прогноз, активности и агенты.",
 };
