@@ -10,7 +10,8 @@
 export type SettingsKey =
   | 'business' | 'appearance' | 'layout' | 'dashboard' | 'invoices'
   | 'notifications' | 'security' | 'tags' | 'pipelines' | 'leads' | 'integrations' | 'gdpr' | 'portals' | 'unitforms'
-  | 'departments' | 'customerFields' | 'communication';
+  | 'departments' | 'customerFields' | 'communication'
+  | 'privacy' | 'otp' | 'vats' | 'receipts' | 'payments' | 'atlas';
 
 export interface SettingsSection {
   key: SettingsKey;
@@ -43,6 +44,17 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
   { key: 'gdpr', label: 'GDPR & δεδομένα', subtitle: 'Συγκατάθεση, διατήρηση, export, AML', group: 'Connections', ready: true, outline: ['Κείμενο συγκατάθεσης (EL/EN) και marketing', 'Διατήρηση δεδομένων', 'Export όλων σε ZIP', 'Διαγραφή κατόπιν αιτήματος', 'AML: χώρες υψηλού κινδύνου (FATF)'] },
 ];
 
+SETTINGS_SECTIONS.push(
+  { key: 'privacy', label: 'Ιδιωτικότητα & ασφάλεια', subtitle: 'Σύνδεση, κωδικοί, συσκευές, διατήρηση δεδομένων και GDPR', group: 'Work', ready: true, outline: [] },
+  { key: 'otp', label: 'Κωδικός σύνδεσης', subtitle: 'Πώς παίρνουν οι πελάτες τον κωδικό μίας χρήσης στην εφαρμογή', group: 'Work', ready: true, outline: [] },
+  { key: 'vats', label: 'ΦΠΑ', subtitle: 'Οι συντελεστές ΦΠΑ για πωλήσεις, υπηρεσίες και τιμολόγια', group: 'Money', ready: true, outline: [] },
+  { key: 'receipts', label: 'Αποδείξεις', subtitle: 'Διάταξη, αρίθμηση και αυτόματη αποστολή με email, με ζωντανή προεπισκόπηση', group: 'Money', ready: true, outline: [] },
+  { key: 'payments', label: 'Πληρωμές', subtitle: 'Νόμισμα και πληρωμές με κάρτα', group: 'Connections', ready: true, outline: [] },
+  { key: 'atlas', label: 'Atlas AI', subtitle: 'Ρύθμιση του βοηθού AI', group: 'Connections', ready: true, outline: [] },
+);
+// Παλιοί σύνδεσμοι → οι νέες ενότητες (όπως στο FitnessCRM).
+const ALIAS: Record<string, SettingsKey> = { security: 'privacy', gdpr: 'privacy', invoices: 'receipts', integrations: 'communication' };
+
 export const SETTINGS_GROUPS: SettingsSection['group'][] = ['Account', 'Work', 'Money', 'Connections'];
 
 /** Appearance reuses the existing branding page/route; the rest live under /settings?section=<key>. */
@@ -51,7 +63,8 @@ export function sectionHref(key: SettingsKey): string {
 }
 
 export function getSection(key: string | undefined): SettingsSection {
-  return SETTINGS_SECTIONS.find((s) => s.key === key) ?? SETTINGS_SECTIONS[0];
+  const k = key && ALIAS[key] ? ALIAS[key] : key;
+  return SETTINGS_SECTIONS.find((s) => s.key === k) ?? SETTINGS_SECTIONS[0];
 }
 
 /**
@@ -66,36 +79,29 @@ export const SETTINGS_NAV: SettingsNavGroup[] = [
   { label: 'Λογαριασμός', items: [
     { label: 'Στοιχεία εταιρείας', href: '/settings?section=business', icon: 'business' },
     { label: 'Εμφάνιση', href: '/settings?section=appearance', icon: 'appearance' },
-    { label: 'Μενού & διάταξη', href: '/settings?section=layout', icon: 'layout' },
+    { label: 'Διάταξη', href: '/settings?section=layout', icon: 'layout' },
     { label: 'Dashboard', href: '/settings?section=dashboard', icon: 'dashboard' },
   ] },
   { label: 'Λειτουργία', items: [
     { label: 'Ειδοποιήσεις', href: '/settings?section=notifications', icon: 'notifications' },
-    { label: 'Ασφάλεια', href: '/settings?section=security', icon: 'security' },
-    { label: 'Tags & ομάδες', href: '/settings?section=tags', icon: 'tags' },
+    { label: 'Ιδιωτικότητα & ασφάλεια', href: '/settings?section=privacy', icon: 'privacy' },
+    { label: 'Tags', href: '/settings?section=tags', icon: 'tags' },
     { label: 'Τμήματα', href: '/settings?section=departments', icon: 'departments' },
     { label: 'Πεδία πελατών', href: '/settings?section=customerFields', icon: 'customerFields' },
+    { label: 'Κωδικός σύνδεσης', href: '/settings?section=otp', icon: 'otp' },
     { label: 'Pipelines & φόρμες', href: '/settings?section=pipelines', icon: 'pipelines' },
     { label: 'Leads & αυτοματισμοί', href: '/settings?section=leads', icon: 'leads' },
     { label: 'Φόρμες μονάδων', href: '/settings?section=unitforms', icon: 'unitforms' },
     { label: 'Portals πελατών', href: '/settings?section=portals', icon: 'portals' },
     { label: 'Templates', href: '/settings/templates', icon: 'templates', module: 'automation' },
-    { label: 'Αυτοματισμοί', href: '/automation', icon: 'automation', module: 'automation' },
-  ] },
-  { label: 'Χρήστες', items: [
-    { label: 'Χρήστες & πρόσβαση', href: '/settings/users', icon: 'users' },
-    { label: 'Ρόλοι & δικαιώματα', href: '/settings/roles', icon: 'roles' },
-    { label: 'Προβολή ως χρήστης', href: '/settings/view-as', icon: 'viewas' },
   ] },
   { label: 'Φόροι', items: [
-    { label: 'ΦΠΑ & αποδείξεις', href: '/settings?section=invoices', icon: 'invoices' },
+    { label: 'ΦΠΑ', href: '/settings?section=vats', icon: 'vat' },
+    { label: 'Αποδείξεις', href: '/settings?section=receipts', icon: 'receipts' },
   ] },
   { label: 'Συνδέσεις', items: [
     { label: 'Επικοινωνία', href: '/settings?section=communication', icon: 'communication' },
-    { label: 'Mobile app', href: '/settings/mobile-app', icon: 'mobile' },
-    { label: 'Integrations', href: '/settings?section=integrations', icon: 'integrations' },
-  ] },
-  { label: 'Δεδομένα', items: [
-    { label: 'GDPR & δεδομένα', href: '/settings?section=gdpr', icon: 'gdpr' },
+    { label: 'Πληρωμές', href: '/settings?section=payments', icon: 'payments' },
+    { label: 'Atlas AI', href: '/settings?section=atlas', icon: 'atlas' },
   ] },
 ];

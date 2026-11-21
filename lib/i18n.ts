@@ -15,6 +15,7 @@ const DICT = {
   save: { el: 'Αποθήκευση', en: 'Save', ru: 'Сохранить' },
   cancel: { el: 'Άκυρο', en: 'Cancel', ru: 'Отмена' },
   signOut: { el: 'Αποσύνδεση', en: 'Sign out', ru: 'Выйти' },
+  signedIn: { el: 'Συνδεδεμένος', en: 'Signed in', ru: 'Вы вошли' },
   admin: { el: 'Διαχείριση', en: 'Admin', ru: 'Администрирование' },
   search: { el: 'Αναζήτηση ή μετάβαση…', en: 'Search or jump to…', ru: 'Поиск или переход…' },
   password: { el: 'Κωδικός', en: 'Password', ru: 'Пароль' },

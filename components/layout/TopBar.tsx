@@ -4,6 +4,7 @@ import type { CurrentProfile } from '@/lib/auth';
 import { LocaleSwitcher } from '@/components/layout/LocaleSwitcher';
 import { ThemeMenu } from '@/components/layout/ThemeMenu';
 import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
+import { AccountMenu } from '@/components/layout/AccountMenu';
 import { Suspense } from 'react';
 import { t, type TKey } from '@/lib/i18n';
 import { isInternalRole } from '@/lib/permissions';
@@ -36,15 +37,8 @@ export function TopBar({ profile, showSearch = false, start }: { profile: Curren
         <LocaleSwitcher />
         <ThemeMenu />
         <NotificationBell userId={profile.id} />
-        <a href={isInternalRole(profile.role) ? '/account' : '/account/password'} title="Ο λογαριασμός μου" className="flex items-center gap-2.5 rounded-lg py-1 pl-1 pr-1 sm:border-l sm:border-forest/10 sm:pl-3.5 sm:pr-2 hover:bg-forest/[0.04]">
-          <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-forest to-[#0E2C20] text-[13px] font-medium text-champagne shadow-[0_2px_8px_rgba(31,77,58,0.2)] ring-1 ring-champagne/20">
-            {(profile.fullName ?? '?').charAt(0)}
-          </div>
-          <div className="hidden leading-tight lg:block">
-            <p className="text-[13px] font-medium text-charcoal">{profile.fullName ?? 'Unnamed'}</p>
-            <p className="text-[11px] text-charcoal-600/60">{profile.customRoleId ? profile.roleName : (ROLE_LABEL[profile.role] ? t(`role_${profile.role}` as TKey) : profile.role)}</p>
-          </div>
-        </a>
+        <AccountMenu name={profile.fullName ?? 'Unnamed'} internal={isInternalRole(profile.role)}
+          role={profile.customRoleId ? (profile.roleName ?? '') : (ROLE_LABEL[profile.role] ? t(`role_${profile.role}` as TKey) : profile.role)} />
       </div>
     </header>
   );

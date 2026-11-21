@@ -8,8 +8,6 @@ import { Sidebar } from '@/components/layout/Sidebar';
 import { TopBar } from '@/components/layout/TopBar';
 import { ImpersonationBanner } from '@/components/layout/ImpersonationBanner';
 import { CommandPalette } from '@/components/search/CommandPalette';
-import { logout } from '@/app/actions/auth';
-import { LogOut } from 'lucide-react';
 import { DEFAULT_NAV } from '@/lib/nav';
 import { resolveMenu } from '@/lib/org-settings-shared';
 import { navIcon } from '@/components/layout/nav-icons';
@@ -70,24 +68,15 @@ export default async function InternalLayout({ children }: { children: React.Rea
   const sections = DEFAULT_NAV.map((sec, i) => ({ label: sec.label, items: resolved.filter((it) => it.section === i).map(toItem) }))
     .filter((sct) => sct.items.length > 0);
 
-  const signOut = (
-    <form action={logout}>
-      {!(compact && menu.position !== 'top') && <p className="mb-1 flex items-center gap-2 px-3 text-[13px] text-[color:var(--sb-text)]"><span className="h-2 w-2 rounded-full bg-forest" /> Συνδεδεμένος</p>}
-      <button type="submit" title={t('signOut')} className={`flex w-full items-center rounded py-2 text-sm text-[color:var(--sb-text)] hover:bg-[color:var(--sb-hover-bg)] hover:text-[color:var(--sb-text-hover)] ${compact && menu.position !== 'top' ? 'justify-center px-0' : 'gap-3 px-3'}`}>
-        <LogOut size={16} strokeWidth={1.75} />
-        {(!compact || menu.position === 'top') && t('signOut')}
-      </button>
-    </form>
+  // Κάτω στο sidebar (όπως στο FitnessCRM): μόνο η ένδειξη «Συνδεδεμένος».
+  // Η αποσύνδεση γίνεται από το εικονίδιο πάνω δεξιά ή από Ο λογαριασμός μου.
+  const signedIn = (on: boolean) => (
+    <p className={`flex items-center gap-2 text-xs text-[color:var(--sb-text)] ${on ? 'px-3 py-1' : 'justify-center py-1'}`} title={t('signedIn')}>
+      <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-500" aria-hidden="true" />{on && <span>Συνδεδεμένος</span>}
+    </p>
   );
-
-  const signOutFull = (
-    <form action={logout}>
-      <button type="submit" title={t('signOut')} className="flex w-full items-center gap-3 rounded px-3 py-2 text-sm text-[color:var(--sb-text)] hover:bg-[color:var(--sb-hover-bg)] hover:text-[color:var(--sb-text-hover)]">
-        <LogOut size={16} strokeWidth={1.75} />
-        {t('signOut')}
-      </button>
-    </form>
-  );
+  const signOut = signedIn(!(compact && menu.position !== 'top'));
+  const signOutFull = signedIn(true);
 
   const content = (
     <div className="min-w-0 flex-1">

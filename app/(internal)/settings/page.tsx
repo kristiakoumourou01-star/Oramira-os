@@ -12,6 +12,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { getMfaStatus } from '@/lib/mfa';
 import type { StartStep } from '@/components/admin/GettingStarted';
 import { getSection, type SettingsKey } from '@/lib/settings-sections';
+import { mergeExtra } from '@/lib/settings-extra-shared';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,14 +25,21 @@ export const dynamic = 'force-dynamic';
 export default async function SettingsPage({ searchParams }: { searchParams: { section?: string } }) {
   const profile = await requireRole(['admin']);
   const initialSection = getSection(searchParams.section).key as SettingsKey;
-  const isGdpr = initialSection === 'gdpr';
+  const isGdpr = initialSection === 'privacy';
+  const needSeries = initialSection === 'vats' || initialSection === 'receipts';
   const [branding, settings, conn, docSeries, erasures, gdprMiss] = await Promise.all([
     getBranding(), getOrgSettingsRaw(), isCalendarConnected(profile.id),
-    initialSection === 'invoices' ? listSeries() : Promise.resolve({ series: [], missing: false }),
+    needSeries ? listSeries() : Promise.resolve({ series: [], missing: false }),
     isGdpr ? recentErasures() : Promise.resolve([]),
     isGdpr ? gdprMissing() : Promise.resolve(false),
   ]);
   const team = initialSection === 'leads' ? await loadLeadTeam() : [];
+  const sb = await createSupabaseServerClient();
+  const { data: rawOrg } = await sb.from('org_settings').select('data').eq('id', 'org').maybeSingle();
+  const extra = mergeExtra((rawOrg as any)?.data?.extra);
+  // Μόνο αν υπάρχει το κλειδί στον server — η τιμή του δεν διαβάζεται ούτε φεύγει προς τον browser.
+  const payConnected = { viva: !!process.env.VIVA_MERCHANT_ID, jcc: !!process.env.JCC_API_USER, stripe: !!process.env.STRIPE_SECRET_KEY };
+  const aiConnected = !!process.env.ANTHROPIC_API_KEY;
 
   // «Πρώτα βήματα» — only on the landing section.
   let startSteps: StartStep[] = [];
@@ -49,9 +57,9 @@ export default async function SettingsPage({ searchParams }: { searchParams: { s
       { key: 'logo', label: 'Logo και χρώματα', hint: 'Φαίνονται στο μενού, στη σύνδεση και στα παραστατικά.', href: '/settings?section=appearance', done: !!branding.logoUrl },
       { key: 'users', label: 'Προσθήκη της ομάδας', hint: 'Λογαριασμοί για όσους δουλεύουν στο σύστημα.', href: '/settings/users', done: (staff ?? 0) > 1 },
       { key: 'mfa', label: 'Κωδικός μίας χρήσης (2FA)', hint: 'Ενεργοποιήστε τον για εσάς και, αν θέλετε, για όλους.', href: '/account/security', done: mfa.hasFactor || settings.security.otp },
-      { key: 'invoices', label: 'Τιμολόγια: IBAN και αρίθμηση', hint: 'Τραπεζικά στοιχεία και από ποιον αριθμό ξεκινάτε.', href: '/settings?section=invoices', done: !!settings.invoices.bankDetails },
+      { key: 'invoices', label: 'Τιμολόγια: IBAN και αρίθμηση', hint: 'Τραπεζικά στοιχεία και από ποιον αριθμό ξεκινάτε.', href: '/settings?section=receipts', done: !!settings.invoices.bankDetails },
       { key: 'pipelines', label: 'Στάδια pipeline και πηγές leads', hint: 'Ελέγξτε ότι ταιριάζουν με τον τρόπο που πουλάτε.', href: '/settings?section=pipelines', done: saved('pipelines') },
-      { key: 'gdpr', label: 'GDPR: συγκατάθεση και διατήρηση', hint: 'Κείμενα για τις φόρμες και πόσο κρατάτε τα leads.', href: '/settings?section=gdpr', done: saved('gdpr') },
+      { key: 'gdpr', label: 'GDPR: συγκατάθεση και διατήρηση', hint: 'Κείμενα για τις φόρμες και πόσο κρατάτε τα leads.', href: '/settings?section=privacy', done: saved('gdpr') },
       { key: 'portal', label: 'Portals πελατών', hint: 'Email υποστήριξης, συχνές ερωτήσεις, όροι χρήσης.', href: '/settings?section=portals', done: !!settings.portal.helpEmail },
     ];
   }
@@ -83,6 +91,9 @@ export default async function SettingsPage({ searchParams }: { searchParams: { s
       erasures={erasures}
       gdprMissing={gdprMiss}
       team={team}
+      extra={extra}
+      payConnected={payConnected}
+      aiConnected={aiConnected}
       currentIp={((await headers()).get('x-forwarded-for') ?? '').split(',')[0].trim() || null}
     />
   );

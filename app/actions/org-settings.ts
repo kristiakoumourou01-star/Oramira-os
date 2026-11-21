@@ -47,6 +47,7 @@ async function saveOrgSliceInner(slice: string, value: unknown): Promise<SaveRes
   if (slice === 'menu') { const r = await saveSlice(slice, mergeOrgSettings({ menu: value }).menu); if (r.ok) revalidatePath('/', 'layout'); return r; }
   if (slice === 'projectStages') { const r = await saveSlice(slice, mergeProjectStages(value)); if (r.ok) revalidatePath('/projects'); return r; }
   if (slice === 'mobileApp') { const { mergeMobileApp } = await import('@/lib/mobile-app-shared'); const r = await saveSlice(slice, mergeMobileApp(value)); if (r.ok) revalidatePath('/settings/mobile-app'); return r; }
+  if (slice === 'extra') { const { mergeExtra } = await import('@/lib/settings-extra-shared'); return saveSlice(slice, mergeExtra(value)); }
   if (slice === 'unitForms') return saveSlice(slice, mergeOrgSettings({ unitForms: value }).unitForms);
   if (slice === 'pipelines') return saveSlice(slice, mergePipelines(value));
   if (slice === 'leadAutomation') return saveSlice(slice, mergeLeadAutomation(value));

@@ -1,13 +1,18 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import { Switch, SettingsBlock } from '@/components/admin/settings-ui';
+import { saveMyNotificationPrefs } from '@/app/actions/tickets';
 
 const PREFS_KEY = 'oramira_notif_prefs';
 
 /** Ο λογαριασμός μου → Ειδοποιήσεις: ήχος και ειδοποίηση επιφάνειας εργασίας (σε αυτή τη συσκευή). */
-export function NotificationPrefs() {
+export function NotificationPrefs({ marketing }: { marketing: { inApp: boolean; email: boolean; push: boolean } }) {
   const [p, setP] = useState({ sound: false, desktop: false });
+  const [m, setM] = useState(marketing);
+  const [saved, setSaved] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+  const saveM = () => start(async () => { const r = await saveMyNotificationPrefs(m); setSaved(r.ok ? 'Αποθηκεύτηκε.' : r.error); });
   const [note, setNote] = useState<string | null>(null);
   useEffect(() => {
     try { const x = JSON.parse(localStorage.getItem(PREFS_KEY) ?? '{}'); setP({ sound: x.sound === true, desktop: x.desktop === true }); } catch { /* */ }
@@ -21,7 +26,18 @@ export function NotificationPrefs() {
     setNote(null); write({ ...p, desktop: on });
   };
   return (
-    <SettingsBlock title="Ειδοποιήσεις" note="Προσωπικό — ισχύει μόνο σε αυτή τη συσκευή. Ποιες ειδοποιήσεις στέλνονται το ορίζει ο διαχειριστής στο Settings → Ειδοποιήσεις.">
+    <div className="space-y-5">
+    <SettingsBlock title="Προτιμήσεις ειδοποιήσεων" note="Διαλέξτε από ποια κανάλια δέχεστε ενημερώσεις marketing. Οι ειδοποιήσεις λειτουργίας (ασφάλεια, χρεώσεις, κλείδωμα λογαριασμού) έρχονται πάντα.">
+      {([['inApp', 'Marketing μέσα στην εφαρμογή', 'Ενημερώσεις marketing μέσα στην εφαρμογή.'], ['email', 'Marketing email', 'Email για προσφορές και νέα της εταιρείας.'], ['push', 'Marketing push', 'Ειδοποιήσεις push στο κινητό.']] as const).map(([k, title, hint]) => (
+        <div key={k} className="flex items-center justify-between gap-4">
+          <div><p className="font-medium text-charcoal">{title}</p><p className="text-sm text-charcoal-600/70">{hint}</p></div>
+          <Switch checked={m[k]} label={title} onChange={(x) => { setSaved(null); setM({ ...m, [k]: x }); }} />
+        </div>
+      ))}
+      <p className="text-xs text-charcoal-600/70">Οι ειδοποιήσεις λειτουργίας (ασφάλεια, κλείδωμα, χρεώσεις, υποστήριξη) δεν απενεργοποιούνται.</p>
+      <div className="flex items-center gap-3"><button type="button" className="btn-primary" disabled={pending} onClick={saveM}>{pending ? 'Αποθήκευση…' : 'Αποθήκευση προτιμήσεων'}</button>{saved && <span className="text-sm text-charcoal-600">{saved}</span>}</div>
+    </SettingsBlock>
+    <SettingsBlock title="Σε αυτή τη συσκευή" note="Προσωπικό — ισχύει μόνο σε αυτή τη συσκευή. Ποιες ειδοποιήσεις στέλνονται το ορίζει ο διαχειριστής στο Settings → Ειδοποιήσεις.">
       <div className="flex items-center justify-between gap-4">
         <div><p className="font-medium text-charcoal">Ήχος</p><p className="text-sm text-charcoal-600/70">Ένα σύντομο «ντινγκ» όταν έρθει νέα ειδοποίηση.</p></div>
         <Switch checked={p.sound} label="Ήχος ειδοποιήσεων" onChange={(x) => write({ ...p, sound: x })} />
@@ -32,5 +48,6 @@ export function NotificationPrefs() {
       </div>
       {note && <p className="text-sm text-signal-danger">{note}</p>}
     </SettingsBlock>
+    </div>
   );
 }

@@ -27,7 +27,9 @@ function Toggle({ checked, onChange, label, disabled }: { checked: boolean; onCh
 }
 
 /** Settings → Τιμολόγια & ΦΠΑ. VAT and receipt options live in org_settings; numbering in the database. */
-export function InvoicesSettings({ initial, series, seriesMissing, canEdit, company }: { initial: InvoiceSettings; series: DocSeries[]; seriesMissing: boolean; canEdit: boolean; company?: CompanyInfo }) {
+export function InvoicesSettings({ initial, series, seriesMissing, canEdit, company, part = 'all' }: { initial: InvoiceSettings; series: DocSeries[]; seriesMissing: boolean; canEdit: boolean; company?: CompanyInfo; part?: 'all' | 'vats' | 'receipts' }) {
+  const showVat = part !== 'receipts';
+  const showReceipt = part !== 'vats';
   const router = useRouter();
   const [v, setV] = useState<InvoiceSettings>(initial);
   const [msg, setMsg] = useState<Msg>(null);
@@ -43,7 +45,7 @@ export function InvoicesSettings({ initial, series, seriesMissing, canEdit, comp
 
   return (
     <div className="space-y-4">
-      <div className="panel space-y-3 p-5">
+      {showVat && <div className="panel space-y-3 p-5">
         <div>
           <h4>Συντελεστές ΦΠΑ</h4>
           <Help>Αυτοί προσφέρονται σε κάθε γραμμή τιμολογίου. Αν αλλάξετε έναν συντελεστή, τα παραστατικά που έχουν ήδη εκδοθεί κρατούν αυτόν με τον οποίο εκδόθηκαν.</Help>
@@ -77,9 +79,9 @@ export function InvoicesSettings({ initial, series, seriesMissing, canEdit, comp
             <Help>Η λήξη ενός νέου τιμολογίου = ημερομηνία έκδοσης + αυτές οι μέρες.</Help>
           </label>
         </div>
-      </div>
+      </div>}
 
-      <div className="panel space-y-1 p-5">
+      {showReceipt && <div className="panel space-y-1 p-5">
         <h4 className="mb-1">Τι εμφανίζεται στο παραστατικό</h4>
         <Toggle label="Logo της εταιρείας" checked={v.receiptShowLogo} onChange={(b) => patch({ receiptShowLogo: b })} disabled={!canEdit} />
         <Toggle label="Διεύθυνση και στοιχεία εταιρείας" checked={v.receiptShowAddress} onChange={(b) => patch({ receiptShowAddress: b })} disabled={!canEdit} />
@@ -92,9 +94,9 @@ export function InvoicesSettings({ initial, series, seriesMissing, canEdit, comp
         )}
         <Toggle label="Export για myDATA (μόνο Ελλάδα)" checked={v.mydataExport} onChange={(b) => patch({ mydataExport: b })} disabled={!canEdit} />
         <Help>Η επωνυμία, ο ΑΦΜ και το υποσέλιδο έρχονται από τα Στοιχεία εταιρείας.</Help>
-      </div>
+      </div>}
 
-      {company && <ReceiptPreview v={v} company={company} />}
+      {showReceipt && company && <ReceiptPreview v={v} company={company} />}
 
       {canEdit && (
         <div className="flex flex-wrap items-center gap-3">
@@ -105,7 +107,7 @@ export function InvoicesSettings({ initial, series, seriesMissing, canEdit, comp
         </div>
       )}
 
-      <div className="panel space-y-3 p-5">
+      {showReceipt && <div className="panel space-y-3 p-5">
         <div>
           <h4>Αρίθμηση</h4>
           <Help>Κάθε σειρά αριθμείται χωρίς κενά: ο αριθμός δίνεται τη στιγμή της έκδοσης, και αν κάτι αποτύχει δεν χάνεται. Το {'{YYYY}'} γίνεται η χρονιά του παραστατικού. Ο επόμενος αριθμός μπορεί να ανέβει (π.χ. για να συνεχίσετε από το παλιό σας σύστημα), όχι να κατέβει αφού εκδοθούν παραστατικά.</Help>
@@ -115,7 +117,7 @@ export function InvoicesSettings({ initial, series, seriesMissing, canEdit, comp
         ) : (
           series.map((s) => <SeriesRow key={s.key} s={s} canEdit={canEdit} />)
         )}
-      </div>
+      </div>}
     </div>
   );
 }
