@@ -2,7 +2,7 @@ import { requirePermission } from '@/lib/auth';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, BedDouble, Bath, Ruler, Layers, Wrench, Phone, Mail } from 'lucide-react';
+import { ArrowLeft, BedDouble, Bath, Ruler, Layers, Phone, Mail } from 'lucide-react';
 import { UnitStatusBadge } from '@/components/units/UnitStatusBadge';
 import { ReservationPanel } from '@/components/units/ReservationPanel';
 import { PriceHistory } from '@/components/pricing/PriceHistory';
@@ -35,6 +35,9 @@ import { getBranding } from '@/lib/branding';
 import { watermarkPlan } from '@/lib/watermark-shared';
 import { loadUnitMedia, matchingLeadsForUnit, cleanRooms } from '@/lib/unit-page';
 import { formatDate, formatDateTime, formatNumber, formatCurrency } from '@/lib/format';
+import { loadUnitHistory } from '@/lib/unit-history';
+import { UnitHistoryPanel } from '@/components/units/UnitHistoryPanel';
+import { DeleteUnitButton } from '@/components/units/DeleteUnitButton';
 
 export const dynamic = 'force-dynamic';
 
@@ -42,6 +45,7 @@ const TABS = [
   { key: 'details', label: 'Λεπτομέρειες' },
   { key: 'matches', label: 'Αγοραστές που ταιριάζουν' },
   { key: 'viewings', label: 'Προβολές' },
+  { key: 'history', label: 'Ιστορικό & ιδιοκτησία' },
   { key: 'documents', label: 'Έγγραφα' },
 ] as const;
 type TabKey = (typeof TABS)[number]['key'];
@@ -53,6 +57,7 @@ export default async function UnitDetailPage({ params, searchParams }: { params:
   const canEdit = effectiveCan(profile.role, profile.moduleAccess, 'projects', 'edit', profile.permissions);
   const canBook = effectiveCan(profile.role, profile.moduleAccess, 'leads', 'edit', profile.permissions);
   const canSeeLeads = effectiveCan(profile.role, profile.moduleAccess, 'leads', 'view', profile.permissions);
+  const canEditProperty = effectiveCan(profile.role, profile.moduleAccess, 'property', 'edit', profile.permissions);
   const tab: TabKey = (TABS.find((t) => t.key === searchParams.tab)?.key ?? 'details') as TabKey;
   const supabase = await createSupabaseServerClient();
 
@@ -103,7 +108,7 @@ export default async function UnitDetailPage({ params, searchParams }: { params:
   const updates = tab === 'details' ? await loadUpdates({ projectId: unit.project_id, unitId: unit.id, buildingId: (unit as any).building_id ?? null, limit: 20 }) : { items: [], missing: false };
   const agents = ((staff ?? []) as any[]).map((s) => ({ id: s.id as string, name: (s.full_name ?? 'Χωρίς όνομα') as string }));
 
-  const [{ data: schedules }, { data: payments }, { data: defects }, { data: contacts }, { data: documents }, { data: ownership }, { data: viewings }] =
+  const [{ data: schedules }, { data: payments }, { data: contacts }, { data: documents }, { data: viewings }] =
     await Promise.all([
       contract
         ? supabase.from('payment_schedules').select('id, installment_number, description, due_date, amount').eq('contract_id', contract.id).order('installment_number')
@@ -111,13 +116,12 @@ export default async function UnitDetailPage({ params, searchParams }: { params:
       contract
         ? supabase.from('payments').select('id, amount_paid, paid_at, method').eq('contract_id', contract.id).order('paid_at', { ascending: false })
         : Promise.resolve({ data: [] as any[] }),
-      supabase.from('maintenance_tickets').select('id, title, status, priority, created_at').eq('unit_id', unit.id).order('created_at', { ascending: false }),
       supabase.from('contacts').select('id, full_name, email, phone, nationality, preferred_language, tags, groups, custom_fields, is_lead, is_buyer, is_investor, is_homeowner').is('anonymized_at', null).order('full_name').limit(3000),
       supabase.from('documents').select('id, title, category, storage_path, bucket, created_at').eq('entity_type', 'unit').eq('entity_id', unit.id),
-      supabase.from('unit_ownership_history').select('id, transfer_date, note, created_at, prev:previous_contact_id(full_name), next:new_contact_id(full_name)').eq('unit_id', unit.id).order('created_at', { ascending: false }),
       supabase.from('viewings').select('id, scheduled_at, status, notes, contact_id, lead_id, agent_id, contacts(full_name, phone, email)').eq('unit_id', unit.id).order('scheduled_at', { ascending: false }),
     ]);
 
+  const history = tab === 'history' ? await loadUnitHistory(unit.id) : null;
   const unitForms = settings.unitForms;
   const unitTypeKey = typeKeyOf(unit.type, unitForms.types);
   const unitValues: Record<string, FieldValue> = cleanValues(cf?.custom_fields, unitForms.fields);
@@ -181,6 +185,7 @@ export default async function UnitDetailPage({ params, searchParams }: { params:
           {perSqm != null && <p className="figure text-sm text-charcoal-600">{formatCurrency(perSqm)} / m²</p>}
           <div className="flex flex-wrap justify-end gap-2">
             {canEdit && <DuplicateUnitButton unitId={unit.id} projectId={unit.project_id} unitNumber={unit.unit_number} />}
+            {canEdit && <DeleteUnitButton unitId={unit.id} projectId={unit.project_id} />}
             {canBook && <BookViewingButton unitId={unit.id} projectId={unit.project_id} contacts={viewingContacts} agents={agents} defaultAgent={unitExtra.responsible_agent_id ?? null} />}
           </div>
         </div>
@@ -188,7 +193,7 @@ export default async function UnitDetailPage({ params, searchParams }: { params:
 
       <nav className="flex flex-wrap gap-1 border-b border-stone-line">
         {TABS.filter((t) => t.key !== 'matches' || canSeeLeads).map((t) => {
-          const count = t.key === 'matches' ? matches.length : t.key === 'viewings' ? upcoming : t.key === 'documents' ? (documents ?? []).length + media.items.filter((m) => m.kind === 'floor_plan').length : 0;
+          const count = t.key === 'history' ? 0 : t.key === 'matches' ? matches.length : t.key === 'viewings' ? upcoming : t.key === 'documents' ? (documents ?? []).length + media.items.filter((m) => m.kind === 'floor_plan').length : 0;
           return (
             <Link key={t.key} href={t.key === 'details' ? here : `${here}?tab=${t.key}`} scroll={false}
               className={`-mb-px border-b-2 px-3 py-2 text-sm ${tab === t.key ? 'border-forest font-medium text-forest' : 'border-transparent text-charcoal-600 hover:text-charcoal'}`}>
@@ -299,28 +304,6 @@ export default async function UnitDetailPage({ params, searchParams }: { params:
               )}
             </div>
 
-            <div className="panel p-6">
-              <h4 className="mb-4 flex items-center gap-2"><Wrench size={15} strokeWidth={1.75} className="text-olive" /> Ιστορικό βλαβών</h4>
-              {(defects ?? []).length === 0 ? (
-                <p className="text-sm text-charcoal-600/70">Κανένα αίτημα συντήρησης για αυτή τη μονάδα.</p>
-              ) : (
-                <ul className="divide-y divide-stone-line">
-                  {(defects ?? []).map((d) => (
-                    <li key={d.id} className="flex items-center justify-between py-2.5">
-                      <div>
-                        <p className="text-sm font-medium text-charcoal">{d.title}</p>
-                        <p className="text-xs text-charcoal-600/60">{formatDate(d.created_at)}</p>
-                      </div>
-                      <div className="flex gap-2">
-                        <span className="badge-neutral capitalize">{d.priority}</span>
-                        <span className="badge-neutral capitalize">{d.status.replace(/_/g, ' ')}</span>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-
             <ConstructionUpdates projectId={unit.project_id} buildings={[]} units={[{ id: unit.id, unit_number: unit.unit_number, building_id: null }]}
               items={updates.items} missing={updates.missing} canEdit={canEdit} watermark={watermark} fixedUnit={{ id: unit.id, unit_number: unit.unit_number }} />
 
@@ -334,25 +317,6 @@ export default async function UnitDetailPage({ params, searchParams }: { params:
               checklist={Array.isArray(unit.handover_checklist) ? (unit.handover_checklist as any[]) : []}
             />
 
-            <div className="panel p-6">
-              <h4 className="mb-4">Ιστορικό ιδιοκτησίας</h4>
-              {(ownership ?? []).length === 0 ? (
-                <p className="text-sm text-charcoal-600/70">Καμία μεταβίβαση.</p>
-              ) : (
-                <ol className="space-y-3 border-l border-stone-line pl-4">
-                  {(ownership ?? []).map((o: any) => (
-                    <li key={o.id} className="relative">
-                      <span className="absolute -left-[21px] top-1 h-2 w-2 rounded-full bg-champagne" />
-                      <p className="text-sm text-charcoal">
-                        {o.prev?.full_name ? `${o.prev.full_name} → ` : ''}<span className="font-medium">{o.next?.full_name ?? '—'}</span>
-                      </p>
-                      {o.note && <p className="text-xs text-charcoal-600/70">{o.note}</p>}
-                      <p className="text-xs text-charcoal-600/50">{formatDate(o.transfer_date ?? o.created_at)}</p>
-                    </li>
-                  ))}
-                </ol>
-              )}
-            </div>
           </div>
 
           <div className="space-y-6">
@@ -443,6 +407,11 @@ export default async function UnitDetailPage({ params, searchParams }: { params:
             </table>
           )}
         </div>
+      )}
+
+      {tab === 'history' && history && (
+        <UnitHistoryPanel unitId={unit.id} history={history} canEdit={canEditProperty}
+          contacts={((contacts ?? []) as any[]).map((c) => [c.id as string, `${c.full_name ?? c.email}${c.full_name && c.email ? ` — ${c.email}` : ''}`] as [string, string])} />
       )}
 
       {tab === 'documents' && (

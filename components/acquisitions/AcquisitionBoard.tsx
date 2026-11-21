@@ -17,7 +17,7 @@ const BAND: Record<string, string> = {
 
 /** Off-market sourcing pipeline — a horizontal stage board. Each card carries
  *  the land score; the stage select moves a parcel through the funnel. */
-export function AcquisitionBoard({ parcels }: { parcels: ParcelItem[] }) {
+export function AcquisitionBoard({ parcels, projects = {} }: { parcels: ParcelItem[]; projects?: Record<string, string> }) {
   const router = useRouter();
   const [, start] = useTransition();
   const [moving, setMoving] = useState<string | null>(null);
@@ -67,6 +67,7 @@ export function AcquisitionBoard({ parcels }: { parcels: ParcelItem[] }) {
                       {p.location && <span className="flex items-center gap-0.5"><MapPin size={10} /> {p.location}</span>}
                       {p.plotSizeSqm && <span className="flex items-center gap-0.5"><Ruler size={10} /> {formatNumber(Number(p.plotSizeSqm))}m²</span>}
                     </p>
+                    {projects[p.id] && <Link href={`/projects/${projects[p.id]}`} className="inline-flex rounded-full bg-forest px-2 py-0.5 text-[10px] font-semibold text-white">Έγινε έργο →</Link>}
                     {p.uplift && <p className="font-medium text-forest">Υπεραξία {formatCurrency(p.uplift.marginAbs)}{p.uplift.estimated ? ' (εκτ.)' : ''}</p>}
                   </div>
                   <div className="mt-2"><PopSelect width="w-full" ariaLabel="Στάδιο" value={local[p.id] ?? p.stage} onChange={(v) => move(p.id, v)} options={PARCEL_STAGES.map((x) => [x, STAGE_LABEL[x]] as [string, string])} /></div>

@@ -12,6 +12,7 @@ import { HubTabs, type HubTabDef } from '@/components/ui/HubTabs';
 import { WorkspaceHeader } from '@/components/ui/WorkspaceHeader';
 import { STATUS_STYLES, toDisplayStatus } from '@/lib/development-map';
 import { formatDate } from '@/lib/format';
+import { AnnualFeesPanel } from '@/components/property/AnnualFeesPanel';
 
 const OPEN = ['open', 'acknowledged', 'in_progress', 'awaiting_parts', 'reopened'];
 const Panel = ({ children }: { children: React.ReactNode }) => <div className="panel p-6">{children}</div>;
@@ -86,6 +87,12 @@ export default async function PropertyManagementPage({ searchParams }: { searchP
     unitIds.length ? supabase.from('unit_ownership_history').select('id, transfer_date, created_at, unit_id, next:new_contact_id(full_name), prev:previous_contact_id(full_name)').in('unit_id', unitIds).order('created_at', { ascending: false }).limit(12) : Promise.resolve({ data: [] as any[] }),
   ]);
 
+  const sx = supabase as any;
+  const feeRes = unitIds.length ? await sx.from('units').select('id, annual_maintenance_fee').in('id', unitIds) : { data: [], error: null };
+  const chRes = unitIds.length ? await sx.from('unit_charges').select('id, unit_id, kind, description, amount, status, due_date, created_at, contact:contact_id(full_name)').in('unit_id', unitIds).order('created_at', { ascending: false }) : { data: [], error: null };
+  const feesReady = !feeRes.error && !chRes.error;
+  const feeById = new Map(((feeRes.data ?? []) as any[]).map((u) => [u.id, u.annual_maintenance_fee != null ? Number(u.annual_maintenance_fee) : null]));
+  const pendingCharges = ((chRes.data ?? []) as any[]).filter((c) => c.status === 'pending');
   const numberById = new Map((units ?? []).map((u) => [u.id, u.unit_number]));
   const owners = (units ?? []).filter((u: any) => u.buyer_contact_id);
   const openTickets = (tickets ?? []).filter((t: any) => OPEN.includes(t.status));
@@ -122,7 +129,7 @@ export default async function PropertyManagementPage({ searchParams }: { searchP
       id: 'owners', label: 'Ιδιοκτήτες', icon: 'Users', value: owners.length, sub: 'Αγοραστές με κλειδιά', content: (
         <Table head={['Ιδιοκτήτης', 'Μονάδα', '']} empty={owners.length === 0 && 'Δεν έχουν οριστεί ιδιοκτήτες ακόμη.'}>
           {owners.map((u: any) => (
-            <tr key={u.id}><td className="o-strong" data-no-tr>{u.owner?.full_name ?? '—'}</td><td data-no-tr>{u.unit_number}</td><td className="text-right">{openLink(u.id)}</td></tr>
+            <tr key={u.id}><td className="o-strong" data-no-tr>{u.owner?.full_name ?? '—'}</td><td data-no-tr>{u.unit_number}</td><td className="text-right"><Link href={`${houseHref(u.id)}?tab=history`} className="inline-flex h-8 items-center rounded-[10px] border border-stone-line px-2.5 text-[12px] text-charcoal hover:border-forest/30">Ιστορικό</Link></td></tr>
           ))}
         </Table>
       ),
@@ -130,13 +137,20 @@ export default async function PropertyManagementPage({ searchParams }: { searchP
     {
       id: 'maintenance', label: 'Συντήρηση', icon: 'Wrench', value: openTickets.length, sub: 'Ανοιχτά αιτήματα ιδιοκτητών', content: (
         <div className="space-y-3">
-          <div className="flex justify-end"><Link href="/property/maintenance" className="inline-flex h-8 items-center rounded-[10px] border border-stone-line px-3 text-[13px] text-charcoal hover:border-forest/30">Κέντρο συντήρησης →</Link></div>
+          <div className="flex justify-end"><Link href="/property/maintenance" className="inline-flex h-8 items-center rounded-[10px] bg-forest px-3 text-[13px] font-medium text-white hover:bg-forest/90">Όλα τα αιτήματα: ανάθεση & χρέωση →</Link></div>
           <Table head={['Αίτημα', 'Μονάδα', 'Κατάσταση', 'Ημερομηνία']} empty={openTickets.length === 0 && 'Κανένα ανοιχτό αίτημα συντήρησης.'}>
             {openTickets.map((t: any) => (
               <tr key={t.id}><td className="o-strong" data-no-tr><span className="block max-w-[260px] truncate">{t.title}</span></td><td data-no-tr>{numberById.get(t.unit_id) ?? '—'}</td><td>{ST[t.status] ?? t.status}</td><td>{formatDate(t.created_at)}</td></tr>
             ))}
           </Table>
         </div>
+      ),
+    },
+    {
+      id: 'fees', label: 'Χρεώσεις & συντήρηση', icon: 'Receipt', value: pendingCharges.length, sub: 'Εκκρεμείς χρεώσεις ιδιοκτητών', content: (
+        <AnnualFeesPanel projectId={selected.id} canEdit={canEditProperty} ready={feesReady}
+          units={(units ?? []).map((u: any) => ({ id: u.id, unitNumber: u.unit_number, owner: u.owner?.full_name ?? null, fee: feeById.get(u.id) ?? null }))}
+          charges={((chRes.data ?? []) as any[]).map((c) => ({ id: c.id, unitId: c.unit_id, unitNumber: numberById.get(c.unit_id) ?? '—', owner: c.contact?.full_name ?? null, kind: c.kind, description: c.description, amount: Number(c.amount), status: c.status, dueDate: c.due_date, createdAt: c.created_at }))} />
       ),
     },
     {

@@ -11,7 +11,7 @@ import { parseAmount } from '@/lib/amount';
 export interface EditableUnit { id: string; project_id: string; unit_number: string; building_id: string | null; floor: number | null; sqm: number | null; price: number | null; bedrooms: number | null; bathrooms: number | null; description: string | null }
 
 /** Διόρθωση των βασικών στοιχείων μιας μονάδας (αριθμός, κτίριο, όροφος, m², δωμάτια, τιμή, περιγραφή). */
-export function EditUnitButton({ unit, buildings }: { unit: EditableUnit; buildings: { id: string; name: string }[] }) {
+export function EditUnitButton({ unit, buildings, compact = false }: { unit: EditableUnit; buildings: { id: string; name: string }[]; compact?: boolean }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -41,7 +41,9 @@ export function EditUnitButton({ unit, buildings }: { unit: EditableUnit; buildi
   });
   return (
     <>
-      <button type="button" onClick={() => { setErr(null); setOpen(true); }} className="btn-ghost text-sm" title="Επεξεργασία μονάδας"><Pencil size={14} /> Επεξεργασία</button>
+      {compact
+        ? <button type="button" onClick={() => { setErr(null); setOpen(true); }} title="Επεξεργασία" aria-label="Επεξεργασία" className="flex h-8 w-8 items-center justify-center rounded-full text-charcoal-600 transition hover:bg-stone-100 hover:text-charcoal"><Pencil size={15} /></button>
+        : <button type="button" onClick={() => { setErr(null); setOpen(true); }} className="btn-ghost text-sm" title="Επεξεργασία μονάδας"><Pencil size={14} /> Επεξεργασία</button>}
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-charcoal/30 p-4" onClick={() => setOpen(false)}>
           <form action={submit} className="w-full max-w-lg space-y-3 rounded-2xl bg-white p-5 text-left shadow-overlay" onClick={(e) => e.stopPropagation()}>

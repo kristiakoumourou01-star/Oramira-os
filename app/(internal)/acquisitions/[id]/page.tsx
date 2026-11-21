@@ -2,7 +2,9 @@ import { requirePermission } from '@/lib/auth';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { AnalyzeParcelButton } from '@/components/acquisitions/AnalyzeParcelButton';
+import { ProjectFlowBar } from '@/components/acquisitions/ProjectFlowBar';
+import { loadFlow } from '@/lib/project-flow';
+import { effectiveCan } from '@/lib/permissions';
 import { ArrowLeft, Phone, Mail, MapPin, Ruler, Flag, HeartHandshake } from 'lucide-react';
 import { getParcel, STAGE_LABEL } from '@/lib/acquisitions';
 import { LandScorePanel } from '@/components/acquisitions/LandScorePanel';
@@ -19,9 +21,11 @@ const Panel = ({ children }: { children: React.ReactNode }) => <div className="p
 const READY: Record<string, string> = { Ready: 'bg-forest text-white', Warming: 'bg-champagne-50 text-champagne-600', Early: 'bg-sand-100 text-charcoal-600/70' };
 
 export default async function ParcelDetailPage({ params }: { params: { id: string } }) {
-  await requirePermission('acquisitions');
+  const me = await requirePermission('acquisitions');
   const parcel = await getParcel(params.id);
   if (!parcel) notFound();
+  const flow = await loadFlow({ parcelId: parcel.id });
+  const canConvert = effectiveCan(me.role, me.moduleAccess, 'projects', 'edit', me.permissions);
   const supabase = await createSupabaseServerClient();
 
   const [commsRes, docsRes, activityRes] = await Promise.all([
@@ -47,7 +51,7 @@ export default async function ParcelDetailPage({ params }: { params: { id: strin
 
   return (
     <div className="space-y-5">
-      <Link href="/acquisitions" className="inline-flex items-center gap-1.5 text-sm text-charcoal-600/70 hover:text-forest"><ArrowLeft size={15} /> Acquisitions</Link>
+      <Link href="/acquisitions" className="inline-flex items-center gap-1.5 text-sm text-charcoal-600/70 hover:text-forest"><ArrowLeft size={15} /> Αγορές γης</Link>
 
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -69,9 +73,10 @@ export default async function ParcelDetailPage({ params }: { params: { id: strin
             {parcel.ownerPhone && <a href={`tel:${parcel.ownerPhone}`} className="flex items-center gap-1 hover:text-forest"><Phone size={12} /> {parcel.ownerPhone}</a>}
             {parcel.ownerEmail && !parcel.ownerEmail.endsWith('@parcel.oramira.local') && <a href={`mailto:${parcel.ownerEmail}`} className="flex items-center gap-1 hover:text-forest"><Mail size={12} /> Email</a>}
           </div>
-          <div className="mt-3"><AnalyzeParcelButton parcelId={parcel.id} /></div>
         </div>
       </div>
+
+      <ProjectFlowBar current="parcel" parcel={flow.parcel} deal={flow.deal} project={flow.project} canConvert={canConvert} />
 
       <div className="grid gap-5 lg:grid-cols-3">
         {/* Left — score + seller + DD */}
