@@ -44,7 +44,13 @@ export function DomTranslator({ lang }: { lang: Lang }) {
     if (lang === 'el') { root.dataset.tr = '1'; return; }
     let obs: MutationObserver | null = null;
     let cancelled = false;
-    (lang === 'ru' ? import('@/lib/i18n-dict/ru').then((m) => m.RU) : import('@/lib/i18n-dict/en').then((m) => m.EN)).then((dict) => {
+    // Περιμένουμε να «ζωντανέψει» πρώτα η σελίδα (hydration): αν αλλάξει το κείμενο
+    // νωρίτερα, το React το βλέπει διαφορετικό από του server και ξαναχτίζει τη σελίδα.
+    const hydrated = new Promise<void>((res) => {
+      const idle = () => { const ric = (window as any).requestIdleCallback as ((cb: () => void, o?: { timeout: number }) => number) | undefined; if (ric) ric(() => res(), { timeout: 700 }); else setTimeout(res, 120); };
+      if (document.readyState === 'complete') idle(); else window.addEventListener('load', idle, { once: true });
+    });
+    Promise.all([lang === 'ru' ? import('@/lib/i18n-dict/ru').then((m) => m.RU) : import('@/lib/i18n-dict/en').then((m) => m.EN), hydrated]).then(([dict]) => {
       if (cancelled) return;
       const tr = compile(dict);
       const skip = (el: Element | null) => !el || SKIP.has(el.tagName) || !!el.closest('[data-no-tr],[contenteditable="true"]');
