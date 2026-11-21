@@ -4883,4 +4883,7 @@ export const EN: Record<string, string> = {
 "π.χ. Κλήσεις επενδυτών — Νοέμβριος": "e.g. Investor calls — November",
 "π.χ. Προτείνετε viewing στο νέο έργο της Λεμεσού.": "e.g. Offer a viewing at the new Limassol project.",
 "π.χ. Συμβόλαια": "e.g. Contracts",
+"Διαχείριση leads → Νέα leads": "Lead management → New leads",
+"Διαχείριση leads → Follow-ups": "Lead management → Follow-ups",
+"Διαχείριση leads → Pipeline": "Lead management → Pipeline",
 };
