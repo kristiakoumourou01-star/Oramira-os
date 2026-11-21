@@ -5133,4 +5133,6 @@ export const EN: Record<string, string> = {
 "Θείος / θεία": "Uncle / aunt",
 "Άνδρας": "Male",
 "Γυναίκα": "Female",
+"Οικόπεδα": "Plots",
+"Ανάλυση (Deal Analyzer)": "Analysis (Deal Analyzer)",
 };
