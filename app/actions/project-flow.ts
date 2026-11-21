@@ -212,3 +212,24 @@ export async function deleteUnit(projectId: string, unitId: string): Promise<Res
   revalidatePath(`/projects/${projectId}`);
   return { ok: true };
 }
+
+const DD_EL: Record<string, string> = {
+  ownership_verified: 'Επιβεβαίωση ιδιοκτησίας', title_search: 'Έρευνα τίτλου', planning_search: 'Πολεοδομικός έλεγχος', independent_valuation: 'Ανεξάρτητη εκτίμηση',
+};
+
+/** Ποιοι υποχρεωτικοί έλεγχοι (due diligence) του οικοπέδου λείπουν — για την προειδοποίηση πριν τη μετατροπή σε έργο. */
+export async function missingDueDiligence(p: { parcelId?: string | null; dealId?: string | null }): Promise<string[]> {
+  await requirePermission('projects', 'view');
+  const s = await sb();
+  let parcelId = p.parcelId ?? null;
+  if (!parcelId && p.dealId) {
+    const { data: d } = await s.from('deals').select('inputs').eq('id', p.dealId).maybeSingle();
+    parcelId = (d?.inputs?.sourceParcelId as string | undefined) ?? null;
+    if (!parcelId) { const { data: lp } = await s.from('land_parcels').select('id').eq('deal_id', p.dealId).maybeSingle(); parcelId = lp?.id ?? null; }
+  }
+  if (!parcelId) return [];
+  const { data: parcel } = await s.from('land_parcels').select('due_diligence').eq('id', parcelId).maybeSingle();
+  const { summarizeDD } = await import('@/lib/due-diligence');
+  return summarizeDD(parcel?.due_diligence as Record<string, unknown> | null).items.filter((i) => i.mandatory && !i.done).map((i) => DD_EL[i.key] ?? i.label);
+}
+
