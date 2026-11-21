@@ -25,6 +25,16 @@ export function SettingsBlock({ title, note, children, className = '' }: { title
   );
 }
 
+/** Μία επιλογή μέσα στο δικό της κουτάκι (όπως στο FitnessCRM): τίτλος, εξήγηση, διακόπτης δεξιά. */
+export function OptionBox({ title, hint, children, className = '' }: { title: React.ReactNode; hint?: React.ReactNode; children: React.ReactNode; className?: string }) {
+  return (
+    <div className={`flex items-center justify-between gap-4 rounded-xl border border-stone-line bg-white px-4 py-3 transition-colors hover:border-forest/30 ${className}`}>
+      <div className="min-w-0"><p className="text-sm font-medium text-charcoal">{title}</p>{hint && <p className="mt-0.5 text-xs text-charcoal-600/70">{hint}</p>}</div>
+      <div className="shrink-0">{children}</div>
+    </div>
+  );
+}
+
 export function FieldLabel({ children }: { children: React.ReactNode }) {
   return <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-charcoal-600">{children}</span>;
 }

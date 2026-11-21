@@ -17,8 +17,8 @@ const Help = ({ children }: { children: React.ReactNode }) => <p className="text
 
 function Toggle({ checked, onChange, label, disabled }: { checked: boolean; onChange: (b: boolean) => void; label: string; disabled?: boolean }) {
   return (
-    <div className="flex items-center justify-between gap-3 py-1.5">
-      <span className="text-sm text-charcoal">{label}</span>
+    <div className="my-1.5 flex items-center justify-between gap-3 rounded-xl border border-stone-line px-4 py-3 transition-colors hover:border-forest/30">
+      <span className="text-sm font-medium text-charcoal">{label}</span>
       <button type="button" disabled={disabled} onClick={() => onChange(!checked)} className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${checked ? 'bg-forest' : 'bg-stone-line'} disabled:opacity-50`}>
         <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-all ${checked ? 'left-[18px]' : 'left-0.5'}`} />
       </button>

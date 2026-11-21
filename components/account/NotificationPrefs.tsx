@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useTransition } from 'react';
-import { Switch, SettingsBlock } from '@/components/admin/settings-ui';
+import { Switch, SettingsBlock, OptionBox } from '@/components/admin/settings-ui';
 import { saveMyNotificationPrefs } from '@/app/actions/tickets';
 
 const PREFS_KEY = 'oramira_notif_prefs';
@@ -29,23 +29,20 @@ export function NotificationPrefs({ marketing }: { marketing: { inApp: boolean; 
     <div className="space-y-5">
     <SettingsBlock title="Προτιμήσεις ειδοποιήσεων" note="Διαλέξτε από ποια κανάλια δέχεστε ενημερώσεις marketing. Οι ειδοποιήσεις λειτουργίας (ασφάλεια, χρεώσεις, κλείδωμα λογαριασμού) έρχονται πάντα.">
       {([['inApp', 'Marketing μέσα στην εφαρμογή', 'Ενημερώσεις marketing μέσα στην εφαρμογή.'], ['email', 'Marketing email', 'Email για προσφορές και νέα της εταιρείας.'], ['push', 'Marketing push', 'Ειδοποιήσεις push στο κινητό.']] as const).map(([k, title, hint]) => (
-        <div key={k} className="flex items-center justify-between gap-4">
-          <div><p className="font-medium text-charcoal">{title}</p><p className="text-sm text-charcoal-600/70">{hint}</p></div>
+        <OptionBox key={k} title={title} hint={hint}>
           <Switch checked={m[k]} label={title} onChange={(x) => { setSaved(null); setM({ ...m, [k]: x }); }} />
-        </div>
+        </OptionBox>
       ))}
       <p className="text-xs text-charcoal-600/70">Οι ειδοποιήσεις λειτουργίας (ασφάλεια, κλείδωμα, χρεώσεις, υποστήριξη) δεν απενεργοποιούνται.</p>
       <div className="flex items-center gap-3"><button type="button" className="btn-primary" disabled={pending} onClick={saveM}>{pending ? 'Αποθήκευση…' : 'Αποθήκευση προτιμήσεων'}</button>{saved && <span className="text-sm text-charcoal-600">{saved}</span>}</div>
     </SettingsBlock>
     <SettingsBlock title="Σε αυτή τη συσκευή" note="Προσωπικό — ισχύει μόνο σε αυτή τη συσκευή. Ποιες ειδοποιήσεις στέλνονται το ορίζει ο διαχειριστής στο Settings → Ειδοποιήσεις.">
-      <div className="flex items-center justify-between gap-4">
-        <div><p className="font-medium text-charcoal">Ήχος</p><p className="text-sm text-charcoal-600/70">Ένα σύντομο «ντινγκ» όταν έρθει νέα ειδοποίηση.</p></div>
+      <OptionBox title="Ήχος" hint="Ένα σύντομο «ντινγκ» όταν έρθει νέα ειδοποίηση.">
         <Switch checked={p.sound} label="Ήχος ειδοποιήσεων" onChange={(x) => write({ ...p, sound: x })} />
-      </div>
-      <div className="flex items-center justify-between gap-4">
-        <div><p className="font-medium text-charcoal">Ειδοποίηση στην οθόνη</p><p className="text-sm text-charcoal-600/70">Εμφανίζεται ακόμη κι αν είστε σε άλλη καρτέλα.</p></div>
+      </OptionBox>
+      <OptionBox title="Ειδοποίηση στην οθόνη" hint="Εμφανίζεται ακόμη κι αν είστε σε άλλη καρτέλα.">
         <Switch checked={p.desktop} label="Ειδοποίηση στην οθόνη" onChange={desktop} />
-      </div>
+      </OptionBox>
       {note && <p className="text-sm text-signal-danger">{note}</p>}
     </SettingsBlock>
     </div>
