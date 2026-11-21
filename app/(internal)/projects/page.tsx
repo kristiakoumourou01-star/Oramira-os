@@ -25,6 +25,7 @@ export default async function ProjectsPage() {
     .order('created_at', { ascending: false });
 
   const { data: units } = await supabase.from('units').select('id, project_id, status');
+  const [settings, rawSettings] = await Promise.all([getOrgSettings(), getOrgSettingsRaw()]);
 
   const statsByProject = (units ?? []).reduce<Record<string, { total: number; available: number; by: Partial<Record<BoardStatus, number>> }>>((acc, u) => {
     const bucket = (acc[u.project_id] ??= { total: 0, available: 0, by: {} });
@@ -37,17 +38,17 @@ export default async function ProjectsPage() {
 
   return (
     <div className="space-y-5">
-      <WorkspaceHeader eyebrow="Έργα" title="Έργα & μονάδες" description="Τα έργα σας, οι φάσεις τους και το απόθεμα μονάδων από ένα σημείο." action={<NewProjectForm />} />
+      <WorkspaceHeader eyebrow="Έργα" title="Έργα & μονάδες" description="Τα έργα σας, οι φάσεις τους και το απόθεμα μονάδων από ένα σημείο." action={canEdit ? <NewProjectForm stages={settings.projectStages} /> : undefined} />
 
       {!projects || projects.length === 0 ? (
         <EmptyState
           icon={Building2}
-          title="No projects yet"
-          description="Create your first development to start laying out buildings, phases, and units."
-          action={<NewProjectForm />}
+          title="Κανένα έργο ακόμη"
+          description="Δημιουργήστε το πρώτο σας έργο ή μετατρέψτε ένα οικόπεδο από τις Αγορές γης σε έργο."
+          action={canEdit ? <NewProjectForm stages={settings.projectStages} /> : undefined}
         />
       ) : (
-        <ProjectsBoard canEdit={canEdit} stages={(await getOrgSettings()).projectStages} rawStages={(await getOrgSettingsRaw()).projectStages} canEditStages={profile.role === 'admin'} projects={projects.map((p: any) => { const st = statsByProject[p.id] ?? { total: 0, available: 0, by: {} }; return { id: p.id, name: p.name, location: p.location ?? null, status: p.status ?? null, description: p.description ?? null, delivery_date: p.delivery_date ?? null, lat: p.latitude != null ? Number(p.latitude) : null, lng: p.longitude != null ? Number(p.longitude) : null, ...st }; })} />
+        <ProjectsBoard canEdit={canEdit} stages={settings.projectStages} rawStages={rawSettings.projectStages} canEditStages={profile.role === 'admin'} projects={projects.map((p: any) => { const st = statsByProject[p.id] ?? { total: 0, available: 0, by: {} }; return { id: p.id, name: p.name, location: p.location ?? null, status: p.status ?? null, description: p.description ?? null, delivery_date: p.delivery_date ?? null, lat: p.latitude != null ? Number(p.latitude) : null, lng: p.longitude != null ? Number(p.longitude) : null, ...st }; })} />
       )}
     </div>
   );

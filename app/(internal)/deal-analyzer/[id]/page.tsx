@@ -7,6 +7,9 @@ import { DealWorkbench } from '@/components/deals/DealWorkbench';
 import type { SavedScenario } from '@/components/deals/ScenarioPanel';
 import { DEFAULT_DEAL_INPUTS, type DealInputs, type DealOutputs } from '@/lib/deal-analyzer';
 import type { DealAdvisory } from '@/lib/ai';
+import { ProjectFlowBar } from '@/components/acquisitions/ProjectFlowBar';
+import { loadFlow } from '@/lib/project-flow';
+import { effectiveCan } from '@/lib/permissions';
 
 export default async function DealDetailPage({ params }: { params: { id: string } }) {
   const me = await requirePermission('deals');
@@ -19,6 +22,8 @@ export default async function DealDetailPage({ params }: { params: { id: string 
     .maybeSingle();
   if (!deal) notFound();
 
+  const flow = await loadFlow({ dealId: deal.id });
+  const canConvert = effectiveCan(me.role, me.moduleAccess, 'projects', 'edit', me.permissions);
   const { data: scenarioRows } = await supabase
     .from('deal_scenarios')
     .select('id, name, computed_outputs')
@@ -51,6 +56,7 @@ export default async function DealDetailPage({ params }: { params: { id: string 
       <Link href="/deal-analyzer" className="inline-flex items-center gap-1 text-sm text-charcoal-600/70 hover:text-forest">
         <ArrowLeft size={14} strokeWidth={1.75} /> Deal Analyzer
       </Link>
+      <ProjectFlowBar current="deal" parcel={flow.parcel} deal={flow.deal} project={flow.project} canConvert={canConvert} />
       <DealWorkbench
         canApprove={me.role === 'admin' || me.role === 'management'}
         dealId={deal.id}

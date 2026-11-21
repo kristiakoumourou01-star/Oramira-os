@@ -5,10 +5,11 @@ import Link from 'next/link';
 import { BoardLane, laneTone, laneRow } from '@/components/ui/BoardLane';
 import { ColorPick } from '@/components/sales/StageEditor';
 import { useRouter } from 'next/navigation';
-import { Building2, MapPin, LayoutGrid, Columns3, X, ArrowUpRight, Tags, Map as MapIcon, Pencil, Plus, Trash2, GripVertical, List, Search, Home, TrendingUp, CalendarClock } from 'lucide-react';
+import { Building2, MapPin, LayoutGrid, Columns3, X, ArrowUpRight, Tags, Map as MapIcon, Pencil, Plus, Trash2, GripVertical, List, Search, Home, TrendingUp } from 'lucide-react';
 import { HubCards } from '@/components/ui/HubCards';
 import { PopSelect } from '@/components/ui/PopSelect';
-import { Briefing, SideStat, Pager } from '@/components/ui/SidePanel';
+import { Pager } from '@/components/ui/SidePanel';
+import { deleteProject } from '@/app/actions/project-flow';
 import { saveOrgSlice } from '@/app/actions/org-settings';
 import { useDragSort, moveItem } from '@/components/ui/useDragSort';
 import { updateProjectStatus } from '@/app/actions/projects';
@@ -54,17 +55,28 @@ export function ProjectsBoard({ projects: initial, canEdit, stages, rawStages, c
     start(async () => { await updateProjectStatus(id, status); router.refresh(); });
   };
 
+  const [unitF, setUnitF] = useState<'' | 'available' | 'reserved' | 'sold'>('');
+  const pickCard = (k: string) => { const v = (k === 'all' || k === unitF ? '' : k) as typeof unitF; setUnitF(v); setPageNo(0); };
+  const unitMatch = (p: ProjectCard) => !unitF || (unitF === 'available' ? p.available > 0 : unitF === 'reserved' ? (p.by.reserved ?? 0) > 0 : (p.by.sold ?? 0) + (p.by.handed_over ?? 0) > 0);
+  const remove = (p: ProjectCard) => {
+    if (!confirm(`Να διαγραφεί οριστικά το έργο «${p.name}» με όλες τις μονάδες του;`)) return;
+    start(async () => {
+      const r = await deleteProject(p.id);
+      if (!r.ok) { alert(r.error); return; }
+      setProjects((xs) => xs.filter((x) => x.id !== p.id)); setOpenId(null); router.refresh();
+    });
+  };
   const [q, setQ] = useState('');
   const [stF, setStF] = useState('');
   const [per, setPer] = useState(25);
   const [pageNo, setPageNo] = useState(0);
-  const list = projects.filter((p) => (!stF || colOf(p.status) === stF) && (!q.trim() || [p.name, p.location].some((x) => (x ?? '').toLowerCase().includes(q.trim().toLowerCase()))));
+  const list = projects.filter((p) => unitMatch(p) && (!stF || colOf(p.status) === stF) && (!q.trim() || [p.name, p.location].some((x) => (x ?? '').toLowerCase().includes(q.trim().toLowerCase()))));
   const pages = Math.max(1, Math.ceil(list.length / per));
   const pg = Math.min(pageNo, pages - 1);
   const page = list.slice(pg * per, pg * per + per);
   const totals = projects.reduce((t, p) => ({ units: t.units + p.total, avail: t.avail + p.available, reserved: t.reserved + (p.by.reserved ?? 0), sold: t.sold + (p.by.sold ?? 0) + (p.by.handed_over ?? 0) }), { units: 0, avail: 0, reserved: 0, sold: 0 });
   const soldPct = totals.units ? Math.round((totals.sold / totals.units) * 100) : 0;
-  const delivering = projects.filter((p) => p.delivery_date && p.delivery_date >= new Date().toISOString().slice(0, 10)).sort((x, y) => x.delivery_date!.localeCompare(y.delivery_date!));
+  const delivering = projects.filter((p) => p.delivery_date && p.delivery_date >= new Date().toISOString().slice(0, 10));
   const fmtDate = (d: string | null) => (d ? new Date(d).toLocaleDateString(DATE_TAG[currentLocale().lang], { month: 'short', year: 'numeric' }) : '—');
   const iconBtn = 'flex h-8 w-8 items-center justify-center rounded-full text-charcoal-600 transition hover:bg-stone-100 hover:text-charcoal';
 
@@ -85,14 +97,13 @@ export function ProjectsBoard({ projects: initial, canEdit, stages, rawStages, c
 
   return (
     <div className="space-y-5">
-      <HubCards active={stF ? undefined : 'all'} onSelect={(k) => { if (k === 'all') { setStF(''); setPageNo(0); } }} cards={[
-        { key: 'all', icon: Building2, title: 'Έργα', value: projects.length, sub: `${delivering.length} με προγραμματισμένη παράδοση` },
-        { key: 'units', icon: Home, title: 'Μονάδες', value: totals.units, sub: `${totals.avail} διαθέσιμες` },
+      <HubCards active={unitF || 'all'} onSelect={pickCard} cards={[
+        { key: 'all', icon: Building2, title: 'Όλα τα έργα', value: projects.length, sub: `${delivering.length} με προγραμματισμένη παράδοση` },
+        { key: 'available', icon: Home, title: 'Διαθέσιμες μονάδες', value: totals.avail, sub: `από ${totals.units} μονάδες` },
         { key: 'reserved', icon: Tags, title: 'Κρατημένες', value: totals.reserved, sub: 'Με κράτηση, πριν την πώληση' },
         { key: 'sold', icon: TrendingUp, title: 'Πωλημένες', value: totals.sold, sub: `${soldPct}% του συνόλου` },
       ]} />
 
-      <div className="grid items-start gap-5 2xl:grid-cols-[minmax(0,1fr)_300px]">
       <div className="flex min-w-0 flex-col rounded-2xl border border-stone-line bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
         <div className="space-y-3 p-4 sm:p-5">
           <div className="flex flex-wrap items-center gap-2 text-[14px] text-charcoal-600">
@@ -144,6 +155,7 @@ export function ProjectsBoard({ projects: initial, canEdit, stages, rawStages, c
                           {canEdit && <Link href={`/projects/${p.id}?edit=1`} title="Επεξεργασία" aria-label="Επεξεργασία" className={iconBtn}><Pencil size={15} /></Link>}
                           <Link href={`/projects/${p.id}/prices`} title="Τιμοκατάλογος" aria-label="Τιμοκατάλογος" className={iconBtn}><Tags size={15} /></Link>
                           <Link href={`/projects/${p.id}/map`} title="Διαδραστικός χάρτης" aria-label="Διαδραστικός χάρτης" className={iconBtn}><MapIcon size={15} /></Link>
+                          {canEdit && <button type="button" onClick={() => remove(p)} title="Διαγραφή" aria-label="Διαγραφή" className={`${iconBtn} hover:bg-rose-50 hover:text-signal-danger`}><Trash2 size={15} /></button>}
                         </span>
                       </td>
                     </tr>
@@ -178,14 +190,6 @@ export function ProjectsBoard({ projects: initial, canEdit, stages, rawStages, c
       )}
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-1">
-        <Briefing tag="Έργα" title="Το απόθεμά σας με μια ματιά." text="Πόσες μονάδες είναι διαθέσιμες, κρατημένες και πωλημένες σε όλα τα έργα, και ποιες παραδόσεις έρχονται."
-          metrics={[['Μονάδες', totals.units, 'σύνολο'], ['Διαθέσιμες', totals.avail, 'τώρα'], ['Πωλημένες', `${soldPct}%`, 'του συνόλου']]} />
-        <SideStat icon={CalendarClock} label="Επόμενη παράδοση" value={delivering[0] ? fmtDate(delivering[0].delivery_date) : '—'} note={delivering[0] ? `${delivering[0].name}${delivering.length > 1 ? ` · και ${delivering.length - 1} ακόμη` : ''}` : 'Δεν έχει οριστεί ημερομηνία παράδοσης.'} />
-        <SideStat icon={Home} label="Διαθέσιμες μονάδες" value={totals.avail} note={projects.filter((p) => p.available > 0).slice(0, 3).map((p) => `${p.name}: ${p.available}`).join(' · ') || 'Καμία διαθέσιμη μονάδα.'} />
-      </div>
-      </div>
-
       {open && (
         <div className="anim-fade fixed inset-0 z-50 flex justify-end bg-black/30" onClick={() => setOpenId(null)}>
           <aside className="anim-pop flex h-full w-full max-w-xl flex-col overflow-y-auto bg-white shadow-overlay" onClick={(e) => e.stopPropagation()}>
@@ -203,6 +207,7 @@ export function ProjectsBoard({ projects: initial, canEdit, stages, rawStages, c
                 {canEdit && <Link href={`/projects/${open.id}?edit=1`} className="inline-flex h-8 items-center gap-1.5 rounded-[10px] border border-stone-line px-3 text-[13px] text-charcoal hover:border-forest/30"><Pencil size={14} /> Επεξεργασία</Link>}
                 <Link href={`/projects/${open.id}/prices`} className="inline-flex h-8 items-center gap-1.5 rounded-[10px] border border-stone-line px-3 text-[13px] text-charcoal hover:border-forest/30"><Tags size={14} /> Τιμοκατάλογος</Link>
                 <Link href={`/projects/${open.id}/map`} className="inline-flex h-8 items-center gap-1.5 rounded-[10px] border border-stone-line px-3 text-[13px] text-charcoal hover:border-forest/30"><MapIcon size={14} /> Διαδραστικός χάρτης</Link>
+                {canEdit && <button type="button" onClick={() => remove(open)} className="inline-flex h-8 items-center gap-1.5 rounded-[10px] border border-stone-line px-3 text-[13px] text-signal-danger hover:border-signal-danger/40"><Trash2 size={14} /> Διαγραφή</button>}
               </div>
               <div><span className="mb-1 block text-[12px] font-semibold uppercase tracking-wide text-charcoal-600">Κατάσταση</span>
                 <PopSelect width="w-full" ariaLabel="Κατάσταση" value={colOf(open.status) ?? ''} onChange={(v) => { if (canEdit) move(open.id, v); }} options={STATUSES} />

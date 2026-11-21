@@ -46,36 +46,36 @@ export function NewUnitForm({
   return (
     <>
       <button onClick={() => setOpen(true)} className="btn-primary">
-        <Plus size={15} strokeWidth={1.75} /> New unit
+        <Plus size={15} strokeWidth={1.75} /> Νέα μονάδα
       </button>
-      <Modal open={open} onClose={() => setOpen(false)} title="New unit" size="xl">
+      <Modal open={open} onClose={() => setOpen(false)} title="Νέα μονάδα" size="xl">
         <form action={handleSubmit} className="flex min-h-0 flex-1 flex-col">
-          <ModalBody className="grid grid-cols-3 gap-3">
-            <input name="unitNumber" required placeholder="Unit no. (e.g. A-203)" className="input col-span-2" />
-            <input name="type" placeholder="Type (e.g. 2-bed)" className="input" />
+          <ModalBody className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            <input name="unitNumber" required placeholder="Αριθμός (π.χ. A-203)" className="input col-span-2" />
+            <input name="type" placeholder="Τύπος (π.χ. διαμέρισμα)" className="input" />
             <select name="buildingId" className="input">
-              <option value="">No building</option>
+              <option value="">Χωρίς κτίριο</option>
               {buildings.map((b) => (
                 <option key={b.id} value={b.id}>{b.name}</option>
               ))}
             </select>
             <select name="phaseId" className="input">
-              <option value="">No phase</option>
+              <option value="">Χωρίς φάση</option>
               {phases.map((p) => (
                 <option key={p.id} value={p.id}>{p.name}</option>
               ))}
             </select>
-            <input name="floor" type="number" placeholder="Floor" className="input" />
+            <input name="floor" type="number" placeholder="Όροφος" className="input" />
             <input name="sqm" type="number" step="0.1" placeholder="m²" className="input" />
-            <input name="bedrooms" type="number" placeholder="Beds" className="input" />
-            <input name="bathrooms" type="number" step="0.5" placeholder="Baths" className="input" />
-            <input name="price" inputMode="decimal" placeholder="Price (€) π.χ. 650.000" className="input col-span-3" />
-            <textarea name="description" placeholder="Description / internal notes" className="input col-span-3 min-h-[60px]" />
+            <input name="bedrooms" type="number" placeholder="Υπνοδωμάτια" className="input" />
+            <input name="bathrooms" type="number" step="0.5" placeholder="Μπάνια" className="input" />
+            <input name="price" inputMode="decimal" placeholder="Τιμή (€) π.χ. 650.000" className="input col-span-2 sm:col-span-3" />
+            <textarea name="description" placeholder="Περιγραφή / εσωτερικές σημειώσεις" className="input col-span-2 min-h-[60px] sm:col-span-3" />
           </ModalBody>
           <ModalFooter>
-            <button type="button" onClick={() => setOpen(false)} className="btn-secondary">Cancel</button>
+            <button type="button" onClick={() => setOpen(false)} className="btn-secondary">Άκυρο</button>
             <button type="submit" disabled={isPending} className="btn-primary flex-1">
-              {isPending ? 'Creating…' : 'Create unit'}
+              {isPending ? 'Δημιουργία…' : 'Δημιουργία μονάδας'}
             </button>
           </ModalFooter>
         </form>
