@@ -100,7 +100,7 @@ async function sales(db: Db, f: ReportFilters, r: Range): Promise<BuiltReport> {
 async function leads(db: Db, f: ReportFilters, r: Range): Promise<BuiltReport> {
   const [L, spendRows] = await Promise.all([
     rows(db.from('leads').select('id, source, status, won_at, created_at, preferred_project_id').is('deleted_at', null).limit(20000)),
-    rows(db.from('marketing_spend').select('id, month, source, amount, note').order('month', { ascending: false })),
+    rows(db.from('lead_source_costs').select('id, month, source, amount, note').order('month', { ascending: false })),
   ]);
   const leadsIn = L.filter((l) => inRange(l.created_at, r) && (!f.project || l.preferred_project_id === f.project));
   const spend = spendRows.filter((s) => (!r.from || s.month >= r.from.slice(0, 7)) && (!r.to || s.month <= r.to));

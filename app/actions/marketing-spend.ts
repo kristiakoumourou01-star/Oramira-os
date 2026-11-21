@@ -17,7 +17,7 @@ export async function saveMarketingSpend(input: { month: string; source: string;
   const amount = Number(input.amount);
   if (!Number.isFinite(amount) || amount < 0) return { ok: false, error: 'Γράψτε ποσό.' };
   const db = (await createSupabaseServerClient()) as any;
-  const { error } = await db.from('marketing_spend').upsert({ month: `${input.month}-01`, source: input.source, amount, note: (input.note ?? '').trim().slice(0, 200) || null, created_by: me.id }, { onConflict: 'month,source' });
+  const { error } = await db.from('lead_source_costs').upsert({ month: `${input.month}-01`, source: input.source, amount, note: (input.note ?? '').trim().slice(0, 200) || null, created_by: me.id }, { onConflict: 'source,month' });
   if (error) return { ok: false, error: MISSING(error.message) };
   revalidatePath('/reports');
   return { ok: true };
@@ -27,7 +27,7 @@ export async function deleteMarketingSpend(id: string): Promise<R> {
   await requirePermission('financials');
   if (!UUID.test(id)) return { ok: false, error: 'Άκυρη καταχώριση.' };
   const db = (await createSupabaseServerClient()) as any;
-  const { error } = await db.from('marketing_spend').delete().eq('id', id);
+  const { error } = await db.from('lead_source_costs').delete().eq('id', id);
   if (error) return { ok: false, error: MISSING(error.message) };
   revalidatePath('/reports');
   return { ok: true };
