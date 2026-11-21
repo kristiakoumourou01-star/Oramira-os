@@ -8,12 +8,13 @@ import { COLUMNS, DEFAULT_COLUMNS, OPS, evaluate, type Condition, type CustomRow
 import { saveReportTemplate, deleteReportTemplate } from '@/app/actions/report-templates';
 import { createContactGroup } from '@/app/actions/contacts-hub';
 import { DataReportView } from '@/components/reports/DataReportView';
+import { PopSelect } from '@/components/ui/PopSelect';
 import { SummaryTiles, CallListButton } from '@/components/reports/ReportParts';
 import { CallListDialog } from '@/components/tasks/TeamTasks';
 import type { DataReport } from '@/lib/reports-shared';
-import { DATE_TAG, currentLocale } from '@/lib/locale-shared';
+import { formatCurrency, formatDate } from '@/lib/format';
 
-const eur = (n: number) => `€${Math.round(n).toLocaleString('el-GR')}`;
+const eur = (n: number) => formatCurrency(n);
 
 /**
  * Custom report πελατών — όπως το «Custom member report» του FitnessCRM:
@@ -25,6 +26,7 @@ export function CustomReport({ rows, fields, templates, canExport, staff, me }: 
   const [def, setDef] = useState<ReportDef>({ match: 'all', conditions: [{ field: 'roles', op: 'has', value: 'buyer' }], columns: DEFAULT_COLUMNS });
   const [ran, setRan] = useState<ReportDef | null>(null);
   const [callDlg, setCallDlg] = useState(false);
+  const [per, setPer] = useState(25);
   const [tpl, setTpl] = useState('');
   const [colsOpen, setColsOpen] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
@@ -41,13 +43,13 @@ export function CustomReport({ rows, fields, templates, canExport, staff, me }: 
       if (Array.isArray(v)) return v.map((x) => label(k, String(x))).join(', ');
       if (['budget', 'value', 'paid', 'balance'].includes(k)) return v ? eur(Number(v)) : '';
       if (k === 'optIn') return v ? 'Ναι' : 'Όχι';
-      if (k === 'createdAt' || k === 'lastContactAt') return v ? new Date(v).toLocaleDateString(DATE_TAG[currentLocale().lang]) : '';
-      if (['status', 'source', 'language', 'buyerType'].includes(k)) return v ? label(k, String(v)) : '';
+      if (k === 'createdAt' || k === 'lastContactAt') return v ? formatDate(v) : '';
+      if (['status', 'source', 'language', 'buyerType', 'kycStatus'].includes(k)) return v ? label(k, String(v)) : '';
       return v ?? '';
     };
     const cols = COLUMNS.filter(([k]) => ran.columns.includes(k));
     return {
-      columns: cols.map(([key, l]) => ({ key, label: l, data: ['name', 'email', 'phone', 'groups', 'tags', 'ownerName', 'projects', 'areas', 'units', 'ownedProjects', 'nationality'].includes(key), align: ['budget', 'value', 'paid', 'balance', 'viewings', 'reservations', 'contracts'].includes(key) ? 'right' as const : undefined })),
+      columns: cols.map(([key, l]) => ({ key, label: l, data: ['name', 'email', 'phone', 'groups', 'tags', 'ownerName', 'projects', 'areas', 'units', 'ownedProjects', 'nationality', 'city', 'country'].includes(key), align: ['budget', 'value', 'paid', 'balance', 'viewings', 'reservations', 'contracts', 'age'].includes(key) ? 'right' as const : undefined })),
       rows: result.map((r) => Object.fromEntries(cols.map(([k]) => [k, fmt(k, (r as any)[k])]))),
       summary: [
         { label: 'Πελάτες', value: String(result.length) },
@@ -64,61 +66,57 @@ export function CustomReport({ rows, fields, templates, canExport, staff, me }: 
   const saveTpl = () => { const n = prompt('Όνομα προτύπου (π.χ. «Επενδυτές με budget 500k+»):'); if (!n) return; start(async () => { const r = await saveReportTemplate(n, def); setMsg(r.ok ? { ok: true, text: `Αποθηκεύτηκε το πρότυπο «${n}».` } : { ok: false, text: r.error }); if (r.ok) router.refresh(); }); };
   const delTpl = () => { if (!tpl || !confirm('Διαγραφή του προτύπου;')) return; start(async () => { const r = await deleteReportTemplate(tpl); setMsg(r.ok ? { ok: true, text: 'Το πρότυπο διαγράφηκε.' } : { ok: false, text: r.error }); setTpl(''); router.refresh(); }); };
   const toGroup = () => { const n = prompt(`Όνομα νέας ομάδας με τους ${result.length} πελάτες:`); if (!n) return; start(async () => { const r = await createContactGroup({ name: n, memberIds: result.map((x) => x.id) }); setMsg(r.ok ? { ok: true, text: `Δημιουργήθηκε η ομάδα «${n}» με ${result.length} πελάτες — τη βρίσκετε στους Πελάτες → Ομάδες και στο Marketing.` } : { ok: false, text: r.error }); }); };
-  const groups = Array.from(new Set(fields.map((f) => f.group)));
   const used = new Set(def.conditions.map((c) => c.field));
+  const fieldOpts: [string, string][] = fields.map((x) => [x.key, `${x.group} · ${x.label}`]);
+  const label = (c: Condition) => fieldOf(c.field);
 
   return (
     <div className="space-y-5">
-      <div>
-        <h2 className="font-display text-2xl text-charcoal">Custom report πελατών</h2>
-        <p className="text-[14px] text-charcoal-600">Στοιβάξτε συνθήκες — ιδιότητα, ομάδα, budget, έργο, περιοχή, κράτηση, υπόλοιπο — και τρέξτε την αναφορά για την ακριβή λίστα πελατών.</p>
-      </div>
-      <div className="rounded-2xl border border-stone-line bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:p-5">
-        <div className="flex flex-wrap items-center gap-2 text-[14px] text-charcoal-600">
+      <div className="rounded-2xl border border-stone-line bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+        <div className="flex flex-wrap items-center gap-2 p-4 text-[14px] text-charcoal-600 sm:p-5">
           <span>Πελάτες που ταιριάζουν σε</span>
-          <select value={def.match} onChange={(e) => setDef((d) => ({ ...d, match: e.target.value as 'all' | 'any' }))} className="input h-9 w-auto py-1 text-sm"><option value="all">ΟΛΕΣ τις συνθήκες</option><option value="any">ΟΠΟΙΑΔΗΠΟΤΕ συνθήκη</option></select>
-          <span className="ml-auto rounded-full border border-stone-line px-2.5 py-0.5 text-[12px] font-medium text-charcoal">{def.conditions.length} συνθήκ{def.conditions.length === 1 ? 'η' : 'ες'}</span>
-        </div>
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <select value={tpl} onChange={(e) => loadTpl(e.target.value)} className="input h-9 w-auto min-w-[200px] py-1 text-sm"><option value="">Φόρτωση προτύπου…</option>{templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</select>
-          <button type="button" onClick={saveTpl} disabled={pending} className="rounded-lg border border-stone-line px-3 py-1.5 text-[13px] font-medium text-charcoal hover:border-forest/40">Αποθήκευση ως πρότυπο</button>
-          {tpl && <button type="button" onClick={delTpl} className="text-[13px] text-charcoal-600 hover:text-signal-danger">Διαγραφή προτύπου</button>}
+          <PopSelect ariaLabel="Ταίριασμα" width="min-w-[110px]" value={def.match} onChange={(v) => setDef((d) => ({ ...d, match: v === 'any' ? 'any' : 'all' }))} options={[['all', 'ΟΛΕΣ'], ['any', 'ΟΠΟΙΑΔΗΠΟΤΕ']]} />
+          <span>τις συνθήκες</span>
+          <span className="rounded-full border border-stone-line px-2.5 py-0.5 text-[12px] font-medium text-charcoal">{def.conditions.length === 1 ? '1 συνθήκη' : `${def.conditions.length} συνθήκες`}</span>
+          <span className="flex w-full flex-wrap items-center gap-2 sm:ml-auto sm:w-auto">
+            <PopSelect searchable ariaLabel="Πρότυπο" width="min-w-[180px]" value={tpl} onChange={loadTpl} options={[['', 'Φόρτωση προτύπου…'], ...templates.map((t) => [t.id, t.name] as [string, string])]} />
+            <button type="button" onClick={saveTpl} disabled={pending} className="inline-flex h-8 items-center rounded-[10px] border border-stone-line bg-white px-2.5 text-[13px] font-medium text-charcoal hover:border-forest/40">Αποθήκευση ως πρότυπο</button>
+            {tpl && <button type="button" onClick={delTpl} aria-label="Διαγραφή προτύπου" title="Διαγραφή προτύπου" className="flex h-8 w-8 items-center justify-center rounded-full text-charcoal-600 hover:bg-rose-50 hover:text-signal-danger"><Trash2 size={15} /></button>}
+          </span>
         </div>
 
-        <div className="mt-4 space-y-2">
+        <div className="space-y-2 border-t border-stone-line p-4 sm:p-5">
+          {def.conditions.length === 0 && <p className="text-[13px] text-charcoal-600">Χωρίς συνθήκες — η αναφορά δείχνει όλους τους πελάτες.</p>}
           {def.conditions.map((c, i) => {
-            const f = fieldOf(c.field);
+            const f = label(c);
             const ops = f ? OPS[f.type] : [];
             const needsValue = f && f.type !== 'bool' && c.op !== 'empty';
             return (
-              <div key={i} className="flex flex-wrap items-center gap-2 rounded-xl border border-stone-line bg-stone-50/50 p-2.5">
-                <select value={c.field} onChange={(e) => { const nf = fieldOf(e.target.value); setCond(i, { field: e.target.value, op: nf ? OPS[nf.type][0][0] : '', value: nf?.options?.[0]?.[0] ?? '' }); }} className="input h-9 w-auto min-w-[220px] py-1 text-sm">
-                  {groups.map((g) => <optgroup key={g} label={g}>{fields.filter((x) => x.group === g).map((x) => <option key={x.key} value={x.key}>{g} · {x.label}</option>)}</optgroup>)}
-                </select>
-                <select value={c.op} onChange={(e) => setCond(i, { op: e.target.value })} className="input h-9 w-auto min-w-[130px] py-1 text-sm">{ops.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
+              <div key={i} className="flex flex-wrap items-center gap-2 rounded-xl border border-stone-line bg-stone-50/60 p-2.5">
+                <PopSelect searchable ariaLabel="Πεδίο" width="w-full sm:w-[260px]" className="w-full sm:w-auto" value={c.field} onChange={(v) => { const nf = fieldOf(v); setCond(i, { field: v, op: nf ? OPS[nf.type][0][0] : '', value: nf?.options?.[0]?.[0] ?? '' }); }} options={fieldOpts} />
+                <PopSelect ariaLabel="Τελεστής" width="min-w-[140px]" value={c.op} onChange={(v) => setCond(i, { op: v })} options={ops} />
                 {needsValue && (f!.options
-                  ? <select value={c.value} onChange={(e) => setCond(i, { value: e.target.value })} className="input h-9 min-w-[180px] flex-1 py-1 text-sm">{f!.options.length === 0 && <option value="">—</option>}{f!.options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
-                  : <input value={c.value} onChange={(e) => setCond(i, { value: e.target.value })} type={f!.type === 'date' ? 'date' : ['number', 'money', 'days'].includes(f!.type) ? 'number' : 'text'} className="input h-9 min-w-[160px] flex-1 py-1 text-sm" placeholder={f!.type === 'money' ? 'π.χ. 500000' : f!.type === 'days' ? 'π.χ. 30' : ''} />)}
-                <button type="button" onClick={() => setDef((d) => ({ ...d, conditions: d.conditions.filter((_, j) => j !== i) }))} className="ml-auto flex h-8 w-8 items-center justify-center rounded-full text-signal-danger hover:bg-rose-50" aria-label="Αφαίρεση"><Trash2 size={15} /></button>
+                  ? <PopSelect searchable ariaLabel="Τιμή" width="min-w-[170px]" value={c.value} onChange={(v) => setCond(i, { value: v })} options={f!.options.length ? f!.options : [['', '—']]} />
+                  : <input value={c.value} onChange={(e) => setCond(i, { value: e.target.value })} type={f!.type === 'date' ? 'date' : ['number', 'money', 'days'].includes(f!.type) ? 'number' : 'text'} className="input h-8 min-w-[140px] flex-1 py-1 text-[13px]" placeholder={f!.type === 'money' ? 'π.χ. 500000' : f!.type === 'days' ? 'π.χ. 30' : ''} />)}
+                <button type="button" onClick={() => setDef((d) => ({ ...d, conditions: d.conditions.filter((_, j) => j !== i) }))} className="ml-auto flex h-8 w-8 items-center justify-center rounded-full text-charcoal-600 hover:bg-rose-50 hover:text-signal-danger" aria-label="Αφαίρεση"><Trash2 size={15} /></button>
               </div>
             );
           })}
         </div>
 
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <select value="" onChange={(e) => e.target.value && add(e.target.value)} className="input h-9 w-auto min-w-[220px] py-1 text-sm">
-            <option value="">Προσθήκη συνθήκης…</option>
-            {groups.map((g) => <optgroup key={g} label={g}>{fields.filter((x) => x.group === g).map((x) => <option key={x.key} value={x.key}>{x.label}{used.has(x.key) ? ' ✓' : ''}</option>)}</optgroup>)}
-          </select>
-          <span className="text-[12px] text-charcoal-600">{fields.length} διαθέσιμες συνθήκες</span>
+        <div className="flex flex-wrap items-center gap-2 border-t border-stone-line p-4 text-[13px] text-charcoal-600 sm:p-5">
+          <PopSelect searchable ariaLabel="Προσθήκη συνθήκης" width="min-w-[220px]" value="" placeholder="+ Προσθήκη συνθήκης…" onChange={(v) => v && add(v)} options={fieldOpts.map(([k, l]) => [k, used.has(k) ? `${l} ✓` : l] as [string, string])} />
+          <span>{`${fields.length} διαθέσιμες συνθήκες`}</span>
           <div className="relative">
-            <button type="button" onClick={() => setColsOpen((o) => !o)} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-stone-100 px-3 text-sm font-medium text-charcoal hover:bg-stone-200"><Columns3 size={15} /> Στήλες ({def.columns.length})</button>
+            <button type="button" onClick={() => setColsOpen((o) => !o)} className="inline-flex h-8 items-center gap-1.5 rounded-[10px] border border-stone-line bg-white px-2.5 text-[13px] font-medium text-charcoal hover:border-forest/40"><Columns3 size={14} /> {`Στήλες (${def.columns.length})`}</button>
             {colsOpen && <div className="absolute left-0 top-10 z-20 grid max-h-80 w-64 overflow-y-auto rounded-xl border border-stone-line bg-white p-2 shadow-overlay" onMouseLeave={() => setColsOpen(false)}>
-              {COLUMNS.map(([k, l]) => <label key={k} className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-stone-50"><input type="checkbox" checked={def.columns.includes(k)} onChange={() => setDef((d) => ({ ...d, columns: d.columns.includes(k) ? d.columns.filter((x) => x !== k) : [...d.columns, k] }))} /> {l}</label>)}
+              {COLUMNS.map(([k, l]) => <label key={k} className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-charcoal hover:bg-stone-50"><input type="checkbox" checked={def.columns.includes(k)} onChange={() => setDef((d) => ({ ...d, columns: d.columns.includes(k) ? d.columns.filter((x) => x !== k) : [...d.columns, k] }))} /> {l}</label>)}
             </div>}
           </div>
-          <span className="ml-auto flex items-center gap-2">
-            <button type="button" onClick={() => setRan({ ...def })} className="btn-primary text-sm"><Search size={15} /> Εκτέλεση αναφοράς</button>
+          <span className="flex items-center gap-2 sm:ml-auto">
+            <span>Εμφάνιση</span>
+            <PopSelect ariaLabel="Εγγραφές ανά σελίδα" width="w-[72px]" value={String(per)} onChange={(v) => setPer(Number(v))} options={[['10', '10'], ['25', '25'], ['50', '50'], ['100', '100']]} />
+            <button type="button" onClick={() => setRan({ ...def })} className="inline-flex h-8 items-center gap-1.5 rounded-[10px] bg-forest px-3 text-[14px] font-medium text-white hover:bg-forest/90"><Search size={15} /> Εκτέλεση αναφοράς</button>
           </span>
         </div>
       </div>
@@ -127,15 +125,15 @@ export function CustomReport({ rows, fields, templates, canExport, staff, me }: 
 
       {report && (
         <div className="space-y-3">
+          <SummaryTiles items={report.summary.slice(0, 4)} />
           {result.length > 0 && (
             <div className="flex flex-wrap justify-end gap-2">
               <CallListButton onClick={() => setCallDlg(true)} />
-              <button type="button" onClick={toGroup} disabled={pending} className="inline-flex items-center gap-1.5 rounded-lg border border-stone-line bg-white px-3 py-1.5 text-[13px] font-medium text-charcoal hover:border-forest/40"><FolderPlus size={14} /> Αποθήκευση ως ομάδα</button>
-              <Link href={`/marketing?tab=email&ids=${result.slice(0, 300).map((r) => r.id).join(',')}`} className="inline-flex items-center gap-1.5 rounded-lg border border-stone-line bg-white px-3 py-1.5 text-[13px] font-medium text-charcoal hover:border-forest/40"><Megaphone size={14} /> Campaign σε αυτούς</Link>
+              <button type="button" onClick={toGroup} disabled={pending} className="inline-flex h-8 items-center gap-1.5 rounded-[10px] border border-stone-line bg-white px-2.5 text-[13px] font-medium text-charcoal hover:border-forest/40"><FolderPlus size={14} /> Αποθήκευση ως ομάδα</button>
+              <Link href={`/marketing?tab=email&ids=${result.slice(0, 300).map((r) => r.id).join(',')}`} className="inline-flex h-8 items-center gap-1.5 rounded-[10px] border border-stone-line bg-white px-2.5 text-[13px] font-medium text-charcoal hover:border-forest/40"><Megaphone size={14} /> Καμπάνια σε αυτούς</Link>
             </div>
           )}
-          <SummaryTiles items={report.summary.slice(0, 4)} />
-          <DataReportView report={report} title="Custom report πελατών" canExport={canExport} />
+          <DataReportView key={`${per}-${JSON.stringify(ran)}`} report={report} title="Custom report πελατών" canExport={canExport} pageSize={per} />
         </div>
       )}
       {callDlg && <CallListDialog staff={staff} me={me} fixed={{ ids: result.map((r) => r.id), label: tpl ? `Αναφορά: ${templates.find((t) => t.id === tpl)?.name ?? ''}` : 'Custom report πελατών' }} onClose={() => setCallDlg(false)} onDone={(t, ok = true) => { setCallDlg(false); setMsg({ ok, text: t }); }} />}
