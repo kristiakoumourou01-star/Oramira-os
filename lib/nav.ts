@@ -39,10 +39,10 @@ export const DEFAULT_NAV: NavDef[] = [
     label: 'Projects',
     items: [
       // Με τη σειρά της διαδικασίας: οικόπεδο (αξιολόγηση) → ανάλυση → έργο & μονάδες → property management.
-      { href: '/acquisitions', label: '1. Οικόπεδα', icon: 'Map', module: 'acquisitions' },
-      { href: '/deal-analyzer', label: '2. Ανάλυση (Deal Analyzer)', icon: 'Calculator', module: 'deals' },
-      { href: '/projects', label: '3. Έργα & μονάδες', icon: 'Building2', module: 'projects' },
-      { href: '/property', label: '4. Property Management', icon: 'Home', module: 'property' },
+      { href: '/acquisitions', label: 'Οικόπεδα', icon: 'Map', module: 'acquisitions' },
+      { href: '/deal-analyzer', label: 'Ανάλυση (Deal Analyzer)', icon: 'Calculator', module: 'deals' },
+      { href: '/projects', label: 'Έργα & μονάδες', icon: 'Building2', module: 'projects' },
+      { href: '/property', label: 'Property Management', icon: 'Home', module: 'property' },
       { href: '/map', label: 'Χάρτης', icon: 'MapPin', module: 'projects' },
     ],
   },
