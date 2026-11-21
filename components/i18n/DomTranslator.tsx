@@ -24,17 +24,28 @@ function compile(dict: Record<string, string>) {
     } else exact.set(k, v);
   }
   patterns.sort((a, b) => b.re.source.length - a.re.source.length);
-  return (text: string): string | null => {
+  // Τιμές μέσα σε μοτίβο (π.χ. όνομα σταδίου «Νέο») μεταφράζονται κι αυτές αν είναι γνωστές λέξεις.
+  const hole = (s: string) => exact.get(s.trim()) ?? s;
+  const run = (text: string, depth: number): string | null => {
     const key = text.replace(/\s+/g, ' ').trim();
     if (!key) return null;
     const hit = exact.get(key);
     if (hit !== undefined) return hit;
     for (const p of patterns) {
       const m = key.match(p.re);
-      if (m) { let i = 1; return p.to.replace(/\{\}/g, () => m[i++] ?? ''); }
+      if (m) { let i = 1; return p.to.replace(/\{\}/g, () => hole(m[i++] ?? '')); }
+    }
+    // Ενωμένα κομμάτια «α · β · γ.» — μεταφράζεται το καθένα χωριστά.
+    if (depth === 0 && key.includes(' · ')) {
+      const dot = key.endsWith('.') && !key.endsWith('..') ? '.' : '';
+      const parts = (dot ? key.slice(0, -1) : key).split(' · ');
+      let changed = false;
+      const out = parts.map((s) => { const t = run(s, 1); if (t !== null) { changed = true; return t; } return s; });
+      if (changed) return out.join(' · ') + dot;
     }
     return null;
   };
+  return (text: string): string | null => run(text, 0);
 }
 
 /**
