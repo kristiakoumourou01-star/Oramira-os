@@ -5,8 +5,8 @@ import { useEffect, useMemo, useRef, useState, useTransition, type DragEvent } f
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
-  Columns3, List, CircleDollarSign, Archive, Filter, ChevronRight, ChevronDown, AlertTriangle, X, Trophy, ThumbsDown, ThumbsUp,
-  Trash2, ArrowRightLeft, Plus, Search, Phone, Users, CheckSquare, Flag, Mail, Utensils, Home, ArchiveRestore, Clock, Pencil,
+  Archive, Filter, ChevronRight, ChevronDown, AlertTriangle, X, Trophy, ThumbsDown, ThumbsUp,
+  Trash2, ArrowRightLeft, Plus, Search, Phone, Users, CheckSquare, Flag, Mail, Utensils, Home, ArchiveRestore, Clock, Pencil, UserPlus,
 } from 'lucide-react';
 import { StageEditor } from '@/components/sales/StageEditor';
 import type { LeadListItem } from '@/lib/leads-shared';
@@ -21,6 +21,8 @@ import { DeleteLeadDialog } from '@/components/crm/DeleteLeadDialog';
 import { LeadManager } from '@/components/crm/LeadManager';
 import { LeadDrawer } from '@/components/crm/LeadDrawer';
 import { DATE_TAG, currentLocale, tx } from '@/lib/locale-shared';
+import { claimLead } from '@/app/actions/lead-claim';
+import { BoardLane } from '@/components/ui/BoardLane';
 
 export interface Agent { id: string; full_name: string | null }
 type View = 'board' | 'list' | 'forecast' | 'archive';
@@ -59,12 +61,14 @@ function stageTone(i: number, n: number): string {
   return STAGE_TONES[Math.round((i / (n - 1)) * (STAGE_TONES.length - 1))];
 }
 
-export function DealsBoard({ leads: initial, cfg, rawCfg, canEditStages = false, agents, currentUserId, initialView = 'board' }: { leads: LeadListItem[]; cfg: PipelineSettings; rawCfg?: PipelineSettings; canEditStages?: boolean; agents: Agent[]; currentUserId: string; initialView?: View }) {
+export function DealsBoard({ leads: initial, cfg, rawCfg, canEditStages = false, canClaim = false, agents, currentUserId, initialView = 'board' }: { leads: LeadListItem[]; cfg: PipelineSettings; rawCfg?: PipelineSettings; canEditStages?: boolean; canClaim?: boolean; agents: Agent[]; currentUserId: string; initialView?: View }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [leads, setLeads] = useState(initial);
   useEffect(() => setLeads(initial), [initial]);
   const [view, setView] = useState<View>(initialView);
+  // Οι κάρτες κορυφής (Pipeline · Λίστα · Πρόβλεψη) αλλάζουν την προβολή μέσω ?view=.
+  useEffect(() => setView(initialView), [initialView]);
   const [pipeKey, setPipeKey] = useState(cfg.defaultKey);
   const [owner, setOwner] = useState<string>('everyone');
   const [showClosed, setShowClosed] = useState(false);
@@ -123,7 +127,6 @@ export function DealsBoard({ leads: initial, cfg, rawCfg, canEditStages = false,
     const vmin = cond.valueMin ? Number(cond.valueMin) : null, vmax = cond.valueMax ? Number(cond.valueMax) : null;
     return leads.filter((l) => {
       if (pipelineOf(cfg, l.pipeline).key !== pipe.key) return false;
-      if (l.in_inbox) return false;
       const own = owner === 'me' ? currentUserId : owner;
       if (own !== 'everyone' && (own === 'none' ? l.owner_id : l.owner_id !== own)) return false;
       if (t && ![dealTitle(l), l.full_name, l.email, l.phone].some((x) => (x ?? '').toLowerCase().includes(t))) return false;
@@ -179,6 +182,10 @@ export function DealsBoard({ leads: initial, cfg, rawCfg, canEditStages = false,
   };
   const markWon = (l: LeadListItem) => { patchLocal(l.id, { status: 'won', stage: wonStage?.key ?? 'won', won_at: new Date().toISOString() }); start(async () => { await updateLeadStatus(l.id, 'won', undefined, undefined, wonStage?.key ?? null); setMsg(`«${dealTitle(l)}» → Won 🎉`); router.refresh(); }); };
   const archive = (ids: string[], on: boolean) => { ids.forEach((id) => patchLocal(id, { archived_at: on ? new Date().toISOString() : null })); start(async () => { const r = await setDealsArchived(ids, on); setMsg(r.ok ? (on ? 'Μεταφέρθηκε στο αρχείο.' : 'Επανήλθε από το αρχείο.') : r.error); router.refresh(); }); };
+  const claim = (l: LeadListItem) => {
+    patchLocal(l.id, { owner_id: currentUserId, owner_name: agents.find((a) => a.id === currentUserId)?.full_name ?? null, in_inbox: false });
+    start(async () => { const r = await claimLead(l.id); setMsg(r.ok ? `«${dealTitle(l)}» → στα δικά σας.` : r.error); if (!r.ok) patchLocal(l.id, { owner_id: null, owner_name: null }); router.refresh(); });
+  };
   const dealOf = (id: string | null) => leads.find((x) => x.id === id) ?? null;
 
   const onCardDragStart = (e: DragEvent, id: string) => { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', id); setDrag(id); };
@@ -209,7 +216,9 @@ export function DealsBoard({ leads: initial, cfg, rawCfg, canEditStages = false,
         )}
         <div className="mt-1.5 flex items-center justify-between gap-2">
           <span className="flex min-w-0 items-center gap-1.5">
-            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-forest text-[9px] font-semibold text-white" title={l.owner_name ?? 'Χωρίς υπεύθυνο'}>{initials(l.owner_name)}</span>
+            {l.owner_id
+              ? <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-forest text-[9px] font-semibold text-white" title={l.owner_name ?? ''} data-no-tr>{initials(l.owner_name)}</span>
+              : <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-dashed border-amber-500 text-[10px] font-semibold text-amber-600" title="Χωρίς υπεύθυνο">?</span>}
             <span className="truncate text-xs font-medium text-charcoal-600">{dealValue(l) ? formatCurrency(dealValue(l)) : '€0'}</span>
           </span>
           {l.status === 'won' ? <span className="rounded bg-forest px-1.5 text-[10px] font-semibold uppercase text-white">Won</span>
@@ -221,26 +230,22 @@ export function DealsBoard({ leads: initial, cfg, rawCfg, canEditStages = false,
               </button>
             )}
         </div>
+        {!l.owner_id && !isClosed(l.status) && (
+          <div className="mt-1.5 flex flex-wrap items-center gap-1">
+            <span className="rounded-full border border-amber-300 bg-amber-50 px-2 py-px text-[10px] font-semibold text-amber-800">Χωρίς υπεύθυνο</span>
+            {!l.last_contacted_at && <span className="rounded-full border border-stone-line bg-white px-2 py-px text-[10px] font-medium text-charcoal-600">Χωρίς κλήση</span>}
+            {canClaim && <button type="button" disabled={pending} onClick={(e) => { e.stopPropagation(); claim(l); }} className="ml-auto inline-flex h-6 items-center gap-1 rounded-md bg-forest px-2 text-[11px] font-semibold text-white hover:bg-forest/90"><UserPlus size={11} /> Ανάληψη</button>}
+          </div>
+        )}
         {rot ? <p className="mt-1 flex items-center gap-1 text-[11px] font-medium text-rose-700"><Clock size={11} /> {rot} μ. πάνω από το όριο</p> : null}
       </div>
     );
   };
 
-  const ViewBtn = ({ v, icon: I, label }: { v: View; icon: any; label: string }) => (
-    <button type="button" onClick={() => setView(v)} title={label} aria-label={label} aria-pressed={view === v}
-      className={`inline-flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[13px] transition-colors ${view === v ? 'bg-forest font-medium text-white shadow-sm' : 'text-charcoal-600 hover:text-charcoal'}`}><I size={14} /><span className="hidden sm:inline">{label}</span></button>
-  );
-
   return (
     <div className="space-y-3">
       {/* Μπάρα εργαλείων — όπως στο Pipedrive */}
       <div className="flex flex-wrap items-center gap-2">
-        <div className="flex rounded-lg bg-stone-100 p-0.5">
-          <ViewBtn v="board" icon={Columns3} label="Πίνακας" />
-          <ViewBtn v="list" icon={List} label="Λίστα" />
-          <ViewBtn v="forecast" icon={CircleDollarSign} label="Forecast" />
-          <ViewBtn v="archive" icon={Archive} label="Αρχείο" />
-        </div>
         <div className="flex items-center">
           <PopSelect ariaLabel="Pipeline" width="min-w-[150px]" value={pipe.key} onChange={setPipeKey} options={cfg.pipelines.map((p) => [p.key, p.name] as [string, string])} />
           {canEditStages && <button type="button" onClick={() => setEditStages(true)} title="Επεξεργασία σταδίων" aria-label="Επεξεργασία σταδίων" className="ml-1 flex h-8 w-8 items-center justify-center rounded-lg border border-stone-line text-charcoal-600 hover:border-forest/30 hover:text-forest"><Pencil size={14} /></button>}
@@ -279,6 +284,8 @@ export function DealsBoard({ leads: initial, cfg, rawCfg, canEditStages = false,
           )}
         </div>
         {view === 'board' && <label className="flex items-center gap-1.5 text-[13px] text-charcoal-600"><input type="checkbox" checked={showClosed} onChange={(e) => setShowClosed(e.target.checked)} /> Κλειστά deals</label>}
+        <button type="button" onClick={() => setView(view === 'archive' ? initialView === 'archive' ? 'board' : initialView : 'archive')} aria-pressed={view === 'archive'}
+          className={`inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-[13px] transition-colors ${view === 'archive' ? 'border-forest bg-forest text-white' : 'border-stone-line text-charcoal hover:border-forest/30'}`}><Archive size={13} /> Αρχείο</button>
         {view !== 'list' && <label className="flex items-center gap-1.5 text-[13px] text-charcoal-600 sm:ml-auto">Ταξινόμηση:
           <PopSelect ariaLabel="Ταξινόμηση" width="min-w-[150px]" value={sort} onChange={(v) => setSort(v as Sort)} options={[['activity', 'Επόμενη activity'], ['value', 'Αξία'], ['created', 'Νεότερα'], ['close', 'Ημ. κλεισίματος'], ['title', 'Τίτλος'], ['owner', 'Υπεύθυνος']]} />
         </label>}
@@ -358,7 +365,7 @@ export function DealsBoard({ leads: initial, cfg, rawCfg, canEditStages = false,
 
       {view === 'list' && <LeadManager leads={filtered.filter((l) => !l.archived_at)} agents={agents} currentUserId={currentUserId} pipelines={cfg} fixedPipe={pipe.key} />}
 
-      {view === 'forecast' && <Forecast deals={live} pipeName={pipe.name} onMove={(l, ym) => { const d = ym ? lastDayOf(ym) : null; patchLocal(l.id, { expected_close_date: d }); start(async () => { await updateDeal(l.id, { expectedCloseDate: d }); router.refresh(); }); }} />}
+      {view === 'forecast' && <Forecast deals={live} pipeName={pipe.name} card={card} onMove={(l, ym) => { const d = ym ? lastDayOf(ym) : null; patchLocal(l.id, { expected_close_date: d }); start(async () => { await updateDeal(l.id, { expectedCloseDate: d }); router.refresh(); }); }} />}
 
       {view === 'archive' && (
         <div className="anim-fade overflow-x-auto rounded-2xl border border-stone-line bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
@@ -504,7 +511,8 @@ function QuickActivity({ deal, agents, currentUserId, onClose, onSaved }: { deal
   );
 }
 
-function Forecast({ deals, pipeName, onMove }: { deals: LeadListItem[]; pipeName: string; onMove: (l: LeadListItem, ym: string | null) => void }) {
+function Forecast({ deals, pipeName, card, onMove }: { deals: LeadListItem[]; pipeName: string; card: (l: LeadListItem) => React.ReactNode; onMove: (l: LeadListItem, ym: string | null) => void }) {
+  // Ίδια εμφάνιση με το Pipeline: στήλες-«λωρίδες» (μήνες αντί για στάδια) και οι ίδιες κάρτες.
   const [drag, setDrag] = useState<string | null>(null);
   const [over, setOver] = useState<string | null>(null);
   const [start, setStart] = useState(0);
@@ -513,39 +521,38 @@ function Forecast({ deals, pipeName, onMove }: { deals: LeadListItem[]; pipeName
   const keyOf = (l: LeadListItem) => (l.status === 'won' && l.won_at ? monthKey(new Date(l.won_at)) : l.expected_close_date ? l.expected_close_date.slice(0, 7) : null);
   const openDeals = deals.filter((l) => l.status === 'won' || !isClosed(l.status));
   const col = (key: string | null) => openDeals.filter((l) => keyOf(l) === key);
+  const lanes = [{ key: null as string | null, label: 'Χωρίς ημερομηνία' }, ...months];
+  const thisMonth = monthKey(new Date());
   return (
     <div className="space-y-2">
-      <div className="flex items-center gap-2 text-sm">
-        <button type="button" className="btn-secondary px-2 py-1" onClick={() => setStart((s) => s - 1)} aria-label="Προηγούμενος μήνας">‹</button>
-        <button type="button" className="btn-secondary px-2 py-1" onClick={() => setStart(0)}>Σήμερα</button>
-        <button type="button" className="btn-secondary px-2 py-1" onClick={() => setStart((s) => s + 1)} aria-label="Επόμενος μήνας">›</button>
-        <span className="text-charcoal-600/70" data-no-tr>{pipeName} · με βάση την αναμενόμενη ημερομηνία κλεισίματος (σύρετε για αλλαγή μήνα)</span>
+      <div className="flex flex-wrap items-center gap-2 text-sm">
+        <div className="flex rounded-lg bg-stone-100 p-0.5">
+          <button type="button" className="inline-flex h-7 items-center rounded-md px-2.5 text-[13px] text-charcoal-600 hover:text-charcoal" onClick={() => setStart((s) => s - 1)} aria-label="Προηγούμενος μήνας">‹</button>
+          <button type="button" className={`inline-flex h-7 items-center rounded-md px-2.5 text-[13px] transition-colors ${start === 0 ? 'bg-forest font-medium text-white shadow-sm' : 'text-charcoal-600 hover:text-charcoal'}`} onClick={() => setStart(0)}>Σήμερα</button>
+          <button type="button" className="inline-flex h-7 items-center rounded-md px-2.5 text-[13px] text-charcoal-600 hover:text-charcoal" onClick={() => setStart((s) => s + 1)} aria-label="Επόμενος μήνας">›</button>
+        </div>
+        <span className="text-[13px] text-charcoal-600/70"><span data-no-tr>{pipeName}</span> · <span>σύρετε ένα deal σε άλλον μήνα για να αλλάξει το αναμενόμενο κλείσιμο</span></span>
       </div>
-      <div className="-mx-1 overflow-x-auto pb-4">
-        <div className="flex min-h-[calc(100vh-360px)] min-w-max divide-x divide-stone-line overflow-hidden rounded-xl border border-stone-line bg-white/60">
-          {[{ key: null as string | null, label: 'Χωρίς ημερομηνία' }, ...months].map((m) => {
+      <div className="-mx-1 overflow-x-auto px-1 pb-6">
+        <div className="flex min-h-[calc(100vh-360px)] min-w-max gap-3">
+          {lanes.map((m, i) => {
             const items = col(m.key);
             const openSum = items.filter((l) => l.status !== 'won').reduce((s, l) => s + dealValue(l), 0);
             const wonSum = items.filter((l) => l.status === 'won').reduce((s, l) => s + dealValue(l), 0);
             const k = m.key ?? 'none';
+            const tone = m.key === null ? '191 171 136' : stageTone(i, lanes.length);
             return (
-              <div key={k} onDragOver={(e) => { if (drag) { e.preventDefault(); setOver(k); } }} onDrop={(e) => { e.preventDefault(); const l = deals.find((x) => x.id === drag); setDrag(null); setOver(null); if (l && l.status !== 'won') onMove(l, m.key); }}
-                className={`flex w-[260px] shrink-0 flex-col ${over === k ? 'bg-forest/[0.06]' : ''}`}>
-                <div className="rounded-t-xl border-b border-stone-line bg-white px-3 py-2">
-                  <p className="font-semibold text-charcoal">{m.label}</p>
-                  <p className="text-xs text-charcoal-600/70">{formatCurrency(openSum)} ανοιχτά{wonSum ? <> · <span className="text-forest">{formatCurrency(wonSum)} won</span></> : null}</p>
-                </div>
-                <div className="flex min-h-[100px] flex-col gap-2 p-2">
-                  {items.map((l) => (
-                    <div key={l.id} draggable={l.status !== 'won'} onDragStart={(e) => { e.dataTransfer.setData('text/plain', l.id); setDrag(l.id); }} onDragEnd={() => { setDrag(null); setOver(null); }}
-                      className={`rounded-lg border bg-white p-2.5 text-sm shadow-sm ${l.status === 'won' ? 'border-forest/25' : 'border-stone-line cursor-grab'}`}>
-                      <Link href={`/crm/leads/${l.id}`} className="block font-semibold text-charcoal hover:text-forest" data-no-tr>{dealTitle(l)}</Link>
-                      <p className="text-xs text-charcoal-600/70">{formatCurrency(dealValue(l))}{l.owner_name ? ` · ${l.owner_name}` : ''}</p>
-                      {l.status === 'won' && <span className="mt-1 inline-block rounded bg-forest px-1.5 text-[10px] font-semibold uppercase text-white">Won</span>}
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <BoardLane key={k} tone={tone} over={over === k} highlight={m.key === thisMonth} count={items.length} empty="Κανένα deal"
+                title={m.label}
+                meta={<><span className="font-semibold text-charcoal">{formatCurrency(openSum)}</span> <span>ανοιχτά</span>{wonSum ? <> · <span className="font-medium text-forest">{formatCurrency(wonSum)} won</span></> : null}</>}
+                onDragOver={(e) => { if (drag) { e.preventDefault(); setOver(k); } }} onDragLeave={() => setOver((o) => (o === k ? null : o))}
+                onDrop={(e) => { e.preventDefault(); const l = deals.find((x) => x.id === drag); setDrag(null); setOver(null); if (l && l.status !== 'won') onMove(l, m.key); }}>
+                {items.map((l) => (
+                  <div key={l.id} draggable={l.status !== 'won'} onDragStart={(e) => { e.dataTransfer.setData('text/plain', l.id); setDrag(l.id); }} onDragEnd={() => { setDrag(null); setOver(null); }} className={drag === l.id ? 'opacity-40' : ''}>
+                    {card(l)}
+                  </div>
+                ))}
+              </BoardLane>
             );
           })}
         </div>

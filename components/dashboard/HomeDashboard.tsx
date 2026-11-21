@@ -171,7 +171,7 @@ export function HomeDashboard({ d, name, planner }: { d: HomeData; name: string;
 
       {/* ── Σε κίνδυνο ── */}
       <section className={card}>
-        <div className={head}><h3 className={title}>Leads σε κίνδυνο</h3><Link href="/sales/leads" className="rounded-lg border border-stone-line px-3 py-1 text-[13px] font-medium text-charcoal hover:border-forest/40">Leads Inbox</Link></div>
+        <div className={head}><h3 className={title}>Leads σε κίνδυνο</h3><Link href="/sales/deals?view=list" className="rounded-lg border border-stone-line px-3 py-1 text-[13px] font-medium text-charcoal hover:border-forest/40">Διαχείριση leads</Link></div>
         <div className="max-h-[420px] overflow-auto border-t border-stone-line">
           <table className="w-full min-w-[620px] text-[14px]">
             <thead className="sticky top-0 bg-white"><tr className="text-left text-[12px] font-semibold uppercase tracking-wide text-charcoal-600"><th className="px-5 py-2">Πελάτης</th><th className="py-2">Στάδιο</th><th className="py-2">Αξία</th><th className="py-2">Κίνδυνος</th></tr></thead>
