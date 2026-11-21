@@ -1186,6 +1186,9 @@ export const EN_EL: Record<string, string> = {
 "website": "Ιστοσελίδα",
 "walk_in": "Επίσκεψη στο γραφείο",
 "John S.": "Γιάννης Σ.",
+"Slug": "Slug",
+"Leads": "Leads",
+"follow-ups": "follow-ups",
 };
 
 export const EN_RU: Record<string, string> = {
@@ -2375,4 +2378,7 @@ export const EN_RU: Record<string, string> = {
 "website": "Сайт",
 "walk_in": "Визит в офис",
 "John S.": "Джон С.",
+"Slug": "Slug",
+"Leads": "Лиды",
+"follow-ups": "follow-ups",
 };
