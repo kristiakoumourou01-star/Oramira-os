@@ -6,6 +6,7 @@ import { Upload, Download, Trash2, Search, FileText, AlertTriangle } from 'lucid
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 import { getEmployeeDocUploadUrl, recordEmployeeDoc, deleteEmployeeDoc } from '@/app/actions/hr-docs';
 import { getDocumentUrl } from '@/app/actions/storage';
+import { DATE_TAG, currentLocale } from '@/lib/locale-shared';
 
 export interface EmpDoc { id: string; profileId: string; employee: string; title: string; kind: string; expires: string | null; notes: string | null; bucket: string; path: string; createdAt: string; uploader: string | null }
 export const DOC_KINDS: [string, string][] = [['id', 'Ταυτότητα / Διαβατήριο'], ['contract', 'Σύμβαση'], ['cv', 'Βιογραφικό'], ['certificate', 'Πιστοποιητικό / Δίπλωμα'], ['medical', 'Ιατρικό'], ['payroll', 'Μισθοδοσία / Κοινωνικές ασφαλίσεις'], ['other', 'Άλλο']];
@@ -82,8 +83,8 @@ export function EmployeeDocuments({ docs, employees, canEdit }: { docs: EmpDoc[]
                   <td><span className="flex items-center gap-2 font-semibold text-charcoal" data-no-tr><FileText size={15} className="text-forest" />{d.title}</span>{d.notes && <span className="block text-[13px] text-charcoal-600" data-no-tr>{d.notes}</span>}</td>
                   <td className="text-sm" data-no-tr>{d.employee}</td>
                   <td className="text-sm">{KIND[d.kind] ?? 'Άλλο'}</td>
-                  <td className={`text-sm ${d.expires && d.expires < today ? 'font-medium text-signal-danger' : d.expires && d.expires < soon ? 'text-forest' : 'text-charcoal-600'}`}>{d.expires ? <span className="inline-flex items-center gap-1">{d.expires < soon && <AlertTriangle size={13} />}{new Date(d.expires).toLocaleDateString('el-GR')}</span> : '—'}</td>
-                  <td className="text-sm text-charcoal-600">{new Date(d.createdAt).toLocaleDateString('el-GR')}{d.uploader ? ` · ${d.uploader}` : ''}</td>
+                  <td className={`text-sm ${d.expires && d.expires < today ? 'font-medium text-signal-danger' : d.expires && d.expires < soon ? 'text-forest' : 'text-charcoal-600'}`}>{d.expires ? <span className="inline-flex items-center gap-1">{d.expires < soon && <AlertTriangle size={13} />}{new Date(d.expires).toLocaleDateString(DATE_TAG[currentLocale().lang])}</span> : '—'}</td>
+                  <td className="text-sm text-charcoal-600">{new Date(d.createdAt).toLocaleDateString(DATE_TAG[currentLocale().lang])}{d.uploader ? ` · ${d.uploader}` : ''}</td>
                   <td><span className="flex justify-end gap-1">
                     <button type="button" onClick={() => open(d)} className="flex h-8 w-8 items-center justify-center rounded-full text-charcoal-600 hover:bg-forest/10 hover:text-forest" title="Άνοιγμα" aria-label="Άνοιγμα"><Download size={15} /></button>
                     {canEdit && <button type="button" onClick={() => del(d)} className="flex h-8 w-8 items-center justify-center rounded-full text-charcoal-600 hover:bg-rose-50 hover:text-signal-danger" title="Διαγραφή" aria-label="Διαγραφή"><Trash2 size={15} /></button>}

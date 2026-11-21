@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import { ListChecks, User, Users, AlertTriangle, CheckCircle2, Plus, Search, X, Pencil, Trash2, Circle, CheckCircle, CalendarClock } from 'lucide-react';
 import { HubCards } from '@/components/ui/HubCards';
 import { createTeamTask, updateTeamTask, completeTeamTask, deleteTeamTask } from '@/app/actions/team-tasks';
+import { DATE_TAG, currentLocale } from '@/lib/locale-shared';
 
 export interface TeamTask {
   id: string; title: string; description: string | null; assignedTo: string; assignee: string; dueAt: string | null; done: boolean; priority: string;
@@ -16,7 +17,7 @@ export interface TeamTask {
 const PRI: Record<string, string> = { low: 'Χαμηλή', normal: 'Κανονική', high: 'Υψηλή', urgent: 'Επείγον' };
 const iconBtn = 'flex h-8 w-8 items-center justify-center rounded-full text-charcoal-600 transition hover:bg-forest/10 hover:text-forest';
 const lbl = 'mb-1 block text-[12px] font-semibold uppercase tracking-wide text-charcoal-600';
-const fmt = (iso: string) => new Date(iso).toLocaleString('el-GR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+const fmt = (iso: string) => new Date(iso).toLocaleString(DATE_TAG[currentLocale().lang], { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 
 /** Tasks: κάρτες (Δικά μου · Ανέθεσα · Όλη η ομάδα · Καθυστερούν · Ολοκληρωμένα) και από κάτω η λίστα. */
 export function TeamTasks({ tasks, staff, me, isLead, initialView }: { tasks: TeamTask[]; staff: { id: string; name: string }[]; me: string; isLead: boolean; initialView?: string }) {

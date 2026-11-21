@@ -17,6 +17,7 @@ import { PhoneInput } from '@/components/ui/PhoneInput';
 import { HubCards } from '@/components/ui/HubCards';
 import { PopSelect } from '@/components/ui/PopSelect';
 import { Briefing, SideStat, Pager } from '@/components/ui/SidePanel';
+import { DATE_TAG, currentLocale } from '@/lib/locale-shared';
 
 interface Staff { id: string; name: string }
 
@@ -28,7 +29,7 @@ type Col = (typeof COLS)[number][0];
 const DEFAULT_COLS: Col[] = ['first', 'last', 'email', 'mobile', 'group', 'joined'];
 const COLS_KEY = 'oramira:customer-cols-v2';
 const splitName = (n: string) => { const p = n.trim().split(/\s+/); return { first: p[0] ?? '', last: p.slice(1).join(' ') }; };
-const ddmmyyyy = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString('el-GR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—');
+const ddmmyyyy = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString(DATE_TAG[currentLocale().lang], { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—');
 const LANG_EL: Record<string, string> = Object.fromEntries(LANGUAGES.map((l) => [l.v, l.l]));
 const BUYER_TYPES: [string, string][] = [['investor', 'Επενδυτής'], ['end_user', 'Ιδιοκατοίκηση'], ['holiday', 'Εξοχικό'], ['relocation', 'Μετεγκατάσταση'], ['other', 'Άλλο']];
 const iconBtn = 'flex h-8 w-8 items-center justify-center rounded-full text-charcoal-600 transition hover:bg-forest/10 hover:text-forest';

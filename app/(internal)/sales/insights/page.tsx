@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { DATE_TAG, currentLocale } from '@/lib/locale-shared';
 import { requirePermission } from '@/lib/auth';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { getEnrichedLeads } from '@/lib/leads';
@@ -12,8 +13,7 @@ import { computeSalesKpis, formatMinutes } from '@/lib/sales-kpi';
 
 export const dynamic = 'force-dynamic';
 const PERIODS: [string, string, number][] = [['30', '30 μέρες', 30], ['90', '3 μήνες', 90], ['180', '6 μήνες', 180], ['365', '12 μήνες', 365]];
-const MON = ['Ιαν', 'Φεβ', 'Μαρ', 'Απρ', 'Μάι', 'Ιούν', 'Ιούλ', 'Αύγ', 'Σεπ', 'Οκτ', 'Νοέ', 'Δεκ'];
-const mLabel = (k: string) => `${MON[Number(k.slice(5)) - 1]} ${k.slice(2, 4)}`;
+const mLabel = (k: string) => `${new Date(Number(k.slice(0, 4)), Number(k.slice(5)) - 1, 1).toLocaleDateString(DATE_TAG[currentLocale().lang], { month: 'short' }).replace('.', '')} ${k.slice(2, 4)}`;
 
 function Card({ title, sub, children }: { title: string; sub?: string; children: React.ReactNode }) {
   return <section className="panel min-w-0 p-5"><p className="font-semibold text-charcoal">{title}</p>{sub && <p className="mb-3 text-xs text-charcoal-600/70">{sub}</p>}{!sub && <div className="mb-3" />}{children}</section>;

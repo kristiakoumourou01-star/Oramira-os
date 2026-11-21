@@ -30,6 +30,7 @@ import { ContactRelations, type RelationRow } from '@/components/crm/ContactRela
 import { ContactDocuments, type DocRow } from '@/components/crm/ContactDocuments';
 import { KycPanel } from '@/components/crm/KycPanel';
 import { TaskList } from '@/components/ui/TaskList';
+import { DATE_TAG, currentLocale } from '@/lib/locale-shared';
 
 export const dynamic = 'force-dynamic';
 
@@ -99,7 +100,7 @@ export default async function ContactDetailPage({ params, searchParams }: { para
   const paidSum = ((myPays ?? []) as any[]).reduce((n, x) => n + Number(x.amount_paid ?? 0), 0);
   const balance = Math.max(0, contractValue - paidSum);
   const STATUS_LABEL: Record<string, string> = { active: 'Ενεργός', inactive: 'Ανενεργός', do_not_contact: 'Όχι επικοινωνία', archived: 'Αρχειοθετημένος' };
-  const joined = contact.created_at ? new Date(contact.created_at).toLocaleDateString('el-GR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';
+  const joined = contact.created_at ? new Date(contact.created_at).toLocaleDateString(DATE_TAG[currentLocale().lang], { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';
   const interest = lead?.projects?.name ?? (lead ? (LEAD[lead.status] ?? lead.status) : null);
   const counts: Partial<Record<TabKey, number>> = { properties: viewCount ?? 0, documents: docCount ?? 0, people: relCount ?? 0, deals: (leads ?? []).length };
 
@@ -184,7 +185,7 @@ export default async function ContactDetailPage({ params, searchParams }: { para
       );
     }
     const dash = (v: unknown) => (v === null || v === undefined || v === '' ? '—' : String(v));
-    const dmy = (v: string | null | undefined) => (v ? new Date(v).toLocaleDateString('el-GR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—');
+    const dmy = (v: string | null | undefined) => (v ? new Date(v).toLocaleDateString(DATE_TAG[currentLocale().lang], { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—');
     const nm = String(contact!.full_name ?? '').trim().split(/\s+/);
     const InfoCard = ({ title, rows }: { title: string; rows: [string, React.ReactNode][] }) => (
       <div className="rounded-2xl border border-stone-line bg-white p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
