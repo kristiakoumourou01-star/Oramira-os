@@ -99,7 +99,7 @@ export async function convertContact(contactId: string, from: ContactRole | null
 }
 
 /** Μαζικές αλλαγές από τη λίστα (επιλεγμένες επαφές). */
-export async function bulkUpdateContacts(ids: string[], op: { addRole?: ContactRole; removeRole?: ContactRole; status?: ContactStatus; ownerId?: string | null }): Promise<Result & { updated?: number }> {
+export async function bulkUpdateContacts(ids: string[], op: { addRole?: ContactRole; removeRole?: ContactRole; status?: ContactStatus; ownerId?: string | null; addGroup?: string; removeGroup?: string }): Promise<Result & { updated?: number }> {
   await requirePermission('leads', 'edit');
   const list = (ids ?? []).filter((x) => UUID.test(x)).slice(0, 500);
   if (!list.length) return { ok: false, error: 'Δεν επιλέξατε επαφές.' };
@@ -122,8 +122,38 @@ export async function bulkUpdateContacts(ids: string[], op: { addRole?: ContactR
       await db.from('contacts').update({ extra_roles: [...cur] }).eq('id', r.id);
     }
   }
+  const grp = (op.addGroup ?? op.removeGroup ?? '').trim().slice(0, 60);
+  if (grp) {
+    if (op.addGroup) await db.from('contact_groups').upsert({ name: grp }, { onConflict: 'name', ignoreDuplicates: true });
+    const { data: rows } = await db.from('contacts').select('id, groups').in('id', list);
+    for (const r of (rows ?? []) as any[]) {
+      const cur = new Set<string>(r.groups ?? []);
+      if (op.addGroup) cur.add(grp); else cur.delete(grp);
+      await db.from('contacts').update({ groups: [...cur] }).eq('id', r.id);
+    }
+  }
   refresh();
   return { ok: true, updated: list.length };
+}
+
+/** Μαζική εισαγωγή επαφών από CSV (παραλείπει όσα email υπάρχουν ήδη). */
+export async function importContacts(rows: { name: string; email?: string; phone?: string; role?: string; source?: string; tags?: string; group?: string }[]): Promise<{ ok: true; created: number; skipped: number; errors: string[] } | { ok: false; error: string }> {
+  await requirePermission('leads', 'edit');
+  const list = (rows ?? []).slice(0, 2000);
+  if (!list.length) return { ok: false, error: 'Το αρχείο δεν έχει γραμμές.' };
+  let created = 0, skipped = 0; const errors: string[] = [];
+  const roleMap: Record<string, ContactRole> = { lead: 'lead', buyer: 'buyer', 'αγοραστής': 'buyer', investor: 'investor', 'επενδυτής': 'investor', homeowner: 'homeowner', owner: 'homeowner', 'ιδιοκτήτης': 'homeowner' } as any;
+  for (const [i, r] of list.entries()) {
+    const role = roleMap[(r.role ?? '').trim().toLowerCase()] ?? 'lead';
+    const res = await createContact({ name: r.name, email: r.email, phone: r.phone, roles: [role], source: r.source?.trim().toLowerCase(), tags: (r.tags ?? '').split(/[;|]/).map((t) => t.trim()).filter(Boolean) });
+    if (res.ok) {
+      created++;
+      if (r.group?.trim() && res.id) await (await createSupabaseServerClient() as any).from('contacts').update({ groups: [r.group.trim().slice(0, 60)] }).eq('id', res.id);
+    } else if (res.existingId) skipped++;
+    else if (errors.length < 20) errors.push(`Γραμμή ${i + 2}: ${res.error}`);
+  }
+  refresh();
+  return { ok: true, created, skipped, errors };
 }
 
 /** Νέο lead για μια υπάρχουσα επαφή (π.χ. επιστρέφων πελάτης). */
@@ -140,4 +170,108 @@ export async function createLeadForContact(contactId: string, source: string): P
   refresh(contactId);
   revalidatePath('/crm/leads');
   return { ok: true, id: data.id };
+}
+
+/** Γρήγορη επεξεργασία από τη λίστα: όνομα, email, τηλέφωνο, κατάσταση, υπεύθυνος. */
+export async function updateContactBasics(contactId: string, p: { name: string; email?: string; phone?: string; status?: ContactStatus; ownerId?: string | null }): Promise<Result> {
+  await requirePermission('leads', 'edit');
+  if (!UUID.test(contactId ?? '')) return { ok: false, error: 'Άγνωστη επαφή.' };
+  const name = (p.name ?? '').trim().slice(0, 160);
+  if (!name) return { ok: false, error: 'Το όνομα είναι υποχρεωτικό.' };
+  const email = (p.email ?? '').trim().toLowerCase().slice(0, 200);
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { ok: false, error: 'Το email δεν είναι έγκυρο.' };
+  const patch: Record<string, unknown> = { full_name: name, email: email || null, phone: (p.phone ?? '').trim().slice(0, 40) || null, updated_at: new Date().toISOString() };
+  if (p.status && (CONTACT_STATUSES as readonly string[]).includes(p.status)) patch.status = p.status;
+  if (p.ownerId !== undefined) patch.owner_id = p.ownerId && UUID.test(p.ownerId) ? p.ownerId : null;
+  const supabase = await createSupabaseServerClient();
+  const { error } = await (supabase as any).from('contacts').update(patch).eq('id', contactId);
+  if (error) return { ok: false, error: error.message };
+  await logActivity({ entityType: 'contact', entityId: contactId, action: 'updated' });
+  refresh(contactId);
+  return { ok: true };
+}
+
+/**
+ * Διαγραφή επαφής. Αν η επαφή συνδέεται με deals, κρατήσεις, συμβόλαια κ.λπ.
+ * (η βάση δεν επιτρέπει διαγραφή), αρχειοθετείται — ώστε να μη χαθεί ιστορικό.
+ */
+export async function deleteContact(contactId: string): Promise<Result & { archived?: boolean }> {
+  await requirePermission('leads', 'edit');
+  if (!UUID.test(contactId ?? '')) return { ok: false, error: 'Άγνωστη επαφή.' };
+  const supabase = await createSupabaseServerClient();
+  const { error } = await (supabase as any).from('contacts').delete().eq('id', contactId);
+  if (error) {
+    if (!/foreign key|violates|23503/i.test(error.message + (error.code ?? ''))) return { ok: false, error: error.message };
+    const { error: e2 } = await (supabase as any).from('contacts').update({ status: 'archived', updated_at: new Date().toISOString() }).eq('id', contactId);
+    if (e2) return { ok: false, error: e2.message };
+    await logActivity({ entityType: 'contact', entityId: contactId, action: 'archived' });
+    refresh(contactId);
+    return { ok: true, archived: true };
+  }
+  await logActivity({ entityType: 'contact', entityId: contactId, action: 'deleted' });
+  refresh();
+  return { ok: true };
+}
+
+/* ── Ομάδες πελατών (segments) ─────────────────────────────────────────── */
+
+const cleanTags = (t: unknown) => (Array.isArray(t) ? Array.from(new Set(t.map((x) => String(x ?? '').trim().slice(0, 40)).filter(Boolean))).slice(0, 20) : []);
+
+async function setMembership(db: any, name: string, add: string[], remove: string[]) {
+  const ids = [...add, ...remove].filter((x) => UUID.test(x)).slice(0, 2000);
+  if (!ids.length) return;
+  const { data: rows } = await db.from('contacts').select('id, groups').in('id', ids);
+  for (const r of (rows ?? []) as any[]) {
+    const cur = new Set<string>(r.groups ?? []);
+    if (add.includes(r.id)) cur.add(name); else cur.delete(name);
+    await db.from('contacts').update({ groups: [...cur] }).eq('id', r.id);
+  }
+}
+
+/** Νέα ομάδα πελατών, προαιρετικά με τα πρώτα μέλη της. */
+export async function createContactGroup(input: { name: string; description?: string; tags?: string[]; memberIds?: string[] }): Promise<Result> {
+  const me = await requirePermission('leads', 'edit');
+  const name = (input.name ?? '').trim().slice(0, 60);
+  if (!name) return { ok: false, error: 'Γράψτε όνομα ομάδας.' };
+  const db = (await createSupabaseServerClient()) as any;
+  const { data, error } = await db.from('contact_groups').insert({ name, description: (input.description ?? '').trim().slice(0, 300) || null, tags: cleanTags(input.tags), created_by: me.id }).select('id').single();
+  if (error) return { ok: false, error: /duplicate|unique/i.test(error.message) ? 'Υπάρχει ήδη ομάδα με αυτό το όνομα.' : error.message };
+  await setMembership(db, name, input.memberIds ?? [], []);
+  refresh();
+  return { ok: true, id: data.id };
+}
+
+/** Αλλαγή ονόματος / περιγραφής / tags και μελών μιας ομάδας. */
+export async function updateContactGroup(id: string, input: { name: string; description?: string; tags?: string[]; add?: string[]; remove?: string[] }): Promise<Result> {
+  await requirePermission('leads', 'edit');
+  if (!UUID.test(id)) return { ok: false, error: 'Άκυρη ομάδα.' };
+  const name = (input.name ?? '').trim().slice(0, 60);
+  if (!name) return { ok: false, error: 'Γράψτε όνομα ομάδας.' };
+  const db = (await createSupabaseServerClient()) as any;
+  const { data: old } = await db.from('contact_groups').select('name').eq('id', id).maybeSingle();
+  if (!old) return { ok: false, error: 'Η ομάδα δεν βρέθηκε.' };
+  const { error } = await db.from('contact_groups').update({ name, description: (input.description ?? '').trim().slice(0, 300) || null, tags: cleanTags(input.tags) }).eq('id', id);
+  if (error) return { ok: false, error: /duplicate|unique/i.test(error.message) ? 'Υπάρχει ήδη ομάδα με αυτό το όνομα.' : error.message };
+  if (old.name !== name) {
+    const { data: rows } = await db.from('contacts').select('id, groups').contains('groups', [old.name]);
+    for (const r of (rows ?? []) as any[]) await db.from('contacts').update({ groups: (r.groups as string[]).map((g) => (g === old.name ? name : g)) }).eq('id', r.id);
+  }
+  await setMembership(db, name, input.add ?? [], input.remove ?? []);
+  refresh();
+  return { ok: true, id };
+}
+
+/** Διαγραφή ομάδας — οι πελάτες μένουν, απλώς βγαίνουν από την ομάδα. */
+export async function deleteContactGroup(id: string): Promise<Result> {
+  await requirePermission('leads', 'edit');
+  if (!UUID.test(id)) return { ok: false, error: 'Άκυρη ομάδα.' };
+  const db = (await createSupabaseServerClient()) as any;
+  const { data: old } = await db.from('contact_groups').select('name').eq('id', id).maybeSingle();
+  if (!old) return { ok: false, error: 'Η ομάδα δεν βρέθηκε.' };
+  const { data: rows } = await db.from('contacts').select('id, groups').contains('groups', [old.name]);
+  for (const r of (rows ?? []) as any[]) await db.from('contacts').update({ groups: (r.groups as string[]).filter((g) => g !== old.name) }).eq('id', r.id);
+  const { error } = await db.from('contact_groups').delete().eq('id', id);
+  if (error) return { ok: false, error: error.message };
+  refresh();
+  return { ok: true };
 }

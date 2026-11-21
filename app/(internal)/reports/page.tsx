@@ -5,62 +5,104 @@ import { buildInvestorReport } from '@/lib/investor-report';
 import { buildStrategicPlan } from '@/lib/strategic-planning';
 import { getKnowledgeOverview } from '@/lib/knowledge-graph';
 import { searchMemory } from '@/lib/executive-memory';
-import { Tabs, type TabDef } from '@/components/ui/Tabs';
+import { buildDataReport } from '@/lib/data-reports';
 import { WorkspaceHeader } from '@/components/ui/WorkspaceHeader';
 import { ReportView } from '@/components/reports/ReportView';
 import { DownloadReportButton } from '@/components/reports/DownloadReportButton';
 import { StrategyView } from '@/components/reports/StrategyView';
 import { KnowledgePanel } from '@/components/reports/KnowledgePanel';
 import { MemoryPanel } from '@/components/reports/MemoryPanel';
+import { ReportsHub, type ReportTile } from '@/components/reports/ReportsHub';
+import { DataReportView } from '@/components/reports/DataReportView';
+import { CustomReport } from '@/components/reports/CustomReport';
+import { loadCustomReport } from '@/lib/custom-report';
 import { boardReportPdfWeekly, boardReportPdfMonthly, investorReportPdf } from '@/app/actions/reports';
 
-/** Institutional reporting — board packs, investor reports, strategy, the
- *  knowledge graph, and executive memory. Gated to financials-level access. */
+export const dynamic = 'force-dynamic';
+
+const TILES: ReportTile[] = [
+  { key: 'pipeline', title: 'Πωλήσεις', desc: 'Ανοιχτά deals και αξία σε κάθε στάδιο', icon: 'Layers' },
+  { key: 'leads_source', title: 'Leads', desc: 'Πηγές leads και μετατροπή (90 ημ.)', icon: 'Users' },
+  { key: 'reservations', title: 'Κρατήσεις', desc: 'Κρατήσεις, προκαταβολές και λήξεις', icon: 'CalendarCheck' },
+  { key: 'custom', title: 'Custom report', desc: 'Φτιάξτε το δικό σας φίλτρο πελατών', icon: 'SlidersHorizontal' },
+  { key: 'inventory', title: 'Μονάδες', desc: 'Απόθεμα με τιμή, εμβαδόν και κατάσταση', icon: 'Home' },
+  { key: 'invoices', title: 'Τιμολόγια', desc: 'ΦΠΑ, παραστατικά και σύνολα', icon: 'Receipt' },
+  { key: 'commissions', title: 'Προμήθειες', desc: 'Προμήθειες πωλητών και συνεργατών', icon: 'BadgePercent' },
+  { key: 'activities', title: 'Tasks', desc: 'Εργασίες και κλήσεις ανά χρήστη', icon: 'ListChecks' },
+  { key: 'maintenance', title: 'Συντήρηση', desc: 'Αιτήματα ιδιοκτητών ανά έργο', icon: 'Wrench' },
+  { key: 'leave', title: 'Άδειες', desc: 'Αιτήματα αδειών και εγκεκριμένες ημέρες', icon: 'Plane' },
+  { key: 'board', title: 'Board pack', desc: 'Εικόνα για τη διοίκηση — PDF εβδομάδας / μήνα', icon: 'Briefcase' },
+  { key: 'investor', title: 'Investor report', desc: 'Αναφορά για επενδυτές σε PDF', icon: 'LineChart' },
+  { key: 'strategy', title: 'Strategy', desc: 'Στρατηγικό πλάνο και προτεραιότητες', icon: 'Target' },
+  { key: 'knowledge', title: 'Knowledge graph', desc: 'Σχέσεις επαφών, έργων και deals', icon: 'Network' },
+  { key: 'memory', title: 'Executive memory', desc: 'Αποφάσεις και σημειώσεις διοίκησης', icon: 'Brain' },
+];
+
+/** Reports: κουτάκια πάνω (όπως στο FitnessCRM), η επιλεγμένη αναφορά από κάτω με export. */
 export default async function ReportsPage({ searchParams }: { searchParams: { tab?: string } }) {
   const profile = await requirePermission('financials');
-  // Downloads follow the role's "Κάνει export" right (Settings → Ρόλοι).
   const canExport = hasRight(profile, 'export_data');
   const supabase = await createSupabaseServerClient();
+  const active = TILES.some((t) => t.key === searchParams?.tab) ? searchParams.tab! : null;
+  const title = TILES.find((t) => t.key === active)?.title ?? '';
 
-  const [board, investor, plan, knowledge, { data: contacts }, memory] = await Promise.all([
-    buildBoardReport(supabase, 'monthly'),
-    buildInvestorReport(supabase),
-    buildStrategicPlan(supabase),
-    getKnowledgeOverview(supabase),
-    supabase.from('contacts').select('id, full_name').order('full_name').limit(500),
-    searchMemory(supabase, { limit: 50 }),
-  ]);
-  const contactOptions = (contacts ?? []).map((c) => ({ id: c.id, name: c.full_name ?? 'Contact' }));
+  let body: React.ReactNode = null;
+  if (active === 'board') {
+    const board = await buildBoardReport(supabase, 'monthly');
+    body = (
+      <div className="space-y-4">
+        {canExport && <div className="flex flex-wrap justify-end gap-2"><DownloadReportButton label="Weekly summary PDF" action={boardReportPdfWeekly} /><DownloadReportButton label="Monthly pack PDF" action={boardReportPdfMonthly} /></div>}
+        <ReportView report={board} />
+      </div>
+    );
+  } else if (active === 'investor') {
+    const investor = await buildInvestorReport(supabase);
+    body = (
+      <div className="space-y-4">
+        {canExport && <div className="flex justify-end"><DownloadReportButton label="Investor report PDF" action={investorReportPdf} /></div>}
+        <ReportView report={investor} />
+      </div>
+    );
+  } else if (active === 'strategy') {
+    body = <StrategyView plan={await buildStrategicPlan(supabase)} />;
+  } else if (active === 'knowledge') {
+    const [knowledge, { data: contacts }] = await Promise.all([getKnowledgeOverview(supabase), supabase.from('contacts').select('id, full_name').order('full_name').limit(500)]);
+    body = <KnowledgePanel overview={knowledge} contacts={(contacts ?? []).map((c: any) => ({ id: c.id, name: c.full_name ?? 'Contact' }))} />;
+  } else if (active === 'custom') {
+    const c = await loadCustomReport();
+    body = <CustomReport rows={c.rows} fields={c.fields} templates={c.templates} canExport={canExport} />;
+  } else if (active === 'memory') {
+    body = <MemoryPanel initial={await searchMemory(supabase, { limit: 50 })} />;
+  } else if (active) {
+    const rep = await buildDataReport(supabase, active);
+    body = rep ? <div className="space-y-4"><h2 className="font-display text-2xl text-charcoal">{title}</h2><DataReportView report={rep} title={title} canExport={canExport} pageSize={25} /></div> : null;
+  }
 
-  const tabs: TabDef[] = [
-    {
-      id: 'board', label: 'Board pack', content: (
-        <div className="space-y-4">
-          <div className="flex flex-wrap justify-end gap-2">
-            {canExport && <DownloadReportButton label="Weekly summary PDF" action={boardReportPdfWeekly} />}
-            {canExport && <DownloadReportButton label="Monthly pack PDF" action={boardReportPdfMonthly} />}
-          </div>
-          <ReportView report={board} />
-        </div>
-      ),
-    },
-    {
-      id: 'investor', label: 'Investor report', content: (
-        <div className="space-y-4">
-          {canExport && <div className="flex justify-end"><DownloadReportButton label="Investor report PDF" action={investorReportPdf} /></div>}
-          <ReportView report={investor} />
-        </div>
-      ),
-    },
-    { id: 'strategy', label: 'Strategy', content: <StrategyView plan={plan} /> },
-    { id: 'knowledge', label: 'Knowledge graph', content: <KnowledgePanel overview={knowledge} contacts={contactOptions} /> },
-    { id: 'memory', label: 'Executive memory', content: <MemoryPanel initial={memory} /> },
-  ];
+  const { data: campRows } = await (supabase as any).from('marketing_campaigns').select('channel, sent, failed, skipped, opened, status');
+  const cr = (campRows ?? []) as any[];
+  const sum = (k: string, ch?: string) => cr.filter((c) => !ch || c.channel === ch).reduce((n, c) => n + Number(c[k] ?? 0), 0);
+  const { count: optedOut } = await (supabase as any).from('contacts').select('id', { count: 'exact', head: true }).eq('marketing_opt_in', false).not('marketing_opt_in_at', 'is', null);
+  const delivery = (
+    <div className="space-y-4">
+      <p className="text-[12px] font-semibold uppercase tracking-[0.1em] text-charcoal-600">Αποστολές campaigns</p>
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {[['Στάλθηκαν', sum('sent') + sum('failed'), 'Σύνολο μηνυμάτων που φύγανε'], ['Παραδόθηκαν', sum('sent'), 'Έφτασαν επιτυχώς'], ['Απέτυχαν', sum('failed'), 'Λάθος διεύθυνση ή πάροχος'], ['Χωρίς συγκατάθεση', optedOut ?? 0, 'Έχουν αποσύρει τη συγκατάθεση']].map(([k, v, n]) => (
+          <div key={String(k)} className="rounded-[14px] border border-stone-line bg-white p-4 shadow-sm"><p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-charcoal-600">{k}</p><p className="mt-1 text-3xl font-semibold tabular-nums text-charcoal">{v}</p><p className="text-[12px] text-charcoal-600">{n}</p></div>
+        ))}
+      </div>
+      <p className="pt-2 text-[12px] font-semibold uppercase tracking-[0.1em] text-charcoal-600">Ανά κανάλι</p>
+      <div className="grid gap-4 sm:grid-cols-3">
+        {[['Email', 'email'], ['WhatsApp', 'whatsapp'], ['Push', 'push']].map(([k, ch]) => (
+          <div key={ch} className="rounded-[14px] border border-stone-line bg-white p-4 shadow-sm"><p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-charcoal-600">{k}</p><p className="mt-1 text-3xl font-semibold tabular-nums text-charcoal">{sum('sent', ch) + sum('failed', ch)}</p><p className="text-[12px] text-charcoal-600">{sum('sent', ch)} παραδόθηκαν</p></div>
+        ))}
+      </div>
+    </div>
+  );
 
   return (
     <div className="space-y-5">
-      <WorkspaceHeader eyebrow="Management" title="Reports & Intelligence" description="Board and investor reporting, strategic planning, the company knowledge graph, and institutional memory." />
-      <Tabs tabs={tabs} initial={searchParams?.tab} />
+      <WorkspaceHeader eyebrow="Marketing" title="Αναφορές" description="Πωλήσεις, leads, κρατήσεις, μονάδες, τιμολόγια, προμήθειες και custom αναφορές — με export." />
+      <ReportsHub tiles={TILES} active={active} footer={delivery}>{body}</ReportsHub>
     </div>
   );
 }

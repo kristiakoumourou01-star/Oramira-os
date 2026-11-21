@@ -17,6 +17,7 @@ import { TopMenu } from '@/components/layout/TopMenu';
 import { BrandMark } from '@/components/layout/BrandMark';
 import { navLabel, t } from '@/lib/i18n';
 import { cookies } from 'next/headers';
+import { MobileNav } from '@/components/layout/MobileNav';
 import { SidebarToggle } from '@/components/layout/SidebarToggle';
 import { PerfReporter } from '@/components/layout/PerfReporter';
 import { Suspense } from 'react';
@@ -65,14 +66,14 @@ export default async function InternalLayout({ children }: { children: React.Rea
     icon: navIcon(it.icon),
     children: it.children.length > 1 ? it.children.map((c) => ({ href: c.href, label: navLabel(c.href, c.label), ...(c.href === '/sales/activities' && activitiesDue ? { badge: activitiesDue } : {}) })) : undefined,
   });
-  const sections = [
-    { items: resolved.filter((it) => it.section === 0).map(toItem) },
-    { label: 'Admin', items: resolved.filter((it) => it.section !== 0).map(toItem) },
-  ].filter((sct) => sct.items.length > 0);
+  // Ενότητες με τίτλο (όπως στο FitnessCRM): Λειτουργία, Πωλήσεις, Έργα … Admin. Ο τίτλος δεν πατιέται.
+  const sections = DEFAULT_NAV.map((sec, i) => ({ label: sec.label, items: resolved.filter((it) => it.section === i).map(toItem) }))
+    .filter((sct) => sct.items.length > 0);
 
   const signOut = (
     <form action={logout}>
-      <button type="submit" title={t('signOut')} className={`flex w-full items-center rounded py-2 text-sm text-stone-100/65 hover:bg-white/5 hover:text-stone-100 ${compact && menu.position !== 'top' ? 'justify-center px-0' : 'gap-3 px-3'}`}>
+      {!(compact && menu.position !== 'top') && <p className="mb-1 flex items-center gap-2 px-3 text-[13px] text-[color:var(--sb-text)]"><span className="h-2 w-2 rounded-full bg-forest" /> Συνδεδεμένος</p>}
+      <button type="submit" title={t('signOut')} className={`flex w-full items-center rounded py-2 text-sm text-[color:var(--sb-text)] hover:bg-[color:var(--sb-hover-bg)] hover:text-[color:var(--sb-text-hover)] ${compact && menu.position !== 'top' ? 'justify-center px-0' : 'gap-3 px-3'}`}>
         <LogOut size={16} strokeWidth={1.75} />
         {(!compact || menu.position === 'top') && t('signOut')}
       </button>
@@ -81,7 +82,7 @@ export default async function InternalLayout({ children }: { children: React.Rea
 
   const signOutFull = (
     <form action={logout}>
-      <button type="submit" title={t('signOut')} className="flex w-full items-center gap-3 rounded px-3 py-2 text-sm text-stone-100/65 hover:bg-white/5 hover:text-stone-100">
+      <button type="submit" title={t('signOut')} className="flex w-full items-center gap-3 rounded px-3 py-2 text-sm text-[color:var(--sb-text)] hover:bg-[color:var(--sb-hover-bg)] hover:text-[color:var(--sb-text-hover)]">
         <LogOut size={16} strokeWidth={1.75} />
         {t('signOut')}
       </button>
@@ -92,8 +93,8 @@ export default async function InternalLayout({ children }: { children: React.Rea
     <div className="min-w-0 flex-1">
       {profile.impersonator && <ImpersonationBanner name={profile.fullName} role={profile.role} />}
       <Suspense fallback={null}><PerfReporter /></Suspense>
-      <TopBar profile={profile} showSearch start={menu.position === 'top' ? undefined : <SidebarToggle mode={sidebarMode} />} />
-      <main className={`mx-auto px-6 py-5 ${CONTENT_WIDTH_CLASS[contentWidth]}`}>{children}</main>
+      <TopBar profile={profile} showSearch start={menu.position === 'top' ? undefined : <><MobileNav><Sidebar sections={sections} compact={false} accordion={layoutPrefs.sidebarAccordion !== false} footer={signOutFull} /></MobileNav><span className="hidden md:block"><SidebarToggle mode={sidebarMode} /></span></>} />
+      <main className={`mx-auto px-3 py-4 sm:px-6 sm:py-5 ${CONTENT_WIDTH_CLASS[contentWidth]}`}>{children}</main>
     </div>
   );
 
@@ -118,13 +119,13 @@ export default async function InternalLayout({ children }: { children: React.Rea
     <div className={`flex ${menu.position === 'right' ? 'flex-row-reverse' : ''}`}>
       {sidebarMode === 'auto' ? (
         // Αυτόματη απόκρυψη: στενό μενού με εικονίδια, ανοίγει ολόκληρο με το ποντίκι από πάνω.
-        <div className="group/sb sticky top-0 z-30 h-screen w-[72px] shrink-0 self-start">
+        <div className="group/sb sticky top-0 z-30 hidden h-screen w-[72px] shrink-0 self-start md:block">
           <div className="group-hover/sb:invisible"><Sidebar sections={sections} compact accordion={layoutPrefs.sidebarAccordion !== false} footer={signOut} /></div>
           <div className={`invisible absolute top-0 shadow-overlay group-hover/sb:visible ${menu.position === 'right' ? 'right-0' : 'left-0'}`}>
             <Sidebar sections={sections} compact={false} accordion={layoutPrefs.sidebarAccordion !== false} footer={signOutFull} />
           </div>
         </div>
-      ) : sidebarMode !== 'hidden' && <Sidebar sections={sections} compact={compact} accordion={layoutPrefs.sidebarAccordion !== false} footer={signOut} />}
+      ) : sidebarMode !== 'hidden' && <Sidebar className="hidden md:flex" sections={sections} compact={compact} accordion={layoutPrefs.sidebarAccordion !== false} footer={signOut} />}
       {content}
       <CommandPalette />
     </div>

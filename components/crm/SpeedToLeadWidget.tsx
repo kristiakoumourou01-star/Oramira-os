@@ -42,7 +42,7 @@ export function SpeedToLeadWidget({ leads }: { leads: PendingLead[] }) {
       {leads.length === 0 ? (
         <p className="flex items-center gap-2 text-sm text-signal-success"><Clock size={14} strokeWidth={1.75} /> Every new lead has had a first response. 🎉</p>
       ) : (
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           {buckets.map(({ tier, items }) => (
             <div key={tier.key} className={`rounded-md border p-3 ${tier.ring}`}>
               <div className="mb-2 flex items-center gap-1.5">

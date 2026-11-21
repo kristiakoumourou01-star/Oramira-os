@@ -69,7 +69,7 @@ export function ContractsAdmin({ employees, contracts }: { employees: Employee[]
             <Paperclip size={15} strokeWidth={1.75} /> {file ? file.name : 'Attach file (PDF)'}
             <input type="file" accept="application/pdf,image/*" className="hidden" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
           </label>
-          <button type="submit" disabled={isPending || busy} className="btn-primary w-full">{busy ? 'Uploading…' : 'Add document'}</button>
+          <button type="submit" disabled={isPending || busy} className="btn-primary w-full">{busy ? 'Ανέβασμα…' : 'Προσθήκη εγγράφου'}</button>
         </form>
       </div>
 
@@ -89,7 +89,7 @@ export function ContractsAdmin({ employees, contracts }: { employees: Employee[]
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className={c.status === 'active' ? 'badge-forest' : 'badge-neutral'}>{c.status}</span>
+                  <span className={c.status === 'active' ? 'badge-forest' : 'badge-neutral'}>{({ active: 'Ενεργή', inactive: 'Ανενεργή', paid: 'Πληρώθηκε', pending: 'Εκκρεμεί' } as Record<string, string>)[c.status] ?? c.status}</span>
                   <button onClick={() => startTransition(async () => { await setContractStatus(c.id, c.status === 'active' ? 'inactive' : 'active'); router.refresh(); })} disabled={isPending} className="btn-ghost text-xs">
                     {c.status === 'active' ? 'Deactivate' : 'Activate'}
                   </button>

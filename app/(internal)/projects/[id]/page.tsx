@@ -26,13 +26,13 @@ import { getOrgSettings } from '@/lib/org-settings';
 import { effectiveCan } from '@/lib/permissions';
 import { UnitInventoryTable } from '@/components/units/UnitInventoryTable';
 
-export default async function ProjectDetailPage({ params }: { params: { id: string } }) {
+export default async function ProjectDetailPage({ params, searchParams }: { params: { id: string }; searchParams?: { edit?: string } }) {
   const profile = await requirePermission('projects');
   const supabase = await createSupabaseServerClient();
 
   const { data: project } = await supabase
     .from('projects')
-    .select('id, name, location, description, status, delivery_date, common_areas, maintenance_schedule, management_contact, emergency_contact, latitude, longitude')
+    .select('id, name, location, description, status, delivery_date, development_type, common_areas, maintenance_schedule, management_contact, emergency_contact, latitude, longitude')
     .eq('id', params.id)
     .single();
   if (!project) notFound();
@@ -131,6 +131,9 @@ export default async function ProjectDetailPage({ params }: { params: { id: stri
               name={project.name}
               location={project.location}
               description={project.description}
+              developmentType={(project as any).development_type ?? null}
+              deliveryDate={project.delivery_date ?? null}
+              autoOpen={searchParams?.edit === '1'}
             />
           </div>
           {project.location && (
@@ -156,8 +159,8 @@ export default async function ProjectDetailPage({ params }: { params: { id: stri
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-6">
-        <div className="col-span-2 space-y-6">
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="space-y-6 lg:col-span-2">
           <div className="flex items-center justify-between">
             <h4>Houses <span className="text-charcoal-600/50">· {inventoryUnits.length}</span></h4>
             <div className="flex items-center gap-2">

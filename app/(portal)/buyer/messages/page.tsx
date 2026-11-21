@@ -50,8 +50,8 @@ export default async function BuyerMessagesPage() {
         <h1 className="font-display text-3xl">Communication Center</h1>
       </div>
 
-      <div className="grid grid-cols-3 gap-6">
-        <div className="panel col-span-2 p-6">
+      <div className="grid gap-6 md:grid-cols-3">
+        <div className="panel md:col-span-2 p-6">
           <h4 className="mb-4">Messages with your Oramira team</h4>
           <BuyerMessageThread unitId={unit.id} currentUserId={profile.id} initialMessages={threadMessages} />
         </div>

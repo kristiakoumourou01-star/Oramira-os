@@ -2,8 +2,13 @@
 
 import { useEffect, useState, useTransition } from 'react';
 import Link from 'next/link';
+import { BoardLane, laneTone, laneRow } from '@/components/ui/BoardLane';
+import { ColorPick } from '@/components/sales/StageEditor';
 import { useRouter } from 'next/navigation';
-import { Building2, MapPin, LayoutGrid, Columns3, X, ArrowUpRight, Tags, Map as MapIcon, Pencil, Plus, Trash2, GripVertical } from 'lucide-react';
+import { Building2, MapPin, LayoutGrid, Columns3, X, ArrowUpRight, Tags, Map as MapIcon, Pencil, Plus, Trash2, GripVertical, List, Search, Home, TrendingUp, CalendarClock } from 'lucide-react';
+import { HubCards } from '@/components/ui/HubCards';
+import { PopSelect } from '@/components/ui/PopSelect';
+import { Briefing, SideStat, Pager } from '@/components/ui/SidePanel';
 import { saveOrgSlice } from '@/app/actions/org-settings';
 import { useDragSort, moveItem } from '@/components/ui/useDragSort';
 import { updateProjectStatus } from '@/app/actions/projects';
@@ -35,9 +40,9 @@ export function ProjectsBoard({ projects: initial, canEdit, stages, rawStages, c
   const router = useRouter();
   const [projects, setProjects] = useState(initial);
   useEffect(() => setProjects(initial), [initial]);
-  const [view, setView] = useState<'grid' | 'board'>('grid');
-  useEffect(() => { try { const v = localStorage.getItem('projects:view'); if (v === 'board' || v === 'grid') setView(v); } catch { /* */ } }, []);
-  const pick = (v: 'grid' | 'board') => { setView(v); try { localStorage.setItem('projects:view', v); } catch { /* */ } };
+  const [view, setView] = useState<'list' | 'grid' | 'board'>('list');
+  useEffect(() => { try { const v = localStorage.getItem('projects:view'); if (v === 'board' || v === 'grid' || v === 'list') setView(v); } catch { /* */ } }, []);
+  const pick = (v: 'list' | 'grid' | 'board') => { setView(v); try { localStorage.setItem('projects:view', v); } catch { /* */ } };
   const [openId, setOpenId] = useState<string | null>(null);
   const [drag, setDrag] = useState<string | null>(null);
   const [over, setOver] = useState<string | null>(null);
@@ -49,58 +54,141 @@ export function ProjectsBoard({ projects: initial, canEdit, stages, rawStages, c
     start(async () => { await updateProjectStatus(id, status); router.refresh(); });
   };
 
+  const [q, setQ] = useState('');
+  const [stF, setStF] = useState('');
+  const [per, setPer] = useState(25);
+  const [pageNo, setPageNo] = useState(0);
+  const list = projects.filter((p) => (!stF || colOf(p.status) === stF) && (!q.trim() || [p.name, p.location].some((x) => (x ?? '').toLowerCase().includes(q.trim().toLowerCase()))));
+  const pages = Math.max(1, Math.ceil(list.length / per));
+  const pg = Math.min(pageNo, pages - 1);
+  const page = list.slice(pg * per, pg * per + per);
+  const totals = projects.reduce((t, p) => ({ units: t.units + p.total, avail: t.avail + p.available, reserved: t.reserved + (p.by.reserved ?? 0), sold: t.sold + (p.by.sold ?? 0) + (p.by.handed_over ?? 0) }), { units: 0, avail: 0, reserved: 0, sold: 0 });
+  const soldPct = totals.units ? Math.round((totals.sold / totals.units) * 100) : 0;
+  const delivering = projects.filter((p) => p.delivery_date && p.delivery_date >= new Date().toISOString().slice(0, 10)).sort((x, y) => x.delivery_date!.localeCompare(y.delivery_date!));
+  const fmtDate = (d: string | null) => (d ? new Date(d).toLocaleDateString(DATE_TAG[currentLocale().lang], { month: 'short', year: 'numeric' }) : '—');
+  const iconBtn = 'flex h-8 w-8 items-center justify-center rounded-full text-charcoal-600 transition hover:bg-stone-100 hover:text-charcoal';
+
   const card = (p: ProjectCard, compact = false) => (
     <div key={p.id} role="button" tabIndex={0} onClick={() => setOpenId(p.id)} onKeyDown={(e) => { if (e.key === 'Enter') setOpenId(p.id); }}
       draggable={compact && canEdit} onDragStart={(e) => { setDrag(p.id); e.dataTransfer.effectAllowed = 'move'; }} onDragEnd={() => { setDrag(null); setOver(null); }}
-      className={compact ? `cursor-pointer border-b border-stone-line px-3 py-2.5 transition last:border-b-0 hover:bg-forest/[0.04] ${drag === p.id ? 'opacity-40' : ''}` : 'panel cursor-pointer p-6 transition-shadow hover:shadow-overlay'}>
-      {!compact && <div className="mb-3 flex items-start justify-between"><Building2 size={20} className="text-olive" strokeWidth={1.5} /><span className="badge-neutral">{statusLabel(p.status)}</span></div>}
-      <p className={compact ? 'font-semibold text-charcoal' : 'font-display text-xl text-charcoal'} data-no-tr>{p.name}</p>
-      {p.location && <p className="mt-0.5 flex items-center gap-1 text-sm text-charcoal-600/70" data-no-tr><MapPin size={12} strokeWidth={1.75} /> {p.location}</p>}
-      <div className={`${compact ? 'mt-1.5' : 'mt-4 border-t border-stone-line pt-3'} flex items-center justify-between text-sm`}>
-        <span className="text-charcoal-600/70">Μονάδες</span>
-        <span className="figure text-charcoal">{p.available}<span className="text-charcoal-600/50"> / {p.total} διαθέσιμες</span></span>
+      className={compact ? `${laneRow} cursor-pointer ${drag === p.id ? 'opacity-40' : ''}` : 'cursor-pointer rounded-[14px] border border-stone-line bg-white p-4 shadow-sm transition-colors duration-150 hover:border-forest/40'}>
+      {!compact && <div className="mb-3 flex items-start justify-between"><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-forest/[0.09] text-forest"><Building2 size={18} /></span><span className="rounded-full border border-stone-line px-2.5 py-0.5 text-[12px] font-medium text-charcoal-600">{statusLabel(p.status)}</span></div>}
+      <p className={compact ? 'font-semibold text-charcoal' : 'text-[17px] font-semibold text-charcoal'} data-no-tr>{p.name}</p>
+      {p.location && <p className="mt-0.5 flex items-center gap-1 text-[13px] text-charcoal-600" data-no-tr><MapPin size={12} strokeWidth={1.75} /> {p.location}</p>}
+      <div className={`${compact ? 'mt-1.5' : 'mt-3 border-t border-stone-line pt-3'} flex items-center justify-between text-[13px]`}>
+        <span className="text-charcoal-600">Μονάδες</span>
+        <span className="font-medium tabular-nums text-charcoal">{p.available}<span className="font-normal text-charcoal-600"> / {p.total} διαθέσιμες</span></span>
       </div>
       <UnitsBar p={p} />
     </div>
   );
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center">
-      <div className="flex gap-1 self-start rounded-lg bg-stone p-1 text-sm" role="tablist">
-        <button type="button" onClick={() => pick('grid')} aria-pressed={view === 'grid'} title="Κάρτες" className={`flex items-center gap-1.5 rounded-md px-3 py-1 ${view === 'grid' ? 'bg-white font-medium text-charcoal shadow-sm' : 'text-charcoal-600'}`}><LayoutGrid size={14} /> Κάρτες</button>
-        <button type="button" onClick={() => pick('board')} aria-pressed={view === 'board'} title="Στήλες" className={`flex items-center gap-1.5 rounded-md px-3 py-1 ${view === 'board' ? 'bg-white font-medium text-charcoal shadow-sm' : 'text-charcoal-600'}`}><Columns3 size={14} /> Στήλες</button>
-      </div>
-      {canEditStages && view === 'board' && <button type="button" onClick={() => setEditCols(true)} className="btn-ghost ml-2 text-sm"><Pencil size={14} /> Επεξεργασία στηλών</button>}
-      {editCols && <StagesEditor raw={rawStages} projects={projects} onClose={() => setEditCols(false)} />}
-      </div>
+    <div className="space-y-5">
+      <HubCards active={stF ? undefined : 'all'} onSelect={(k) => { if (k === 'all') { setStF(''); setPageNo(0); } }} cards={[
+        { key: 'all', icon: Building2, title: 'Έργα', value: projects.length, sub: `${delivering.length} με προγραμματισμένη παράδοση` },
+        { key: 'units', icon: Home, title: 'Μονάδες', value: totals.units, sub: `${totals.avail} διαθέσιμες` },
+        { key: 'reserved', icon: Tags, title: 'Κρατημένες', value: totals.reserved, sub: 'Με κράτηση, πριν την πώληση' },
+        { key: 'sold', icon: TrendingUp, title: 'Πωλημένες', value: totals.sold, sub: `${soldPct}% του συνόλου` },
+      ]} />
 
-      {view === 'grid' ? (
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">{projects.map((p) => card(p))}</div>
+      <div className="grid items-start gap-5 2xl:grid-cols-[minmax(0,1fr)_300px]">
+      <div className="flex min-w-0 flex-col rounded-2xl border border-stone-line bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+        <div className="space-y-3 p-4 sm:p-5">
+          <div className="flex flex-wrap items-center gap-2 text-[14px] text-charcoal-600">
+            {view === 'list' && <><span>Εμφάνιση</span>
+              <PopSelect ariaLabel="Εγγραφές ανά σελίδα" width="w-[72px]" value={String(per)} onChange={(v) => { setPer(Number(v)); setPageNo(0); }} options={[['10', '10'], ['25', '25'], ['50', '50'], ['100', '100']]} />
+              <span>εγγραφές</span></>}
+            <span className="ml-auto flex items-center gap-2">
+              {canEditStages && view === 'board' && <button type="button" onClick={() => setEditCols(true)} className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-stone-100 px-2.5 text-[13px] font-medium text-charcoal hover:bg-stone-200"><Pencil size={13} /> Στήλες</button>}
+              <span className="flex rounded-lg bg-stone-100 p-0.5">
+                {([['list', List, 'Λίστα'], ['grid', LayoutGrid, 'Κάρτες'], ['board', Columns3, 'Στήλες']] as const).map(([v, I, l]) => (
+                  <button key={v} type="button" onClick={() => pick(v)} aria-pressed={view === v} className={`inline-flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[13px] transition-colors ${view === v ? 'bg-forest font-medium text-white shadow-sm' : 'text-charcoal-600 hover:text-charcoal'}`}><I size={14} /><span className="hidden sm:inline">{l}</span></button>
+                ))}
+              </span>
+            </span>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <PopSelect width="min-w-[160px]" ariaLabel="Κατάσταση" value={stF} onChange={(v) => { setStF(v); setPageNo(0); }} options={[['', 'Όλες οι καταστάσεις'], ...STATUSES]} />
+            <label className="relative w-full sm:ml-auto sm:w-[220px]">
+              <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-charcoal-600/60" />
+              <input value={q} onChange={(e) => { setQ(e.target.value); setPageNo(0); }} placeholder="Έργο ή τοποθεσία…" className="input h-8 py-1 pl-8 text-[13px]" />
+            </label>
+          </div>
+        </div>
+
+      {editCols && <StagesEditor raw={rawStages} projects={projects} onClose={() => setEditCols(false)} />}
+
+      {view === 'list' ? (
+        <>
+          <div className="overflow-x-auto border-t border-stone-line">
+            <table className="o-table">
+              <thead><tr><th>Έργο</th><th>Τοποθεσία</th><th>Κατάσταση</th><th>Παράδοση</th><th>Μονάδες</th><th>Διαθέσιμες</th><th>Κρατημένες</th><th>Πωλημένες</th><th>Πληρότητα</th><th className="text-right">Ενέργειες</th></tr></thead>
+              <tbody>
+                {page.map((p) => {
+                  const sold = (p.by.sold ?? 0) + (p.by.handed_over ?? 0);
+                  return (
+                    <tr key={p.id} onClick={() => setOpenId(p.id)} className="cursor-pointer">
+                      <td className="o-strong" data-no-tr><span className="block max-w-[200px] truncate" title={p.name}>{p.name}</span></td>
+                      <td data-no-tr><span className="block max-w-[160px] truncate">{p.location || '—'}</span></td>
+                      <td>{statusLabel(p.status)}</td>
+                      <td>{fmtDate(p.delivery_date)}</td>
+                      <td className="tabular-nums">{p.total}</td>
+                      <td className="tabular-nums">{p.available}</td>
+                      <td className="tabular-nums">{p.by.reserved ?? 0}</td>
+                      <td className="tabular-nums">{sold}</td>
+                      <td><span className="flex items-center gap-2"><span className="block w-20"><UnitsBar p={p} /></span><span className="tabular-nums">{p.total ? Math.round((sold / p.total) * 100) : 0}%</span></span></td>
+                      <td onClick={(e) => e.stopPropagation()}>
+                        <span className="flex justify-end gap-0.5">
+                          <Link href={`/projects/${p.id}`} title="Πλήρες προφίλ" aria-label="Πλήρες προφίλ" className={iconBtn}><ArrowUpRight size={15} /></Link>
+                          {canEdit && <Link href={`/projects/${p.id}?edit=1`} title="Επεξεργασία" aria-label="Επεξεργασία" className={iconBtn}><Pencil size={15} /></Link>}
+                          <Link href={`/projects/${p.id}/prices`} title="Τιμοκατάλογος" aria-label="Τιμοκατάλογος" className={iconBtn}><Tags size={15} /></Link>
+                          <Link href={`/projects/${p.id}/map`} title="Διαδραστικός χάρτης" aria-label="Διαδραστικός χάρτης" className={iconBtn}><MapIcon size={15} /></Link>
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {list.length === 0 && <tr><td colSpan={10} className="py-10 text-center text-sm text-charcoal-600">Κανένα έργο με αυτά τα φίλτρα.</td></tr>}
+              </tbody>
+            </table>
+          </div>
+          <Pager from={list.length ? pg * per + 1 : 0} to={Math.min(list.length, pg * per + per)} total={list.length} page={pg} pages={pages} onPage={setPageNo} />
+        </>
+      ) : view === 'grid' ? (
+        <div className="anim-fade grid grid-cols-1 gap-4 border-t border-stone-line p-4 sm:grid-cols-2 sm:p-5 xl:grid-cols-3">{list.map((p) => card(p))}{list.length === 0 && <p className="text-sm text-charcoal-600">Κανένα έργο με αυτά τα φίλτρα.</p>}</div>
       ) : (
-        <div {...scroller} className="-mx-1 overflow-x-auto pb-6">
-          <div className="flex min-h-[calc(100vh-300px)] min-w-max divide-x divide-stone-line overflow-hidden rounded-xl border border-stone-line bg-white/60">
-            {STATUSES.map(([k, label]) => {
-              const col = projects.filter((p) => colOf(p.status) === k);
+        <div {...scroller} className="anim-fade overflow-x-auto border-t border-stone-line p-3 pb-4">
+          <div className="flex min-h-[calc(100vh-360px)] min-w-max gap-3">
+            {STATUSES.filter(([k]) => !stF || k === stF).map(([k, label], i) => {
+              const col = list.filter((p) => colOf(p.status) === k);
+              const color = (stages as { key: string; color?: string }[]).find((x) => x.key === k)?.color;
               return (
-                <div key={k} className={`stage-col flex w-[272px] shrink-0 flex-col transition ${over === k ? 'bg-forest/[0.06]' : ''}`}
+                <BoardLane key={k} tone={laneTone(color, i, STATUSES.length)} over={over === k} title={label} count={col.length}
+                  meta={<><span className="font-semibold text-charcoal">{col.reduce((t, p) => t + p.total, 0)}</span> μονάδες · {col.reduce((t, p) => t + p.available, 0)} διαθέσιμες</>}
+                  empty="Κανένα έργο"
                   onDragOver={(e) => { if (drag) { e.preventDefault(); setOver(k); } }} onDrop={(e) => { e.preventDefault(); if (drag) move(drag, k); setDrag(null); setOver(null); }}>
-                  <div className="stage-head border-b border-stone-line bg-white px-3 py-2">
-                    <p className="font-semibold text-charcoal">{label}</p>
-                    <p className="text-xs text-charcoal-600/70">{col.length} έργα · {col.reduce((s, p) => s + p.total, 0)} μονάδες</p>
-                  </div>
-                  <div className="flex flex-col">{col.map((p) => card(p, true))}</div>
-                </div>
+                  {col.map((p) => card(p, true))}
+                </BoardLane>
               );
             })}
           </div>
           {canEdit && <p className="mt-2 text-xs text-charcoal-600/60">Σύρετε ένα έργο σε άλλη στήλη για να αλλάξει κατάσταση.</p>}
         </div>
       )}
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-1">
+        <Briefing tag="Έργα" title="Το απόθεμά σας με μια ματιά." text="Πόσες μονάδες είναι διαθέσιμες, κρατημένες και πωλημένες σε όλα τα έργα, και ποιες παραδόσεις έρχονται."
+          metrics={[['Μονάδες', totals.units, 'σύνολο'], ['Διαθέσιμες', totals.avail, 'τώρα'], ['Πωλημένες', `${soldPct}%`, 'του συνόλου']]} />
+        <SideStat icon={CalendarClock} label="Επόμενη παράδοση" value={delivering[0] ? fmtDate(delivering[0].delivery_date) : '—'} note={delivering[0] ? `${delivering[0].name}${delivering.length > 1 ? ` · και ${delivering.length - 1} ακόμη` : ''}` : 'Δεν έχει οριστεί ημερομηνία παράδοσης.'} />
+        <SideStat icon={Home} label="Διαθέσιμες μονάδες" value={totals.avail} note={projects.filter((p) => p.available > 0).slice(0, 3).map((p) => `${p.name}: ${p.available}`).join(' · ') || 'Καμία διαθέσιμη μονάδα.'} />
+      </div>
+      </div>
 
       {open && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-charcoal/30" onClick={() => setOpenId(null)}>
-          <aside className="flex h-full w-full max-w-xl flex-col overflow-y-auto bg-white shadow-overlay" onClick={(e) => e.stopPropagation()}>
+        <div className="anim-fade fixed inset-0 z-50 flex justify-end bg-black/30" onClick={() => setOpenId(null)}>
+          <aside className="anim-pop flex h-full w-full max-w-xl flex-col overflow-y-auto bg-white shadow-overlay" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-start justify-between gap-3 border-b border-stone-line px-6 py-4">
               <div className="min-w-0">
                 <p className="eyebrow">Έργο</p>
@@ -111,13 +199,14 @@ export function ProjectsBoard({ projects: initial, canEdit, stages, rawStages, c
             </div>
             <div className="space-y-5 px-6 py-5">
               <div className="flex flex-wrap gap-2">
-                <Link href={`/projects/${open.id}`} className="btn-primary text-sm"><ArrowUpRight size={14} /> Πλήρες προφίλ</Link>
-                <Link href={`/projects/${open.id}/prices`} className="btn-secondary text-sm"><Tags size={14} /> Τιμοκατάλογος</Link>
-                <Link href={`/projects/${open.id}/map`} className="btn-secondary text-sm"><MapIcon size={14} /> Διαδραστικός χάρτης</Link>
+                <Link href={`/projects/${open.id}`} className="inline-flex h-8 items-center gap-1.5 rounded-[10px] bg-forest px-3 text-[13px] font-medium text-white hover:bg-forest/90"><ArrowUpRight size={14} /> Πλήρες προφίλ</Link>
+                {canEdit && <Link href={`/projects/${open.id}?edit=1`} className="inline-flex h-8 items-center gap-1.5 rounded-[10px] border border-stone-line px-3 text-[13px] text-charcoal hover:border-forest/30"><Pencil size={14} /> Επεξεργασία</Link>}
+                <Link href={`/projects/${open.id}/prices`} className="inline-flex h-8 items-center gap-1.5 rounded-[10px] border border-stone-line px-3 text-[13px] text-charcoal hover:border-forest/30"><Tags size={14} /> Τιμοκατάλογος</Link>
+                <Link href={`/projects/${open.id}/map`} className="inline-flex h-8 items-center gap-1.5 rounded-[10px] border border-stone-line px-3 text-[13px] text-charcoal hover:border-forest/30"><MapIcon size={14} /> Διαδραστικός χάρτης</Link>
               </div>
-              <label className="block"><span className="text-xs text-charcoal-600/70">Κατάσταση</span>
-                <select className="input" value={open.status ?? 'planning'} disabled={!canEdit} onChange={(e) => move(open.id, e.target.value)}>{STATUSES.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
-              </label>
+              <div><span className="mb-1 block text-[12px] font-semibold uppercase tracking-wide text-charcoal-600">Κατάσταση</span>
+                <PopSelect width="w-full" ariaLabel="Κατάσταση" value={colOf(open.status) ?? ''} onChange={(v) => { if (canEdit) move(open.id, v); }} options={STATUSES} />
+              </div>
               <div className="grid grid-cols-3 gap-3 text-center">
                 <div className="rounded-lg border border-stone-line p-3"><p className="figure text-2xl text-charcoal">{open.total}</p><p className="text-xs text-charcoal-600/70">Μονάδες</p></div>
                 <div className="rounded-lg border border-stone-line p-3"><p className="figure text-2xl text-forest">{open.available}</p><p className="text-xs text-charcoal-600/70">Διαθέσιμες</p></div>
@@ -182,6 +271,7 @@ function StagesEditor({ raw, projects, onClose }: { raw: { key: string; label: s
           {rows.map((r, i) => (
             <li key={r.key} {...dnd.item(i)} className={`flex items-center gap-2 rounded-lg border border-stone-line p-2 ${dnd.cls(i)}`}>
               <span className="cursor-grab text-charcoal-600/40" title="Σύρετε για αλλαγή σειράς"><GripVertical size={16} /></span>
+              <ColorPick value={(r as { color?: string }).color} auto={'#' + laneTone(null, i, rows.length).split(' ').map((n) => Number(n).toString(16).padStart(2, '0')).join('')} onChange={(c) => setRows((x) => x.map((y, j) => (j === i ? { ...y, color: c } : y)))} />
               <input className="input flex-1 py-1 text-sm" value={r.label} maxLength={40} onChange={(e) => setRows((x) => x.map((y, j) => (j === i ? { ...y, label: e.target.value } : y)))} aria-label="Όνομα στήλης" />
               <span className="w-10 text-right text-xs text-charcoal-600/60">{count(r.key)}</span>
               <button type="button" disabled={rows.length <= 1} onClick={() => del(i)} className="text-charcoal-600/50 hover:text-signal-danger disabled:opacity-20" aria-label="Διαγραφή στήλης" title="Διαγραφή στήλης"><Trash2 size={15} /></button>

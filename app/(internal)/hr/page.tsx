@@ -12,7 +12,8 @@ import { HrIntelligence } from '@/components/hr/HrIntelligence';
 import { TeamPerformance } from '@/components/hr/TeamPerformance';
 import { computeHrAlerts } from '@/lib/hr-intelligence';
 import { buildTeamPerformance } from '@/lib/team-performance';
-import { Tabs, type TabDef } from '@/components/ui/Tabs';
+import { HubTabs, type HubTabDef } from '@/components/ui/HubTabs';
+import { EmployeeDocuments, type EmpDoc } from '@/components/hr/EmployeeDocuments';
 import { WorkspaceHeader } from '@/components/ui/WorkspaceHeader';
 import { UserPlus } from 'lucide-react';
 import { formatCurrency } from '@/lib/format';
@@ -41,6 +42,12 @@ export default async function HRWorkspacePage({ searchParams }: { searchParams: 
     supabase.from('profiles').select('id, full_name, job_title, benefits').in('role', INTERNAL_ROLES).order('full_name'),
   ]);
 
+  const { data: docRows } = await (supabase as any).from('documents').select('id, entity_id, title, description, notes, bucket, storage_path, created_at, uploader:uploaded_by(full_name)').eq('entity_type', 'profile').order('created_at', { ascending: false }).limit(2000);
+  const empName = new Map(((employees ?? []) as any[]).map((e) => [e.id, e.full_name ?? '—']));
+  const empDocs: EmpDoc[] = ((docRows ?? []) as any[]).map((d) => {
+    const [kind, exp] = String(d.description ?? '').split('|');
+    return { id: d.id, profileId: d.entity_id, employee: empName.get(d.entity_id) ?? '—', title: d.title ?? 'Έγγραφο', kind: kind || 'other', expires: exp?.startsWith('λήξη:') ? exp.slice(5) : null, notes: d.notes, bucket: d.bucket, path: d.storage_path, createdAt: d.created_at, uploader: d.uploader?.full_name ?? null };
+  });
   const hrAlerts = await computeHrAlerts(supabase);
   const teamScores = await buildTeamPerformance(supabase, INTERNAL_ROLES);
 
@@ -49,14 +56,16 @@ export default async function HRWorkspacePage({ searchParams }: { searchParams: 
   const commissionRows: CommissionRow[] = (commissions ?? []).map((c: any) => ({ id: c.id, employee: c.profiles?.full_name ?? null, base_value: c.base_value, commission_pct: c.commission_pct, amount: c.amount, status: c.status, created_at: c.created_at }));
   const emps = (employees ?? []) as Employee[];
 
-  const tabs: TabDef[] = [
+  const pendingCount = (pending ?? []).length;
+  const benefitCount = ((staff ?? []) as any[]).filter((e) => Object.values(e.benefits ?? {}).some(Boolean)).length;
+  const tabs: HubTabDef[] = [
     {
-      id: 'team', label: 'Team Score', content: (
+      id: 'team', label: 'Υπάλληλοι', icon: 'Users', value: emps.length, sub: 'Απόδοση και βαθμολογία ομάδας', content: (
         <Panel><TeamPerformance scores={teamScores} /></Panel>
       ),
     },
     {
-      id: 'verification', label: 'Employee Verification', content: (
+      id: 'verification', label: 'Νέος υπάλληλος', icon: 'UserPlus', sub: 'Πρόσληψη, επαλήθευση και πρόσκληση', content: (
         <Panel>
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -69,7 +78,7 @@ export default async function HRWorkspacePage({ searchParams }: { searchParams: 
       ),
     },
     {
-      id: 'salary', label: 'Salary Management', content: (
+      id: 'salary', label: 'Μισθοδοσία', icon: 'Wallet', value: payslipRows.length, sub: 'Μισθοί, εγκρίσεις και προμήθειες', content: (
         <div className="space-y-4">
           <PayrollAdmin employees={emps} />
           <PayrollApprovals payslips={payslipRows} />
@@ -78,8 +87,7 @@ export default async function HRWorkspacePage({ searchParams }: { searchParams: 
       ),
     },
     {
-      id: 'intelligence',
-      label: hrAlerts.filter((a) => a.severity === 'high').length > 0 ? `Intelligence · ${hrAlerts.filter((a) => a.severity === 'high').length}` : 'Intelligence',
+      id: 'intelligence', label: 'Ειδοποιήσεις HR', icon: 'ShieldAlert', value: hrAlerts.filter((a) => a.severity === 'high').length, sub: 'Κίνδυνοι και ειδοποιήσεις HR',
       content: (
         <Panel>
           <div className="mb-4">
@@ -90,19 +98,20 @@ export default async function HRWorkspacePage({ searchParams }: { searchParams: 
         </Panel>
       ),
     },
-    { id: 'contracts', label: 'Contracts', content: <ContractsAdmin employees={emps} contracts={contractRows} /> },
+    { id: 'contracts', label: 'Συμβάσεις', icon: 'FileSignature', value: contractRows.length, sub: 'Συμβάσεις εργασίας και λήξεις', content: <ContractsAdmin employees={emps} contracts={contractRows} /> },
     {
-      id: 'payslips', label: 'Payslips', content: (
-        <Panel>{payslipRows.length === 0 ? <p className="text-sm text-charcoal-600/70">No payslips yet.</p> : (
-          <table className="w-full text-sm"><thead><tr className="text-left text-xs uppercase tracking-wide text-charcoal-600/50"><th className="pb-2">Employee</th><th className="pb-2">Period</th><th className="pb-2 text-right">Net</th><th className="pb-2 text-right">Status</th></tr></thead>
-            <tbody>{payslipRows.map((p) => (<tr key={p.id} className="border-t border-stone-line"><td className="py-2 text-charcoal">{p.employee ?? '—'}</td><td className="py-2 text-charcoal-600">{p.period}</td><td className="py-2 text-right figure text-charcoal">{p.net_amount != null ? `${formatCurrency(Number(p.net_amount))}` : '—'}</td><td className="py-2 text-right"><span className={p.status === 'approved' ? 'badge-forest' : 'badge-neutral'}>{p.status}</span></td></tr>))}</tbody>
-          </table>
-        )}</Panel>
+      id: 'payslips', label: 'Εκκαθαριστικά', icon: 'Receipt', value: payslipRows.length, sub: 'Εκκαθαριστικά ανά μήνα', content: (
+        <div className="overflow-hidden rounded-2xl border border-stone-line bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">{payslipRows.length === 0 ? <p className="p-6 text-sm text-charcoal-600/70">Δεν υπάρχουν ακόμη εκκαθαριστικά.</p> : (
+          <div className="overflow-x-auto"><table className="o-table"><thead><tr><th>Υπάλληλος</th><th>Περίοδος</th><th className="text-right">Καθαρό</th><th className="text-right">Κατάσταση</th></tr></thead>
+            <tbody>{payslipRows.map((p) => (<tr key={p.id}><td className="o-strong" data-no-tr>{p.employee ?? '—'}</td><td>{p.period}</td><td className="text-right tabular-nums">{p.net_amount != null ? `${formatCurrency(Number(p.net_amount))}` : '—'}</td><td className="text-right"><span className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${p.status === 'approved' || p.status === 'paid' ? 'border-forest/30 bg-forest/[0.08] text-forest' : 'border-stone-line text-charcoal'}`}>{({ draft: 'Πρόχειρο', approved: 'Εγκρίθηκε', paid: 'Πληρώθηκε' } as Record<string, string>)[p.status] ?? p.status}</span></td></tr>))}</tbody>
+          </table></div>
+        )}</div>
       ),
     },
-    { id: 'leave', label: 'Leave', content: <LeaveManager me={me.id} canEdit={canEditHr} employees={emps} balances={((balances ?? []) as any[]).map((b) => ({ ...b, total_days: Number(b.total_days ?? 0), used_days: Number(b.used_days ?? 0) }))} requests={((allLeave ?? []) as any[]).map((r) => ({ ...r, employee: r.profiles?.full_name ?? null }))} /> },
+    { id: 'documents', label: 'Έγγραφα', icon: 'FolderOpen', value: empDocs.length, sub: 'Ταυτότητες, συμβάσεις, πιστοποιητικά', content: <EmployeeDocuments docs={empDocs} employees={emps.map((e: any) => ({ id: e.id, name: e.full_name ?? '—' }))} canEdit={canEditHr} /> },
+    { id: 'leave', label: 'Άδειες', icon: 'Plane', value: pendingCount, sub: pendingCount ? `${pendingCount} περιμένουν έγκριση` : 'Αιτήματα και υπόλοιπα', content: <LeaveManager me={me.id} canEdit={canEditHr} employees={emps} balances={((balances ?? []) as any[]).map((b) => ({ ...b, total_days: Number(b.total_days ?? 0), used_days: Number(b.used_days ?? 0) }))} requests={((allLeave ?? []) as any[]).map((r) => ({ ...r, employee: r.profiles?.full_name ?? null }))} /> },
     {
-      id: 'benefits', label: 'Benefits', content: (
+      id: 'benefits', label: 'Benefits', icon: 'Gift', value: benefitCount, sub: 'Παροχές υπαλλήλων', content: (
         <Panel>
           <ul className="divide-y divide-stone-line">
             {(staff ?? []).map((e: any) => {
@@ -125,8 +134,8 @@ export default async function HRWorkspacePage({ searchParams }: { searchParams: 
 
   return (
     <div className="space-y-5">
-      <WorkspaceHeader eyebrow="Workspace" title="HR" action={<EmployeeVerification />} />
-      <Tabs tabs={tabs} initial={searchParams?.tab} />
+      <WorkspaceHeader eyebrow="Ομάδα" title="Ομάδα & HR" description="Υπάλληλοι, άδειες, μισθοδοσία, συμβάσεις, έγγραφα και παροχές από ένα σημείο." action={<EmployeeVerification />} />
+      <HubTabs tabs={[tabs.find((t) => t.id === 'team')!, tabs.find((t) => t.id === 'leave')!, tabs.find((t) => t.id === 'salary')!, tabs.find((t) => t.id === 'contracts')!, tabs.find((t) => t.id === 'documents')!, tabs.find((t) => t.id === 'benefits')!, tabs.find((t) => t.id === 'payslips')!, tabs.find((t) => t.id === 'intelligence')!, tabs.find((t) => t.id === 'verification')!]} initial={searchParams?.tab} cols={3} />
     </div>
   );
 }

@@ -1,11 +1,11 @@
 import Link from 'next/link';
 import { ContactRolesPanel, ContactHistory } from '@/components/crm/ContactRolesPanel';
 import { loadContactEvents, loadStaff } from '@/lib/contacts-hub';
-import { rolesFromRow, type ContactStatus } from '@/lib/contacts-hub-shared';
+import { rolesFromRow, ROLE_EL, type ContactStatus } from '@/lib/contacts-hub-shared';
 import { loadContactDuplicates } from '@/lib/duplicates';
 import { DuplicateBanner } from '@/components/crm/DuplicateBanner';
 import { notFound } from 'next/navigation';
-import { Languages, MessageCircle, Clock, ShieldCheck, ShieldAlert } from 'lucide-react';
+import { Languages, MessageCircle, Clock, ShieldCheck, ShieldAlert, CalendarDays, Mail, Home, Pencil } from 'lucide-react';
 import { requirePermission, hasRight } from '@/lib/auth';
 import { effectiveCan } from '@/lib/permissions';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
@@ -34,13 +34,21 @@ import { TaskList } from '@/components/ui/TaskList';
 export const dynamic = 'force-dynamic';
 
 const TABS = [
-  { key: 'overview', label: 'Επισκόπηση' },
-  { key: 'activity', label: 'Σημειώσεις & μηνύματα' },
-  { key: 'properties', label: 'Ακίνητα & προβολές' },
-  { key: 'deals', label: 'Συναλλαγές & πληρωμές' },
+  { key: 'overview', label: 'Πληροφορίες' },
   { key: 'documents', label: 'Έγγραφα' },
   { key: 'people', label: 'Οικογένεια & συνεργάτες' },
+  { key: 'deals', label: 'Αγορά & πληρωμές' },
+  { key: 'properties', label: 'Ακίνητα & viewings' },
+  { key: 'activity', label: 'Επικοινωνία' },
   { key: 'kyc', label: 'Ταυτότητα & AML' },
+] as const;
+// Όπως στο FitnessCRM: κύριες καρτέλες (pill) και, στο «Προφίλ», υπο-καρτέλες.
+const MAIN = [
+  { key: 'profile', label: 'Προφίλ', tabs: ['overview', 'documents', 'people'] },
+  { key: 'deals', label: 'Αγορά & πληρωμές', tabs: ['deals'] },
+  { key: 'properties', label: 'Ακίνητα & viewings', tabs: ['properties'] },
+  { key: 'activity', label: 'Επικοινωνία', tabs: ['activity'] },
+  { key: 'kyc', label: 'Ταυτότητα & AML', tabs: ['kyc'] },
 ] as const;
 type TabKey = (typeof TABS)[number]['key'];
 const VIEWING: Record<string, string> = { scheduled: 'Προγραμματισμένη', attended: 'Έγινε', no_show: 'Δεν ήρθε', cancelled: 'Ακυρώθηκε' };
@@ -54,7 +62,7 @@ const label = (list: { v: string; l: string }[], v: string | null | undefined) =
  * επισκόπηση, σημειώσεις/μηνύματα, ακίνητα & προβολές, συναλλαγές & πληρωμές,
  * έγγραφα, οικογένεια/συνεργάτες, ταυτότητα & AML.
  */
-export default async function ContactDetailPage({ params, searchParams }: { params: { id: string }; searchParams: { tab?: string } }) {
+export default async function ContactDetailPage({ params, searchParams }: { params: { id: string }; searchParams: { tab?: string; edit?: string } }) {
   const profile = await requirePermission('leads');
   const canEdit = effectiveCan(profile.role, profile.moduleAccess, 'leads', 'edit', profile.permissions);
   const tab: TabKey = (TABS.find((t) => t.key === searchParams.tab)?.key ?? 'overview') as TabKey;
@@ -84,40 +92,65 @@ export default async function ContactDetailPage({ params, searchParams }: { para
   const kycStatus = KYC_STATUS[kyc?.status ?? 'not_started'];
   const reviewOverdue = kyc?.review_due && kyc.review_due < new Date().toISOString().slice(0, 10);
 
+  const { data: myContracts } = await db.from('contracts').select('id, total_price, status').eq('buyer_contact_id', contact.id).neq('status', 'cancelled');
+  const cIds = ((myContracts ?? []) as any[]).map((x) => x.id);
+  const { data: myPays } = cIds.length ? await db.from('payments').select('amount_paid').in('contract_id', cIds) : { data: [] };
+  const contractValue = ((myContracts ?? []) as any[]).reduce((n, x) => n + Number(x.total_price ?? 0), 0);
+  const paidSum = ((myPays ?? []) as any[]).reduce((n, x) => n + Number(x.amount_paid ?? 0), 0);
+  const balance = Math.max(0, contractValue - paidSum);
+  const STATUS_LABEL: Record<string, string> = { active: 'Ενεργός', inactive: 'Ανενεργός', do_not_contact: 'Όχι επικοινωνία', archived: 'Αρχειοθετημένος' };
+  const joined = contact.created_at ? new Date(contact.created_at).toLocaleDateString('el-GR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';
+  const interest = lead?.projects?.name ?? (lead ? (LEAD[lead.status] ?? lead.status) : null);
   const counts: Partial<Record<TabKey, number>> = { properties: viewCount ?? 0, documents: docCount ?? 0, people: relCount ?? 0, deals: (leads ?? []).length };
 
   return (
     <div className="space-y-5">
+      <Link href="/crm/customers" className="inline-flex items-center gap-1 text-[14px] text-charcoal-600 hover:text-charcoal">‹ Πίσω στους πελάτες</Link>
       <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <p className="eyebrow mb-1">{contact.email}</p>
-          <h1 className="text-3xl">{contact.full_name ?? 'Χωρίς όνομα'}</h1>
-          <p className="mt-1 text-sm text-charcoal-600/80">{contact.phone} {contact.nationality ? `· ${contact.nationality}` : ''}</p>
-          <p className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-charcoal-600">
-            {c.preferred_language && <span className="flex items-center gap-1"><Languages size={12} /> {label(LANGUAGES, c.preferred_language) ?? c.preferred_language}</span>}
-            {c.communication_preference && <span className="flex items-center gap-1"><MessageCircle size={12} /> {label(CHANNELS, c.communication_preference) ?? c.communication_preference}</span>}
-            {c.best_time && <span className="flex items-center gap-1"><Clock size={12} /> {label(BEST_TIME, c.best_time)}{c.best_time_note ? ` · ${c.best_time_note}` : ''}</span>}
-            <Link href={`${here}?tab=kyc`} className="flex items-center gap-1 hover:underline">
-              {level && level !== 'low' ? <ShieldAlert size={12} /> : <ShieldCheck size={12} />}
-              AML: <span className={kycStatus?.tone}>{kycStatus?.label}</span>
-              {level && <span className="rounded px-1.5 py-0.5 text-[10px] font-semibold" style={{ background: RISK_LABEL[level].bg, color: RISK_LABEL[level].fg }}>{RISK_LABEL[level].label}</span>}
-              {reviewOverdue && <span className="text-signal-danger">· επανέλεγχος!</span>}
-            </Link>
-          </p>
+        <div className="flex items-center gap-4">
+          <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-forest/[0.09] text-[16px] font-semibold text-forest">{(contact.full_name ?? '?').split(' ').map((x: string) => x[0]).slice(0, 2).join('').toUpperCase()}</span>
+          <div className="min-w-0">
+            <h1 className="font-display text-3xl text-charcoal" data-no-tr>{contact.full_name ?? 'Χωρίς όνομα'}</h1>
+            <p className="text-[14px] text-charcoal-600" data-no-tr>{[contact.email, contact.phone].filter(Boolean).join(' · ') || '—'}</p>
+            <p className="mt-0.5 flex items-center gap-1 text-[13px] text-charcoal-600"><CalendarDays size={13} /> Εγγραφή {joined}</p>
+          </div>
         </div>
-        <LifecycleBadges isLead={contact.is_lead} isBuyer={contact.is_buyer} isInvestor={contact.is_investor} isHomeowner={contact.is_homeowner} isNewsletter={contact.is_newsletter_subscriber} />
+        <div className="flex flex-wrap gap-2">
+          {contact.phone && <a href={`https://wa.me/${String(contact.phone).replace(/[^\d]/g, '')}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-lg border border-stone-line bg-white px-3 py-2 text-sm text-charcoal hover:border-forest/40"><MessageCircle size={15} /> Μήνυμα</a>}
+          <Link href={`/marketing?tab=email&ids=${contact.id}`} className="inline-flex items-center gap-1.5 rounded-lg border border-stone-line bg-white px-3 py-2 text-sm text-charcoal hover:border-forest/40"><Mail size={15} /> Email</Link>
+          <Link href={`${here}?tab=properties`} className="inline-flex items-center gap-1.5 rounded-lg border border-stone-line bg-white px-3 py-2 text-sm text-charcoal hover:border-forest/40"><Home size={15} /> Ακίνητα</Link>
+          <Link href="/calendar" className="inline-flex items-center gap-1.5 rounded-lg bg-forest px-3 py-2 text-sm font-semibold text-white hover:bg-forest/90"><CalendarDays size={15} /> Νέο viewing</Link>
+        </div>
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {[
+          ['Κατάσταση', STATUS_LABEL[c.status ?? 'active'] ?? c.status],
+          ['Ενδιαφέρον', interest ?? '—'],
+          ['Ομάδα', (c.groups ?? []).join(', ') || 'Χωρίς ομάδα'],
+          ['Υπόλοιπο', formatCurrency(balance)],
+        ].map(([k, v]) => (
+          <div key={k} className="rounded-2xl border border-stone-line bg-white px-5 py-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]"><p className="text-[13px] text-charcoal-600">{k}</p><p className="mt-1 text-[19px] font-semibold leading-snug text-charcoal" data-no-tr>{v}</p></div>
+        ))}
       </div>
 
       <DuplicateBanner contactId={contact.id} matches={dupes} canMerge={canEdit && ['admin', 'management', 'sales'].includes(profile.role)} />
 
-      <nav className="flex flex-wrap gap-1 border-b border-stone-line">
-        {TABS.map((t) => (
-          <Link key={t.key} href={t.key === 'overview' ? here : `${here}?tab=${t.key}`} scroll={false}
-            className={`-mb-px border-b-2 px-3 py-2 text-sm ${tab === t.key ? 'border-forest font-medium text-forest' : 'border-transparent text-charcoal-600 hover:text-charcoal'}`}>
-            {t.label}{(counts[t.key] ?? 0) > 0 && <span className="ml-1.5 rounded-full bg-stone px-1.5 text-[11px] text-charcoal-600">{counts[t.key]}</span>}
-          </Link>
-        ))}
-      </nav>
+      <div className="space-y-2">
+        <nav className="inline-flex flex-wrap gap-1 rounded-xl border border-stone-line bg-white p-1">
+          {MAIN.map((m) => {
+            const on = (m.tabs as readonly string[]).includes(tab);
+            const n = m.tabs.reduce((x, k) => x + (counts[k as TabKey] ?? 0), 0);
+            return <Link key={m.key} href={m.tabs[0] === 'overview' ? here : `${here}?tab=${m.tabs[0]}`} scroll={false} className={`rounded-lg px-3.5 py-1.5 text-[14px] font-medium transition ${on ? 'bg-forest/[0.09] text-forest' : 'text-charcoal-600 hover:text-charcoal'}`}>{m.label}{m.key !== 'profile' && n > 0 && <span className="ml-1.5 rounded-full bg-forest/10 px-1.5 text-[11px] text-forest">{n}</span>}</Link>;
+          })}
+        </nav>
+        {['overview', 'documents', 'people'].includes(tab) && (
+          <nav className="flex gap-1 border-b border-stone-line">
+            {TABS.filter((t) => ['overview', 'documents', 'people'].includes(t.key)).map((t) => (
+              <Link key={t.key} href={t.key === 'overview' ? here : `${here}?tab=${t.key}`} scroll={false} className={`-mb-px border-b-2 px-3 py-2 text-[14px] ${tab === t.key ? 'border-forest font-medium text-charcoal' : 'border-transparent text-charcoal-600 hover:text-charcoal'}`}>{t.label}{(counts[t.key] ?? 0) > 0 && <span className="ml-1 text-[12px] text-charcoal-600">({counts[t.key]})</span>}</Link>
+            ))}
+          </nav>
+        )}
+      </div>
 
       {tab === 'overview' && await Overview()}
       {tab === 'activity' && await Activity()}
@@ -125,6 +158,7 @@ export default async function ContactDetailPage({ params, searchParams }: { para
       {tab === 'deals' && await Deals()}
       {tab === 'documents' && await Documents()}
       {tab === 'people' && await People()}
+      {tab === 'kyc' && await Gdpr()}
       {tab === 'kyc' && (
         <KycPanel contactId={contact.id} initial={kyc ? cleanKyc(kyc) : EMPTY_KYC} aml={settings.aml} canEdit={canEdit} missing={migMissing} contactNationality={contact.nationality}
           meta={{ verifiedAt: kyc?.verified_at ?? null, verifiedBy: kyc?.verifier?.full_name ?? null, reviewDue: kyc?.review_due ?? null, updatedAt: kyc?.updated_at ?? null }} />
@@ -135,57 +169,69 @@ export default async function ContactDetailPage({ params, searchParams }: { para
   /* ------------------------------------------------------------ tabs -- */
 
   async function Overview() {
-    const [{ events, names }, staff] = await Promise.all([loadContactEvents(contact!.id), loadStaff()]);
-    const hub = { events, names, staff };
-    const canErase = effectiveCan(profile.role, profile.moduleAccess, 'leads', 'delete', profile.permissions);
-    const gdprHold = canErase && !c.anonymized_at ? await legalHold(contact!.id) : { hold: null, missing: false };
-    const { data: buyer } = await supabase.from('buyers').select('id, portal_eligible, portal_activated').eq('contact_id', contact!.id).maybeSingle();
-    let unitLinkData = null;
-    if (buyer) {
-      const { data: unit } = await supabase.from('units').select('id, unit_number, sqm, price, projects(name)').eq('buyer_contact_id', contact!.id).limit(1).maybeSingle();
-      const { data: reservation } = unit ? await supabase.from('reservations').select('deposit_amount, deposit_paid').eq('unit_id', unit.id).eq('buyer_contact_id', contact!.id).order('reserved_at', { ascending: false }).limit(1).maybeSingle() : { data: null };
-      const { data: contract } = unit ? await supabase.from('contracts').select('id, status').eq('unit_id', unit.id).eq('buyer_contact_id', contact!.id).order('created_at', { ascending: false }).limit(1).maybeSingle() : { data: null };
-      const { data: payments } = contract ? await supabase.from('payments').select('amount_paid, paid_at').eq('contract_id', (contract as any).id) : { data: [] };
-      unitLinkData = {
-        buyerId: buyer.id, portalEligible: buyer.portal_eligible, portalActivated: buyer.portal_activated,
-        unit: unit ? { id: unit.id, unit_number: unit.unit_number, sqm: unit.sqm, price: unit.price, project_name: (unit as any).projects?.name ?? null } : null,
-        reservation: reservation ?? null, contract: contract ? { status: (contract as any).status } : null, payments: payments ?? [],
-      };
-    }
-    const { data: followUps } = await supabase.from('follow_up_tasks').select('id, note, due_at, is_done').eq('contact_id', contact!.id);
-    return (
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="space-y-6 lg:col-span-2">
-          {lead && (
-            <div className="panel p-6">
-              <div className="mb-4 flex items-center justify-between"><h4>Πορεία πώλησης</h4><Link href={`/crm/leads/${lead.id}`} className="text-xs text-forest hover:underline">Άνοιγμα lead →</Link></div>
-              <StatusPipeline leadId={lead.id} currentStatus={lead.status} currentStage={stageById[lead.id] ?? null} pipeline={pipelineOf(settings.pipelines, lead.pipeline ?? null)} lostReasons={settings.pipelines.lostReasons}
-                stageEnteredAt={lead.stage_entered_at ?? null} lostReason={lead.lost_reason ?? null} lostNote={lead.lost_note ?? null} commissionInvoiceId={lead.commission_invoice_id ?? null} />
-              <div className="mt-5 grid grid-cols-2 gap-4 text-sm">
-                <div><p className="eyebrow">Budget</p><p className="figure text-charcoal">{lead.budget_min || lead.budget_max ? `€${formatNumber(Number(lead.budget_min ?? 0))}–${formatNumber(Number(lead.budget_max ?? 0))}` : '—'}</p></div>
-                <div><p className="eyebrow">Πηγή</p><p className="capitalize text-charcoal">{lead.source}</p></div>
-                <div><p className="eyebrow">Έργο ενδιαφέροντος</p><p className="text-charcoal">{lead.projects?.name ?? '—'}</p></div>
-                <div><p className="eyebrow">Πότε θέλει να αγοράσει</p><p className="text-charcoal">{lead.timeline_to_buy ?? '—'}</p></div>
-              </div>
-            </div>
-          )}
-          {lead && <AIInsightPanel leadId={lead.id} score={lead.ai_score} reasoning={lead.ai_score_reasoning} summary={lead.ai_summary} nextSteps={lead.ai_next_steps} generatedAt={lead.ai_summary_generated_at} />}
-          {unitLinkData && <UnitLinkCard data={unitLinkData} />}
-          <div className="panel p-6">
-            <h4 className="mb-3">Follow-ups</h4>
-            <TaskList table="follow_up_tasks" tasks={(followUps ?? []).map((t) => ({ id: t.id, title: t.note ?? 'Follow up', due_at: t.due_at, is_done: t.is_done }))} />
+    const hub = { staff: await loadStaff() };
+    if (searchParams.edit === '1' && canEdit) {
+      return (
+        <div className="space-y-5">
+          <div className="flex items-center justify-between"><h2 className="text-[18px] font-semibold text-charcoal">Επεξεργασία στοιχείων</h2><Link href={here} scroll={false} className="btn-primary text-sm">Τέλος</Link></div>
+          <div className="grid gap-5 lg:grid-cols-2">
+            <ContactRolesPanel contactId={contact!.id} roles={rolesFromRow(c)} status={(c.status ?? 'active') as ContactStatus} ownerId={c.owner_id ?? null} staff={hub.staff} canEdit={canEdit} />
+            <ContactPreferences contactId={contact!.id} canEdit={canEdit && !migMissing} initial={{ language: c.preferred_language ?? null, channel: c.communication_preference ?? null, bestTime: c.best_time ?? null, bestTimeNote: c.best_time_note ?? null }} />
+            <ContactMetaPanel contactId={contact!.id} initial={readMeta(contact)} defs={settings.tags} canEdit={canEdit} />
           </div>
+          <p className="text-[13px] text-charcoal-600">Ταυτότητα, ημ. γέννησης, διεύθυνση και επάγγελμα αλλάζουν στην καρτέλα «Ταυτότητα & AML».</p>
         </div>
-        <div className="space-y-6">
-          <ContactRolesPanel contactId={contact!.id} roles={rolesFromRow(c)} status={(c.status ?? 'active') as ContactStatus} ownerId={c.owner_id ?? null} staff={hub.staff} canEdit={canEdit} />
-          <ContactHistory events={hub.events} names={hub.names} />
-          <ContactPreferences contactId={contact!.id} canEdit={canEdit && !migMissing} initial={{ language: c.preferred_language ?? null, channel: c.communication_preference ?? null, bestTime: c.best_time ?? null, bestTimeNote: c.best_time_note ?? null }} />
-          <ContactMetaPanel contactId={contact!.id} initial={readMeta(contact)} defs={settings.tags} canEdit={canEdit} />
-          <GdprPanel contactId={contact!.id}
-            info={{ consentAt: c.consent_at ?? null, consentSource: c.consent_source ?? null, consentText: c.consent_text ?? null, marketing: !!c.marketing_opt_in, marketingAt: c.marketing_opt_in_at ?? null, anonymizedAt: c.anonymized_at ?? null }}
-            hold={gdprHold.hold} missing={gdprHold.missing || !('anonymized_at' in c)} canEdit={canEdit} canErase={canErase} canExport={hasRight(profile, 'export_data')} />
+      );
+    }
+    const dash = (v: unknown) => (v === null || v === undefined || v === '' ? '—' : String(v));
+    const dmy = (v: string | null | undefined) => (v ? new Date(v).toLocaleDateString('el-GR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—');
+    const nm = String(contact!.full_name ?? '').trim().split(/\s+/);
+    const InfoCard = ({ title, rows }: { title: string; rows: [string, React.ReactNode][] }) => (
+      <div className="rounded-2xl border border-stone-line bg-white p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+        <h3 className="mb-3 text-[18px] font-semibold text-charcoal">{title}</h3>
+        <dl className="space-y-3">{rows.map(([k, v]) => <div key={k} className="flex items-baseline justify-between gap-4 text-[15px]"><dt className="text-charcoal-600">{k}</dt><dd className="text-right font-medium text-charcoal" data-no-tr>{v}</dd></div>)}</dl>
+      </div>
+    );
+    const BUYER_TYPE: Record<string, string> = { investor: 'Επενδυτής', end_user: 'Ιδιοκατοίκηση', holiday: 'Εξοχικό', relocation: 'Μετεγκατάσταση', other: 'Άλλο' };
+    const SRC: Record<string, string> = { website: 'Ιστοσελίδα', meta: 'Facebook / Instagram', google: 'Google', organic: 'Οργανικά', referral: 'Σύσταση', walk_in: 'Επίσκεψη', whatsapp: 'WhatsApp', other: 'Άλλο', manual: 'Καταχώριση' };
+    const ownerName = hub.staff.find((x) => x.id === c.owner_id)?.name ?? '—';
+    return (
+      <div className="space-y-5">
+      <div className="flex justify-end gap-2">
+        {canEdit && <Link href={`${here}?edit=1`} scroll={false} className="inline-flex items-center gap-1.5 rounded-lg border border-stone-line bg-white px-3 py-1.5 text-sm text-charcoal hover:border-forest/40"><Pencil size={14} /> Επεξεργασία</Link>}
+      </div>
+      <div className="grid gap-5 lg:grid-cols-2">
+        <InfoCard title="Προσωπικά στοιχεία" rows={[
+          ['Όνομα', dash(nm[0])], ['Επώνυμο', dash(nm.slice(1).join(' '))], ['Ημ. γέννησης', dmy(kyc?.date_of_birth)], ['Αρ. ταυτότητας / διαβατηρίου', dash(kyc?.id_number)],
+          ['Εθνικότητα', dash(contact!.nationality ?? kyc?.nationality)], ['Τύπος αγοραστή', dash(BUYER_TYPE[c.buyer_type] ?? c.buyer_type)], ['Εγγραφή', joined], ['Επάγγελμα', dash(kyc?.occupation)],
+        ]} />
+        <InfoCard title="Επικοινωνία & διεύθυνση" rows={[
+          ['Email', dash(contact!.email)], ['Κινητό', dash(contact!.phone)], ['Γλώσσα', dash(label(LANGUAGES, c.preferred_language) ?? c.preferred_language)],
+          ['Προτιμώμενο κανάλι', dash(label(CHANNELS, c.communication_preference) ?? c.communication_preference)], ['Καλύτερη ώρα', dash(label(BEST_TIME, c.best_time))],
+          ['Λαμβάνει marketing', c.marketing_opt_in ? 'Ναι' : 'Όχι'], ['Διεύθυνση', dash(kyc?.address)], ['Χώρα διαμονής', dash(kyc?.residence_country)],
+        ]} />
+        <InfoCard title="Ομαδοποίηση" rows={[
+          ['Ομάδες', (c.groups ?? []).join(', ') || 'Χωρίς ομάδα'], ['Ιδιότητες', rolesFromRow(c).map((r) => ROLE_EL[r]).join(', ') || '—'],
+          ['Υπεύθυνος', ownerName], ['Πηγή', dash(SRC[c.first_touch_source ?? 'manual'] ?? c.first_touch_source)], ['AML', dash(kycStatus?.label)],
+        ]} />
+        <div className="rounded-2xl border border-stone-line bg-white p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+          <h3 className="mb-3 text-[18px] font-semibold text-charcoal">Tags</h3>
+          {(c.tags ?? []).length ? <div className="flex flex-wrap gap-1.5">{(c.tags as string[]).map((t) => <span key={t} className="rounded-full border border-stone-line px-2.5 py-0.5 text-[13px] text-charcoal" data-no-tr>{t}</span>)}</div> : <p className="text-[15px] text-charcoal-600">Δεν βρέθηκαν tags.</p>}
         </div>
       </div>
+      <InfoCard title="Σχόλιο" rows={[['Σχόλιο', dash(lead?.message ?? kyc?.notes)]]} />
+
+      </div>
+    );
+  }
+
+  async function Gdpr() {
+    const canErase = effectiveCan(profile.role, profile.moduleAccess, 'leads', 'delete', profile.permissions);
+    const gdprHold = canErase && !c.anonymized_at ? await legalHold(contact!.id) : { hold: null, missing: false };
+    return (
+      <GdprPanel contactId={contact!.id}
+        info={{ consentAt: c.consent_at ?? null, consentSource: c.consent_source ?? null, consentText: c.consent_text ?? null, marketing: !!c.marketing_opt_in, marketingAt: c.marketing_opt_in_at ?? null, anonymizedAt: c.anonymized_at ?? null }}
+        hold={gdprHold.hold} missing={gdprHold.missing || !('anonymized_at' in c)} canEdit={canEdit} canErase={canErase} canExport={hasRight(profile, 'export_data')} />
     );
   }
 
@@ -198,7 +244,17 @@ export default async function ContactDetailPage({ params, searchParams }: { para
       ...(notes ?? []).map((n: any) => ({ id: n.id, kind: 'note' as const, body: n.body, author: n.profiles?.full_name, occurred_at: n.created_at })),
       ...(comms ?? []).map((m: any) => ({ id: m.id, kind: 'communication' as const, body: m.summary, channel: m.channel, direction: m.direction, status: m.status, ai_generated: m.ai_generated, author: m.profiles?.full_name, occurred_at: m.occurred_at })),
     ].sort((a, b) => new Date(b.occurred_at).getTime() - new Date(a.occurred_at).getTime());
-    return <div className="max-w-3xl"><ContactTimeline contactId={contact!.id} leadId={lead?.id} entries={timeline} /></div>;
+    const { events, names } = await loadContactEvents(contact!.id);
+    const { data: followUps } = await supabase.from('follow_up_tasks').select('id, note, due_at, is_done').eq('contact_id', contact!.id);
+    return (
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="lg:col-span-2"><ContactTimeline contactId={contact!.id} leadId={lead?.id} entries={timeline} /></div>
+        <div className="space-y-6">
+          <div className="panel p-6"><h4 className="mb-3">Follow-ups</h4><TaskList table="follow_up_tasks" tasks={(followUps ?? []).map((t) => ({ id: t.id, title: t.note ?? 'Follow up', due_at: t.due_at, is_done: t.is_done }))} /></div>
+          <ContactHistory events={events} names={names} />
+        </div>
+      </div>
+    );
   }
 
   async function Properties() {
@@ -249,6 +305,19 @@ export default async function ContactDetailPage({ params, searchParams }: { para
   }
 
   async function Deals() {
+    const { data: buyer } = await supabase.from('buyers').select('id, portal_eligible, portal_activated').eq('contact_id', contact!.id).maybeSingle();
+    let unitLinkData = null;
+    if (buyer) {
+      const { data: unit } = await supabase.from('units').select('id, unit_number, sqm, price, projects(name)').eq('buyer_contact_id', contact!.id).limit(1).maybeSingle();
+      const { data: reservation } = unit ? await supabase.from('reservations').select('deposit_amount, deposit_paid').eq('unit_id', unit.id).eq('buyer_contact_id', contact!.id).order('reserved_at', { ascending: false }).limit(1).maybeSingle() : { data: null };
+      const { data: contract } = unit ? await supabase.from('contracts').select('id, status').eq('unit_id', unit.id).eq('buyer_contact_id', contact!.id).order('created_at', { ascending: false }).limit(1).maybeSingle() : { data: null };
+      const { data: payments } = contract ? await supabase.from('payments').select('amount_paid, paid_at').eq('contract_id', (contract as any).id) : { data: [] };
+      unitLinkData = {
+        buyerId: buyer.id, portalEligible: buyer.portal_eligible, portalActivated: buyer.portal_activated,
+        unit: unit ? { id: unit.id, unit_number: unit.unit_number, sqm: unit.sqm, price: unit.price, project_name: (unit as any).projects?.name ?? null } : null,
+        reservation: reservation ?? null, contract: contract ? { status: (contract as any).status } : null, payments: payments ?? [],
+      };
+    }
     const leadIds = (leads ?? []).map((l: any) => l.id);
     const [{ data: negs }, { data: resv }, { data: contracts }, { data: invoices }, { data: inv }] = await Promise.all([
       leadIds.length ? supabase.from('negotiations').select('id, lead_id, offered_price, counter_offer, agreed_price, created_at, units(unit_number)').in('lead_id', leadIds).order('created_at', { ascending: false }) : Promise.resolve({ data: [] as any[] }),
@@ -266,14 +335,29 @@ export default async function ContactDetailPage({ params, searchParams }: { para
     const today = new Date().toISOString().slice(0, 10);
     return (
       <div className="space-y-6">
+        {lead && (
+          <div className="panel p-6">
+            <div className="mb-4 flex items-center justify-between"><h4>Πορεία πώλησης</h4><Link href={`/crm/leads/${lead.id}`} className="text-xs text-forest hover:underline">Άνοιγμα lead →</Link></div>
+            <StatusPipeline leadId={lead.id} currentStatus={lead.status} currentStage={stageById[lead.id] ?? null} pipeline={pipelineOf(settings.pipelines, lead.pipeline ?? null)} lostReasons={settings.pipelines.lostReasons}
+              stageEnteredAt={lead.stage_entered_at ?? null} lostReason={lead.lost_reason ?? null} lostNote={lead.lost_note ?? null} commissionInvoiceId={lead.commission_invoice_id ?? null} />
+            <div className="mt-5 grid grid-cols-2 gap-4 text-sm sm:grid-cols-4">
+              <div><p className="eyebrow">Budget</p><p className="figure text-charcoal">{lead.budget_min || lead.budget_max ? `€${formatNumber(Number(lead.budget_min ?? 0))}–${formatNumber(Number(lead.budget_max ?? 0))}` : '—'}</p></div>
+              <div><p className="eyebrow">Πηγή</p><p className="capitalize text-charcoal">{lead.source}</p></div>
+              <div><p className="eyebrow">Έργο ενδιαφέροντος</p><p className="text-charcoal">{lead.projects?.name ?? '—'}</p></div>
+              <div><p className="eyebrow">Πότε θέλει να αγοράσει</p><p className="text-charcoal">{lead.timeline_to_buy ?? '—'}</p></div>
+            </div>
+          </div>
+        )}
+        {lead && <AIInsightPanel leadId={lead.id} score={lead.ai_score} reasoning={lead.ai_score_reasoning} summary={lead.ai_summary} nextSteps={lead.ai_next_steps} generatedAt={lead.ai_summary_generated_at} />}
+        {unitLinkData && <UnitLinkCard data={unitLinkData} />}
         <div className="panel p-6">
           <h4 className="mb-3">Leads</h4>
           {(leads ?? []).length === 0 ? <p className="text-sm text-charcoal-600/60">Κανένα lead.</p> : (
-            <table className="table-base w-full"><thead><tr><th>Ημερομηνία</th><th>Κατάσταση</th><th>Έργο</th><th>Budget</th><th>Πηγή</th></tr></thead>
+            <div className="overflow-x-auto"><table className="table-base w-full"><thead><tr><th>Ημερομηνία</th><th>Κατάσταση</th><th>Έργο</th><th>Budget</th><th>Πηγή</th></tr></thead>
               <tbody>{(leads ?? []).map((l: any) => (
                 <tr key={l.id}><td><Link href={`/crm/leads/${l.id}`} className="text-forest hover:underline">{formatDate(l.created_at)}</Link></td><td>{LEAD[l.status] ?? l.status}</td><td>{l.projects?.name ?? '—'}</td>
                   <td className="figure">{l.budget_max ? `€${formatNumber(Number(l.budget_min ?? 0))}–${formatNumber(Number(l.budget_max))}` : '—'}</td><td className="capitalize">{l.source}</td></tr>
-              ))}</tbody></table>
+              ))}</tbody></table></div>
           )}
           {(negs ?? []).length > 0 && (
             <div className="mt-4">
@@ -320,12 +404,12 @@ export default async function ContactDetailPage({ params, searchParams }: { para
                 <span className="text-sm">{CON[k.status] ?? k.status} · <span className="figure">{formatCurrency(total)} πληρωμένα{k.total_price != null ? ` / ${formatCurrency(Number(k.total_price))}` : ''}</span></span>
               </div>
               {rows.length === 0 ? <p className="text-sm text-charcoal-600/60">Χωρίς δόσεις.</p> : (
-                <table className="table-base w-full"><thead><tr><th>#</th><th>Δόση</th><th>Λήξη</th><th className="text-right">Ποσό</th><th className="text-right">Πληρώθηκε</th></tr></thead>
+                <div className="overflow-x-auto"><table className="table-base w-full"><thead><tr><th>#</th><th>Δόση</th><th>Λήξη</th><th className="text-right">Ποσό</th><th className="text-right">Πληρώθηκε</th></tr></thead>
                   <tbody>{rows.map((s) => {
                     const p = paid.filter((x) => x.payment_schedule_id === s.id).reduce((a, x) => a + Number(x.amount_paid), 0);
                     const late = !!s.due_date && s.due_date < today && p < Number(s.amount);
                     return <tr key={s.id}><td className="figure">{s.installment_number}</td><td>{s.description ?? '—'}</td><td className={`figure ${late ? 'text-signal-danger' : ''}`}>{s.due_date ? formatDate(s.due_date) : '—'}</td><td className="figure text-right">{formatCurrency(Number(s.amount))}</td><td className="figure text-right">{p ? formatCurrency(p) : '—'}</td></tr>;
-                  })}</tbody></table>
+                  })}</tbody></table></div>
               )}
             </div>
           );

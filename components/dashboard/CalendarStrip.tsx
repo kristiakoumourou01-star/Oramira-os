@@ -26,8 +26,8 @@ export interface CalendarEvent {
 const DOT: Record<EventType, string> = {
   viewing: 'bg-champagne-600',
   followup: 'bg-forest',
-  task: 'bg-sky-500',
-  meeting: 'bg-violet-500',
+  task: 'bg-forest/50',
+  meeting: 'bg-forest',
   external: 'bg-stone-400',
 };
 
@@ -110,7 +110,7 @@ export function CalendarStrip({ events }: { events: CalendarEvent[] }) {
               return (
                 <li key={e.id} className="flex items-center justify-between gap-2">
                   {e.href ? <Link href={e.href} className="overflow-hidden hover:text-forest">{inner}</Link> : inner}
-                  {e.meetingLink && <a href={e.meetingLink} target="_blank" rel="noopener noreferrer" className="flex shrink-0 items-center gap-1 rounded-md bg-violet-500/10 px-1.5 py-0.5 text-[10px] text-violet-700 hover:bg-violet-500/20"><Video size={10} /> Join</a>}
+                  {e.meetingLink && <a href={e.meetingLink} target="_blank" rel="noopener noreferrer" className="flex shrink-0 items-center gap-1 rounded-md bg-forest/[0.08] px-1.5 py-0.5 text-[10px] text-forest hover:bg-forest/[0.12]"><Video size={10} /> Join</a>}
                 </li>
               );
             })}

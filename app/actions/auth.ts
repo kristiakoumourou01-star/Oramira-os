@@ -6,7 +6,7 @@ import { cookies } from 'next/headers';
 import { homeRouteForRole } from '@/lib/auth';
 import { isInternalRole } from '@/lib/permissions';
 import { clearImpersonationCookie } from '@/lib/impersonation';
-import { logActivity } from '@/lib/activity';
+import { logActivity, logFailedLogin } from '@/lib/activity';
 import { getOrgSettingsRaw } from '@/lib/org-settings';
 import { START_SCREENS } from '@/lib/org-settings-shared';
 import { isTrustedDevice } from '@/lib/mfa';
@@ -31,6 +31,7 @@ export async function login(_prevState: LoginState | undefined, formData: FormDa
   const { error, data } = await supabase.auth.signInWithPassword({ email, password });
   if (error) {
     console.error('[login] signIn failed:', error.message);
+    await logFailedLogin(email, error.message);
     return { error: error.message };
   }
 

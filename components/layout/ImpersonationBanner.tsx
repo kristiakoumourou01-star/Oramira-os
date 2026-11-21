@@ -9,7 +9,7 @@ import { stopImpersonation } from '@/app/actions/impersonation';
  */
 export function ImpersonationBanner({ name, role }: { name: string | null; role: string }) {
   return (
-    <div className="sticky top-0 z-40 flex items-center justify-center gap-3 bg-champagne px-4 py-2 text-xs font-medium text-forest-deep shadow-sm">
+    <div className="sticky top-0 z-40 flex items-center justify-center gap-3 bg-champagne px-4 py-2 text-xs font-medium text-white shadow-sm">
       <Eye size={14} strokeWidth={2} />
       <span>
         Προβολή ως <strong>{name || 'χρήστη'}</strong> <span className="opacity-70">({role})</span>

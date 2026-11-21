@@ -25,7 +25,7 @@ export const STATUS_EL: Record<string, string> = {
  * θέλετε)· `status` = τι «σημαίνει» για το σύστημα (αυτοματισμοί, αναφορές,
  * προμήθειες). Πολλά στάδια μπορούν να σημαίνουν την ίδια κατάσταση.
  */
-export interface StageDef { key: string; status: FlowStatus; label: string; probability: number; maxDays: number | null; /** Όνομα στα αγγλικά (προαιρετικό). */ en?: string }
+export interface StageDef { key: string; status: FlowStatus; label: string; probability: number; maxDays: number | null; /** Όνομα στα αγγλικά (προαιρετικό). */ en?: string; /** Χρώμα στήλης (#rrggbb, προαιρετικό). */ color?: string }
 export interface PipelineDef { key: string; name: string; stages: StageDef[]; en?: string }
 /** Αποτέλεσμα κλεισίματος (Lost, Δεν ενδιαφέρεται…). `quick` = κουμπί με ένα κλικ στην καρτέλα του lead. */
 export interface LostReason { key: string; label: string; status: 'lost' | 'nurture' | 'no_response'; quick?: boolean; en?: string }
@@ -124,7 +124,8 @@ export function mergePipelines(x: any): PipelineSettings {
         : !taken.includes(st.status) ? st.status : slugKey(label, taken);
       const md = st?.maxDays === null || st?.maxDays === '' || st?.maxDays === undefined ? null : num(st.maxDays, 1, 365, 7);
       const sen = s(st?.en, 40);
-      stages.push({ key: sk, status: st.status, label, probability: num(st?.probability, 0, 100, 0), maxDays: st.status === 'won' ? null : md, ...(sen ? { en: sen } : {}) });
+      const col = typeof st?.color === 'string' && /^#[0-9a-f]{6}$/i.test(st.color) ? st.color.toLowerCase() : '';
+      stages.push({ key: sk, status: st.status, label, probability: num(st?.probability, 0, 100, 0), maxDays: st.status === 'won' ? null : md, ...(sen ? { en: sen } : {}), ...(col ? { color: col } : {}) });
       if (stages.length >= 20) break;
     }
     // Η σειρά είναι αυτή που ορίσατε· το «κλείσιμο» πάντα τελευταίο, και ένα

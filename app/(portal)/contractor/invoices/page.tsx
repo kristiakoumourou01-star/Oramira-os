@@ -43,14 +43,14 @@ export default async function ContractorInvoicesPage() {
         />
       ) : (
         <>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid gap-4 md:grid-cols-3">
             <div className="panel p-5"><p className="eyebrow mb-1">Submitted total</p><p className="figure text-3xl text-forest">€{formatNumber(total)}</p></div>
             <div className="panel p-5"><p className="eyebrow mb-1">Awaiting</p><p className="figure text-3xl text-forest">{all.filter((i) => i.status === 'submitted').length}</p></div>
             <div className="panel p-5"><p className="eyebrow mb-1">Approved</p><p className="figure text-3xl text-forest">{all.filter((i) => i.status === 'approved' || i.status === 'paid').length}</p></div>
           </div>
 
           <div className="panel overflow-hidden">
-            <table className="table-base w-full">
+            <div className="overflow-x-auto"><table className="table-base w-full">
               <thead>
                 <tr><th>Job</th><th>Submitted</th><th>Amount</th><th>Status</th><th></th></tr>
               </thead>
@@ -82,7 +82,7 @@ export default async function ContractorInvoicesPage() {
                   );
                 })}
               </tbody>
-            </table>
+            </table></div>
           </div>
         </>
       )}

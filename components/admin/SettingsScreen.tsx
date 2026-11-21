@@ -92,7 +92,7 @@ export function SettingsScreen({
         {/* Content */}
         <div className="space-y-4">
           <div>
-            <h2 className="font-display text-2xl text-forest">{section.label}</h2>
+            <h2 className="font-display text-2xl text-charcoal">{section.label}</h2>
             <p className="text-sm text-charcoal-600/70">{section.subtitle}</p>
           </div>
 

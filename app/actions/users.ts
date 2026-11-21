@@ -314,3 +314,20 @@ export async function setUserPassword(profileId: string, password: string, mustC
   revalidatePath('/settings/users');
   return { ok: true };
 }
+
+/** Ιστορικό ενεργειών ενός χρήστη (Staff → εικονίδιο ιστορικού). */
+export async function getUserHistory(userId: string): Promise<{ ok: true; rows: { id: string; at: string; action: string; entity: string; details: string }[] } | { ok: false; error: string }> {
+  await requireRole(['admin', 'management']);
+  if (!/^[0-9a-f-]{36}$/i.test(userId ?? '')) return { ok: false, error: 'Άγνωστος χρήστης.' };
+  const svc = createSupabaseServiceRoleClient() as any;
+  const { data, error } = await svc.from('activity_log').select('id, entity_type, action, metadata, created_at').eq('actor_id', userId).order('created_at', { ascending: false }).limit(150);
+  if (error) return { ok: false, error: error.message };
+  const rows = ((data ?? []) as any[]).map((r) => {
+    const m = (r.metadata ?? {}) as Record<string, unknown>;
+    const ua = typeof m.ua === 'string' ? m.ua : '';
+    const dev = ua ? `${/iPhone|iPad/.test(ua) ? 'iOS' : /Android/.test(ua) ? 'Android' : /Mac OS/.test(ua) ? 'Mac' : /Windows/.test(ua) ? 'Windows' : ''}` : '';
+    const extra = Object.entries(m).filter(([k, v]) => !['ip', 'ua'].includes(k) && v != null && typeof v !== 'object').slice(0, 2).map(([k, v]) => `${k.replace(/_/g, ' ')}: ${String(v).slice(0, 40)}`);
+    return { id: r.id, at: r.created_at, action: r.action, entity: r.entity_type, details: [...extra, m.ip ? `IP ${m.ip}` : '', dev].filter(Boolean).join(' · ') };
+  });
+  return { ok: true, rows };
+}

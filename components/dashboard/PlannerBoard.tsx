@@ -252,7 +252,7 @@ export function PlannerBoard({ events: propEvents, leads = [], projects = [], te
             {completed && <span className="rounded-full bg-[#F5F1E8] px-1.5 text-[9px] font-semibold text-charcoal-600">✓</span>}
             {!live && !completed && highPriority && <span className={`rounded px-1 text-[9px] font-semibold ${e.priority === 'critical' ? 'bg-signal-danger text-white' : 'bg-signal-danger/15 text-signal-danger'}`}>{e.priority === 'critical' ? '!!' : '!'}</span>}
             {e.recurring && <Repeat size={10} className="text-charcoal-600/40" />}
-            {e.meetingLink && <a href={e.meetingLink} target="_blank" rel="noopener noreferrer" onPointerDown={(ev) => ev.stopPropagation()} onClick={(ev) => ev.stopPropagation()} className="text-violet-700"><Video size={11} /></a>}
+            {e.meetingLink && <a href={e.meetingLink} target="_blank" rel="noopener noreferrer" onPointerDown={(ev) => ev.stopPropagation()} onClick={(ev) => ev.stopPropagation()} className="text-forest"><Video size={11} /></a>}
             {e.eventId && <button onPointerDown={(ev) => ev.stopPropagation()} onClick={(ev) => { ev.stopPropagation(); setMenu({ eventId: e.eventId!, x: ev.clientX, y: ev.clientY, e }); }} className="text-charcoal-600/40 opacity-0 transition-opacity hover:text-charcoal group-hover:opacity-100"><MoreVertical size={12} /></button>}
           </span>
         </div>
@@ -372,7 +372,7 @@ export function PlannerBoard({ events: propEvents, leads = [], projects = [], te
               <span className="flex items-center gap-1 rounded-full bg-forest/10 px-2 py-0.5 text-[11px] font-semibold text-forest"><Radio size={11} /> Live now</span>
               <span className="text-sm font-medium text-charcoal">{currentEvent.title}</span>
               {mounted && <span className="figure text-xs text-charcoal-600/60">ends in {countdown(new Date(currentEvent.start).getTime() + (currentEvent.durationMin ?? 45) * 60000 - nowMs)}</span>}
-              {currentEvent.meetingLink && <a href={currentEvent.meetingLink} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 rounded-lg bg-violet-500/10 px-2 py-1 text-[11px] text-violet-700 hover:bg-violet-500/20"><Video size={12} /> Join</a>}
+              {currentEvent.meetingLink && <a href={currentEvent.meetingLink} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 rounded-lg bg-forest/[0.08] px-2 py-1 text-[11px] text-forest hover:bg-forest/[0.12]"><Video size={12} /> Join</a>}
             </div>
           )}
           {nextEvent && (
@@ -380,7 +380,7 @@ export function PlannerBoard({ events: propEvents, leads = [], projects = [], te
               <span className="flex items-center gap-1 rounded-full bg-[#F5F1E8] px-2 py-0.5 text-[11px] font-medium text-charcoal-600"><CalendarClock size={11} /> Next</span>
               <span className="text-sm text-charcoal">{nextEvent.title}</span>
               {mounted && <span className="figure text-xs text-charcoal-600/60">in {countdown(new Date(nextEvent.start).getTime() - nowMs)}</span>}
-              {nextEvent.meetingLink && <a href={nextEvent.meetingLink} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 rounded-lg bg-violet-500/10 px-2 py-1 text-[11px] text-violet-700 hover:bg-violet-500/20"><Video size={12} /> Join</a>}
+              {nextEvent.meetingLink && <a href={nextEvent.meetingLink} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 rounded-lg bg-forest/[0.08] px-2 py-1 text-[11px] text-forest hover:bg-forest/[0.12]"><Video size={12} /> Join</a>}
             </div>
           )}
         </div>
@@ -388,7 +388,7 @@ export function PlannerBoard({ events: propEvents, leads = [], projects = [], te
 
       <div className="grid gap-4 lg:grid-cols-12">
       {/* LEFT — full-day planner (primary surface, ~65%) */}
-      <Card className="lg:col-span-8 ws-card-primary">
+      <Card className="min-w-0 lg:col-span-8 ws-card-primary">
         {routePlan && routePlan.stops.length > 0 && (
           <div className="mb-3 flex w-fit gap-0.5 rounded-lg bg-[#F0EADF] p-0.5">
             {([['timeline', 'Timeline'], ['route', `Route · ${routePlan.stops.length}`]] as const).map(([t, label]) => (
@@ -400,9 +400,9 @@ export function PlannerBoard({ events: propEvents, leads = [], projects = [], te
         {/* Quick add */}
         <div className="mb-2.5 flex items-center gap-2 rounded-xl bg-[#F5F1E8] px-3 py-1.5 shadow-[inset_0_0_0_1px_rgba(31,77,58,0.05)] transition-shadow focus-within:shadow-[inset_0_0_0_1px_rgba(200,169,107,0.55)]">
           <Plus size={14} className="text-forest" />
-          <input value={quickAdd} onChange={(e) => setQuickAdd(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); submitQuickAdd(); } }} placeholder="Quick add — e.g. Call Michael tomorrow at 11" className="flex-1 bg-transparent text-sm text-charcoal placeholder:text-charcoal-600/50 focus:outline-none" />
+          <input value={quickAdd} onChange={(e) => setQuickAdd(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); submitQuickAdd(); } }} placeholder="Quick add — e.g. Call Michael tomorrow at 11" className="min-w-0 flex-1 bg-transparent text-sm text-charcoal placeholder:text-charcoal-600/50 focus:outline-none" />
         </div>
-        <div className="mb-2 flex items-center justify-between gap-2">
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-1">
             <button onClick={() => setSelected(addDays(selected, -VIEW_STEP))} className="rounded-lg border border-[#E8E0D2] p-1 text-charcoal-600 hover:bg-[#F5F1E8]"><ChevronLeft size={15} /></button>
             <button onClick={() => { setSelected(today); setMonth(new Date(today.getFullYear(), today.getMonth(), 1)); }} className="rounded-lg border border-[#E8E0D2] px-2 py-1 text-xs text-charcoal-600 hover:bg-[#F5F1E8]">Today</button>

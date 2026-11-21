@@ -94,7 +94,7 @@ export default async function InvoiceViewPage({ params }: { params: { id: string
             )}
           </section>
 
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto"><table className="w-full text-sm">
             <thead>
               <tr className="border-b border-stone-line text-left text-[11px] uppercase tracking-wide text-charcoal-600/70">
                 <th className="py-2 font-medium">Περιγραφή</th>
@@ -115,7 +115,7 @@ export default async function InvoiceViewPage({ params }: { params: { id: string
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
 
           <div className="ml-auto mt-4 w-full max-w-[300px] space-y-1 text-sm">
             {!isReceipt && <div className="flex justify-between"><span className="text-charcoal-600">Καθαρό</span><span className="figure">{sign}{money(doc.net_total)}</span></div>}

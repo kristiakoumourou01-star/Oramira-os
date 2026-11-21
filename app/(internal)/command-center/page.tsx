@@ -32,24 +32,24 @@ export default async function CommandCenterPage() {
   return (
     <div className="space-y-5">
       <Link href="/dashboard" className="inline-flex items-center gap-1.5 text-sm text-charcoal-600/70 hover:text-forest"><ArrowLeft size={15} /> Dashboard</Link>
-      <WorkspaceHeader eyebrow="Executive" title="Command Center"
-        description={attention > 0 ? `${attention} σημεία χρειάζονται προσοχή · προτεραιότητες, κίνδυνοι, cashflow και bottlenecks.` : 'Όλα κυλούν — τίποτα δεν έχει κολλήσει.'}
-        action={<Link href="/automation" className="btn-secondary text-sm"><Workflow size={14} strokeWidth={1.75} /> Automation Center</Link>} />
+      <WorkspaceHeader eyebrow="Διοίκηση" title="Command Center"
+        description={attention > 0 ? `${attention} σημεία χρειάζονται προσοχή · προτεραιότητες, κίνδυνοι, cashflow και bottlenecks.` : 'Όλα κυλούν, τίποτα δεν έχει κολλήσει.'}
+        action={<Link href="/automation" className="inline-flex h-9 items-center gap-1.5 rounded-[10px] border border-stone-line bg-white px-3 text-[14px] text-charcoal hover:border-forest/30"><Workflow size={14} strokeWidth={1.75} /> Αυτοματισμοί</Link>} />
 
       <section>
-        <p className="eyebrow mb-2">Λειτουργική υγεία</p>
+        <p className="mb-2 text-[13px] font-semibold uppercase tracking-[0.1em] text-charcoal-600">Λειτουργική υγεία</p>
         <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
           {health.map((s) => { const t = TONE[s.severity]; return (
-            <Link key={s.key} href={s.href} className={`group panel flex flex-col gap-2 border ${t.ring} p-4 transition-shadow hover:shadow-overlay`}>
+            <Link key={s.key} href={s.href} className={`group flex flex-col gap-2 rounded-[14px] border bg-white p-4 shadow-sm transition-colors duration-150 hover:border-forest/40 ${t.ring}`}>
               <div className="flex items-center justify-between">
                 <span className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-charcoal-600/55"><span className={`h-1.5 w-1.5 rounded-full ${t.dot}`} /> {s.label}</span>
                 <ArrowUpRight size={13} className="text-charcoal-600/30 transition-colors group-hover:text-forest" />
               </div>
-              <span className={`figure text-[30px] leading-none ${t.num}`}>{s.count}</span>
-              <span className="text-[12px] text-charcoal-600/70">{s.insight}</span>
+              <span className={`text-[28px] font-semibold leading-none tabular-nums ${t.num}`}>{s.count}</span>
+              <span className="text-[13px] text-charcoal-600">{s.insight}</span>
             </Link>
           ); })}
-          {attention === 0 && <div className="panel flex items-center gap-3 border border-stone-line p-4 text-sm text-charcoal-600/70"><ShieldCheck size={18} className="text-signal-success" strokeWidth={1.75} /> Operations running clean.</div>}
+          {attention === 0 && <div className="flex items-center gap-3 rounded-[14px] border border-stone-line bg-white p-4 text-sm text-charcoal-600 shadow-sm"><ShieldCheck size={18} className="text-forest" strokeWidth={1.75} /> Όλα λειτουργούν κανονικά.</div>}
         </div>
       </section>
 

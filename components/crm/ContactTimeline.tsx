@@ -130,7 +130,7 @@ export function ContactTimeline({
           const Icon = entry.kind === 'note' ? StickyNote : CHANNEL_ICON[entry.channel ?? ''] ?? MessageSquare;
           return (
             <li key={entry.id} className="relative">
-              <span className="absolute -left-[21px] top-1 flex h-4 w-4 items-center justify-center rounded-full bg-champagne text-forest-deep">
+              <span className="absolute -left-[21px] top-1 flex h-4 w-4 items-center justify-center rounded-full bg-champagne text-white">
                 <Icon size={10} strokeWidth={2} />
               </span>
               <p className="text-sm text-charcoal">{entry.body}{entry.ai_generated ? <span className="ml-1 text-[10px] text-champagne-600">· AI</span> : null}</p>

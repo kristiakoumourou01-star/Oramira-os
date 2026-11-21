@@ -26,6 +26,7 @@ export const NOTIF_EVENTS: NotifEventDef[] = [
   { key: 'contractor_payment', label: 'Πληρωμή εργολάβου', who: 'Οικονομικά', group: 'Οικονομικά', inApp: true, email: false },
   { key: 'vat_deadline', label: 'Προθεσμία ΦΠΑ', who: 'Οικονομικά', group: 'Οικονομικά', inApp: true, email: true },
   { key: 'warranty_expiring', label: 'Εγγύηση λήγει', who: 'Ομάδα', group: 'Έργα & πελάτες', inApp: true, email: false },
+  { key: 'owner_request', label: 'Αίτημα ιδιοκτήτη (συντήρηση / εγγύηση)', who: 'Admins, managers, κατασκευή', group: 'Έργα & πελάτες', inApp: true, email: true, urgent: true },
   { key: 'maintenance_escalation', label: 'Συντήρηση σε καθυστέρηση', who: 'Property management', group: 'Έργα & πελάτες', inApp: true, email: true },
   { key: 'owner_checkin', label: 'Επικοινωνία με ιδιοκτήτη / επιθεώρηση', who: 'Property management', group: 'Έργα & πελάτες', inApp: true, email: false },
   { key: 'construction_update', label: 'Νέα ενημέρωση κατασκευής', who: 'Οι αγοραστές των μονάδων', group: 'Έργα & πελάτες', inApp: true, email: true },
@@ -35,6 +36,8 @@ export const NOTIF_EVENTS: NotifEventDef[] = [
   { key: 'leave_decision', label: 'Απάντηση σε αίτημα άδειας', who: 'Ο υπάλληλος', group: 'Ομάδα & HR', inApp: true, email: true },
   { key: 'payslip_ready', label: 'Payslip διαθέσιμο', who: 'Ο υπάλληλος', group: 'Ομάδα & HR', inApp: true, email: true },
   { key: 'commission_paid', label: 'Προμήθεια πληρώθηκε', who: 'Ο πωλητής', group: 'Ομάδα & HR', inApp: true, email: false },
+  { key: 'task_assigned', label: 'Νέα εργασία (task)', who: 'Όποιος την αναλαμβάνει', group: 'Ομάδα & HR', inApp: true, email: true },
+  { key: 'task_done', label: 'Εργασία ολοκληρώθηκε', who: 'Όποιος την ανέθεσε', group: 'Ομάδα & HR', inApp: true, email: false },
   { key: 'message_received', label: 'Νέο μήνυμα', who: 'Ο παραλήπτης', group: 'Μηνύματα', inApp: true, email: false },
 ];
 

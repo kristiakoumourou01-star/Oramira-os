@@ -78,7 +78,7 @@ export function DealWorkbench({
     startTransition(async () => {
       if (dirty) await saveDeal(dealId, inputs);
       const r = await decideDeal(dealId, d);
-      if (!r.ok) setFlowErr(r.error); else { setFlowErr(null); if (r.projectId) router.push(`/projects/${r.projectId}`); else router.refresh(); }
+      if (!r.ok) setFlowErr(r.error); else { setFlowErr(null); if (r.projectId) router.push(`/projects/${r.projectId}?edit=1`); else router.refresh(); }
     });
   }
 

@@ -45,8 +45,8 @@ export default async function HomeownerProjectPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-3 gap-6">
-        <div className="col-span-2 space-y-6">
+      <div className="grid gap-6 md:grid-cols-3">
+        <div className="md:col-span-2 space-y-6">
           <div className="panel p-6">
             <h4 className="mb-4">{project?.name ?? unit.project_name}</h4>
             <div className="grid grid-cols-2 gap-4 text-sm">

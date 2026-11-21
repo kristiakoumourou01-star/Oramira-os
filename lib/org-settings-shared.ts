@@ -293,7 +293,7 @@ export function menuOverridesFrom(items: ResolvedNavItem[], position: MenuPositi
 }
 
 /* ---- Appearance extras (company-wide; colours/fonts live in org_branding) ---- */
-export type SidebarStyle = 'brand' | 'charcoal' | 'custom';
+export type SidebarStyle = 'light' | 'brand' | 'charcoal' | 'custom';
 export type Corners = 'square' | 'soft' | 'round';
 export type BoxStyle = 'shadow' | 'outline' | 'flat';
 /** Χρώμα κουτιών: λευκό ή απόχρωση από τα χρώματα της εταιρείας. */
@@ -312,7 +312,7 @@ export interface AppearanceSettings {
   labelStyle: LabelStyle;
 }
 export const DEFAULT_APPEARANCE: AppearanceSettings = {
-  logoOnLight: null, favicon: null, sidebarStyle: 'brand', sidebarColor: '#113124', corners: 'soft', boxStyle: 'shadow', boxColor: 'white', labelStyle: 'soft',
+  logoOnLight: null, favicon: null, sidebarStyle: 'light', sidebarColor: '#113124', corners: 'soft', boxStyle: 'shadow', boxColor: 'white', labelStyle: 'soft',
 };
 
 export interface OrgSettings {
@@ -350,7 +350,7 @@ export interface OrgSettings {
   projectStages: ProjectStage[];
 }
 
-export interface ProjectStage { key: string; label: string }
+export interface ProjectStage { key: string; label: string; /** Χρώμα στήλης (#rrggbb, προαιρετικό). */ color?: string }
 export const DEFAULT_PROJECT_STAGES: ProjectStage[] = [
   { key: 'planning', label: 'Σχεδιασμός' }, { key: 'permitting', label: 'Αδειοδότηση' }, { key: 'under_construction', label: 'Υπό κατασκευή' },
   { key: 'selling', label: 'Σε πώληση' }, { key: 'completed', label: 'Ολοκληρωμένο' }, { key: 'on_hold', label: 'Σε αναμονή' },
@@ -358,7 +358,7 @@ export const DEFAULT_PROJECT_STAGES: ProjectStage[] = [
 export function mergeProjectStages(v: unknown): ProjectStage[] {
   if (!Array.isArray(v)) return DEFAULT_PROJECT_STAGES;
   const seen = new Set<string>();
-  const out = v.filter((x: any) => x && typeof x.key === 'string' && /^[a-z0-9_]{1,40}$/.test(x.key) && typeof x.label === 'string' && x.label.trim() && !seen.has(x.key) && seen.add(x.key)).map((x: any) => ({ key: x.key, label: String(x.label).trim().slice(0, 40) }));
+  const out = v.filter((x: any) => x && typeof x.key === 'string' && /^[a-z0-9_]{1,40}$/.test(x.key) && typeof x.label === 'string' && x.label.trim() && !seen.has(x.key) && seen.add(x.key)).map((x: any) => ({ key: x.key, label: String(x.label).trim().slice(0, 40), ...(typeof x.color === 'string' && /^#[0-9a-f]{6}$/i.test(x.color) ? { color: x.color.toLowerCase() } : {}) }));
   return out.length ? out.slice(0, 20) : DEFAULT_PROJECT_STAGES;
 }
 
@@ -599,7 +599,7 @@ export function mergeAppearance(a: any): AppearanceSettings {
   return {
     logoOnLight: img(v.logoOnLight),
     favicon: img(v.favicon),
-    sidebarStyle: ['brand', 'charcoal', 'custom'].includes(v.sidebarStyle) ? v.sidebarStyle : DEFAULT_APPEARANCE.sidebarStyle,
+    sidebarStyle: ['light', 'brand', 'charcoal', 'custom'].includes(v.sidebarStyle) ? v.sidebarStyle : DEFAULT_APPEARANCE.sidebarStyle,
     sidebarColor: typeof v.sidebarColor === 'string' && HEX6.test(v.sidebarColor) ? v.sidebarColor.toUpperCase() : DEFAULT_APPEARANCE.sidebarColor,
     corners: ['square', 'soft', 'round'].includes(v.corners) ? v.corners : DEFAULT_APPEARANCE.corners,
     boxStyle: ['shadow', 'outline', 'flat'].includes(v.boxStyle) ? v.boxStyle : DEFAULT_APPEARANCE.boxStyle,

@@ -37,7 +37,7 @@ export default async function ProjectsPage() {
 
   return (
     <div className="space-y-5">
-      <WorkspaceHeader eyebrow="Operations" title="Projects" description="Developments, phases, and unit inventory." action={<NewProjectForm />} />
+      <WorkspaceHeader eyebrow="Έργα" title="Έργα & μονάδες" description="Τα έργα σας, οι φάσεις τους και το απόθεμα μονάδων από ένα σημείο." action={<NewProjectForm />} />
 
       {!projects || projects.length === 0 ? (
         <EmptyState

@@ -7,7 +7,7 @@ import { formatDayMonthTime } from '@/lib/format';
 export interface TimelineEntry { id: string; at: string; kind: string; title: string; detail?: string | null }
 
 const ICON: Record<string, any> = { phone: Phone, whatsapp: MessageCircle, email: Mail, meeting: Users, document: FileText, stage: Flag, note: StickyNote };
-const TONE: Record<string, string> = { phone: 'text-sky-600', whatsapp: 'text-forest', email: 'text-violet-600', meeting: 'text-champagne-600', document: 'text-olive', stage: 'text-forest', note: 'text-charcoal-600/60' };
+const TONE: Record<string, string> = { phone: 'text-forest', whatsapp: 'text-forest', email: 'text-forest', meeting: 'text-champagne-600', document: 'text-olive', stage: 'text-forest', note: 'text-charcoal-600/60' };
 
 /** Full acquisition timeline — every touch, document and status change, in
  *  reverse-chronological order, with a live search. */

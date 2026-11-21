@@ -3,10 +3,50 @@
 import { useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { GripVertical, Plus, Trash2, X } from 'lucide-react';
+import { Check, GripVertical, Palette, Plus, Trash2, X } from 'lucide-react';
 import { saveOrgSlice } from '@/app/actions/org-settings';
 import { FLOW, STATUS_EL, slugKey, type FlowStatus, type PipelineSettings, type StageDef } from '@/lib/pipeline-shared';
 import { useDragSort, moveItem } from '@/components/ui/useDragSort';
+
+/** Έτοιμα χρώματα για τις στήλες· «Αυτόματο» = η κλίμακα άμμος → πράσινο Oramira. */
+const SWATCHES = ['#bfab88', '#c9a063', '#d98b5f', '#e0b84c', '#8fae6e', '#4a8668', '#2f6e54', '#113124', '#5b8db8', '#3f6fb0', '#7c6bb5', '#b0607f', '#c2554d', '#6b7280'];
+const AUTO = ['#bfab88', '#c9a063', '#b8925c', '#96a06e', '#6e9670', '#4a8668', '#2f6e54', '#113124'];
+const autoColor = (i: number, n: number) => (n <= 1 ? AUTO[AUTO.length - 1] : AUTO[Math.round((i / (n - 1)) * (AUTO.length - 1))]);
+
+export function ColorPick({ value, auto, onChange }: { value?: string; auto: string; onChange: (c: string | undefined) => void }) {
+  const [open, setOpen] = useState(false);
+  const cur = value ?? auto;
+  return (
+    <div className="relative">
+      <button type="button" onClick={() => setOpen((o) => !o)} title="Χρώμα στήλης" aria-label="Χρώμα στήλης"
+        className="flex h-8 w-8 items-center justify-center rounded-full ring-2 ring-white transition hover:scale-110" style={{ backgroundColor: cur, boxShadow: `0 0 0 1px ${cur}` }}>
+        {!value && <Palette size={13} className="text-white/90" />}
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div className="absolute left-0 top-full z-20 mt-2 w-[228px] rounded-2xl border border-stone-line bg-white p-3 shadow-overlay">
+            <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-charcoal-600/60">Χρώμα στήλης</p>
+            <div className="grid grid-cols-7 gap-1.5">
+              {SWATCHES.map((c) => (
+                <button key={c} type="button" onClick={() => { onChange(c); setOpen(false); }} aria-label={c}
+                  className="flex h-7 w-7 items-center justify-center rounded-full transition hover:scale-110" style={{ backgroundColor: c }}>
+                  {value === c && <Check size={13} className="text-white" strokeWidth={3} />}
+                </button>
+              ))}
+            </div>
+            <div className="mt-3 flex items-center justify-between gap-2">
+              <label className="flex items-center gap-2 text-xs text-charcoal-600">
+                <input type="color" value={cur} onChange={(e) => onChange(e.target.value)} className="h-7 w-9 cursor-pointer rounded border-0 bg-transparent p-0" /> Δικό σας
+              </label>
+              <button type="button" onClick={() => { onChange(undefined); setOpen(false); }} className={`rounded-full px-2.5 py-1 text-xs ${!value ? 'bg-forest text-white' : 'bg-stone text-charcoal-600 hover:text-charcoal'}`}>Αυτόματο</button>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
 
 /**
  * «Επεξεργασία pipeline» μέσα από τον πίνακα Deals (όπως Pipedrive): όνομα,
@@ -43,11 +83,12 @@ export function StageEditor({ cfg, pipelineKey, onClose }: { cfg: PipelineSettin
         </div>
         <div className="space-y-3 overflow-y-auto p-5">
           <label className="block"><span className="text-xs text-charcoal-600/70">Όνομα pipeline</span><input className="input font-medium" value={name} onChange={(e) => setName(e.target.value)} /></label>
-          <div className="hidden gap-2 px-1 text-[11px] uppercase tracking-wide text-charcoal-600/60 sm:flex"><span className="w-5" /><span className="flex-1">Στάδιο</span><span className="w-36">Σημαίνει</span><span className="w-20">Πιθανότ.</span><span className="w-20">Όριο ημ.</span><span className="w-6" /></div>
+          <div className="hidden gap-2 px-1 text-[11px] uppercase tracking-wide text-charcoal-600/60 sm:flex"><span className="w-5" /><span className="w-8">Χρώμα</span><span className="flex-1">Στάδιο</span><span className="w-36">Σημαίνει</span><span className="w-20">Πιθανότ.</span><span className="w-20">Όριο ημ.</span><span className="w-6" /></div>
           <ul className="space-y-1.5">
             {stages.map((s, i) => (
-              <li key={s.key} {...dnd.item(i)} className={`flex flex-wrap items-center gap-2 rounded-lg border border-stone-line bg-white p-2 sm:flex-nowrap ${dnd.cls(i)}`}>
+              <li key={s.key} {...dnd.item(i)} className={`flex flex-wrap items-center gap-2 rounded-xl border border-stone-line bg-white p-2 transition hover:border-forest/30 sm:flex-nowrap ${dnd.cls(i)}`} style={{ borderLeft: `4px solid ${s.color ?? autoColor(i, stages.length)}` }}>
                 <span className="cursor-grab text-charcoal-600/40 active:cursor-grabbing" title="Σύρετε για αλλαγή σειράς"><GripVertical size={16} /></span>
+                <ColorPick value={s.color} auto={autoColor(i, stages.length)} onChange={(c) => set(i, { color: c })} />
                 <input className="input min-w-[8rem] flex-1 py-1 text-sm" value={s.label} maxLength={40} onChange={(e) => set(i, { label: e.target.value })} aria-label="Όνομα σταδίου" />
                 <select className="input w-36 py-1 text-sm" value={s.status} onChange={(e) => set(i, { status: e.target.value as FlowStatus })} aria-label="Σημαίνει" title="Τι σημαίνει για το σύστημα (αυτοματισμοί, αναφορές)">
                   {FLOW.filter((f) => f !== 'won').map((f) => <option key={f} value={f}>{STATUS_EL[f] ?? f}</option>)}

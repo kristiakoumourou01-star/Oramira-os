@@ -23,7 +23,7 @@ export interface CompactTask {
 
 const DAY = 24 * 60 * 60 * 1000;
 const ENTITY_CLS: Record<string, string> = {
-  Lead: 'bg-champagne-50 text-champagne-600', Property: 'bg-sky-50 text-sky-700', HR: 'bg-violet-50 text-violet-700', Finance: 'bg-forest/10 text-forest', Task: 'bg-[#F5F1E8] text-charcoal-600/70',
+  Lead: 'bg-champagne-50 text-champagne-600', Property: 'bg-forest/[0.06] text-forest', HR: 'bg-forest/[0.06] text-forest', Finance: 'bg-forest/10 text-forest', Task: 'bg-[#F5F1E8] text-charcoal-600/70',
 };
 
 function DueBadge({ due }: { due: string }) {
@@ -100,7 +100,7 @@ export function CompactTaskList({ tasks }: { tasks: CompactTask[] }) {
                 {t.attendees && t.attendees.length > 0 && <AvatarStack attendees={t.attendees} size={18} />}
                 {t.priority === 'high' && <span className="shrink-0 rounded bg-signal-danger/10 px-1.5 py-0.5 text-[10px] text-signal-danger">High</span>}
                 {t.entity && <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] ${ENTITY_CLS[t.entity] ?? ENTITY_CLS.Task}`}>{t.entity}</span>}
-                {t.meeting_link && <a href={t.meeting_link} target="_blank" rel="noopener noreferrer" className="flex shrink-0 items-center gap-1 rounded bg-violet-500/10 px-1.5 py-0.5 text-[10px] text-violet-700 hover:bg-violet-500/20"><Video size={10} /> Join</a>}
+                {t.meeting_link && <a href={t.meeting_link} target="_blank" rel="noopener noreferrer" className="flex shrink-0 items-center gap-1 rounded bg-forest/10 px-1.5 py-0.5 text-[10px] text-forest hover:bg-forest/20"><Video size={10} /> Join</a>}
                 {t.due_at && <DueBadge due={t.due_at} />}
               </li>
             );

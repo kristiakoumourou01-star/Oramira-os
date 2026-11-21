@@ -25,16 +25,16 @@ export function NavItem({
     <Link
       href={href}
       title={compact ? label : undefined}
-      className={`group relative flex items-center rounded-lg py-1.5 text-[13px] transition-all duration-150 ${compact ? 'justify-center px-0' : 'gap-2.5 px-3'} ${
+      className={`group relative flex items-center rounded-lg py-[7px] text-[14px] transition-colors duration-150 ${compact ? 'justify-center px-0' : 'gap-2.5 px-3'} ${
         active
-          ? 'bg-gradient-to-r from-champagne/[0.18] to-white/[0.05] font-medium text-champagne shadow-[inset_0_0_0_1px_rgba(200,169,107,0.2)]'
-          : 'text-stone-100/60 hover:bg-white/[0.07] hover:text-stone-100'
-      } ${active || compact ? '' : 'hover:translate-x-0.5'}`}
+          ? 'bg-[color:var(--sb-active-bg)] font-medium text-[color:var(--sb-active-text)]'
+          : 'text-[color:var(--sb-text)] hover:bg-[color:var(--sb-hover-bg)] hover:text-[color:var(--sb-text-hover)]'
+      }`}
     >
       {active && (
-        <span className="absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-r bg-champagne shadow-[0_0_8px_rgba(200,169,107,0.5)]" />
+        <span className="absolute -left-3 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r bg-[color:var(--sb-active-text)]" />
       )}
-      <span className={active ? 'text-champagne' : 'text-stone-100/65 group-hover:text-stone-100'}>{icon}</span>
+      <span className={active ? 'text-[color:var(--sb-active-text)]' : 'text-[color:var(--sb-icon)] group-hover:text-[color:var(--sb-text-hover)]'}>{icon}</span>
       {!compact && <span>{label}</span>}
     </Link>
   );

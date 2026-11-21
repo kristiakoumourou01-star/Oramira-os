@@ -1,5 +1,7 @@
 'use client';
 
+import { PopSelect } from '@/components/ui/PopSelect';
+
 import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Check, X, Trash2, CalendarPlus, Pencil } from 'lucide-react';
@@ -11,7 +13,7 @@ export interface BalanceRow { profile_id: string; leave_type: string; year: numb
 
 const TYPES: [string, string][] = [['annual', 'Ετήσια'], ['sick', 'Ασθένεια'], ['unpaid', 'Άνευ αποδοχών'], ['maternity', 'Μητρότητας'], ['paternity', 'Πατρότητας'], ['other', 'Άλλη']];
 const typeLabel = (k: string) => TYPES.find(([v]) => v === k)?.[1] ?? k;
-const STATUS: Record<string, [string, string]> = { pending: ['Σε αναμονή', 'badge-champagne'], approved: ['Εγκρίθηκε', 'badge-forest'], rejected: ['Απορρίφθηκε', 'badge-neutral'] };
+const STATUS: Record<string, [string, string]> = { pending: ['Σε αναμονή', 'rounded-full border border-stone-line px-2 py-0.5 text-[11px] font-medium text-charcoal'], approved: ['Εγκρίθηκε', 'rounded-full border border-forest/30 bg-forest/[0.08] px-2 py-0.5 text-[11px] font-medium text-forest'], rejected: ['Απορρίφθηκε', 'badge-neutral'] };
 const fmt = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString(DATE_TAG[currentLocale().lang], { day: '2-digit', month: 'short', year: 'numeric' });
 
 /** HR → Άδειες: αιτήσεις (με φίλτρα), έγκριση, καταχώριση για υπάλληλο και υπόλοιπα ανά υπάλληλο. */
@@ -49,13 +51,13 @@ export function LeaveManager({ requests, balances, employees, me, canEdit }: { r
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center gap-2">
-        <select className="input w-auto text-sm" value={emp} onChange={(e) => setEmp(e.target.value)} aria-label="Υπάλληλος" data-no-tr><option value="">Όλοι οι υπάλληλοι</option>{employees.map((e) => <option key={e.id} value={e.id}>{e.full_name ?? '—'}</option>)}</select>
-        <select className="input w-auto text-sm" value={type} onChange={(e) => setType(e.target.value)} aria-label="Τύπος"><option value="">Όλοι οι τύποι</option>{TYPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
-        <select className="input w-auto text-sm" value={status} onChange={(e) => setStatus(e.target.value)} aria-label="Κατάσταση"><option value="">Όλες οι καταστάσεις</option>{Object.entries(STATUS).map(([v, [l]]) => <option key={v} value={v}>{l}</option>)}</select>
-        <select className="input w-auto text-sm" value={year} onChange={(e) => setYear(Number(e.target.value))} aria-label="Έτος">{years.map((y) => <option key={y} value={y}>{y}</option>)}</select>
-        <span className="flex items-center gap-1 text-sm text-charcoal-600"><input type="date" className="input w-auto text-sm" value={from} onChange={(e) => setFrom(e.target.value)} aria-label="Από" /> – <input type="date" className="input w-auto text-sm" value={to} onChange={(e) => setTo(e.target.value)} aria-label="Έως" /></span>
+        <PopSelect searchable width="min-w-[160px]" ariaLabel="Υπάλληλος" value={emp} onChange={setEmp} options={[['', 'Όλοι οι υπάλληλοι'], ...employees.map((e) => [e.id, e.full_name ?? '—'] as [string, string])]} />
+        <PopSelect width="min-w-[140px]" ariaLabel="Τύπος" value={type} onChange={setType} options={[['', 'Όλοι οι τύποι'], ...TYPES.map(([v, l]) => [v, l] as [string, string])]} />
+        <PopSelect width="min-w-[150px]" ariaLabel="Κατάσταση" value={status} onChange={setStatus} options={[['', 'Όλες οι καταστάσεις'], ...Object.entries(STATUS).map(([v, [l]]) => [v, l] as [string, string])]} />
+        <PopSelect width="w-[90px]" ariaLabel="Έτος" value={String(year)} onChange={(v) => setYear(Number(v))} options={years.map((y) => [String(y), String(y)] as [string, string])} />
+        <span className="flex items-center gap-1 text-sm text-charcoal-600"><input type="date" className="input h-8 w-auto py-1 text-[13px]" value={from} onChange={(e) => setFrom(e.target.value)} aria-label="Από" /> – <input type="date" className="input h-8 w-auto py-1 text-[13px]" value={to} onChange={(e) => setTo(e.target.value)} aria-label="Έως" /></span>
         {(emp || type || status || from || to) && <button type="button" className="btn-ghost text-xs" onClick={() => { setEmp(''); setType(''); setStatus(''); setFrom(''); setTo(''); }}><X size={13} /> Καθαρισμός</button>}
-        <button type="button" className="btn-primary ml-auto text-sm" onClick={() => { setErr(null); setForm((v) => !v); }}><CalendarPlus size={14} /> Αίτηση άδειας</button>
+        <button type="button" className="inline-flex h-8 items-center gap-1.5 rounded-[10px] bg-forest px-2.5 text-[14px] font-medium text-white transition-all hover:bg-forest/90 sm:ml-auto" onClick={() => { setErr(null); setForm((v) => !v); }}><CalendarPlus size={14} /> Αίτηση άδειας</button>
       </div>
 
       {form && (
@@ -78,9 +80,9 @@ export function LeaveManager({ requests, balances, employees, me, canEdit }: { r
       {!form && err && <p className="text-sm text-signal-danger">{err}</p>}
 
       {/* Υπόλοιπα */}
-      <div className="panel overflow-x-auto p-0">
+      <div className="overflow-x-auto rounded-2xl border border-stone-line bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
         <div className="border-b border-stone-line px-5 py-3"><h4>Υπόλοιπα αδειών {year}</h4><p className="text-xs text-charcoal-600/60">Δικαίωμα − εγκεκριμένες = υπόλοιπο· σε αναμονή φαίνονται ξεχωριστά.{canEdit ? ' Πατήστε ✎ για να αλλάξετε το δικαίωμα.' : ''}</p></div>
-        <table className="table-base w-full min-w-[720px]">
+        <table className="o-table">
           <thead><tr><th>Υπάλληλος</th>{['annual', 'sick', 'unpaid'].map((t) => <th key={t}>{typeLabel(t)}</th>)}<th /></tr></thead>
           <tbody>
             {employees.filter((e) => !emp || e.id === emp).map((e) => (
@@ -115,10 +117,10 @@ export function LeaveManager({ requests, balances, employees, me, canEdit }: { r
       </div>
 
       {/* Αιτήσεις */}
-      <div className="panel overflow-x-auto p-0">
+      <div className="overflow-x-auto rounded-2xl border border-stone-line bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
         <div className="border-b border-stone-line px-5 py-3"><h4>Αιτήσεις άδειας · {rows.length}</h4></div>
         {rows.length === 0 ? <p className="px-5 py-8 text-center text-sm text-charcoal-600/70">Καμία αίτηση με αυτά τα φίλτρα.</p> : (
-          <table className="table-base w-full min-w-[820px]">
+          <table className="o-table">
             <thead><tr><th>Υπάλληλος</th><th>Τύπος</th><th>Διάστημα</th><th>Μέρες</th><th>Κατάσταση</th><th>Λόγος</th><th /></tr></thead>
             <tbody>
               {rows.map((r) => { const [sl, sc] = STATUS[r.status] ?? [r.status, 'badge-neutral']; return (

@@ -80,7 +80,7 @@ export function AuditLogView({ rows }: { rows: AuditRow[] }) {
         <span className="pb-2 text-xs text-charcoal-600/60">{filtered.length} εγγραφές</span>
       </div>
 
-      <div className="panel overflow-hidden">
+      <div className="panel overflow-x-auto">
         <table className="table-base w-full">
           <thead>
             <tr>

@@ -56,7 +56,7 @@ export function BuyerMilestoneTimeline({ milestones }: { milestones: BuyerMilest
             <li key={m.id} className="relative">
               <span
                 className={`absolute -left-[31px] flex h-5 w-5 items-center justify-center rounded-full border-2 border-white ${
-                  done ? 'bg-forest text-stone-100' : active ? 'bg-champagne text-forest' : delayed ? 'bg-signal-warning text-stone-100' : 'bg-stone-line'
+                  done ? 'bg-forest text-stone-100' : active ? 'bg-champagne text-white' : delayed ? 'bg-signal-warning text-stone-100' : 'bg-stone-line'
                 }`}
               >
                 {done && <Check size={11} strokeWidth={2.5} />}

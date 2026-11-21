@@ -1,6 +1,7 @@
 import { requirePermission } from '@/lib/auth';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { WorkspaceHeader } from '@/components/ui/WorkspaceHeader';
+import { SalesNav } from '@/components/sales/SalesNav';
 import { ActivitiesView, type ActivityRow } from '@/components/sales/ActivitiesView';
 
 export const dynamic = 'force-dynamic';
@@ -32,7 +33,8 @@ export default async function ActivitiesPage({ searchParams }: { searchParams: {
   const rows = [...(open.data ?? []), ...(done.data ?? [])].map(map).concat(viewingRows);
   return (
     <div className="space-y-4">
-      <WorkspaceHeader eyebrow="Sales" title="Activities" />
+      <WorkspaceHeader eyebrow="Sales" title="Πωλήσεις" description="Κλήσεις, συναντήσεις, εργασίες και προβολές της ομάδας." />
+      <SalesNav active="activities" />
       {open.error && <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">{open.error.message}</p>}
       <ActivitiesView rows={rows} agents={(agents ?? []) as any} currentUserId={profile.id} initialTypes={searchParams.type ? [searchParams.type] : []} />
     </div>

@@ -42,7 +42,7 @@ export function UnitInventoryTable({ projectId, units }: { projectId: string; un
         })}
       </div>
 
-      <div className="panel overflow-hidden">
+      <div className="panel overflow-x-auto">
         <table className="table-base w-full">
           <thead>
             <tr>

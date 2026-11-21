@@ -23,7 +23,7 @@ export function ConvertToProjectButton({ dealId, projectId }: { dealId: string; 
 
   return (
     <button
-      onClick={() => startTransition(async () => { const id = await convertDealToProject(dealId); router.push(`/projects/${id}`); })}
+      onClick={() => startTransition(async () => { const id = await convertDealToProject(dealId); router.push(`/projects/${id}?edit=1`); })}
       disabled={isPending}
       className="btn-secondary"
     >

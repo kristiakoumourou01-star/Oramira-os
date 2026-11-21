@@ -73,27 +73,35 @@ export function NavGroup({ href, label, icon, items: children, compact = false, 
   // Compact rail: the group collapses to a single icon link to its primary page.
   if (compact) {
     return (
-      <Link href={href} title={label} className={`group relative flex items-center justify-center rounded-lg py-1.5 ${active ? 'bg-white/[0.06] text-champagne' : 'text-stone-100/60 hover:bg-white/[0.07] hover:text-stone-100'}`}>
-        {active && <span className="absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-r bg-champagne" />}
-        <span className={active ? 'text-champagne' : 'text-stone-100/60 group-hover:text-stone-100'}>{icon}</span>
+      <Link href={href} title={label} className={`group relative flex items-center justify-center rounded-lg py-1.5 ${active ? 'bg-[color:var(--sb-active-bg)] text-[color:var(--sb-active-text)]' : 'text-[color:var(--sb-icon)] hover:bg-[color:var(--sb-hover-bg)] hover:text-[color:var(--sb-text-hover)]'}`}>
+        {active && <span className="absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-r bg-[color:var(--sb-active-text)]" />}
+        <span className={active ? 'text-[color:var(--sb-active-text)]' : 'text-[color:var(--sb-icon)] group-hover:text-[color:var(--sb-text-hover)]'}>{icon}</span>
       </Link>
     );
   }
 
   return (
     <div>
-      <div ref={headRef} className={`group flex items-center rounded-lg pr-1 transition-colors ${active ? 'bg-white/[0.06]' : 'hover:bg-white/[0.05]'}`}>
-        <Link href={href} onClick={() => { keepInPlace(); if (!open) { setOpen(true); announce(); } }} className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-3 py-1.5 text-[13px] transition-colors ${active ? 'font-medium text-champagne' : 'text-stone-100/65 hover:text-stone-100'}`}>
-          <span className={active ? 'text-champagne' : 'text-stone-100/60 group-hover:text-stone-100'}>{icon}</span>
-          <span className="truncate">{label}</span>
-        </Link>
-        <button onClick={toggle} aria-label={`Toggle ${label}`} className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-stone-100/40 hover:text-stone-100">
+      <div ref={headRef} className={`group flex items-center rounded-lg pr-1 transition-colors ${active ? 'bg-[color:var(--sb-active-bg)]' : 'hover:bg-[color:var(--sb-hover-bg)]'}`}>
+        {children.length > 0 ? (
+          // Με υποσελίδες: το πάτημα ανοίγει/κλείνει τη λίστα (δεν φεύγει από τη σελίδα).
+          <button type="button" onClick={toggle} aria-expanded={open} className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-3 py-1.5 text-left text-[14px] transition-colors ${active ? 'font-medium text-[color:var(--sb-active-text)]' : 'text-[color:var(--sb-text)] hover:text-[color:var(--sb-text-hover)]'}`}>
+            <span className={active ? 'text-[color:var(--sb-active-text)]' : 'text-[color:var(--sb-icon)] group-hover:text-[color:var(--sb-text-hover)]'}>{icon}</span>
+            <span className="truncate">{label}</span>
+          </button>
+        ) : (
+          <Link href={href} onClick={() => { keepInPlace(); if (!open) { setOpen(true); announce(); } }} className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-3 py-1.5 text-[14px] transition-colors ${active ? 'font-medium text-[color:var(--sb-active-text)]' : 'text-[color:var(--sb-text)] hover:text-[color:var(--sb-text-hover)]'}`}>
+            <span className={active ? 'text-[color:var(--sb-active-text)]' : 'text-[color:var(--sb-icon)] group-hover:text-[color:var(--sb-text-hover)]'}>{icon}</span>
+            <span className="truncate">{label}</span>
+          </Link>
+        )}
+        <button onClick={toggle} aria-label={`Toggle ${label}`} className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-[color:var(--sb-icon)] hover:text-[color:var(--sb-text-hover)]">
           <ChevronDown size={14} className={`transition-transform duration-200 ${open ? '' : '-rotate-90'}`} />
         </button>
       </div>
 
       {open && (
-        <div className="mb-1 mt-0.5 space-y-px border-l border-white/[0.08] pl-3.5 ml-4">
+        <div className="mb-1 mt-0.5 space-y-px border-l border-[color:var(--sb-line)] pl-3.5 ml-4">
           {children.map((c, i) => {
             // A sub-item is active when its page matches and, for tab links,
             // its ?tab= matches — or, with no tab in the URL, it is the page's
@@ -105,7 +113,7 @@ export function NavGroup({ href, label, icon, items: children, compact = false, 
             const deeper = !tab && pathname.startsWith(base + '/') && !children.some((x) => x.href !== c.href && pathname.startsWith(x.href.split('?')[0]) && x.href.split('?')[0].length > base.length);
             const on = (pathname === base && (tab ? currentTab === tab || (!currentTab && firstForBase) : !currentTab)) || deeper;
             return (
-              <Link key={c.href} href={c.href} onClick={keepInPlace} className={`flex items-center justify-between gap-2 rounded-md px-2.5 py-1 text-[12.5px] transition-colors ${on ? 'font-medium text-champagne' : 'text-stone-100/55 hover:bg-white/[0.05] hover:text-stone-100/90'}`}>
+              <Link key={c.href} href={c.href} onClick={keepInPlace} className={`flex items-center justify-between gap-2 rounded-md px-2.5 py-1 text-[13.5px] transition-colors ${on ? 'font-medium text-[color:var(--sb-active-text)]' : 'text-[color:var(--sb-text)] hover:bg-[color:var(--sb-hover-bg)] hover:text-[color:var(--sb-text-hover)]'}`}>
                 <span className="truncate">{c.label}</span>
                 {c.badge ? <span className="shrink-0 rounded-full bg-signal-danger px-1.5 text-[10px] font-semibold leading-4 text-white">{c.badge > 99 ? '99+' : c.badge}</span> : null}
               </Link>

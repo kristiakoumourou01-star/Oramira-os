@@ -116,7 +116,7 @@ export default async function BuyerOverviewPage() {
         </Link>
       )}
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid gap-4 md:grid-cols-3">
         {tiles.map((t) => (
           <Link key={t.href} href={t.href} className="panel flex items-center gap-4 p-5 transition-shadow hover:shadow-overlay">
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-sand-100 text-forest">

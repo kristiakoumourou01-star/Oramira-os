@@ -1,5 +1,8 @@
 'use client';
 
+import { HubCards } from '@/components/ui/HubCards';
+import { PopSelect } from '@/components/ui/PopSelect';
+
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { Crosshair, Send, Route, Users, X, Copy, MessageCircle, Mail, AlertTriangle, MapPin, ChevronRight, ArrowUpRight } from 'lucide-react';
@@ -205,12 +208,13 @@ export function MapWorkspace({ projects, unplaced, units, leads, fields, agents,
 
   return (
     <div className="space-y-4">
+      <HubCards cols={canLeads ? 3 : 2} active={mode} onSelect={(k) => { if (k === 'match' || (k === 'day' && canLeads)) setMode(k as 'match' | 'day'); }} cards={[
+        { key: 'match', icon: Users, title: 'Μονάδες & αγοραστές', value: units.length, sub: 'Ταίριασμα αγοραστή με διαθέσιμες μονάδες' },
+        ...(canLeads ? [{ key: 'day', icon: Route, title: 'Πλάνο ημέρας', sub: 'Οι προβολές ενός πωλητή στον χάρτη' }] : []),
+        { key: 'projects', icon: MapPin, title: 'Έργα στον χάρτη', value: projects.length, sub: unplaced.length ? `${unplaced.length} χωρίς τοποθεσία` : 'Όλα έχουν τοποθεσία' },
+      ]} />
       <div className="flex flex-wrap items-center gap-2">
-        <div className="flex gap-1 rounded-full bg-stone p-0.5 text-sm">
-          <button type="button" onClick={() => setMode('match')} className={`flex items-center gap-1 rounded-full px-3 py-1 ${mode === 'match' ? 'bg-white text-charcoal shadow-sm' : 'text-charcoal-600'}`}><Users size={14} /> Μονάδες & αγοραστές</button>
-          {canLeads && <button type="button" onClick={() => setMode('day')} className={`flex items-center gap-1 rounded-full px-3 py-1 ${mode === 'day' ? 'bg-white text-charcoal shadow-sm' : 'text-charcoal-600'}`}><Route size={14} /> Πλάνο ημέρας</button>}
-        </div>
-        <button type="button" onClick={myLocation} className="btn-secondary px-3 py-1.5 text-xs"><Crosshair size={13} /> Η θέση μου</button>
+        <button type="button" onClick={myLocation} className="inline-flex h-8 items-center gap-1.5 rounded-full border border-stone-line bg-white px-3 text-[13px] text-charcoal hover:border-forest/30"><Crosshair size={13} /> Η θέση μου</button>
         {err && <span className="text-sm text-signal-danger">{err}</span>}
       </div>
 
@@ -339,7 +343,7 @@ function DayPanel({ stops, loading, day, setDay, agent, setAgent, agents }: {
       <div className="panel grid grid-cols-2 gap-2 p-4">
         <label className="block"><span className="eyebrow mb-1 block">Ημέρα</span><input type="date" className="input" value={day} onChange={(e) => setDay(e.target.value)} /></label>
         <label className="block"><span className="eyebrow mb-1 block">Πωλητής</span>
-          <select className="input" value={agent} onChange={(e) => setAgent(e.target.value)}>{agents.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select>
+          <PopSelect searchable width="w-full" ariaLabel="Πωλητής" value={agent} onChange={setAgent} options={agents.map((x) => [x.id, x.name] as [string, string])} />
         </label>
       </div>
       <div className="panel space-y-0 p-0">

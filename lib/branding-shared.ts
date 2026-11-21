@@ -139,10 +139,12 @@ export function brandCssVars(b: Branding): string {
     '--c-forest': channels(b.colorPrimary, d.colorPrimary),
     '--c-forest-deep': darken(b.colorPrimary, 0.28, d.colorPrimary),
     '--c-forest-50': lighten(b.colorPrimary, 0.9, d.colorPrimary),
-    '--c-champagne': channels(b.colorAccent, d.colorAccent),
-    '--c-champagne-50': lighten(b.colorAccent, 0.86, d.colorAccent),
-    '--c-champagne-600': darken(b.colorAccent, 0.22, d.colorAccent),
-    '--c-olive': darken(b.colorAccent, 0.2, d.colorAccent),
+    // Ένα χρώμα σε όλη την πλατφόρμα (όπως το μωβ του FitnessCRM): οι τόνοι
+    // «champagne» / «olive» ακολουθούν το κύριο χρώμα που επιλέγει η εταιρεία.
+    '--c-champagne': channels(b.colorPrimary, d.colorPrimary),
+    '--c-champagne-50': lighten(b.colorPrimary, 0.9, d.colorPrimary),
+    '--c-champagne-600': channels(b.colorPrimary, d.colorPrimary),
+    '--c-olive': channels(b.colorPrimary, d.colorPrimary),
     '--c-sand': channels(b.colorSecondary, d.colorSecondary),
     '--c-sand-100': lighten(b.colorSecondary, 0.4, d.colorSecondary),
     // Χρώμα κουτιών (Ρυθμίσεις → Εμφάνιση → Χρώμα κουτιών).
@@ -208,6 +210,7 @@ export function sidebarBackground(style: string, primary: string, custom: string
     for (let i = 0; i < 8 && luminance(c) > 0.06; i++) c = hex(darken(c, 0.2, c));
     return `linear-gradient(to bottom, rgb(${darken(c, 0.25, c)}), rgb(${channels(c, c)}), rgb(${lighten(c, 0.07, c)}))`;
   };
+  if (style === 'light') return '#ffffff';
   if (style === 'charcoal') return 'linear-gradient(to bottom, #15171A, #1B1E22, #22262B)';
   if (style === 'custom') return grad(custom);
   // brand: a deep version of the primary colour (the original Oramira look)

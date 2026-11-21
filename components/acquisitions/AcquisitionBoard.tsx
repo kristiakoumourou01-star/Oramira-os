@@ -1,8 +1,11 @@
 'use client';
 
+import { PopSelect } from '@/components/ui/PopSelect';
+
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { BoardLane, autoTone, laneRow } from '@/components/ui/BoardLane';
 import { MapPin, Ruler, ArrowUpRight } from 'lucide-react';
 import { PARCEL_STAGES, STAGE_LABEL, type ParcelItem } from '@/lib/acquisitions-shared';
 import { updateParcelStage } from '@/app/actions/acquisitions';
@@ -18,48 +21,61 @@ export function AcquisitionBoard({ parcels }: { parcels: ParcelItem[] }) {
   const router = useRouter();
   const [, start] = useTransition();
   const [moving, setMoving] = useState<string | null>(null);
+  const [drag, setDrag] = useState<string | null>(null);
+  const [over, setOver] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [local, setLocal] = useState<Record<string, string>>({});
 
-  const move = (id: string, stage: string) => { setMoving(id); start(async () => { const res = await updateParcelStage(id, stage); if (res && !res.ok) alert(res.error); router.refresh(); setMoving(null); }); };
-  const byStage = (s: string) => parcels.filter((p) => p.stage === s);
+  const move = (id: string, stage: string) => {
+    const cur = local[id] ?? parcels.find((p) => p.id === id)?.stage;
+    if (!stage || cur === stage) return;
+    setErr(null); setMoving(id); setLocal((l) => ({ ...l, [id]: stage }));
+    start(async () => {
+      const res = await updateParcelStage(id, stage);
+      if (res && !res.ok) { setErr(res.error ?? 'Δεν έγινε η μετακίνηση.'); setLocal((l) => { const n = { ...l }; delete n[id]; return n; }); }
+      router.refresh(); setMoving(null);
+    });
+  };
+  const byStage = (s: string) => parcels.filter((p) => (local[p.id] ?? p.stage) === s);
 
   return (
-    <div className="flex gap-3 overflow-x-auto pb-2">
-      {PARCEL_STAGES.map((stage) => {
+    <div className="-mx-1 overflow-x-auto rounded-2xl border border-stone-line bg-white p-3 pb-2 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+      <p className="mb-2 text-[13px] text-charcoal-600">Σύρετε ένα οικόπεδο σε άλλο στάδιο. Το «Deal Analyzer» το βάζει αυτόματα «Σε ανάλυση»· η έγκριση το περνά στο «Acquired» και η απόρριψη στο «Απορρίφθηκε».</p>
+      {err && <p className="mb-2 rounded-xl border border-signal-danger/30 bg-rose-50 px-3 py-2 text-sm text-signal-danger">{err}</p>}
+      <div className="flex min-h-[420px] min-w-max gap-3">
+      {PARCEL_STAGES.map((stage, i) => {
         const items = byStage(stage);
         return (
-          <div key={stage} className="flex w-64 shrink-0 flex-col">
-            <div className="mb-2 flex items-center justify-between px-1">
-              <span className="text-[13px] font-semibold text-charcoal">{STAGE_LABEL[stage]}</span>
-              <span className="figure rounded-full bg-forest/8 px-2 py-0.5 text-[11px] text-forest">{items.length}</span>
-            </div>
-            <div className="space-y-2">
-              {items.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-[#E6DDCD] py-6 text-center text-[11px] text-charcoal-600/45">Empty</div>
-              ) : items.map((p) => (
-                <div key={p.id} className={`group rounded-xl bg-white p-3 shadow-[0_1px_2px_rgba(31,77,58,0.04),0_6px_16px_rgba(31,77,58,0.06),inset_0_0_0_1px_rgba(31,77,58,0.04)] transition-shadow hover:shadow-[0_10px_24px_rgba(31,77,58,0.12)] ${moving === p.id ? 'opacity-50' : ''}`}>
+          <BoardLane key={stage} tone={autoTone(i, PARCEL_STAGES.length)} title={STAGE_LABEL[stage]} count={items.length} width="w-[264px]" empty={drag ? 'Αφήστε εδώ' : 'Κενό'}
+            over={over === stage}
+            onDragOver={(e) => { if (drag) { e.preventDefault(); setOver(stage); } }}
+            onDragLeave={() => setOver((o) => (o === stage ? null : o))}
+            onDrop={(e) => { e.preventDefault(); const id = e.dataTransfer.getData('text/plain') || drag; setOver(null); setDrag(null); if (id) move(id, stage); }}
+            meta={items.length ? <>Μέση βαθμολογία <span className="font-semibold text-charcoal">{Math.round(items.reduce((s, p) => s + p.score.score, 0) / items.length)}</span></> : undefined}>
+              {items.map((p) => (
+                <div key={p.id} draggable onDragStart={(e) => { e.dataTransfer.setData('text/plain', p.id); e.dataTransfer.effectAllowed = 'move'; setDrag(p.id); }} onDragEnd={() => { setDrag(null); setOver(null); }}
+                  className={`${laneRow} cursor-grab active:cursor-grabbing ${moving === p.id || drag === p.id ? 'opacity-50' : ''}`}>
                   <div className="mb-1 flex items-start justify-between gap-2">
-                    <Link href={`/acquisitions/${p.id}`} className="min-w-0 flex items-center gap-1 text-sm font-medium text-charcoal hover:text-forest">
+                    <Link href={`/acquisitions/${p.id}`} className="min-w-0 flex items-center gap-1 text-sm font-semibold text-charcoal hover:text-forest">
                       <span className="truncate">{p.reference}</span><ArrowUpRight size={12} className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100" />
                     </Link>
-                    <span className={`figure shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${BAND[p.score.band]}`}>{p.score.score}</span>
+                    <span className={`figure shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${BAND[p.score.band]}`}>{p.score.score}</span>
                   </div>
-                  <div className="space-y-0.5 text-[11px] text-charcoal-600/60">
+                  <div className="space-y-0.5 text-[11px] text-charcoal-600/70">
                     {p.ownerName && <p className="truncate">{p.ownerName}</p>}
                     <p className="flex items-center gap-2">
                       {p.location && <span className="flex items-center gap-0.5"><MapPin size={10} /> {p.location}</span>}
                       {p.plotSizeSqm && <span className="flex items-center gap-0.5"><Ruler size={10} /> {formatNumber(Number(p.plotSizeSqm))}m²</span>}
                     </p>
-                    {p.uplift && <p className="text-forest">Uplift {formatCurrency(p.uplift.marginAbs)}{p.uplift.estimated ? ' (est.)' : ''}</p>}
+                    {p.uplift && <p className="font-medium text-forest">Υπεραξία {formatCurrency(p.uplift.marginAbs)}{p.uplift.estimated ? ' (εκτ.)' : ''}</p>}
                   </div>
-                  <select value={p.stage} onChange={(e) => move(p.id, e.target.value)} className="mt-2 w-full rounded-md border border-[#E8E0D2] bg-white px-1.5 py-1 text-[11px] text-charcoal-600 focus:border-forest focus:outline-none">
-                    {PARCEL_STAGES.map((s) => <option key={s} value={s}>{STAGE_LABEL[s]}</option>)}
-                  </select>
+                  <div className="mt-2"><PopSelect width="w-full" ariaLabel="Στάδιο" value={local[p.id] ?? p.stage} onChange={(v) => move(p.id, v)} options={PARCEL_STAGES.map((x) => [x, STAGE_LABEL[x]] as [string, string])} /></div>
                 </div>
               ))}
-            </div>
-          </div>
+          </BoardLane>
         );
       })}
+      </div>
     </div>
   );
 }

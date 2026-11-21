@@ -1,6 +1,8 @@
 import { requireProfile } from '@/lib/auth';
 import { effectiveCan } from '@/lib/permissions';
 import { layoutFor, SIZE_CLASS } from '@/lib/dashboard-shared';
+import { loadHome } from '@/lib/dashboard-home';
+import { HomeDashboard } from '@/components/dashboard/HomeDashboard';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { ROLE_LABEL, INTERNAL_ROLES, type AppRole } from '@/lib/permissions';
 import Link from 'next/link';
@@ -69,7 +71,9 @@ export default async function DashboardPage() {
   const blocks = layoutFor((await getOrgSettings()).dashboard, profile.role, profile.customRoleId).filter((b) => b.visible);
   // Executive Command Center — CEO-level cross-module board, admins/management only.
   const isExec = ['admin', 'management'].includes(me?.role ?? profile.role);
-  const commandCenter = isExec ? await buildCommandCenter(supabase) : null;
+  // Το Command Center έχει δική του σελίδα (/command-center).
+  const commandCenter: Awaited<ReturnType<typeof buildCommandCenter>> | null = null;
+  void isExec;
   const projectOptions = (projectsRes?.data ?? []).map((p) => ({ id: p.id, name: p.name }));
   const leadOptions = (leadsEnriched ?? []).slice(0, 100).map((l) => ({ id: l.id, name: l.full_name ?? 'Lead', contactId: l.contact_id }));
   const teamOptions = (teamRes?.data ?? []).map((m: any) => ({ id: m.id, name: m.full_name ?? 'Team member', email: m.contacts?.email ?? '', avatar_url: m.avatar_url ?? null }));
@@ -185,7 +189,7 @@ export default async function DashboardPage() {
                     <span className="overflow-hidden"><span className="block truncate text-charcoal">{e.title}</span><span className="figure text-[11px] text-charcoal-600/55">{formatWeekdayTime(new Date(e.start))}</span></span>
                     <span className="flex shrink-0 items-center gap-2">
                       {e.attendees && e.attendees.length > 0 && <AvatarStack attendees={e.attendees} size={18} />}
-                      {e.meetingLink && <a href={e.meetingLink} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 rounded bg-violet-500/10 px-1.5 py-0.5 text-[10px] text-violet-700 hover:bg-violet-500/20"><Video size={10} /> Join</a>}
+                      {e.meetingLink && <a href={e.meetingLink} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 rounded bg-forest/10 px-1.5 py-0.5 text-[10px] text-forest hover:bg-forest/20"><Video size={10} /> Join</a>}
                     </span>
                   </li>
                 ))}
@@ -312,16 +316,18 @@ export default async function DashboardPage() {
     }
   };
 
-  const shown = blocks.map((b) => ({ ...b, node: render(b.key) })).filter((b) => b.node);
+  const PERSONAL = ['planner', 'tasks', 'notifications', 'approvals', 'commissions', 'leave', 'payslips'];
+  const shown = blocks.filter((b) => PERSONAL.includes(b.key)).map((b) => ({ ...b, node: render(b.key) })).filter((b) => b.node);
+  const home = await loadHome();
 
-  return (
-    <div className="-mx-6 -my-5 grid min-h-screen grid-cols-6 content-start gap-4 bg-[#F7F4EE] px-6 py-5 text-charcoal">
-      {shown.map((b) => (
-        <div key={b.key} className={SIZE_CLASS[b.size]}>{b.node}</div>
-      ))}
-      {shown.length === 0 && (
-        <p className="col-span-6 text-sm text-charcoal-600/70">Δεν έχει επιλεγεί κανένα κουτί για το dashboard σας. Ο admin τα ρυθμίζει στο Settings → Dashboard.</p>
-      )}
-    </div>
+  const personal = shown.length > 0 && (
+    <section className="space-y-3 pt-2">
+      <h2 className="text-[13px] font-semibold uppercase tracking-[0.1em] text-charcoal-600">Η μέρα μου</h2>
+      <div className="grid grid-cols-6 gap-4">
+        {shown.map((b) => <div key={b.key} className={SIZE_CLASS[b.size]}>{b.node}</div>)}
+      </div>
+    </section>
   );
+
+  return <HomeDashboard d={home} name={me?.full_name ?? profile.fullName ?? ''} planner={personal} />;
 }

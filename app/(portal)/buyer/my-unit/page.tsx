@@ -62,8 +62,8 @@ export default async function MyUnitPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-6">
-        <div className="col-span-2 space-y-6">
+      <div className="grid gap-6 md:grid-cols-3">
+        <div className="md:col-span-2 space-y-6">
           {unit.description && (
             <div className="panel p-6">
               <h4 className="mb-2">About your home</h4>
@@ -73,7 +73,7 @@ export default async function MyUnitPage() {
 
           <div className="panel p-6">
             <h4 className="mb-4">At a glance</h4>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid gap-4 md:grid-cols-3">
               {facts.map((f) => (
                 <div key={f.label} className="rounded border border-stone-line p-4">
                   <p className="eyebrow">{f.label}</p>

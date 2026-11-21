@@ -54,6 +54,7 @@ function ImagePicker({
 /* ─────────────────────────── company appearance ─────────────────────────── */
 
 const SIDEBAR_STYLES: { v: SidebarStyle; label: string }[] = [
+  { v: 'light', label: 'Λευκό' },
   { v: 'brand', label: 'Από το κύριο χρώμα' },
   { v: 'charcoal', label: 'Σκούρο γκρι' },
   { v: 'custom', label: 'Δικό μου χρώμα' },

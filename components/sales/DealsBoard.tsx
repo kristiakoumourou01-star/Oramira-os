@@ -1,5 +1,6 @@
 'use client';
 
+import { PopSelect } from '@/components/ui/PopSelect';
 import { useEffect, useMemo, useRef, useState, useTransition, type DragEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -31,7 +32,7 @@ const ACT_ICON: Record<string, any> = { call: Phone, meeting: Users, task: Check
 const STATE_STYLE: Record<ActivityState, { cls: string; title: string }> = {
   none: { cls: 'text-amber-500', title: 'Καμία προγραμματισμένη activity' },
   overdue: { cls: 'bg-signal-danger text-white', title: 'Καθυστερημένη activity' },
-  today: { cls: 'bg-emerald-600 text-white', title: 'Activity σήμερα' },
+  today: { cls: 'bg-forest text-white', title: 'Activity σήμερα' },
   planned: { cls: 'bg-stone-300 text-white', title: 'Προγραμματισμένη activity' },
 };
 const initials = (n: string | null | undefined) => (n ?? '?').split(/\s+/).map((w) => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
@@ -47,6 +48,17 @@ const MONTHS = ['Ιαν', 'Φεβ', 'Μαρ', 'Απρ', 'Μάι', 'Ιούν', '�
  * κάτω μπάρα Διαγραφή / Lost / Won / Μετακίνηση / Αρχείο, φίλτρα, ταξινόμηση,
  * και προβολές Πίνακας · Λίστα · Forecast · Αρχείο.
  */
+/** Απαλό χρώμα ανά στάδιο: από άμμο → φασκόμηλο → πράσινο Oramira (RGB χωρίς κόμματα για rgb(… / a)). */
+const STAGE_TONES = ['191 171 136', '201 160 99', '184 146 92', '150 160 110', '110 150 112', '74 134 104', '47 110 84', '17 49 36'];
+function stageRgb(st: { color?: string }, i: number, n: number): string {
+  const m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(st.color ?? '');
+  return m ? `${parseInt(m[1], 16)} ${parseInt(m[2], 16)} ${parseInt(m[3], 16)}` : stageTone(i, n);
+}
+function stageTone(i: number, n: number): string {
+  if (n <= 1) return STAGE_TONES[STAGE_TONES.length - 1];
+  return STAGE_TONES[Math.round((i / (n - 1)) * (STAGE_TONES.length - 1))];
+}
+
 export function DealsBoard({ leads: initial, cfg, rawCfg, canEditStages = false, agents, currentUserId, initialView = 'board' }: { leads: LeadListItem[]; cfg: PipelineSettings; rawCfg?: PipelineSettings; canEditStages?: boolean; agents: Agent[]; currentUserId: string; initialView?: View }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -183,24 +195,24 @@ export function DealsBoard({ leads: initial, cfg, rawCfg, canEditStages = false,
     const Ic = ACT_ICON[l.next_activity_type ?? ''] ?? ChevronRight;
     return (
       <div key={l.id} draggable={!pending} onDragStart={(e) => onCardDragStart(e, l.id)} onDragEnd={() => { setDrag(null); setOver(null); }} onClick={() => setOpenId(l.id)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') setOpenId(l.id); }}
-        className={`group relative border-b border-stone-line px-3 py-2.5 text-sm transition last:border-b-0 hover:bg-forest/[0.04] ${rot ? 'border-l-2 border-l-rose-400' : ''} ${drag === l.id ? 'opacity-40' : ''} cursor-grab active:cursor-grabbing`}>
+        className={`group relative rounded-xl px-3 py-2.5 text-sm transition hover:bg-white hover:shadow-[0_4px_16px_-6px_rgba(17,49,36,0.18)] bg-white/70 ${rot ? 'shadow-[inset_3px_0_0_0_rgb(251_113_133)]' : ''} ${drag === l.id ? 'opacity-40' : ''} cursor-grab active:cursor-grabbing`}>
         <p className="block pr-6 font-semibold leading-snug text-charcoal group-hover:text-forest" data-no-tr>{dealTitle(l)}</p>
         {!isClosed(l.status) && (
           <span className="absolute right-2 top-2 hidden gap-1 group-hover:flex">
-            <button type="button" onClick={(e) => { e.stopPropagation(); markWon(l); }} title="Won" aria-label="Won" className="flex h-6 items-center rounded-md border border-emerald-300 bg-white px-1.5 text-[11px] font-semibold text-emerald-700 hover:bg-emerald-50"><ThumbsUp size={12} /></button>
+            <button type="button" onClick={(e) => { e.stopPropagation(); markWon(l); }} title="Won" aria-label="Won" className="flex h-6 items-center rounded-md border border-forest/25 bg-white px-1.5 text-[11px] font-semibold text-forest hover:bg-forest/[0.06]"><ThumbsUp size={12} /></button>
             <button type="button" onClick={(e) => { e.stopPropagation(); setLostFor(l); }} title="Lost" aria-label="Lost" className="flex h-6 items-center rounded-md border border-rose-300 bg-white px-1.5 text-[11px] font-semibold text-signal-danger hover:bg-rose-50"><ThumbsDown size={12} /></button>
           </span>
         )}
         {l.title && l.full_name && <p className="truncate text-xs text-charcoal-600/70" data-no-tr>{l.full_name}</p>}
         {(l.labels ?? []).length > 0 && (
-          <div className="mt-1 flex flex-wrap gap-1">{(l.labels ?? []).map((k) => { const lb = labelOf(k); return lb ? <span key={k} className={`rounded border px-1.5 text-[10px] font-medium ${LABEL_CLASS[lb.color]}`}>{lb.name}</span> : null; })}</div>
+          <div className="mt-1 flex flex-wrap gap-1">{(l.labels ?? []).map((k) => { const lb = labelOf(k); return lb ? <span key={k} className={`rounded-full border px-2 py-px text-[10px] font-semibold ${LABEL_CLASS[lb.color]}`}>{lb.name}</span> : null; })}</div>
         )}
         <div className="mt-1.5 flex items-center justify-between gap-2">
           <span className="flex min-w-0 items-center gap-1.5">
-            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-stone text-[9px] font-semibold text-charcoal-600" title={l.owner_name ?? 'Χωρίς υπεύθυνο'}>{initials(l.owner_name)}</span>
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-forest text-[9px] font-semibold text-white" title={l.owner_name ?? 'Χωρίς υπεύθυνο'}>{initials(l.owner_name)}</span>
             <span className="truncate text-xs font-medium text-charcoal-600">{dealValue(l) ? formatCurrency(dealValue(l)) : '€0'}</span>
           </span>
-          {l.status === 'won' ? <span className="rounded bg-emerald-600 px-1.5 text-[10px] font-semibold uppercase text-white">Won</span>
+          {l.status === 'won' ? <span className="rounded bg-forest px-1.5 text-[10px] font-semibold uppercase text-white">Won</span>
             : isClosed(l.status) ? <span className="rounded bg-signal-danger px-1.5 text-[10px] font-semibold uppercase text-white">Lost</span>
             : (
               <button type="button" onClick={(e) => { e.stopPropagation(); setActFor(l); }} title={STATE_STYLE[st].title} aria-label={STATE_STYLE[st].title}
@@ -216,59 +228,43 @@ export function DealsBoard({ leads: initial, cfg, rawCfg, canEditStages = false,
 
   const ViewBtn = ({ v, icon: I, label }: { v: View; icon: any; label: string }) => (
     <button type="button" onClick={() => setView(v)} title={label} aria-label={label} aria-pressed={view === v}
-      className={`flex h-9 w-10 items-center justify-center border-r border-stone-line last:border-r-0 ${view === v ? 'bg-forest/10 text-forest' : 'bg-white text-charcoal-600 hover:bg-stone'}`}><I size={17} /></button>
+      className={`inline-flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[13px] transition-colors ${view === v ? 'bg-forest font-medium text-white shadow-sm' : 'text-charcoal-600 hover:text-charcoal'}`}><I size={14} /><span className="hidden sm:inline">{label}</span></button>
   );
 
   return (
     <div className="space-y-3">
       {/* Μπάρα εργαλείων — όπως στο Pipedrive */}
       <div className="flex flex-wrap items-center gap-2">
-        <div className="flex overflow-hidden rounded-lg border border-stone-line">
+        <div className="flex rounded-lg bg-stone-100 p-0.5">
           <ViewBtn v="board" icon={Columns3} label="Πίνακας" />
           <ViewBtn v="list" icon={List} label="Λίστα" />
           <ViewBtn v="forecast" icon={CircleDollarSign} label="Forecast" />
           <ViewBtn v="archive" icon={Archive} label="Αρχείο" />
         </div>
         <div className="flex items-center">
-          <select className={`input h-9 w-auto py-1 text-sm font-medium ${canEditStages ? 'rounded-r-none' : ''}`} value={pipe.key} onChange={(e) => setPipeKey(e.target.value)} aria-label="Pipeline" data-no-tr>
-            {cfg.pipelines.map((p) => <option key={p.key} value={p.key}>{p.name}</option>)}
-          </select>
-          {canEditStages && <button type="button" onClick={() => setEditStages(true)} title="Επεξεργασία σταδίων" aria-label="Επεξεργασία σταδίων" className="-ml-px flex h-9 items-center rounded-r-lg border border-stone-line bg-white px-2.5 text-charcoal-600 hover:bg-stone hover:text-charcoal"><Pencil size={14} /></button>}
+          <PopSelect ariaLabel="Pipeline" width="min-w-[150px]" value={pipe.key} onChange={setPipeKey} options={cfg.pipelines.map((p) => [p.key, p.name] as [string, string])} />
+          {canEditStages && <button type="button" onClick={() => setEditStages(true)} title="Επεξεργασία σταδίων" aria-label="Επεξεργασία σταδίων" className="ml-1 flex h-8 w-8 items-center justify-center rounded-lg border border-stone-line text-charcoal-600 hover:border-forest/30 hover:text-forest"><Pencil size={14} /></button>}
         </div>
         {editStages && <StageEditor cfg={rawCfg ?? cfg} pipelineKey={pipe.key} onClose={() => setEditStages(false)} />}
-        <select className="input h-9 w-auto py-1 text-sm" value={owner} onChange={(e) => setOwner(e.target.value)} aria-label="Υπεύθυνος">
-          <option value="everyone">Όλοι</option>
-          <option value="me">Τα δικά μου</option>
-          <option value="none">Χωρίς υπεύθυνο</option>
-          {agents.map((a) => <option key={a.id} value={a.id}>{a.full_name ?? '—'}</option>)}
-        </select>
+        {view !== 'list' && <PopSelect searchable ariaLabel="Υπεύθυνος" width="min-w-[140px]" value={owner} onChange={setOwner} options={[['everyone', 'Όλοι'], ['me', 'Τα δικά μου'], ['none', 'Χωρίς υπεύθυνο'], ...agents.map((a) => [a.id, a.full_name ?? '—'] as [string, string])]} />}
         <label className="relative">
           <Search size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-charcoal-600/50" />
-          <input className="input h-9 w-48 py-1 pl-8 text-sm" placeholder="Αναζήτηση deal…" value={q} onChange={(e) => setQ(e.target.value)} />
+          <input className="input h-8 w-48 py-1 pl-8 text-[13px]" placeholder="Αναζήτηση deal…" value={q} onChange={(e) => setQ(e.target.value)} />
         </label>
-        <select className={`input h-9 w-auto py-1 text-sm ${preset !== 'all' ? 'border-forest text-forest' : ''}`} value={preset} aria-label="Αποθηκευμένα φίλτρα"
-          onChange={(e) => { const v = e.target.value as typeof preset; setPreset(v); if (v === 'won' || v === 'lost') { setShowClosed(true); setView('board'); } }}>
-          <option value="all">Όλα τα ανοιχτά deals</option>
-          <option value="rotten">«Σάπια» deals</option>
-          <option value="noact">Χωρίς προγραμματισμένη activity</option>
-          <option value="closepast">Αναμ. κλείσιμο στο παρελθόν</option>
-          <option value="old3m">Πάνω από 3 μήνες</option>
-          <option value="won">Won deals</option>
-          <option value="lost">Lost deals</option>
-        </select>
+        <PopSelect ariaLabel="Αποθηκευμένα φίλτρα" width="min-w-[190px]" value={preset}
+          onChange={(v) => { const x = v as typeof preset; setPreset(x); if (x === 'won' || x === 'lost') { setShowClosed(true); setView('board'); } }}
+          options={[['all', 'Όλα τα ανοιχτά deals'], ['rotten', '«Σάπια» deals'], ['noact', 'Χωρίς προγραμματισμένη activity'], ['closepast', 'Αναμ. κλείσιμο στο παρελθόν'], ['old3m', 'Πάνω από 3 μήνες'], ['won', 'Won deals'], ['lost', 'Lost deals']]} />
         <div className="relative">
-          <button type="button" onClick={() => setFilterOpen((x) => !x)} className={`btn-secondary h-9 text-sm ${condCount ? 'border-forest text-forest' : ''}`}><Filter size={14} /> Add condition{condCount ? ` (${condCount})` : ''}</button>
+          <button type="button" onClick={() => setFilterOpen((x) => !x)} className={`inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-[13px] transition-colors ${condCount || filterOpen ? 'border-forest bg-forest text-white' : 'border-stone-line text-charcoal hover:border-forest/30'}`}><Filter size={13} /> Φίλτρα{condCount ? ` (${condCount})` : ''}</button>
           {filterOpen && (
-            <div className="absolute left-0 top-full z-30 mt-1 w-[320px] space-y-2 rounded-xl border border-stone-line bg-white p-3 shadow-overlay">
+            <div className="anim-pop absolute left-0 top-full z-30 mt-1 w-[min(320px,calc(100vw-2rem))] space-y-2 rounded-xl border border-stone-line bg-white p-3 shadow-overlay">
               <div className="grid grid-cols-2 gap-2 text-sm">
                 <label className="col-span-2"><span className="text-xs text-charcoal-600/70">Label</span>
-                  <select className="input py-1" value={cond.label} onChange={(e) => setCond({ ...cond, label: e.target.value })}><option value="">Όλα</option>{cfg.dealLabels.map((l) => <option key={l.key} value={l.key}>{l.name}</option>)}</select></label>
+                  <PopSelect width="w-full" value={cond.label} onChange={(v) => setCond({ ...cond, label: v })} options={[['', 'Όλα'], ...cfg.dealLabels.map((l) => [l.key, l.name] as [string, string])]} /></label>
                 <label className="col-span-2"><span className="text-xs text-charcoal-600/70">Activity</span>
-                  <select className="input py-1" value={cond.activity} onChange={(e) => setCond({ ...cond, activity: e.target.value as Cond['activity'] })}>
-                    <option value="">Όλες</option><option value="none">Χωρίς activity</option><option value="overdue">Καθυστερημένη</option><option value="today">Σήμερα</option><option value="planned">Προγραμματισμένη</option>
-                  </select></label>
+                  <PopSelect width="w-full" value={cond.activity} onChange={(v) => setCond({ ...cond, activity: v as Cond['activity'] })} options={[['', 'Όλες'], ['none', 'Χωρίς activity'], ['overdue', 'Καθυστερημένη'], ['today', 'Σήμερα'], ['planned', 'Προγραμματισμένη']]} /></label>
                 <label className="col-span-2"><span className="text-xs text-charcoal-600/70">Πηγή</span>
-                  <select className="input py-1" value={cond.source} onChange={(e) => setCond({ ...cond, source: e.target.value })}><option value="">Όλες</option>{[...new Set(leads.map((l) => l.source).filter(Boolean))].map((s) => <option key={s} value={s}>{s}</option>)}</select></label>
+                  <PopSelect width="w-full" value={cond.source} onChange={(v) => setCond({ ...cond, source: v })} options={[['', 'Όλες'], ...[...new Set(leads.map((l) => l.source).filter(Boolean))].map((x) => [x, x] as [string, string])]} /></label>
                 <label><span className="text-xs text-charcoal-600/70">Αξία από €</span><input className="input py-1" inputMode="numeric" value={cond.valueMin} onChange={(e) => setCond({ ...cond, valueMin: e.target.value.replace(/\D/g, '') })} /></label>
                 <label><span className="text-xs text-charcoal-600/70">έως €</span><input className="input py-1" inputMode="numeric" value={cond.valueMax} onChange={(e) => setCond({ ...cond, valueMax: e.target.value.replace(/\D/g, '') })} /></label>
                 <label><span className="text-xs text-charcoal-600/70">Κλείσιμο από</span><input type="date" className="input py-1" value={cond.closeFrom} onChange={(e) => setCond({ ...cond, closeFrom: e.target.value })} /></label>
@@ -282,54 +278,62 @@ export function DealsBoard({ leads: initial, cfg, rawCfg, canEditStages = false,
             </div>
           )}
         </div>
-        {view === 'board' && <label className="flex items-center gap-1.5 text-sm text-charcoal-600"><input type="checkbox" checked={showClosed} onChange={(e) => setShowClosed(e.target.checked)} /> Κλειστά deals</label>}
-        <label className="ml-auto flex items-center gap-1.5 text-sm text-charcoal-600">Ταξινόμηση:
-          <select className="input h-9 w-auto py-1 text-sm" value={sort} onChange={(e) => setSort(e.target.value as Sort)}>
-            <option value="activity">Επόμενη activity</option><option value="value">Αξία</option><option value="created">Νεότερα</option><option value="close">Ημ. κλεισίματος</option><option value="title">Τίτλος</option><option value="owner">Υπεύθυνος</option>
-          </select>
-        </label>
+        {view === 'board' && <label className="flex items-center gap-1.5 text-[13px] text-charcoal-600"><input type="checkbox" checked={showClosed} onChange={(e) => setShowClosed(e.target.checked)} /> Κλειστά deals</label>}
+        {view !== 'list' && <label className="flex items-center gap-1.5 text-[13px] text-charcoal-600 sm:ml-auto">Ταξινόμηση:
+          <PopSelect ariaLabel="Ταξινόμηση" width="min-w-[150px]" value={sort} onChange={(v) => setSort(v as Sort)} options={[['activity', 'Επόμενη activity'], ['value', 'Αξία'], ['created', 'Νεότερα'], ['close', 'Ημ. κλεισίματος'], ['title', 'Τίτλος'], ['owner', 'Υπεύθυνος']]} />
+        </label>}
       </div>
       <p className="text-sm text-charcoal-600"><span className="font-semibold text-charcoal">{formatCurrency(total)}</span> · {open.length} deals <span className="text-charcoal-600/60">· σταθμισμένη {formatCurrency(Math.round(weighted))}</span>{msg && <span className="ml-3 text-forest">{msg}</span>}</p>
 
       {view === 'board' && (
-        <div ref={scrollRef} className="-mx-1 overflow-x-auto pb-24"
+        <div ref={scrollRef} className="-mx-1 overflow-x-auto px-1 pb-24"
           onDragOver={(e) => { if (drag) edgeScroll(e.clientX); }} onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) stopEdge(); }} onDrop={stopEdge}
           onPointerDown={onPanDown} onPointerMove={onPanMove} onPointerUp={onPanUp} onPointerCancel={onPanUp}>
-          <div className="flex min-h-[calc(100vh-330px)] min-w-max divide-x divide-stone-line overflow-hidden rounded-xl border border-stone-line bg-white/60">
+          <div className="flex min-h-[calc(100vh-330px)] min-w-max gap-3">
             {preset !== 'won' && preset !== 'lost' && columns.map((st, i) => {
               const items = byStage(st);
               const sum = items.reduce((s, l) => s + dealValue(l), 0);
+              const tone = stageRgb(st, i, columns.length);
               return (
                 <div key={st.key} {...dropZone(st.key, (l) => moveTo(l, st))}
-                  className={`stage-col flex w-[272px] shrink-0 flex-col transition ${over === st.key ? 'bg-forest/[0.06]' : 'bg-transparent'}`}>
-                  <div className="stage-head relative border-b border-stone-line bg-white px-3 py-2" style={{ clipPath: i < columns.length - 1 ? 'polygon(0 0, calc(100% - 10px) 0, 100% 50%, calc(100% - 10px) 100%, 0 100%)' : undefined }}>
-                    <p className="truncate font-semibold text-charcoal" data-no-tr>{st.label}</p>
-                    <p className="text-xs text-charcoal-600/70">{formatCurrency(sum)} · {items.length} deals · {st.probability}%</p>
+                  style={{ backgroundColor: `rgb(${tone} / ${over === st.key ? 0.18 : 0.07})`, boxShadow: over === st.key ? `inset 0 0 0 2px rgb(${tone} / 0.6)` : `inset 0 0 0 1px rgb(${tone} / 0.14)` }}
+                  className="flex w-[280px] shrink-0 flex-col rounded-2xl transition-colors">
+                  <div className="px-3.5 pb-2.5 pt-3">
+                    <div className="flex items-center gap-2">
+                      <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: `rgb(${tone})`, boxShadow: `0 0 0 3px rgb(${tone} / 0.18)` }} />
+                      <p className="min-w-0 flex-1 truncate text-[15px] font-semibold tracking-tight text-charcoal" data-no-tr>{st.label}</p>
+                      <span className="rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ backgroundColor: `rgb(${tone} / 0.16)`, color: `rgb(${tone})` }}>{items.length}</span>
+                    </div>
+                    <p className="mt-1 text-xs text-charcoal-600/75"><span className="font-semibold text-charcoal">{formatCurrency(sum)}</span> · {st.probability}%</p>
+                    <div className="mt-2 h-[3px] w-full overflow-hidden rounded-full" style={{ backgroundColor: `rgb(${tone} / 0.15)` }}><div className="h-full rounded-full" style={{ width: `${Math.max(3, Math.min(100, st.probability))}%`, backgroundColor: `rgb(${tone})` }} /></div>
                   </div>
-                  <div className="flex min-h-[120px] flex-1 flex-col">
+                  <div className="flex min-h-[120px] flex-1 flex-col gap-1 px-1.5 pb-2">
                     {items.map((l) => card(l))}
+                    {items.length === 0 && !drag && <p className="mx-2 mt-2 rounded-xl border border-dashed py-6 text-center text-xs text-charcoal-600/50" style={{ borderColor: `rgb(${tone} / 0.3)` }}>Κανένα deal</p>}
                   </div>
                 </div>
               );
             })}
-            {(
-              <>
-                {preset !== 'lost' && <div onDragOver={(e) => { if (drag) { e.preventDefault(); setOver('__won'); } }} onDrop={(e) => { e.preventDefault(); dropClosed('won'); }}
-                  className={`flex w-[272px] shrink-0 flex-col transition ${over === '__won' ? 'bg-emerald-100' : 'bg-emerald-50/60'}`}>
-                  <div className="rounded-t-xl border-b border-emerald-200 bg-white px-3 py-2"><p className="font-semibold text-emerald-700">Won</p><p className="text-xs text-charcoal-600/70">{formatCurrency(won.reduce((s, l) => s + dealValue(l), 0))} · {won.length} deals</p></div>
-                  <div className="flex flex-col">{won.map((l) => card(l))}</div>
-                  {drag && <p className="m-2 rounded-lg border-2 border-dashed border-emerald-300 py-6 text-center text-xs text-emerald-700">Αφήστε εδώ → Won</p>}
-                  {!allClosed && wonAll.length > won.length && <button type="button" onClick={() => setShowClosed(true)} className="px-3 py-2 text-left text-xs text-charcoal-600/70 hover:text-forest">+{wonAll.length - won.length} παλαιότερα</button>}
-                </div>}
-                {preset !== 'won' && <div onDragOver={(e) => { if (drag) { e.preventDefault(); setOver('__lost'); } }} onDrop={(e) => { e.preventDefault(); dropClosed('lost'); }}
-                  className={`flex w-[272px] shrink-0 flex-col transition ${over === '__lost' ? 'bg-rose-100' : 'bg-rose-50/50'}`}>
-                  <div className="rounded-t-xl border-b border-rose-200 bg-white px-3 py-2"><p className="font-semibold text-signal-danger">Lost</p><p className="text-xs text-charcoal-600/70">{formatCurrency(lost.reduce((s, l) => s + dealValue(l), 0))} · {lost.length} deals</p></div>
-                  <div className="flex flex-col">{lost.map((l) => card(l))}</div>
-                  {drag && <p className="m-2 rounded-lg border-2 border-dashed border-rose-300 py-6 text-center text-xs text-signal-danger">Αφήστε εδώ → Lost</p>}
-                  {!allClosed && lostAll.length > lost.length && <button type="button" onClick={() => setShowClosed(true)} className="px-3 py-2 text-left text-xs text-charcoal-600/70 hover:text-forest">+{lostAll.length - lost.length} παλαιότερα</button>}
-                </div>}
-              </>
-            )}
+            {preset !== 'lost' && <div onDragOver={(e) => { if (drag) { e.preventDefault(); setOver('__won'); } }} onDrop={(e) => { e.preventDefault(); dropClosed('won'); }}
+              className={`flex w-[280px] shrink-0 flex-col rounded-2xl ring-1 ring-inset transition-colors ${over === '__won' ? 'bg-forest/10 ring-2 ring-forest' : 'bg-forest/[0.05] ring-forest/20'}`}>
+              <div className="px-3.5 pb-2.5 pt-3">
+                <div className="flex items-center gap-2"><ThumbsUp size={14} className="text-forest" /><p className="flex-1 text-[15px] font-semibold tracking-tight text-forest">Won</p><span className="rounded-full bg-forest/10 px-2 py-0.5 text-[11px] font-semibold text-forest">{won.length}</span></div>
+                <p className="mt-1 text-xs text-charcoal-600/75"><span className="font-semibold text-charcoal">{formatCurrency(won.reduce((s, l) => s + dealValue(l), 0))}</span></p>
+              </div>
+              <div className="flex flex-col gap-1 px-1.5 pb-2">{won.map((l) => card(l))}</div>
+              {drag && <p className="mx-3 mb-3 rounded-xl border-2 border-dashed border-forest/25 py-6 text-center text-xs font-medium text-forest">Αφήστε εδώ → Won</p>}
+              {!allClosed && wonAll.length > won.length && <button type="button" onClick={() => setShowClosed(true)} className="px-3.5 pb-3 text-left text-xs text-charcoal-600/70 hover:text-forest">+{wonAll.length - won.length} παλαιότερα</button>}
+            </div>}
+            {preset !== 'won' && <div onDragOver={(e) => { if (drag) { e.preventDefault(); setOver('__lost'); } }} onDrop={(e) => { e.preventDefault(); dropClosed('lost'); }}
+              className={`flex w-[280px] shrink-0 flex-col rounded-2xl ring-1 ring-inset transition-colors ${over === '__lost' ? 'bg-rose-100 ring-2 ring-rose-400' : 'bg-rose-50/60 ring-rose-200/70'}`}>
+              <div className="px-3.5 pb-2.5 pt-3">
+                <div className="flex items-center gap-2"><ThumbsDown size={14} className="text-signal-danger" /><p className="flex-1 text-[15px] font-semibold tracking-tight text-signal-danger">Lost</p><span className="rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-semibold text-signal-danger">{lost.length}</span></div>
+                <p className="mt-1 text-xs text-charcoal-600/75"><span className="font-semibold text-charcoal">{formatCurrency(lost.reduce((s, l) => s + dealValue(l), 0))}</span></p>
+              </div>
+              <div className="flex flex-col gap-1 px-1.5 pb-2">{lost.map((l) => card(l))}</div>
+              {drag && <p className="mx-3 mb-3 rounded-xl border-2 border-dashed border-rose-300 py-6 text-center text-xs font-medium text-signal-danger">Αφήστε εδώ → Lost</p>}
+              {!allClosed && lostAll.length > lost.length && <button type="button" onClick={() => setShowClosed(true)} className="px-3.5 pb-3 text-left text-xs text-charcoal-600/70 hover:text-forest">+{lostAll.length - lost.length} παλαιότερα</button>}
+            </div>}
           </div>
         </div>
       )}
@@ -340,7 +344,7 @@ export function DealsBoard({ leads: initial, cfg, rawCfg, canEditStages = false,
           {[
             { k: 'del', label: 'Διαγραφή', icon: Trash2, cls: 'border-stone-line text-charcoal-600', on: (l: LeadListItem) => setDelFor(l) },
             { k: 'lost', label: 'Lost', icon: ThumbsDown, cls: 'border-rose-300 text-signal-danger', on: (l: LeadListItem) => setLostFor(l) },
-            { k: 'won', label: 'Won', icon: Trophy, cls: 'border-emerald-300 text-emerald-700', on: markWon },
+            { k: 'won', label: 'Won', icon: Trophy, cls: 'border-forest/25 text-forest', on: markWon },
             { k: 'move', label: 'Άλλο pipeline', icon: ArrowRightLeft, cls: 'border-stone-line text-charcoal-600', on: (l: LeadListItem) => setMoveFor(l) },
             { k: 'arch', label: 'Αρχείο', icon: Archive, cls: 'border-stone-line text-charcoal-600', on: (l: LeadListItem) => archive([l.id], true) },
           ].map((z) => (
@@ -352,24 +356,24 @@ export function DealsBoard({ leads: initial, cfg, rawCfg, canEditStages = false,
         </div>
       )}
 
-      {view === 'list' && <LeadManager leads={filtered.filter((l) => !l.archived_at)} agents={agents} currentUserId={currentUserId} pipelines={cfg} />}
+      {view === 'list' && <LeadManager leads={filtered.filter((l) => !l.archived_at)} agents={agents} currentUserId={currentUserId} pipelines={cfg} fixedPipe={pipe.key} />}
 
       {view === 'forecast' && <Forecast deals={live} pipeName={pipe.name} onMove={(l, ym) => { const d = ym ? lastDayOf(ym) : null; patchLocal(l.id, { expected_close_date: d }); start(async () => { await updateDeal(l.id, { expectedCloseDate: d }); router.refresh(); }); }} />}
 
       {view === 'archive' && (
-        <div className="panel overflow-x-auto">
-          <table className="table-base w-full min-w-[640px]">
-            <thead><tr><th>Deal</th><th>Αξία</th><th>Στάδιο</th><th>Υπεύθυνος</th><th>Αρχειοθετήθηκε</th><th /></tr></thead>
+        <div className="anim-fade overflow-x-auto rounded-2xl border border-stone-line bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+          <table className="o-table">
+            <thead><tr><th>Deal</th><th>Αξία</th><th>Στάδιο</th><th>Υπεύθυνος</th><th>Αρχειοθετήθηκε</th><th className="text-right">Ενέργειες</th></tr></thead>
             <tbody>
               {filtered.filter((l) => l.archived_at).length === 0 && <tr><td colSpan={6} className="py-6 text-center text-sm text-charcoal-600/70">Το αρχείο είναι άδειο.</td></tr>}
               {filtered.filter((l) => l.archived_at).map((l) => (
                 <tr key={l.id}>
-                  <td><Link href={`/crm/leads/${l.id}`} className="font-medium text-charcoal hover:text-forest" data-no-tr>{dealTitle(l)}</Link></td>
+                  <td className="o-strong"><Link href={`/crm/leads/${l.id}`} className="block max-w-[220px] truncate hover:text-forest" data-no-tr>{dealTitle(l)}</Link></td>
                   <td>{formatCurrency(dealValue(l))}</td>
                   <td data-no-tr>{l.status === 'won' ? 'Won' : isClosed(l.status) ? 'Lost' : stageOf(pipe, l.status, l.stage)?.label ?? '—'}</td>
                   <td>{l.owner_name ?? '—'}</td>
                   <td>{l.archived_at ? new Date(l.archived_at).toLocaleDateString(DATE_TAG[currentLocale().lang]) : ''}</td>
-                  <td className="text-right"><button type="button" className="btn-ghost text-xs" onClick={() => archive([l.id], false)}><ArchiveRestore size={14} /> Επαναφορά</button></td>
+                  <td className="text-right"><button type="button" className="inline-flex h-8 items-center gap-1 rounded-[10px] border border-stone-line px-2.5 text-[12px] text-charcoal hover:border-forest/30" onClick={() => archive([l.id], false)}><ArchiveRestore size={13} /> Επαναφορά</button></td>
                 </tr>
               ))}
             </tbody>
@@ -454,10 +458,10 @@ function QuickActivity({ deal, agents, currentUserId, onClose, onSaved }: { deal
             {list.map((a) => { const I = ACT_ICON[a.type] ?? CheckSquare; const late = Date.parse(a.dueAt) < Date.now(); return (
               <li key={a.id} className="flex items-start gap-3 px-3 py-2.5">
                 <button type="button" disabled={pending} title="Ολοκλήρωση" aria-label="Ολοκλήρωση" onClick={() => start(async () => { const r = await completeAndNext(a.id); if (r.ok) { const rest = list.filter((x) => x.id !== a.id); setList(rest); nextAfter(rest); } })}
-                  className="mt-0.5 h-5 w-5 shrink-0 rounded-full border-2 border-stone-300 hover:border-emerald-600 hover:bg-emerald-50" />
+                  className="mt-0.5 h-5 w-5 shrink-0 rounded-full border-2 border-stone-300 hover:border-forest hover:bg-forest/[0.06]" />
                 <div className="min-w-0 flex-1">
                   <p className="flex items-center gap-1.5 font-medium text-charcoal"><I size={14} className="shrink-0 text-charcoal-600" /><span className="truncate" data-no-tr>{a.note || activityLabel(a.type)}</span></p>
-                  <p className="text-xs"><span className={late ? 'font-medium text-signal-danger' : 'text-emerald-700'}>{when(a.dueAt)}</span><span className="text-charcoal-600/70" data-no-tr> · {a.assigneeName ?? '—'}</span></p>
+                  <p className="text-xs"><span className={late ? 'font-medium text-signal-danger' : 'text-forest'}>{when(a.dueAt)}</span><span className="text-charcoal-600/70" data-no-tr> · {a.assigneeName ?? '—'}</span></p>
                 </div>
               </li>
             ); })}
@@ -529,15 +533,15 @@ function Forecast({ deals, pipeName, onMove }: { deals: LeadListItem[]; pipeName
                 className={`flex w-[260px] shrink-0 flex-col ${over === k ? 'bg-forest/[0.06]' : ''}`}>
                 <div className="rounded-t-xl border-b border-stone-line bg-white px-3 py-2">
                   <p className="font-semibold text-charcoal">{m.label}</p>
-                  <p className="text-xs text-charcoal-600/70">{formatCurrency(openSum)} ανοιχτά{wonSum ? <> · <span className="text-emerald-700">{formatCurrency(wonSum)} won</span></> : null}</p>
+                  <p className="text-xs text-charcoal-600/70">{formatCurrency(openSum)} ανοιχτά{wonSum ? <> · <span className="text-forest">{formatCurrency(wonSum)} won</span></> : null}</p>
                 </div>
                 <div className="flex min-h-[100px] flex-col gap-2 p-2">
                   {items.map((l) => (
                     <div key={l.id} draggable={l.status !== 'won'} onDragStart={(e) => { e.dataTransfer.setData('text/plain', l.id); setDrag(l.id); }} onDragEnd={() => { setDrag(null); setOver(null); }}
-                      className={`rounded-lg border bg-white p-2.5 text-sm shadow-sm ${l.status === 'won' ? 'border-emerald-300' : 'border-stone-line cursor-grab'}`}>
+                      className={`rounded-lg border bg-white p-2.5 text-sm shadow-sm ${l.status === 'won' ? 'border-forest/25' : 'border-stone-line cursor-grab'}`}>
                       <Link href={`/crm/leads/${l.id}`} className="block font-semibold text-charcoal hover:text-forest" data-no-tr>{dealTitle(l)}</Link>
                       <p className="text-xs text-charcoal-600/70">{formatCurrency(dealValue(l))}{l.owner_name ? ` · ${l.owner_name}` : ''}</p>
-                      {l.status === 'won' && <span className="mt-1 inline-block rounded bg-emerald-600 px-1.5 text-[10px] font-semibold uppercase text-white">Won</span>}
+                      {l.status === 'won' && <span className="mt-1 inline-block rounded bg-forest px-1.5 text-[10px] font-semibold uppercase text-white">Won</span>}
                     </div>
                   ))}
                 </div>

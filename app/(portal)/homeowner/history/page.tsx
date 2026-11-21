@@ -75,13 +75,13 @@ export default async function PropertyHistoryPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-6">
+      <div className="grid gap-6 md:grid-cols-3">
         <div className="panel col-span-1 p-6">
           <h4 className="mb-5">Construction record</h4>
           <BuyerMilestoneTimeline milestones={milestones ?? []} />
         </div>
 
-        <div className="col-span-2 space-y-6">
+        <div className="md:col-span-2 space-y-6">
           <div className="panel p-6">
             <h4 className="mb-4">Handover checklist</h4>
             <HandoverChecklistView items={(checklist ?? []) as ChecklistItem[]} />

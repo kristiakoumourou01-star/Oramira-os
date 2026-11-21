@@ -51,7 +51,7 @@ export default async function ContractorPerformancePage() {
         <h1 className="font-display text-3xl">Performance</h1>
       </div>
 
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         {stats.map((s) => (
           <div key={s.label} className="panel p-6">
             <s.icon size={18} className="mb-3 text-champagne-600" strokeWidth={1.75} />

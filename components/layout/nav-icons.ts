@@ -2,6 +2,7 @@ import {
   LayoutDashboard, TrendingUp, Contact, Building2, Map, Megaphone, Home, Wallet, UserCog, ClipboardList,
   FileBarChart, Settings, CalendarDays, Users, Briefcase, HardHat, Hammer, KeyRound, Landmark, LineChart,
   PieChart, Target, Inbox, MessageSquare, Mail, Phone, FileText, FolderOpen, Star, Zap, Globe, ShieldCheck, Smartphone,
+  Gauge, ListChecks, MapPin, Calculator, Receipt, Gift, Handshake, ClipboardCheck,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -10,6 +11,7 @@ export const NAV_ICONS: Record<string, LucideIcon> = {
   LayoutDashboard, TrendingUp, Contact, Building2, Map, Megaphone, Home, Wallet, UserCog, ClipboardList,
   FileBarChart, Settings, CalendarDays, Users, Briefcase, HardHat, Hammer, KeyRound, Landmark, LineChart,
   PieChart, Target, Inbox, MessageSquare, Mail, Phone, FileText, FolderOpen, Star, Zap, Globe, ShieldCheck, Smartphone,
+  Gauge, ListChecks, MapPin, Calculator, Receipt, Gift, Handshake, ClipboardCheck,
 };
 
 export function navIcon(name: string | undefined): LucideIcon {

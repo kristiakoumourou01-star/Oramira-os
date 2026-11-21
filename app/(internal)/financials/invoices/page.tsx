@@ -5,6 +5,7 @@ import { effectiveCan } from '@/lib/permissions';
 import { listDocuments, KIND_LABEL, KIND_PLURAL, STATUS_LABEL, money, type DocKind, type InvoiceDoc } from '@/lib/invoices';
 import { formatDate } from '@/lib/format';
 import { WorkspaceHeader } from '@/components/ui/WorkspaceHeader';
+import { HubLinks } from '@/components/ui/HubTabs';
 
 export const dynamic = 'force-dynamic';
 
@@ -49,8 +50,13 @@ export default async function InvoicesPage({ searchParams }: { searchParams: { k
         eyebrow="Οικονομικά"
         title="Τιμολόγια"
         description="Τιμολόγια, αποδείξεις και πιστωτικά με αρίθμηση χωρίς κενά. Ένα εκδοθέν παραστατικό δεν αλλάζει — διορθώνεται με πιστωτικό."
-        action={canIssue && !missing ? <Link href="/financials/invoices/new" className="btn-primary"><Plus size={15} /> Νέο τιμολόγιο</Link> : undefined}
+        action={canIssue && !missing ? <Link href="/financials/invoices/new" className="inline-flex h-9 items-center gap-1.5 rounded-[10px] bg-forest px-3 text-[14px] font-medium text-white hover:bg-forest/90"><Plus size={15} /> Νέο τιμολόγιο</Link> : undefined}
       />
+      <HubLinks cols={3} active="invoices" cards={[
+        { key: 'overview', icon: 'Wallet', title: 'Επισκόπηση', sub: 'Εισπράξεις, υπόλοιπα, απόδοση έργων', href: '/financials' },
+        { key: 'invoices', icon: 'Receipt', title: 'Τιμολόγια', value: invoices.length, sub: `${money(open)} προς είσπραξη`, href: '/financials/invoices' },
+        { key: 'reports', icon: 'BarChart3', title: 'Αναφορές', sub: 'Έτοιμες και δικές σας αναφορές', href: '/reports' },
+      ]} />
 
       {missing && (
         <p className="flex items-start gap-2 rounded-md bg-champagne-50 px-4 py-3 text-sm text-champagne-600">
@@ -66,22 +72,22 @@ export default async function InvoicesPage({ searchParams }: { searchParams: { k
           ['Τιμολογήθηκαν τον μήνα', money(issuedMonth), 'με ΦΠΑ'],
           ['ΦΠΑ μήνα', money(vatMonth), 'τιμολόγια μείον πιστωτικά'],
         ].map(([l, v, h]) => (
-          <div key={l} className="panel p-4">
-            <p className="eyebrow mb-2">{l}</p>
-            <p className="figure text-[22px] leading-none text-forest">{v}</p>
-            <p className="mt-1 text-[11px] text-charcoal-600/60">{h}</p>
+          <div key={l} className="rounded-[14px] border border-stone-line bg-white p-4 shadow-sm">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-charcoal-600">{l}</p>
+            <p className="mt-1 text-[22px] font-semibold tabular-nums leading-tight text-charcoal">{v}</p>
+            <p className="mt-1 text-[12px] text-charcoal-600">{h}</p>
           </div>
         ))}
       </div>
 
       <div className="flex flex-wrap items-center gap-1.5">
-        <Link href={`/financials/invoices${qs({})}`} className={`rounded-full px-3 py-1 text-sm ${!kind ? 'bg-forest text-white' : 'bg-stone text-charcoal-600 hover:bg-stone-line'}`}>Όλα</Link>
+        <Link href={`/financials/invoices${qs({})}`} className={`inline-flex h-8 items-center rounded-full border px-3 text-[13px] ${!kind ? 'border-forest bg-forest text-white' : 'border-stone-line text-charcoal hover:border-forest/30'}`}>Όλα</Link>
         {(['invoice', 'receipt', 'credit_note'] as DocKind[]).map((k) => (
-          <Link key={k} href={`/financials/invoices${qs({ kind: k })}`} className={`rounded-full px-3 py-1 text-sm ${kind === k ? 'bg-forest text-white' : 'bg-stone text-charcoal-600 hover:bg-stone-line'}`}>{KIND_PLURAL[k]}</Link>
+          <Link key={k} href={`/financials/invoices${qs({ kind: k })}`} className={`inline-flex h-8 items-center rounded-full border px-3 text-[13px] ${kind === k ? 'border-forest bg-forest text-white' : 'border-stone-line text-charcoal hover:border-forest/30'}`}>{KIND_PLURAL[k]}</Link>
         ))}
       </div>
 
-      <form className="panel grid gap-3 p-4 sm:grid-cols-[2fr_1fr_1fr_1fr_auto] sm:items-end" method="get">
+      <form className="grid rounded-2xl border border-stone-line bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)] gap-3 p-4 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1fr_auto] sm:items-end" method="get">
         {kind && <input type="hidden" name="kind" value={kind} />}
         <label className="block"><span className="eyebrow mb-1 block">Αναζήτηση</span><input className="input" name="q" defaultValue={searchParams.q ?? ''} placeholder="Αριθμός, πελάτης, email" /></label>
         <label className="block"><span className="eyebrow mb-1 block">Κατάσταση</span>
@@ -92,17 +98,17 @@ export default async function InvoicesPage({ searchParams }: { searchParams: { k
         </label>
         <label className="block"><span className="eyebrow mb-1 block">Από</span><input className="input" type="date" name="from" defaultValue={searchParams.from ?? ''} /></label>
         <label className="block"><span className="eyebrow mb-1 block">Έως</span><input className="input" type="date" name="to" defaultValue={searchParams.to ?? ''} /></label>
-        <button className="btn-secondary">Φίλτρο</button>
+        <button className="inline-flex h-9 items-center justify-center rounded-[10px] bg-forest px-4 text-[14px] font-medium text-white hover:bg-forest/90">Φίλτρο</button>
       </form>
 
-      <div className="panel overflow-x-auto p-0">
+      <div className="overflow-x-auto rounded-2xl border border-stone-line bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
         {rows.length === 0 ? (
           <div className="px-6 py-12 text-center">
             <FileText size={22} className="mx-auto mb-2 text-charcoal-600/40" />
             <p className="text-sm text-charcoal-600/70">{missing ? 'Δεν υπάρχουν ακόμη παραστατικά.' : 'Δεν βρέθηκαν παραστατικά με αυτά τα φίλτρα.'}</p>
           </div>
         ) : (
-          <table className="table-base w-full min-w-[760px]">
+          <table className="o-table">
             <thead>
               <tr><th>Αριθμός</th><th>Είδος</th><th>Ημερομηνία</th><th>Πελάτης</th><th className="text-right">Καθαρό</th><th className="text-right">ΦΠΑ</th><th className="text-right">Σύνολο</th><th className="text-right">Υπόλοιπο</th><th>Κατάσταση</th></tr>
             </thead>
@@ -113,11 +119,11 @@ export default async function InvoicesPage({ searchParams }: { searchParams: { k
                 const late = isInv && d.due_date && d.due_date < today && (bal ?? 0) > 0;
                 const sign = d.kind === 'credit_note' ? '−' : '';
                 return (
-                  <tr key={d.id} className="hover:bg-stone/60">
-                    <td><Link href={`/financials/invoices/${d.id}`} className="font-mono text-sm font-medium text-forest hover:underline">{d.number}</Link></td>
-                    <td className="text-sm text-charcoal-600">{KIND_LABEL[d.kind]}</td>
-                    <td className="text-sm text-charcoal-600">{formatDate(d.issue_date)}</td>
-                    <td className="font-medium text-charcoal">{d.customer_name}</td>
+                  <tr key={d.id}>
+                    <td><Link href={`/financials/invoices/${d.id}`} className="font-mono font-medium text-forest hover:underline">{d.number}</Link></td>
+                    <td>{KIND_LABEL[d.kind]}</td>
+                    <td>{formatDate(d.issue_date)}</td>
+                    <td className="o-strong" data-no-tr>{d.customer_name}</td>
                     <td className="figure text-right text-charcoal-600">{sign}{money(d.net_total)}</td>
                     <td className="figure text-right text-charcoal-600">{sign}{money(d.vat_total)}</td>
                     <td className="figure text-right">{sign}{money(d.total)}</td>

@@ -50,7 +50,7 @@ export function PayrollAdmin({ employees }: { employees: Employee[] }) {
             <input name="advances" type="number" placeholder="Advances (€)" className="input" />
             <input name="otherDeductions" type="number" placeholder="Other deductions (€)" className="input" />
           </div>
-          <button type="submit" disabled={isPending} className="btn-primary w-full">Generate draft payslip</button>
+          <button type="submit" disabled={isPending} className="btn-primary w-full">Δημιουργία πρόχειρου εκκαθαριστικού</button>
         </form>
       </div>
 

@@ -270,7 +270,7 @@ export default async function UnitDetailPage({ params, searchParams }: { params:
                   {canEdit && (unitPlan ?? projectPlan).length > 0 && <CreateScheduleButton contractId={contract.id} />}
                 </div>
               ) : (
-                <table className="table-base w-full">
+                <div className="overflow-x-auto"><table className="table-base w-full">
                   <thead><tr><th>#</th><th>Περιγραφή</th><th>Λήξη</th><th>Ποσό</th></tr></thead>
                   <tbody>
                     {(schedules ?? []).map((s) => (
@@ -282,7 +282,7 @@ export default async function UnitDetailPage({ params, searchParams }: { params:
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                </table></div>
               )}
               {(payments ?? []).length > 0 && (
                 <div className="mt-4 border-t border-stone-line pt-3">
