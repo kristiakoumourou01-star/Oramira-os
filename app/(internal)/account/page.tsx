@@ -54,28 +54,27 @@ export default async function AccountPage({ searchParams }: { searchParams: { ta
       { icon: Bell, title: 'Προτιμήσεις ειδοποιήσεων', text: 'Ήχος και ειδοποιήσεις στην οθόνη.', href: '/account?tab=notifications', cta: 'Διαχείριση' },
     ];
     body = (
-      <div className="grid items-start gap-5 2xl:grid-cols-[minmax(0,1fr)_340px]">
-        <div className="space-y-5">
+      <div className="space-y-5">
+        <div><h2 className="font-display text-xl text-charcoal">Πληροφορίες</h2><p className="text-sm text-charcoal-600/75">Το προφίλ σας και τα στοιχεία σύνδεσης</p></div>
         <AccountProfile readOnly={!!me.impersonator} initial={{ fullName: row?.full_name ?? me.fullName ?? '', email: auth.user?.email ?? '', phone: row?.phone ?? '', jobTitle: row?.job_title ?? '', avatarUrl: row?.avatar_url ?? null, roleName: me.roleName, department: row?.department ?? '' }} />
         <LanguagePick lang={requestLocale().lang} num={requestLocale().num} />
-        </div>
-        <div className="overflow-hidden rounded-2xl border border-stone-line bg-white shadow-[0_1px_2px_rgba(17,49,36,0.04)] 2xl:sticky 2xl:top-[72px]">
-          <div className="flex items-center gap-2.5 border-b border-stone-line px-4 py-3.5"><span className="flex h-8 w-8 items-center justify-center rounded-lg bg-forest/[0.09] text-forest"><ShieldCheck size={15} /></span><p className="font-semibold text-charcoal">Ασφάλεια</p></div>
-          <ul className="divide-y divide-stone-line">
-            {sec.map((s) => (
-              <li key={s.title} className="flex items-center gap-3 px-4 py-3">
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-forest/[0.07] text-forest"><s.icon size={15} /></span>
-                <span className="min-w-0 flex-1"><span className="block text-sm font-medium text-charcoal">{s.title}</span><span className="block text-xs leading-snug text-charcoal-600/70">{s.text}</span></span>
-                <Link href={s.href} className="shrink-0 rounded-[10px] border border-stone-line px-3 py-1 text-xs font-medium text-charcoal transition hover:border-forest/30">{s.cta}</Link>
-              </li>
-            ))}
-            <li className="flex items-center gap-3 px-4 py-3">
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-rose-50 text-signal-danger"><LogOut size={15} /></span>
-              <span className="min-w-0 flex-1"><span className="block text-sm font-medium text-charcoal">Αποσύνδεση από παντού</span><span className="block text-xs leading-snug text-charcoal-600/70">Αν χάσατε κινητό ή συνδεθήκατε σε ξένο υπολογιστή.</span></span>
-              <form action={signOutEverywhere}><button className="shrink-0 rounded-full border border-rose-200 px-3 py-1 text-xs font-medium text-signal-danger transition hover:bg-signal-danger hover:text-white">Όλες</button></form>
-            </li>
-          </ul>
-        </div>
+        <section className="space-y-3 rounded-2xl border border-stone-line bg-white p-5 shadow-[0_1px_2px_rgba(17,49,36,0.04)]">
+          <p className="text-lg font-semibold text-charcoal">Ασφάλεια</p>
+          {sec.slice(0, 3).map((s) => (
+            <div key={s.title} className="flex items-center gap-3 rounded-xl border border-stone-line px-4 py-3 transition-colors hover:border-forest/30">
+              <span className="min-w-0 flex-1"><span className="block text-sm font-medium text-charcoal">{s.title}</span><span className="block text-xs leading-snug text-charcoal-600/70">{s.text}</span></span>
+              <Link href={s.href} className="shrink-0 rounded-full border border-stone-line px-3.5 py-1 text-xs font-medium text-charcoal transition hover:border-forest/40">{s.cta}</Link>
+            </div>
+          ))}
+          <div className="flex items-center gap-3 rounded-xl border border-stone-line px-4 py-3">
+            <span className="min-w-0 flex-1"><span className="block text-sm font-medium text-charcoal">Αποσύνδεση από παντού</span><span className="block text-xs leading-snug text-charcoal-600/70">Αν χάσατε κινητό ή συνδεθήκατε σε ξένο υπολογιστή.</span></span>
+            <form action={signOutEverywhere}><button className="shrink-0 rounded-full border border-rose-200 px-3.5 py-1 text-xs font-medium text-signal-danger transition hover:bg-signal-danger hover:text-white">Όλες</button></form>
+          </div>
+        </section>
+        <section className="flex items-center gap-3 rounded-2xl border border-stone-line bg-white p-5 shadow-[0_1px_2px_rgba(17,49,36,0.04)]">
+          <span className="min-w-0 flex-1"><span className="block text-lg font-semibold text-charcoal">Προτιμήσεις ειδοποιήσεων</span><span className="block text-sm text-charcoal-600/75">Διαχειριστείτε πώς σας ενημερώνουμε.</span></span>
+          <Link href="/account?tab=notifications" className="btn-secondary shrink-0">Διαχείριση</Link>
+        </section>
       </div>
     );
   } else if (tab === 'logs') {

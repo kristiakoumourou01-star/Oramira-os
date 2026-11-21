@@ -15,12 +15,12 @@ export function Switch({ checked, onChange, disabled, label }: { checked: boolea
 }
 
 /** Τίτλος ενότητας (σερίφ) και πλαίσιο, όπως «Identity & branding». */
-export function SettingsBlock({ title, note, children, className = '' }: { title: string; note?: React.ReactNode; children: React.ReactNode; className?: string }) {
+export function SettingsBlock({ title, note, children, className = '', cardTitle }: { title: string; note?: React.ReactNode; children: React.ReactNode; className?: string; cardTitle?: string }) {
   return (
     <section className={`space-y-2 ${className}`}>
       <h3 className="font-display text-xl text-charcoal">{title}</h3>
       {note && <p className="text-sm text-charcoal-600/75">{note}</p>}
-      <div className="panel space-y-4 p-5">{children}</div>
+      <div className="panel space-y-3 p-5">{cardTitle && <p className="text-lg font-semibold text-charcoal">{cardTitle}</p>}{children}</div>
     </section>
   );
 }

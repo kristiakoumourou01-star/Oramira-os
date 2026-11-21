@@ -27,14 +27,14 @@ export function NotificationPrefs({ marketing }: { marketing: { inApp: boolean; 
   };
   return (
     <div className="space-y-5">
-    <SettingsBlock title="Προτιμήσεις ειδοποιήσεων" note="Διαλέξτε από ποια κανάλια δέχεστε ενημερώσεις marketing. Οι ειδοποιήσεις λειτουργίας (ασφάλεια, χρεώσεις, κλείδωμα λογαριασμού) έρχονται πάντα.">
+    <SettingsBlock title="Προτιμήσεις ειδοποιήσεων" cardTitle="Προτιμήσεις ειδοποιήσεων" note="Διαλέξτε από ποια κανάλια δέχεστε ενημερώσεις marketing. Οι ειδοποιήσεις λειτουργίας (ασφάλεια, χρεώσεις, κλείδωμα λογαριασμού) έρχονται πάντα.">
       {([['inApp', 'Marketing μέσα στην εφαρμογή', 'Ενημερώσεις marketing μέσα στην εφαρμογή.'], ['email', 'Marketing email', 'Email για προσφορές και νέα της εταιρείας.'], ['push', 'Marketing push', 'Ειδοποιήσεις push στο κινητό.']] as const).map(([k, title, hint]) => (
         <OptionBox key={k} title={title} hint={hint}>
           <Switch checked={m[k]} label={title} onChange={(x) => { setSaved(null); setM({ ...m, [k]: x }); }} />
         </OptionBox>
       ))}
-      <p className="text-xs text-charcoal-600/70">Οι ειδοποιήσεις λειτουργίας (ασφάλεια, κλείδωμα, χρεώσεις, υποστήριξη) δεν απενεργοποιούνται.</p>
-      <div className="flex items-center gap-3"><button type="button" className="btn-primary" disabled={pending} onClick={saveM}>{pending ? 'Αποθήκευση…' : 'Αποθήκευση προτιμήσεων'}</button>{saved && <span className="text-sm text-charcoal-600">{saved}</span>}</div>
+      <p className="rounded-xl border border-stone-line bg-stone/40 px-4 py-3 text-xs text-charcoal-600/80">Οι ειδοποιήσεις λειτουργίας (ασφάλεια, κλείδωμα, χρεώσεις, υποστήριξη) δεν απενεργοποιούνται.</p>
+      <div className="flex items-center justify-end gap-3"><button type="button" className="btn-primary" disabled={pending} onClick={saveM}>{pending ? 'Αποθήκευση…' : 'Αποθήκευση προτιμήσεων'}</button>{saved && <span className="text-sm text-charcoal-600">{saved}</span>}</div>
     </SettingsBlock>
     <SettingsBlock title="Σε αυτή τη συσκευή" note="Προσωπικό — ισχύει μόνο σε αυτή τη συσκευή. Ποιες ειδοποιήσεις στέλνονται το ορίζει ο διαχειριστής στο Settings → Ειδοποιήσεις.">
       <OptionBox title="Ήχος" hint="Ένα σύντομο «ντινγκ» όταν έρθει νέα ειδοποίηση.">
