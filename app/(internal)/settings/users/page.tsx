@@ -37,7 +37,7 @@ export default async function UsersSettingsPage({ searchParams }: { searchParams
     const { data } = await supabase.from('profiles').select('id, custom_role').in('id', ids);
     for (const row of (data ?? []) as any[]) if (row.custom_role) customRoles.set(row.id, row.custom_role);
   }
-  const [{ roles }, hrMap] = await Promise.all([getOrgSettingsRaw(), tab === 'employees' ? loadEmployeeHr(ids) : Promise.resolve(new Map())]);
+  const [{ roles, departments }, hrMap] = await Promise.all([getOrgSettingsRaw(), tab === 'employees' ? loadEmployeeHr(ids) : Promise.resolve(new Map())]);
   const emails = new Map<string, string>();
   try {
     const service = createSupabaseServiceRoleClient();
@@ -99,6 +99,7 @@ export default async function UsersSettingsPage({ searchParams }: { searchParams
         currentUserId={profile.id}
         canImpersonate={profile.role === 'admin'}
         roles={roles}
+        departments={departments.items.filter((d) => d.active).map((d) => d.name)}
         canEditDocs={effectiveCan(profile.role, profile.moduleAccess, 'hr', 'edit', profile.permissions)}
       />
     </div>
