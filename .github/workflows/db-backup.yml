@@ -1,5 +1,5 @@
 # Καθημερινό αντίγραφο ασφαλείας της βάσης (δωρεάν, GitHub Actions).
-# Χρειάζεται το secret SUPABASE_DB_URL (Supabase → Connect → Session pooler URI, με τον κωδικό της βάσης).
+# Χρειάζεται το secret SUPABASE_DB_PASSWORD (ο κωδικός της βάσης) — ή, εναλλακτικά, SUPABASE_DB_URL (Session pooler URI).
 # Τα αντίγραφα κρατιούνται 90 μέρες: Actions → «Αντίγραφο ασφαλείας βάσης» → τελευταία εκτέλεση → Artifacts.
 name: Αντίγραφο ασφαλείας βάσης
 
@@ -26,9 +26,19 @@ jobs:
 
       - name: Αντίγραφο της βάσης
         env:
-          DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          DB_URL_SECRET: ${{ secrets.SUPABASE_DB_URL }}
+          DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
         run: |
-          if [ -z "$DB_URL" ]; then echo "Λείπει το secret SUPABASE_DB_URL"; exit 1; fi
+          DB_URL="$DB_URL_SECRET"
+          if [ -z "$DB_URL" ]; then
+            if [ -z "$DB_PASSWORD" ]; then echo "Λείπει το secret SUPABASE_DB_PASSWORD"; exit 1; fi
+            PW=$(python3 -c 'import os,urllib.parse;print(urllib.parse.quote(os.environ["DB_PASSWORD"],safe=""))')
+            for H in aws-1-eu-west-1 aws-0-eu-west-1; do
+              TRY="postgresql://postgres.ucyzsbeqtecbxztgcrym:$PW@$H.pooler.supabase.com:5432/postgres"
+              if /usr/lib/postgresql/17/bin/psql "$TRY" -tAc 'select 1' >/dev/null 2>&1; then DB_URL="$TRY"; break; fi
+            done
+            if [ -z "$DB_URL" ]; then echo "Δεν έγινε σύνδεση με τη βάση — ελέγξτε τον κωδικό SUPABASE_DB_PASSWORD"; exit 1; fi
+          fi
           STAMP=$(date -u +%Y-%m-%d)
           mkdir -p backup
           /usr/lib/postgresql/17/bin/pg_dump "$DB_URL" --no-owner --no-privileges --schema=public --schema=auth --schema=storage \
