@@ -17,9 +17,15 @@ export async function GET() {
   const [home, cfg] = await Promise.all([getMobileHome(kind), getMobileApp()]);
   const customer = kind === 'customer' ? {
     projects: cfg.projects.filter((p) => p.shown),
-    showPrices: cfg.showPrices, showAvailability: cfg.showAvailability,
-    allowViewings: cfg.allowViewings, allowMaintenance: cfg.allowMaintenance,
-    support: { phone: cfg.supportPhone, email: cfg.supportEmail, instagram: cfg.instagram, facebook: cfg.facebook, website: cfg.website },
+    showPrices: cfg.showPrices, showAvailability: cfg.showAvailability, availableOnly: cfg.availableOnly,
+    allowViewings: cfg.allowViewings, allowMaintenance: cfg.allowMaintenance, allowDeletion: cfg.allowDeletion,
+    profileFields: cfg.profileFields,
+    welcomeI18n: { el: cfg.welcome, en: cfg.welcomeEn, ru: cfg.welcomeRu },
+    colors: { primary: cfg.colorPrimary, secondary: cfg.colorSecondary },
+    support: { phone: cfg.supportPhone, email: cfg.supportEmail, instagram: cfg.instagram, facebook: cfg.facebook, tiktok: cfg.tiktok, youtube: cfg.youtube, website: cfg.website },
   } : null;
-  return NextResponse.json({ ...home, ...(customer ? { customer } : {}) }, { headers: { 'Cache-Control': 'private, no-store' } });
+  const admin = kind === 'admin' ? {
+    modules: profile.role === 'admin' ? null : (cfg.adminModules[profile.role] ?? null),
+  } : null;
+  return NextResponse.json({ ...home, ...(customer ? { customer } : {}), ...(admin ? { admin } : {}) }, { headers: { 'Cache-Control': 'private, no-store' } });
 }
