@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useTransition } from 'react';
+import { LangTabs } from '@/components/marketing/LangTabs';
+import { textWithSignature, type MsgLang } from '@/lib/message-format-shared';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Check, Shuffle, MessageCircle, BellRing, ListOrdered, Sun, Plus, Trash2, Palmtree, CalendarCheck } from 'lucide-react';
@@ -18,12 +20,13 @@ const TARGET_EL: Record<RouteTarget, string> = { round_robin: 'Round robin (σε
  * Ρυθμίσεις → Leads & αυτοματισμοί: ποιος παίρνει κάθε νέο lead, το καλωσόρισμα,
  * τι γίνεται όταν μείνει αναπάντητο, η σειρά follow-up και η πρωινή σύνοψη.
  */
-export function LeadAutomationForm({ initial, canEdit, team, part = 'settings' }: { initial: LeadAutomationSettings; canEdit: boolean; team: TeamMember[]; part?: 'settings' | 'marketing' }) {
+export function LeadAutomationForm({ initial, canEdit, team, part = 'settings', signature = '' }: { initial: LeadAutomationSettings; canEdit: boolean; team: TeamMember[]; part?: 'settings' | 'marketing'; signature?: string }) {
   // Ρυθμίσεις: τα γενικά (ανάθεση, αναπάντητα, σύνοψη). Marketing: τα μηνύματα (καλωσόρισμα, follow-up).
   const showGeneral = part === 'settings';
   const showMessages = part === 'marketing';
   const router = useRouter();
   const [v, setV] = useState(initial);
+  const [apLang, setApLang] = useState<Record<'confirm' | 'reminder', MsgLang>>({ confirm: 'el', reminder: 'el' });
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [pending, start] = useTransition();
   const set = (f: (x: LeadAutomationSettings) => LeadAutomationSettings) => { setV(f); setMsg(null); };
@@ -274,9 +277,17 @@ export function LeadAutomationForm({ initial, canEdit, team, part = 'settings' }
                       <label className="flex items-center gap-2 text-sm"><input type="number" min={1} max={72} className="input w-20 py-1" disabled={!canEdit} value={ap.reminder.hoursBefore} onChange={(e) => setAp('reminder', { hoursBefore: Number(e.target.value) })} /><span>ώρες πριν</span></label>
                     )}
                   </div>
-                  <textarea className="input min-h-[80px]" disabled={!canEdit} value={ap[k].text} onChange={(e) => setAp(k, { text: e.target.value })} />
-                  <div className="flex flex-wrap gap-1">{APPT_VARS.map((x) => <button key={x} type="button" disabled={!canEdit} onClick={() => setAp(k, { text: `${ap[k].text} ${x}` })} className="rounded-md border border-stone-line px-1.5 py-0.5 font-mono text-[11px] text-charcoal-600 hover:border-forest/40" data-no-tr>{x}</button>)}</div>
-                  <div className="rounded-xl border border-stone-line bg-stone/40 px-3 py-2 text-xs text-charcoal"><span className="mb-0.5 block text-[10px] font-semibold uppercase tracking-wide text-charcoal-600/70">Προεπισκόπηση</span><span data-no-tr>{sample(ap[k].text)}</span></div>
+                  {(() => {
+                    const lg = apLang[k];
+                    const field = lg === 'en' ? 'textEn' : 'text';
+                    const val = ap[k][field];
+                    return <>
+                      <LangTabs lang={lg} onChange={(l) => setApLang((x) => ({ ...x, [k]: l }))} filled={{ el: !!ap[k].text.trim(), en: !!ap[k].textEn.trim() }} />
+                      <textarea className="input min-h-[80px]" disabled={!canEdit} value={val} onChange={(e) => setAp(k, { [field]: e.target.value })} />
+                      <div className="flex flex-wrap gap-1">{APPT_VARS.map((x) => <button key={x} type="button" disabled={!canEdit} onClick={() => setAp(k, { [field]: `${val} ${x}` })} className="rounded-md border border-stone-line px-1.5 py-0.5 font-mono text-[11px] text-charcoal-600 hover:border-forest/40" data-no-tr>{x}</button>)}</div>
+                      <div className="rounded-xl border border-stone-line bg-stone/40 px-3 py-2 text-xs text-charcoal"><span className="mb-0.5 block text-[10px] font-semibold uppercase tracking-wide text-charcoal-600/70">Προεπισκόπηση</span><span className="whitespace-pre-wrap" data-no-tr>{ap[k].channel === 'email' ? `${sample(val)}\n\n${signature}` : textWithSignature(sample(val), signature)}</span></div>
+                    </>;
+                  })()}
                 </div>
               </div>
             ))}

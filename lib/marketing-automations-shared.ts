@@ -2,7 +2,7 @@
  * Marketing → Δικοί μου αυτοματισμοί — client-safe τύποι, κατάλογος γεγονότων,
  * υπολογισμός επόμενης εκτέλεσης (ώρα Κύπρου) και περιγραφή «με λόγια».
  */
-import { cleanAudience, type CampaignAudience, type CampaignChannel } from '@/lib/campaigns-shared';
+import { cleanAudience, cleanSender, type CampaignAudience, type CampaignChannel } from '@/lib/campaigns-shared';
 
 export const TZ = 'Europe/Nicosia';
 
@@ -100,12 +100,14 @@ export type AutomationKind = 'schedule' | 'event';
 export interface AutomationRow {
   id: string; name: string; kind: AutomationKind; channel: CampaignChannel;
   audience: CampaignAudience | null; trigger: AutoTrigger | null; schedule: AutoSchedule | null;
-  subject: string | null; body: string; active: boolean;
+  subject: string | null; body: string; active: boolean; senderName: string | null;
+  subjectEn: string | null; bodyEn: string | null;
   nextRunAt: string | null; lastRunAt: string | null; runs: number; createdAt: string;
 }
 export interface AutomationInput {
   id?: string; name: string; kind: AutomationKind; channel: CampaignChannel;
-  audience?: unknown; trigger?: unknown; schedule?: unknown; subject?: string; body: string;
+  audience?: unknown; trigger?: unknown; schedule?: unknown; subject?: string; body: string; senderName?: string;
+  subjectEn?: string; bodyEn?: string;
 }
 
 export function categoryOf(a: { kind: AutomationKind; trigger: AutoTrigger | null }): CategoryKey {
@@ -163,22 +165,28 @@ export function cleanTrigger(v: unknown): AutoTrigger | null {
 export function cleanAutomation(input: AutomationInput): { ok: true; value: Omit<AutomationRow, 'id' | 'active' | 'nextRunAt' | 'lastRunAt' | 'runs' | 'createdAt'> } | { ok: false; error: string } {
   const channel: CampaignChannel = (['sms', 'whatsapp', 'push'] as const).find((c) => c === input.channel) ?? 'email';
   const name = (input.name ?? '').trim().slice(0, 120);
-  const body = (input.body ?? '').trim().slice(0, channel === 'sms' ? 1000 : 20000);
+  const max = channel === 'sms' ? 1000 : 20000;
+  const body = (input.body ?? '').trim().slice(0, max);
+  const bodyEn = (input.bodyEn ?? '').trim().slice(0, max) || null;
   const subject = (input.subject ?? '').trim().slice(0, 200) || null;
+  const subjectEn = (input.subjectEn ?? '').trim().slice(0, 200) || null;
   if (!name) return { ok: false, error: 'Γράψτε όνομα αυτοματισμού.' };
-  if (!body) return { ok: false, error: 'Γράψτε το μήνυμα.' };
-  if (channel === 'email' && !subject) return { ok: false, error: 'Γράψτε θέμα για το email.' };
+  if (!body && !bodyEn) return { ok: false, error: 'Γράψτε το μήνυμα.' };
+  if (channel === 'email' && !subject && !subjectEn) return { ok: false, error: 'Γράψτε θέμα για το email.' };
+  const sender = cleanSender(input.senderName, channel);
+  if (!sender.ok) return sender;
+  const senderName = sender.value;
   if (input.kind === 'event') {
     const trigger = cleanTrigger(input.trigger);
     if (!trigger) return { ok: false, error: 'Διαλέξτε πότε στέλνεται.' };
-    return { ok: true, value: { name, kind: 'event', channel, audience: null, trigger, schedule: null, subject, body } };
+    return { ok: true, value: { name, kind: 'event', channel, audience: null, trigger, schedule: null, subject, body, senderName, subjectEn, bodyEn } };
   }
   const schedule = cleanSchedule(input.schedule);
   if (!schedule) return { ok: false, error: 'Συμπληρώστε ημερομηνία / μέρες και ώρα.' };
   if (schedule.kind === 'once') return { ok: false, error: 'Για μήνυμα μία φορά φτιάξτε καμπάνια (Καμπάνιες → Προγραμματισμός).' };
   const audience = cleanAudience(input.audience, channel);
   if (!audience) return { ok: false, error: 'Διαλέξτε σε ποιους στέλνεται.' };
-  return { ok: true, value: { name, kind: 'schedule', channel, audience, trigger: null, schedule, subject, body } };
+  return { ok: true, value: { name, kind: 'schedule', channel, audience, trigger: null, schedule, subject, body, senderName, subjectEn, bodyEn } };
 }
 
 /* ── Ώρα Κύπρου ─────────────────────────────────────────────────────────── */
@@ -276,6 +284,26 @@ export function triggerSegments(t: AutoTrigger, stageLabel: (k: string) => strin
   return out;
 }
 
+/* ── Ιστορικό αποστολών ─────────────────────────────────────────────────── */
+
+export type SendReason = 'archived' | 'no_consent' | 'no_address' | 'no_app' | 'no_provider' | 'provider_error';
+/** Σύντομη εξήγηση γιατί κάποιος δεν πήρε το μήνυμα. */
+export function reasonText(r: string | null | undefined, channel: string | null | undefined): string | null {
+  const ch = channel === 'email' ? 'Email' : channel === 'sms' ? 'SMS' : channel === 'whatsapp' ? 'WhatsApp' : 'Push';
+  switch (r) {
+    case 'archived': return 'Ο πελάτης είναι αρχειοθετημένος ή δεν θέλει επικοινωνία';
+    case 'no_consent': return channel === 'email' ? 'Ο πελάτης δεν δέχεται email' : channel === 'push' ? 'Ο πελάτης δεν δέχεται ειδοποιήσεις' : 'Ο πελάτης δεν δέχεται SMS';
+    case 'no_address': return channel === 'email' ? 'Χωρίς email' : 'Χωρίς τηλέφωνο';
+    case 'no_app': return 'Χωρίς λογαριασμό στην εφαρμογή';
+    case 'no_provider': return `Δεν υπάρχει πάροχος ${ch}`;
+    case 'provider_error': return 'Ο πάροχος απέρριψε το μήνυμα';
+    default: return null;
+  }
+}
+export interface SendHistoryRow { at: string; contactId: string | null; contactName: string | null; channel: string | null; status: string; reason: string | null }
+export interface RunHistoryRow { id: string; at: string; name: string; recipients: number; sent: number; failed: number; skipped: number; status: string }
+export interface AutomationStats { sent: number; failed: number; skipped: number }
+
 /* ── Κείμενο ────────────────────────────────────────────────────────────── */
 
 export type AutoVars = Partial<Record<'name' | 'date' | 'time' | 'project' | 'unit' | 'amount' | 'agent', string>>;
@@ -298,22 +326,47 @@ export const SAMPLE_VARS: AutoVars = { name: 'Μαρία Παπαδοπούλο�
 export interface Idea { category: CategoryKey; title: string; input: AutomationInput }
 const ev = (event: EventKey, delay: Partial<AutoDelay> = {}, params: AutoTrigger['params'] = {}): AutoTrigger => ({ event, params, delay: { amount: 0, unit: 'hours', dir: 'after', ...delay }, filter: {} });
 export const IDEAS: Idea[] = [
-  { category: 'leads', title: 'Καλωσόρισμα με email μόλις έρθει νέο lead', input: { name: 'Καλωσόρισμα νέου lead', kind: 'event', channel: 'email', trigger: ev('new_lead'), subject: 'Καλώς ήρθατε, {{first_name}}', body: 'Γεια σας {{first_name}},\n\nΣας ευχαριστούμε για το ενδιαφέρον σας. Ο σύμβουλός μας θα επικοινωνήσει μαζί σας σύντομα.\n\nΜε εκτίμηση,\nOramira' } },
-  { category: 'leads', title: 'SMS 2 ώρες μετά αν δεν έχουμε απαντήσει', input: { name: 'Lead χωρίς απάντηση', kind: 'event', channel: 'sms', trigger: ev('lead_unanswered', { amount: 2, unit: 'hours' }), body: 'Γεια σας {{first_name}}, λάβαμε το μήνυμά σας και θα σας καλέσουμε σύντομα. Oramira' } },
-  { category: 'leads', title: 'WhatsApp σε leads από Facebook / Instagram', input: { name: 'Leads από Facebook / Instagram', kind: 'event', channel: 'whatsapp', trigger: ev('new_lead', { amount: 5, unit: 'minutes' }, { source: 'meta' }), body: 'Γεια σας {{first_name}}! Είδαμε το ενδιαφέρον σας στο Facebook. Θέλετε να σας στείλουμε κατόψεις και τιμές;' } },
-  { category: 'sales', title: 'Συγχαρητήρια μετά την υπογραφή συμβολαίου', input: { name: 'Συγχαρητήρια για το συμβόλαιο', kind: 'event', channel: 'email', trigger: ev('contract_signed', { amount: 1, unit: 'hours' }), subject: 'Συγχαρητήρια για το νέο σας σπίτι!', body: 'Αγαπητέ/ή {{first_name}},\n\nΣυγχαρητήρια για την αγορά της μονάδας {{unit}} στο {{project}}! Θα σας ενημερώνουμε για κάθε βήμα της κατασκευής.\n\nOramira' } },
-  { category: 'sales', title: 'Ευχαριστώ για την κράτηση μονάδας', input: { name: 'Ευχαριστώ για την κράτηση', kind: 'event', channel: 'whatsapp', trigger: ev('reservation'), body: 'Γεια σας {{first_name}}, σας ευχαριστούμε για την κράτηση της μονάδας {{unit}} στο {{project}}. Ο σύμβουλός σας θα σας στείλει τα επόμενα βήματα.' } },
-  { category: 'sales', title: 'Μήνυμα 30 μέρες μετά από χαμένο lead', input: { name: 'Επανασύνδεση χαμένων leads', kind: 'event', channel: 'email', trigger: ev('lead_lost', { amount: 30, unit: 'days' }), subject: 'Νέα διαθέσιμα ακίνητα', body: 'Γεια σας {{first_name}},\n\nΈχουμε νέα διαθέσιμα ακίνητα που ίσως σας ενδιαφέρουν. Θέλετε να τα δείτε;\n\nOramira' } },
-  { category: 'viewings', title: 'Υπενθύμιση 1 μέρα πριν την ξενάγηση', input: { name: 'Υπενθύμιση ξενάγησης', kind: 'event', channel: 'sms', trigger: ev('viewing', { amount: 1, unit: 'days', dir: 'before' }), body: 'Υπενθύμιση: {{first_name}}, σας περιμένουμε αύριο {{date}} στις {{time}} για την ξενάγηση στο {{project}}.' } },
-  { category: 'viewings', title: 'Ευχαριστώ 2 ώρες μετά την ξενάγηση', input: { name: 'Ευχαριστώ μετά την ξενάγηση', kind: 'event', channel: 'whatsapp', trigger: ev('viewing', { amount: 2, unit: 'hours' }), body: 'Γεια σας {{first_name}}, σας ευχαριστούμε για την επίσκεψη στο {{project}}! Αν έχετε ερωτήσεις, είμαστε εδώ. {{agent}}' } },
-  { category: 'viewings', title: 'Επιβεβαίωση μόλις κλειστεί ραντεβού', input: { name: 'Επιβεβαίωση ραντεβού', kind: 'event', channel: 'email', trigger: ev('viewing_booked'), subject: 'Επιβεβαίωση ραντεβού {{date}}', body: 'Γεια σας {{first_name}},\n\nΕπιβεβαιώνουμε το ραντεβού σας στις {{date}}, ώρα {{time}}, στο {{project}}.\n\nOramira' } },
-  { category: 'clients', title: 'Καλωσόρισμα στο νέο σπίτι την ημέρα παράδοσης', input: { name: 'Καλωσόρισμα στο νέο σπίτι', kind: 'event', channel: 'email', trigger: ev('handover', {}, { time: '10:00' }), subject: 'Καλώς ήρθατε στο νέο σας σπίτι!', body: 'Αγαπητέ/ή {{first_name}},\n\nΚαλώς ήρθατε στη μονάδα {{unit}}! Για οτιδήποτε χρειαστείτε, η ομάδα μας είναι εδώ.\n\nOramira' } },
-  { category: 'clients', title: 'Ευχές στην επέτειο παράδοσης', input: { name: 'Επέτειος παράδοσης', kind: 'event', channel: 'sms', trigger: ev('handover_anniversary', {}, { time: '10:00' }), body: 'Χρόνια πολλά για το σπίτι σας, {{first_name}}! Ένας χρόνος στη μονάδα {{unit}}. Oramira' } },
-  { category: 'clients', title: 'Μήνυμα σε lead χωρίς επικοινωνία 30 μέρες', input: { name: 'Χωρίς επικοινωνία 30 μέρες', kind: 'event', channel: 'email', trigger: ev('no_contact', {}, { days: 30 }), subject: 'Ακόμη ψάχνετε σπίτι;', body: 'Γεια σας {{first_name}},\n\nΘέλαμε να δούμε αν ακόμη ψάχνετε ακίνητο. Έχουμε νέες επιλογές για εσάς.\n\nOramira' } },
-  { category: 'payments', title: 'Υπενθύμιση 3 μέρες πριν τη δόση', input: { name: 'Υπενθύμιση δόσης', kind: 'event', channel: 'email', trigger: ev('payment_due', { amount: 3, unit: 'days', dir: 'before' }, { time: '09:00' }), subject: 'Υπενθύμιση δόσης {{date}}', body: 'Αγαπητέ/ή {{first_name}},\n\nΣας υπενθυμίζουμε ότι η δόση των {{amount}} για τη μονάδα {{unit}} λήγει στις {{date}}.\n\nOramira' } },
-  { category: 'payments', title: 'SMS 2 μέρες μετά από καθυστερημένη δόση', input: { name: 'Καθυστερημένη δόση', kind: 'event', channel: 'sms', trigger: ev('payment_overdue', { amount: 2, unit: 'days' }, { time: '10:00' }), body: '{{first_name}}, η δόση των {{amount}} (λήξη {{date}}) δεν έχει ακόμη πληρωθεί. Για βοήθεια καλέστε μας. Oramira' } },
-  { category: 'special', title: 'Ευχές γενεθλίων με SMS', input: { name: 'Ευχές γενεθλίων', kind: 'event', channel: 'sms', trigger: ev('birthday', {}, { time: '09:00' }), body: 'Χρόνια πολλά {{first_name}}! Σας ευχόμαστε υγεία και χαρά. Oramira' } },
-  { category: 'special', title: 'Κάθε Παρασκευή νέα της κατασκευής στους ιδιοκτήτες', input: { name: 'Εβδομαδιαία νέα κατασκευής', kind: 'schedule', channel: 'push', schedule: { kind: 'weekly', weekdays: [5], time: '12:00' }, audience: { kind: 'role', role: 'homeowner' }, subject: 'Νέα από το εργοτάξιο', body: 'Γεια σας {{first_name}}! Δείτε στην εφαρμογή τις νέες φωτογραφίες και την πρόοδο της κατασκευής.' } },
-  { category: 'special', title: 'Κάθε Δευτέρα 10:00 SMS στους επενδυτές', input: { name: 'Εβδομαδιαία ενημέρωση επενδυτών', kind: 'schedule', channel: 'sms', schedule: { kind: 'weekly', weekdays: [1], time: '10:00' }, audience: { kind: 'role', role: 'investor' }, body: 'Καλημέρα {{first_name}}! Δείτε τα νέα διαθέσιμα ακίνητα αυτής της εβδομάδας στην εφαρμογή. Oramira' } },
-  { category: 'special', title: 'Μηνιαίο newsletter την 1η του μήνα', input: { name: 'Μηνιαίο newsletter', kind: 'schedule', channel: 'email', schedule: { kind: 'monthly', day: 1, time: '09:00' }, audience: { kind: 'role', role: 'newsletter' }, subject: 'Τα νέα του μήνα', body: 'Γεια σας {{first_name}},\n\nΑυτά είναι τα νέα μας για αυτόν τον μήνα…\n\nOramira' } },
+  { category: 'leads', title: 'Καλωσόρισμα με email μόλις έρθει νέο lead', input: { name: 'Καλωσόρισμα νέου lead', kind: 'event', channel: 'email', trigger: ev('new_lead'),
+    subject: 'Σας ευχαριστούμε για το ενδιαφέρον σας', body: 'Αγαπητέ/ή {{name}},\n\nΣας ευχαριστούμε για το ενδιαφέρον σας. Λάβαμε το αίτημά σας και ένας σύμβουλός μας θα επικοινωνήσει μαζί σας το συντομότερο.\n\nΜε εκτίμηση,',
+    subjectEn: 'Thank you for your interest', bodyEn: 'Dear {{name}},\n\nThank you for your interest. We have received your enquiry and one of our consultants will contact you shortly.\n\nKind regards,' } },
+  { category: 'leads', title: 'SMS 2 ώρες μετά αν δεν έχουμε απαντήσει', input: { name: 'Lead χωρίς απάντηση', kind: 'event', channel: 'sms', trigger: ev('lead_unanswered', { amount: 2, unit: 'hours' }),
+    body: 'Αγαπητέ/ή {{first_name}}, λάβαμε το αίτημά σας και θα επικοινωνήσουμε μαζί σας σύντομα.', bodyEn: 'Dear {{first_name}}, we have received your enquiry and will contact you shortly.' } },
+  { category: 'leads', title: 'WhatsApp σε leads από Facebook / Instagram', input: { name: 'Leads από Facebook / Instagram', kind: 'event', channel: 'whatsapp', trigger: ev('new_lead', { amount: 5, unit: 'minutes' }, { source: 'meta' }),
+    body: 'Αγαπητέ/ή {{first_name}}, σας ευχαριστούμε για το ενδιαφέρον σας. Θα θέλατε να σας στείλουμε κατόψεις και τιμές των διαθέσιμων ακινήτων;', bodyEn: 'Dear {{first_name}}, thank you for your interest. Would you like us to send you floor plans and prices of the available properties?' } },
+  { category: 'sales', title: 'Συγχαρητήρια μετά την υπογραφή συμβολαίου', input: { name: 'Συγχαρητήρια για το συμβόλαιο', kind: 'event', channel: 'email', trigger: ev('contract_signed', { amount: 1, unit: 'hours' }),
+    subject: 'Συγχαρητήρια για την αγορά σας', body: 'Αγαπητέ/ή {{name}},\n\nΣας συγχαίρουμε για την αγορά της μονάδας {{unit}} στο {{project}} και σας ευχαριστούμε για την εμπιστοσύνη σας. Θα σας ενημερώνουμε για κάθε στάδιο της κατασκευής.\n\nΜε εκτίμηση,',
+    subjectEn: 'Congratulations on your purchase', bodyEn: 'Dear {{name}},\n\nCongratulations on the purchase of unit {{unit}} at {{project}}, and thank you for your trust. We will keep you informed at every stage of construction.\n\nKind regards,' } },
+  { category: 'sales', title: 'Ευχαριστώ για την κράτηση μονάδας', input: { name: 'Ευχαριστώ για την κράτηση', kind: 'event', channel: 'whatsapp', trigger: ev('reservation'),
+    body: 'Αγαπητέ/ή {{first_name}}, σας ευχαριστούμε για την κράτηση της μονάδας {{unit}} στο {{project}}. Ο σύμβουλός σας θα σας ενημερώσει σύντομα για τα επόμενα βήματα.', bodyEn: 'Dear {{first_name}}, thank you for reserving unit {{unit}} at {{project}}. Your consultant will shortly inform you of the next steps.' } },
+  { category: 'sales', title: 'Μήνυμα 30 μέρες μετά από χαμένο lead', input: { name: 'Επανασύνδεση χαμένων leads', kind: 'event', channel: 'email', trigger: ev('lead_lost', { amount: 30, unit: 'days' }),
+    subject: 'Νέα διαθέσιμα ακίνητα', body: 'Αγαπητέ/ή {{name}},\n\nΘα θέλαμε να σας ενημερώσουμε ότι έχουμε νέα διαθέσιμα ακίνητα που ενδέχεται να σας ενδιαφέρουν. Είμαστε στη διάθεσή σας για περισσότερες πληροφορίες.\n\nΜε εκτίμηση,',
+    subjectEn: 'New properties available', bodyEn: 'Dear {{name}},\n\nWe would like to let you know that we have new properties available which may be of interest to you. We remain at your disposal for any further information.\n\nKind regards,' } },
+  { category: 'viewings', title: 'Υπενθύμιση 1 μέρα πριν την ξενάγηση', input: { name: 'Υπενθύμιση ξενάγησης', kind: 'event', channel: 'sms', trigger: ev('viewing', { amount: 1, unit: 'days', dir: 'before' }),
+    body: 'Αγαπητέ/ή {{first_name}}, σας υπενθυμίζουμε την ξενάγησή σας στο {{project}} στις {{date}}, ώρα {{time}}.', bodyEn: 'Dear {{first_name}}, this is a reminder of your viewing at {{project}} on {{date}} at {{time}}.' } },
+  { category: 'viewings', title: 'Ευχαριστώ 2 ώρες μετά την ξενάγηση', input: { name: 'Ευχαριστώ μετά την ξενάγηση', kind: 'event', channel: 'whatsapp', trigger: ev('viewing', { amount: 2, unit: 'hours' }),
+    body: 'Αγαπητέ/ή {{first_name}}, σας ευχαριστούμε για την επίσκεψή σας στο {{project}}. Για οποιαδήποτε ερώτηση, είμαστε στη διάθεσή σας. {{agent}}', bodyEn: 'Dear {{first_name}}, thank you for visiting {{project}}. Should you have any questions, we remain at your disposal. {{agent}}' } },
+  { category: 'viewings', title: 'Επιβεβαίωση μόλις κλειστεί ραντεβού', input: { name: 'Επιβεβαίωση ραντεβού', kind: 'event', channel: 'email', trigger: ev('viewing_booked'),
+    subject: 'Επιβεβαίωση ραντεβού {{date}}', body: 'Αγαπητέ/ή {{name}},\n\nΕπιβεβαιώνουμε το ραντεβού σας στις {{date}}, ώρα {{time}}, στο {{project}}. Για οποιαδήποτε αλλαγή, παρακαλούμε απαντήστε σε αυτό το μήνυμα.\n\nΜε εκτίμηση,',
+    subjectEn: 'Appointment confirmation {{date}}', bodyEn: 'Dear {{name}},\n\nWe confirm your appointment on {{date}} at {{time}} at {{project}}. Should you need to make any change, please reply to this message.\n\nKind regards,' } },
+  { category: 'clients', title: 'Καλωσόρισμα στο νέο σπίτι την ημέρα παράδοσης', input: { name: 'Καλωσόρισμα στο νέο σπίτι', kind: 'event', channel: 'email', trigger: ev('handover', {}, { time: '10:00' }),
+    subject: 'Καλώς ήρθατε στο νέο σας σπίτι', body: 'Αγαπητέ/ή {{name}},\n\nΣας καλωσορίζουμε στη μονάδα {{unit}} στο {{project}}. Για οποιοδήποτε θέμα χρειαστείτε, η ομάδα μας παραμένει στη διάθεσή σας.\n\nΜε εκτίμηση,',
+    subjectEn: 'Welcome to your new home', bodyEn: 'Dear {{name}},\n\nWelcome to unit {{unit}} at {{project}}. Should you need anything, our team remains at your disposal.\n\nKind regards,' } },
+  { category: 'clients', title: 'Ευχές στην επέτειο παράδοσης', input: { name: 'Επέτειος παράδοσης', kind: 'event', channel: 'sms', trigger: ev('handover_anniversary', {}, { time: '10:00' }),
+    body: 'Αγαπητέ/ή {{first_name}}, σήμερα συμπληρώνεται ένας ακόμη χρόνος στο σπίτι σας στο {{project}}. Σας ευχόμαστε να το χαίρεστε.', bodyEn: 'Dear {{first_name}}, today marks another year in your home at {{project}}. We wish you continued enjoyment of it.' } },
+  { category: 'clients', title: 'Μήνυμα σε lead χωρίς επικοινωνία 30 μέρες', input: { name: 'Χωρίς επικοινωνία 30 μέρες', kind: 'event', channel: 'email', trigger: ev('no_contact', {}, { days: 30 }),
+    subject: 'Μπορούμε να σας βοηθήσουμε;', body: 'Αγαπητέ/ή {{name}},\n\nΘα θέλαμε να μάθουμε αν εξακολουθείτε να αναζητάτε ακίνητο. Έχουμε νέες επιλογές που ίσως σας ενδιαφέρουν και θα χαρούμε να σας τις παρουσιάσουμε.\n\nΜε εκτίμηση,',
+    subjectEn: 'May we assist you?', bodyEn: 'Dear {{name}},\n\nWe would like to know whether you are still looking for a property. We have new options that may interest you and would be pleased to present them to you.\n\nKind regards,' } },
+  { category: 'payments', title: 'Υπενθύμιση 3 μέρες πριν τη δόση', input: { name: 'Υπενθύμιση δόσης', kind: 'event', channel: 'email', trigger: ev('payment_due', { amount: 3, unit: 'days', dir: 'before' }, { time: '09:00' }),
+    subject: 'Υπενθύμιση πληρωμής δόσης {{date}}', body: 'Αγαπητέ/ή {{name}},\n\nΣας υπενθυμίζουμε ότι η δόση ύψους {{amount}} για τη μονάδα {{unit}} λήγει στις {{date}}. Εάν έχετε ήδη προχωρήσει στην πληρωμή, παρακαλούμε αγνοήστε αυτό το μήνυμα.\n\nΜε εκτίμηση,',
+    subjectEn: 'Instalment reminder {{date}}', bodyEn: 'Dear {{name}},\n\nThis is a reminder that the instalment of {{amount}} for unit {{unit}} is due on {{date}}. If you have already made the payment, please disregard this message.\n\nKind regards,' } },
+  { category: 'payments', title: 'SMS 2 μέρες μετά από καθυστερημένη δόση', input: { name: 'Καθυστερημένη δόση', kind: 'event', channel: 'sms', trigger: ev('payment_overdue', { amount: 2, unit: 'days' }, { time: '10:00' }),
+    body: 'Αγαπητέ/ή {{first_name}}, η δόση ύψους {{amount}} με λήξη {{date}} δεν έχει ακόμη εξοφληθεί. Για οποιαδήποτε διευκρίνιση, παρακαλούμε επικοινωνήστε μαζί μας.', bodyEn: 'Dear {{first_name}}, the instalment of {{amount}} due on {{date}} remains outstanding. For any clarification, please contact us.' } },
+  { category: 'special', title: 'Ευχές γενεθλίων με SMS', input: { name: 'Ευχές γενεθλίων', kind: 'event', channel: 'sms', trigger: ev('birthday', {}, { time: '09:00' }),
+    body: 'Αγαπητέ/ή {{first_name}}, σας ευχόμαστε χρόνια πολλά, υγεία και κάθε επιτυχία.', bodyEn: 'Dear {{first_name}}, we wish you a very happy birthday, good health and every success.' } },
+  { category: 'special', title: 'Κάθε Παρασκευή νέα της κατασκευής στους ιδιοκτήτες', input: { name: 'Εβδομαδιαία νέα κατασκευής', kind: 'schedule', channel: 'push', schedule: { kind: 'weekly', weekdays: [5], time: '12:00' }, audience: { kind: 'role', role: 'homeowner' },
+    subject: 'Πρόοδος κατασκευής', body: 'Δείτε στην εφαρμογή τις νέες φωτογραφίες και την πρόοδο της κατασκευής αυτής της εβδομάδας.', subjectEn: 'Construction progress', bodyEn: 'See this week’s new photos and construction progress in the app.' } },
+  { category: 'special', title: 'Κάθε Δευτέρα 10:00 SMS στους επενδυτές', input: { name: 'Εβδομαδιαία ενημέρωση επενδυτών', kind: 'schedule', channel: 'sms', schedule: { kind: 'weekly', weekdays: [1], time: '10:00' }, audience: { kind: 'role', role: 'investor' },
+    body: 'Αγαπητέ/ή {{first_name}}, τα νέα διαθέσιμα ακίνητα της εβδομάδας είναι διαθέσιμα στην εφαρμογή.', bodyEn: 'Dear {{first_name}}, this week’s newly available properties can be viewed in the app.' } },
+  { category: 'special', title: 'Μηνιαίο newsletter την 1η του μήνα', input: { name: 'Μηνιαίο newsletter', kind: 'schedule', channel: 'email', schedule: { kind: 'monthly', day: 1, time: '09:00' }, audience: { kind: 'role', role: 'newsletter' },
+    subject: 'Τα νέα του μήνα', body: 'Αγαπητέ/ή {{name}},\n\nΣας παρουσιάζουμε τα νέα μας για αυτόν τον μήνα.\n\nΜε εκτίμηση,', subjectEn: 'This month’s news', bodyEn: 'Dear {{name}},\n\nPlease find below our news for this month.\n\nKind regards,' } },
 ];

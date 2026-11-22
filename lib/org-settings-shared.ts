@@ -113,7 +113,11 @@ export interface NotifRow { key: string; event: string; who: string; inApp: bool
 /** Ειδοποιήσεις πληρωμών προς αγοραστές (δόσεις): πολιτική λογαριασμού, όπως στο FitnessCRM. */
 export interface PaymentNotifPolicy { enabled: boolean; dueSoon: boolean; overdue: boolean; received: boolean; delivery: 'inapp' | 'email' | 'sms'; daysBefore: number }
 /** Ευχές γενεθλίων προς πελάτες (μόνο όσοι δέχονται μηνύματα στο κανάλι). */
-export interface BirthdayPolicy { enabled: boolean; time: string; channel: 'sms' | 'email'; messageActive: string; messageInactive: string }
+export interface BirthdayPolicy {
+  enabled: boolean; time: string; channel: 'sms' | 'email'; messageActive: string; messageInactive: string;
+  /** Αγγλικά (για πελάτες με γλώσσα εκτός ελληνικών). */
+  messageActiveEn: string; messageInactiveEn: string;
+}
 export interface NotificationSettings {
   rows: NotifRow[]; quietFrom: string; quietTo: string;
   /** Τα επείγοντα (νέο lead, αναπάντητο lead, καθυστερημένη πληρωμή) περνούν και στις ώρες ησυχίας. */
@@ -420,8 +424,10 @@ export const DEFAULT_NOTIFICATIONS: NotificationSettings = {
   payments: { enabled: true, dueSoon: true, overdue: true, received: true, delivery: 'inapp', daysBefore: 14 },
   birthday: {
     enabled: false, time: '09:00', channel: 'sms',
-    messageActive: 'Χρόνια πολλά {{name}}! Όλη η ομάδα της {{company}} σας εύχεται μια υπέροχη μέρα.',
-    messageInactive: 'Χρόνια πολλά {{name}}! Από όλους εμάς στην {{company}}, να έχετε μια υπέροχη χρονιά.',
+    messageActive: 'Αγαπητέ/ή {{name}}, εκ μέρους όλης της ομάδας της {{company}} σας ευχόμαστε χρόνια πολλά, υγεία και κάθε επιτυχία.',
+    messageInactive: 'Αγαπητέ/ή {{name}}, σας ευχόμαστε χρόνια πολλά και μια χρονιά γεμάτη υγεία και επιτυχίες.',
+    messageActiveEn: 'Dear {{name}}, on behalf of the entire {{company}} team, we wish you a very happy birthday, good health and every success.',
+    messageInactiveEn: 'Dear {{name}}, we wish you a very happy birthday and a year full of health and success.',
   },
 };
 
@@ -471,6 +477,7 @@ export function mergeNotifications(n: any): NotificationSettings {
         enabled: b.enabled === true, time: time(b.time, d.time),
         channel: b.channel === 'email' ? 'email' as const : 'sms' as const,
         messageActive: txt(b.messageActive, d.messageActive), messageInactive: txt(b.messageInactive, d.messageInactive),
+        messageActiveEn: txt(b.messageActiveEn, d.messageActiveEn), messageInactiveEn: txt(b.messageInactiveEn, d.messageInactiveEn),
       };
     })(),
   };
@@ -523,13 +530,18 @@ export function mergeGdpr(g: any): GdprSettings {
 export const DEFAULT_LAYOUT: LayoutSettings = { startScreen: '/dashboard', sidebarCompact: false, denseLists: false, sidebarAccordion: true, sidebarDefault: 'full', weekStart: 'monday' };
 
 /* ---- Communication (SMS / email / push) ---- */
-export interface CommunicationSettings { smsSender: string; emailFromName: string; emailReplyTo: string; pushEnabled: boolean }
-export const DEFAULT_COMMUNICATION: CommunicationSettings = { smsSender: '', emailFromName: '', emailReplyTo: '', pushEnabled: false };
+export interface CommunicationSettings {
+  smsSender: string; emailFromName: string; emailReplyTo: string; pushEnabled: boolean;
+  /** «Υπογραφή μηνυμάτων»: μπαίνει στο τέλος κάθε μηνύματος προς πελάτες (κενό = χωρίς). */
+  signature: string;
+}
+export const DEFAULT_COMMUNICATION: CommunicationSettings = { smsSender: '', emailFromName: '', emailReplyTo: '', pushEnabled: false, signature: 'Oramira Ltd' };
 export function mergeCommunication(x: any): CommunicationSettings {
   const v = x && typeof x === 'object' ? x : {};
   const sms = typeof v.smsSender === 'string' ? v.smsSender.replace(/[^A-Za-z0-9]/g, '').slice(0, 11) : '';
   const reply = typeof v.emailReplyTo === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.emailReplyTo.trim()) ? v.emailReplyTo.trim().slice(0, 200) : '';
-  return { smsSender: sms, emailFromName: typeof v.emailFromName === 'string' ? v.emailFromName.replace(/[<>"]/g, '').trim().slice(0, 80) : '', emailReplyTo: reply, pushEnabled: v.pushEnabled === true };
+  const signature = typeof v.signature === 'string' ? v.signature.replace(/[<>]/g, '').trim().slice(0, 80) : DEFAULT_COMMUNICATION.signature;
+  return { smsSender: sms, emailFromName: typeof v.emailFromName === 'string' ? v.emailFromName.replace(/[<>"]/g, '').trim().slice(0, 80) : '', emailReplyTo: reply, pushEnabled: v.pushEnabled === true, signature };
 }
 
 /* ---- Departments & rooms (γραφεία/ομάδες και αίθουσες συναντήσεων) ---- */

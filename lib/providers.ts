@@ -21,7 +21,8 @@ export interface SendResult {
 
 export interface ChannelAdapter {
   provider: string;
-  send(to: string, payload: { subject?: string | null; body: string }): Promise<SendResult>;
+  /** `from`: όνομα αποστολέα (email: εμφανιζόμενο όνομα· SMS: alphanumeric sender ID έως 11 λατινικούς χαρακτήρες). */
+  send(to: string, payload: { subject?: string | null; body: string; from?: string | null }): Promise<SendResult>;
 }
 
 /** Default adapter — captures the message but performs no live send. */
@@ -87,7 +88,9 @@ const twilioSmsAdapter: ChannelAdapter = {
     try {
       const sid = process.env.TWILIO_ACCOUNT_SID!;
       const form = new URLSearchParams({ To: to.replace(/[^\d+]/g, ''), Body: payload.body });
-      if (process.env.TWILIO_MESSAGING_SERVICE_SID) form.set('MessagingServiceSid', process.env.TWILIO_MESSAGING_SERVICE_SID);
+      const alpha = smsSenderId(payload.from);
+      if (alpha) form.set('From', alpha);
+      else if (process.env.TWILIO_MESSAGING_SERVICE_SID) form.set('MessagingServiceSid', process.env.TWILIO_MESSAGING_SERVICE_SID);
       else form.set('From', process.env.TWILIO_SMS_FROM ?? 'Oramira');
       const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
         method: 'POST',
@@ -106,6 +109,19 @@ const twilioSmsAdapter: ChannelAdapter = {
   },
 };
 
+/** «Όνομα <διεύθυνση>» με το όνομα αποστολέα που δόθηκε (η διεύθυνση μένει αυτή του παρόχου). */
+function withName(configured: string, name?: string | null): string {
+  const n = (name ?? '').replace(/[<>"\r\n]/g, '').trim();
+  if (!n) return configured;
+  const addr = configured.match(/<([^>]+)>/)?.[1] ?? configured.trim();
+  return `"${n}" <${addr}>`;
+}
+/** Alphanumeric sender ID για SMS: 1–11 λατινικά γράμματα / ψηφία, με τουλάχιστον ένα γράμμα. */
+export function smsSenderId(v?: string | null): string | null {
+  const s = (v ?? '').trim();
+  return /^[A-Za-z0-9 ]{1,11}$/.test(s) && /[A-Za-z]/.test(s) ? s : null;
+}
+
 // ── Email: Resend ──
 const resendEmailAdapter: ChannelAdapter = {
   provider: 'resend',
@@ -114,7 +130,7 @@ const resendEmailAdapter: ChannelAdapter = {
       const { Resend } = await import('resend');
       const resend = new Resend(process.env.RESEND_API_KEY);
       const res = await resend.emails.send({
-        from: process.env.RESEND_FROM_ADDRESS ?? 'Oramira <notifications@oramira.com>',
+        from: withName(process.env.RESEND_FROM_ADDRESS ?? 'Oramira <notifications@oramira.com>', payload.from),
         to,
         subject: payload.subject ?? 'Oramira',
         html: payload.body,
@@ -139,7 +155,7 @@ const postmarkEmailAdapter: ChannelAdapter = {
           'x-postmark-server-token': process.env.POSTMARK_SERVER_TOKEN!,
         },
         body: JSON.stringify({
-          From: process.env.POSTMARK_FROM_ADDRESS ?? 'notifications@oramira.com',
+          From: withName(process.env.POSTMARK_FROM_ADDRESS ?? 'notifications@oramira.com', payload.from),
           To: to,
           Subject: payload.subject ?? 'Oramira',
           HtmlBody: payload.body,
@@ -167,7 +183,7 @@ const gmailEmailAdapter: ChannelAdapter = {
       const { sendViaGmail } = await import('@/lib/gmail-send');
       const html = /<[a-z][\s\S]*>/i.test(payload.body) ? payload.body : payload.body.replace(/\n/g, '<br>');
       for (const c of (conns ?? []) as any[]) {
-        if (await sendViaGmail(c.profile_id, to, payload.subject ?? 'Oramira', html)) return { status: 'sent', provider: 'gmail' };
+        if (await sendViaGmail(c.profile_id, to, payload.subject ?? 'Oramira', html, payload.from)) return { status: 'sent', provider: 'gmail' };
       }
       return { status: 'queued', provider: 'log' };
     } catch (err: any) {

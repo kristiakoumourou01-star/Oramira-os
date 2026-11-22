@@ -23,6 +23,8 @@ export interface CampaignRow {
   createdAt: string; sentAt: string | null; createdBy: string | null;
   /** Προγραμματισμένη αποστολή (status 'scheduled'). */
   scheduledAt?: string | null;
+  /** Αγγλική εκδοχή και όνομα αποστολέα. */
+  subjectEn?: string | null; bodyEn?: string | null; senderName?: string | null;
 }
 
 export const STATUS_LABEL: Record<CampaignRow['status'], string> = { draft: 'Πρόχειρο', scheduled: 'Προγραμματισμένη', sending: 'Αποστολή…', sent: 'Στάλθηκε', cancelled: 'Ακυρώθηκε' };
@@ -64,4 +66,19 @@ export function audienceLabel(a: CampaignAudience, roleLabel: (r: string) => str
     case 'tag': return `Tag: ${a.tag}`;
     case 'role': return roleLabel(a.role);
   }
+}
+
+/** Ρυθμίσεις → Επικοινωνία: προεπιλεγμένα ονόματα αποστολέα. */
+export interface SenderDefaults { email: string; sms: string }
+export const senderDefaultFor = (channel: CampaignChannel, d: SenderDefaults) => (channel === 'email' ? d.email : channel === 'push' ? '' : d.sms);
+/**
+ * Όνομα αποστολέα: για email οποιοδήποτε κείμενο (χωρίς < > "), για SMS / WhatsApp
+ * έως 11 λατινικά γράμματα ή ψηφία (τουλάχιστον ένα γράμμα). Κενό = προεπιλογή.
+ */
+export function cleanSender(v: unknown, channel: CampaignChannel): { ok: true; value: string | null } | { ok: false; error: string } {
+  const s = typeof v === 'string' ? v.trim() : '';
+  if (!s || channel === 'push') return { ok: true, value: null };
+  if (channel === 'email') return { ok: true, value: s.replace(/[<>"\r\n]/g, '').slice(0, 80) || null };
+  if (!/^[A-Za-z0-9 ]{1,11}$/.test(s) || !/[A-Za-z]/.test(s)) return { ok: false, error: 'Για SMS / WhatsApp το όνομα αποστολέα είναι έως 11 λατινικά γράμματα ή αριθμοί (π.χ. Oramira).' };
+  return { ok: true, value: s };
 }

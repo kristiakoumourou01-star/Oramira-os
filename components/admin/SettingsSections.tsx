@@ -1,6 +1,8 @@
 'use client';
 
 import { Fragment, useEffect, useState, useTransition } from 'react';
+import { LangTabs } from '@/components/marketing/LangTabs';
+import { textWithSignature, type MsgLang } from '@/lib/message-format-shared';
 import { useRouter } from 'next/navigation';
 import { Check, Plus, X, Trash2, Bell, TrendingUp, Building2, Wallet, Users, MessageSquare, ChevronDown } from 'lucide-react';
 import { SettingsBlock, OptionBox, Switch, FieldLabel } from '@/components/admin/settings-ui';
@@ -112,8 +114,9 @@ function Segmented<T extends string>({ value, options, onChange, disabled }: { v
   );
 }
 
-export function NotificationsSection({ initial, canEdit }: { initial: NotificationSettings; canEdit: boolean }) {
+export function NotificationsSection({ initial, canEdit, signature = '' }: { initial: NotificationSettings; canEdit: boolean; signature?: string }) {
   const { v, setV, patch, save, pending, msg } = useSlice('notifications', initial);
+  const [bdLang, setBdLang] = useState<MsgLang>('el');
   const [openGroup, setOpenGroup] = useState<string | null>(null);
   const [prefs, setPrefs] = useState<NotifPrefs>(DEFAULT_NOTIF_PREFS);
   useEffect(() => { setPrefs(readNotifPrefs()); }, []);
@@ -198,12 +201,13 @@ export function NotificationsSection({ initial, canEdit }: { initial: Notificati
             <label className="block"><FieldLabel>Ώρα αποστολής</FieldLabel><input type="time" className="input w-32" disabled={dis} value={bd.time} onChange={(e) => setBd({ time: e.target.value })} /><span className="mt-1 block text-[11px] text-charcoal-600/70">Ώρα Κύπρου.</span></label>
             <div><FieldLabel>Κανάλι</FieldLabel><Segmented value={bd.channel} disabled={dis} onChange={(c) => setBd({ channel: c })} options={[['sms', 'SMS'], ['email', 'Email']] as const} /></div>
           </div>
-          {([['messageActive', 'Μήνυμα για ενεργούς πελάτες'], ['messageInactive', 'Μήνυμα για παλιούς πελάτες']] as const).map(([k, label]) => (
+          <LangTabs lang={bdLang} onChange={setBdLang} filled={{ el: !!bd.messageActive.trim(), en: !!bd.messageActiveEn.trim() }} />
+          {(bdLang === 'en' ? [['messageActiveEn', 'Μήνυμα για ενεργούς πελάτες'], ['messageInactiveEn', 'Μήνυμα για παλιούς πελάτες']] as const : [['messageActive', 'Μήνυμα για ενεργούς πελάτες'], ['messageInactive', 'Μήνυμα για παλιούς πελάτες']] as const).map(([k, label]) => (
             <label key={k} className="block">
               <FieldLabel>{label}</FieldLabel>
               <textarea className="input min-h-[70px]" disabled={dis} value={bd[k]} onChange={(e) => setBd({ [k]: e.target.value } as any)} />
               <span className="mt-1 flex flex-wrap gap-1">{VARS_BIRTHDAY.map((x) => <button key={x} type="button" disabled={dis} onClick={() => setBd({ [k]: `${bd[k]} ${x}` } as any)} className="rounded-md border border-stone-line px-1.5 py-0.5 font-mono text-[11px] text-charcoal-600 hover:border-forest/40" data-no-tr>{x}</button>)}</span>
-              <span className="mt-2 block rounded-xl border border-stone-line bg-stone/40 px-3 py-2 text-xs text-charcoal"><span className="mb-0.5 block text-[10px] font-semibold uppercase tracking-wide text-charcoal-600/70">Προεπισκόπηση</span><span data-no-tr>{sample(bd[k])}</span></span>
+              <span className="mt-2 block rounded-xl border border-stone-line bg-stone/40 px-3 py-2 text-xs text-charcoal"><span className="mb-0.5 block text-[10px] font-semibold uppercase tracking-wide text-charcoal-600/70">Προεπισκόπηση</span><span className="whitespace-pre-wrap" data-no-tr>{bd.channel === 'email' ? `${sample(bd[k])}\n\n${signature}` : textWithSignature(sample(bd[k]), signature)}</span></span>
             </label>
           ))}
           <p className="rounded-xl border border-stone-line bg-stone/50 px-4 py-2.5 text-xs text-charcoal-600">«Ενεργός» = πελάτης με ενεργό lead ή συμβόλαιο. Πελάτες χωρίς ημερομηνία γέννησης παραλείπονται.</p>
