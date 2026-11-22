@@ -31,12 +31,12 @@ export function Segs({ segs }: { segs: Seg[] }) {
 }
 
 /** Marketing → Δικοί μου αυτοματισμοί: κατηγορίες, λίστα, έτοιμες ιδέες και ο οδηγός σε 3 βήματα. */
-export function MarketingAutomations({ rows, builtins, groups, contacts, tags, stages, sources, canEdit }: {
+export function MarketingAutomations({ rows, builtins, groups, contacts, tags, stages, sources, canEdit, initialCat }: {
   rows: AutomationRow[]; builtins: BuiltinAutomation[]; groups: { name: string; n: number }[]; contacts: PickContact[]; tags: string[];
-  stages: { key: string; label: string }[]; sources: [string, string][]; canEdit: boolean;
+  stages: { key: string; label: string }[]; sources: [string, string][]; canEdit: boolean; initialCat?: string;
 }) {
   const router = useRouter();
-  const [cat, setCat] = useState<CategoryKey>('leads');
+  const [cat, setCat] = useState<CategoryKey>(CATEGORIES.some((c) => c.key === initialCat) ? (initialCat as CategoryKey) : 'leads');
   const [dlg, setDlg] = useState<{ row?: AutomationRow; init?: AutomationInput } | null>(null);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [per, setPer] = useState(10);
@@ -62,12 +62,12 @@ export function MarketingAutomations({ rows, builtins, groups, contacts, tags, s
       <div className="flex flex-wrap items-center gap-3">
         <div className="min-w-0 flex-1">
           <h2 className="font-display text-xl text-charcoal">Δικοί μου αυτοματισμοί</h2>
-          <p className="text-[14px] text-charcoal-600">Μηνύματα που φεύγουν μόνα τους: όταν συμβεί κάτι (νέο lead, ραντεβού, δόση…) ή σε ώρα που ορίζετε.</p>
+          <p className="text-[14px] text-charcoal-600">Μηνύματα που φεύγουν μόνα τους: όταν συμβεί κάτι (νέο lead, ραντεβού, δόση…) ή κάθε μέρα / εβδομάδα / μήνα. Για ένα μήνυμα μία φορά χρησιμοποιήστε τις Καμπάνιες.</p>
         </div>
         {canEdit && <button type="button" onClick={() => setDlg({ init: blank(cat) })} className="inline-flex h-9 items-center gap-1.5 rounded-[10px] bg-forest px-3.5 text-[14px] font-medium text-white hover:bg-forest/90"><Plus size={15} /> Νέος αυτοματισμός</button>}
       </div>
 
-      <HubCards cols={3} active={cat} onSelect={(k) => { setCat(k as CategoryKey); setPg(0); }}
+      <HubCards cols={3} active={cat} onSelect={(k) => { setCat(k as CategoryKey); setPg(0); window.history.replaceState(null, '', `?tab=automations&cat=${k}`); }}
         cards={CATEGORIES.map((c) => ({ key: c.key, icon: ICON[c.key], title: c.title, value: rows.filter((r) => categoryOf(r) === c.key).length, sub: c.sub }))} />
 
       {msg && <p className={`rounded-xl border px-4 py-2.5 text-sm ${msg.ok ? 'border-forest/20 bg-forest/[0.05] text-forest' : 'border-signal-danger/30 bg-rose-50 text-signal-danger'}`}>{msg.text}</p>}
@@ -141,12 +141,12 @@ export function MarketingAutomations({ rows, builtins, groups, contacts, tags, s
 
 function blank(cat: CategoryKey): AutomationInput {
   const ev = EVENTS.find((e) => e.category === cat);
-  if (cat === 'special' || !ev) return { name: '', kind: 'schedule', channel: 'email', schedule: { kind: 'once', time: '10:00' }, body: '' };
+  if (cat === 'special' || !ev) return { name: '', kind: 'schedule', channel: 'email', schedule: { kind: 'weekly', weekdays: [1], time: '10:00' }, body: '' };
   return { name: '', kind: 'event', channel: 'email', trigger: { event: ev.key, params: {}, delay: { amount: 0, unit: 'hours', dir: 'after' }, filter: {} }, body: '' };
 }
 
 const DELAY_UNITS: [DelayUnit, string][] = [['minutes', 'λεπτά'], ['hours', 'ώρες'], ['days', 'μέρες']];
-const SCHED: [ScheduleKind, string][] = [['once', 'Μία φορά'], ['daily', 'Κάθε μέρα'], ['weekly', 'Κάθε εβδομάδα'], ['monthly', 'Κάθε μήνα']];
+const SCHED: [ScheduleKind, string][] = [['daily', 'Κάθε μέρα'], ['weekly', 'Κάθε εβδομάδα'], ['monthly', 'Κάθε μήνα']];
 const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0];
 
 function AutomationDialog({ row, init, groups, contacts, tags, stages, sources, onClose, onDone }: {
@@ -157,7 +157,8 @@ function AutomationDialog({ row, init, groups, contacts, tags, stages, sources, 
     ? { id: row.id, name: row.name, kind: row.kind, channel: row.channel, audience: row.audience, trigger: row.trigger, schedule: row.schedule, subject: row.subject ?? '', body: row.body }
     : init ?? blank('leads');
   const t0 = (src.kind === 'event' ? cleanTrigger(src.trigger) : null) ?? { event: 'new_lead' as EventKey, params: {}, delay: { amount: 0, unit: 'hours' as DelayUnit, dir: 'after' as const }, filter: {} };
-  const s0: AutoSchedule = (src.schedule as AutoSchedule) ?? { kind: 'once', time: '10:00' };
+  const s1 = src.schedule as AutoSchedule | undefined;
+  const s0: AutoSchedule = s1 && s1.kind !== 'once' ? s1 : { kind: 'weekly', weekdays: [1], time: '10:00' };
   const [name, setName] = useState(src.name);
   const [kind, setKind] = useState(src.kind);
   const [cat, setCat] = useState<CategoryKey>(src.kind === 'schedule' ? 'special' : EVENT_BY_KEY[t0.event].category);
@@ -223,7 +224,7 @@ function AutomationDialog({ row, init, groups, contacts, tags, stages, sources, 
               {cat === 'special' && (
                 <button type="button" onClick={() => setKind('schedule')} className={`rounded-xl border p-3 text-left transition-colors ${kind === 'schedule' ? 'border-forest bg-forest/[0.06]' : 'border-stone-line hover:border-forest/40'}`}>
                   <span className="flex items-center gap-1.5 text-[14px] font-semibold text-charcoal"><Clock size={13} className="text-forest" /><span>Σε συγκεκριμένη ώρα</span></span>
-                  <span className="block text-[12px] text-charcoal-600">Μία φορά ή κάθε μέρα / εβδομάδα / μήνα, σε ομάδα πελατών.</span>
+                  <span className="block text-[12px] text-charcoal-600">Κάθε μέρα / εβδομάδα / μήνα, σε ομάδα πελατών. Για μία φορά: Καμπάνιες.</span>
                 </button>
               )}
             </div>
@@ -251,10 +252,9 @@ function AutomationDialog({ row, init, groups, contacts, tags, stages, sources, 
                 {SCHED.map(([k, l]) => <button key={k} type="button" onClick={() => setSched({ ...sched, kind: k })} className={`rounded-lg px-3 py-1 text-[13px] font-medium ${sched.kind === k ? 'bg-forest text-white' : 'text-charcoal-600 hover:text-charcoal'}`}>{l}</button>)}
               </span>
               <div className="flex flex-wrap items-end gap-3">
-                {sched.kind === 'once' && <label className="block"><span className={lbl}>Ημερομηνία</span><input type="date" className="input h-9" value={sched.date ?? ''} onChange={(e) => setSched({ ...sched, date: e.target.value })} /></label>}
                 {sched.kind === 'monthly' && <label className="block"><span className={lbl}>Μέρα του μήνα</span><select className="input h-9 w-24 text-sm" value={sched.day ?? 1} onChange={(e) => setSched({ ...sched, day: Number(e.target.value) })}>{Array.from({ length: 28 }, (_, i) => <option key={i + 1} value={i + 1}>{i + 1}</option>)}</select></label>}
                 <label className="block"><span className={lbl}>Ώρα (Κύπρου)</span><input type="time" className="input h-9 w-28" value={sched.time} onChange={(e) => setSched({ ...sched, time: e.target.value })} /></label>
-                {sched.kind !== 'once' && <label className="block"><span className={lbl}>Μέχρι (προαιρετικό)</span><input type="date" className="input h-9" value={sched.until ?? ''} onChange={(e) => setSched({ ...sched, until: e.target.value || null })} /></label>}
+                {<label className="block"><span className={lbl}>Μέχρι (προαιρετικό)</span><input type="date" className="input h-9" value={sched.until ?? ''} onChange={(e) => setSched({ ...sched, until: e.target.value || null })} /></label>}
               </div>
               {sched.kind === 'weekly' && (
                 <div className="flex flex-wrap gap-1.5">{WEEK_ORDER.map((d) => { const on = (sched.weekdays ?? []).includes(d); return <button key={d} type="button" onClick={() => setSched({ ...sched, weekdays: on ? (sched.weekdays ?? []).filter((x) => x !== d) : [...(sched.weekdays ?? []), d] })} className={chip(on)}>{WEEKDAY_SHORT[d]}</button>; })}</div>

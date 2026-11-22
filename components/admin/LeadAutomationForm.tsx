@@ -68,7 +68,7 @@ export function LeadAutomationForm({ initial, canEdit, team, part = 'settings' }
       {showGeneral && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-stone-line bg-stone/40 px-4 py-3 text-sm">
           <span className="text-charcoal-600">Τα μηνύματα προς τα νέα leads (καλωσόρισμα και follow-up) αλλάζουν στο Marketing.</span>
-          <Link href="/marketing?tab=automations" className="text-forest hover:underline">Marketing → Αυτοματισμοί leads →</Link>
+          <Link href="/marketing?tab=automations" className="text-forest hover:underline">Marketing → Αυτοματισμοί →</Link>
         </div>
       )}
       {showMessages && (

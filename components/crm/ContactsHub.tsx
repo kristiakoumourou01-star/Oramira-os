@@ -109,7 +109,7 @@ export function ContactsHub({ rows, staff, groupDefs = [], initialRole = '', ini
   const pg = Math.min(pageNo, pages - 1);
   const page = sorted.slice(pg * per, pg * per + per);
   const allOnPage = page.length > 0 && page.every((r) => sel.has(r.id));
-  const campaignHref = (q: Record<string, string>) => `/marketing?tab=email&${new URLSearchParams(q).toString()}`;
+  const campaignHref = (q: Record<string, string>) => `/marketing?tab=campaigns&${new URLSearchParams(q).toString()}`;
 
   const newThisMonth = rows.filter((r) => Date.parse(r.createdAt) >= new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime()).length;
   const leadCount = rows.filter((r) => r.roles.includes('lead') || !!r.lead).length;

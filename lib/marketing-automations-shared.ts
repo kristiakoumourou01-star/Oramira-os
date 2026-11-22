@@ -175,6 +175,7 @@ export function cleanAutomation(input: AutomationInput): { ok: true; value: Omit
   }
   const schedule = cleanSchedule(input.schedule);
   if (!schedule) return { ok: false, error: 'Συμπληρώστε ημερομηνία / μέρες και ώρα.' };
+  if (schedule.kind === 'once') return { ok: false, error: 'Για μήνυμα μία φορά φτιάξτε καμπάνια (Καμπάνιες → Προγραμματισμός).' };
   const audience = cleanAudience(input.audience, channel);
   if (!audience) return { ok: false, error: 'Διαλέξτε σε ποιους στέλνεται.' };
   return { ok: true, value: { name, kind: 'schedule', channel, audience, trigger: null, schedule, subject, body } };
@@ -312,7 +313,7 @@ export const IDEAS: Idea[] = [
   { category: 'payments', title: 'Υπενθύμιση 3 μέρες πριν τη δόση', input: { name: 'Υπενθύμιση δόσης', kind: 'event', channel: 'email', trigger: ev('payment_due', { amount: 3, unit: 'days', dir: 'before' }, { time: '09:00' }), subject: 'Υπενθύμιση δόσης {{date}}', body: 'Αγαπητέ/ή {{first_name}},\n\nΣας υπενθυμίζουμε ότι η δόση των {{amount}} για τη μονάδα {{unit}} λήγει στις {{date}}.\n\nOramira' } },
   { category: 'payments', title: 'SMS 2 μέρες μετά από καθυστερημένη δόση', input: { name: 'Καθυστερημένη δόση', kind: 'event', channel: 'sms', trigger: ev('payment_overdue', { amount: 2, unit: 'days' }, { time: '10:00' }), body: '{{first_name}}, η δόση των {{amount}} (λήξη {{date}}) δεν έχει ακόμη πληρωθεί. Για βοήθεια καλέστε μας. Oramira' } },
   { category: 'special', title: 'Ευχές γενεθλίων με SMS', input: { name: 'Ευχές γενεθλίων', kind: 'event', channel: 'sms', trigger: ev('birthday', {}, { time: '09:00' }), body: 'Χρόνια πολλά {{first_name}}! Σας ευχόμαστε υγεία και χαρά. Oramira' } },
-  { category: 'special', title: 'Ευχές Χριστουγέννων σε όλους τους αγοραστές', input: { name: 'Ευχές Χριστουγέννων', kind: 'schedule', channel: 'email', schedule: { kind: 'once', date: `${new Date().getFullYear()}-12-24`, time: '10:00' }, audience: { kind: 'role', role: 'buyer' }, subject: 'Καλά Χριστούγεννα!', body: 'Αγαπητέ/ή {{first_name}},\n\nΣας ευχόμαστε Καλά Χριστούγεννα και ευτυχισμένο το νέο έτος!\n\nOramira' } },
+  { category: 'special', title: 'Κάθε Παρασκευή νέα της κατασκευής στους ιδιοκτήτες', input: { name: 'Εβδομαδιαία νέα κατασκευής', kind: 'schedule', channel: 'push', schedule: { kind: 'weekly', weekdays: [5], time: '12:00' }, audience: { kind: 'role', role: 'homeowner' }, subject: 'Νέα από το εργοτάξιο', body: 'Γεια σας {{first_name}}! Δείτε στην εφαρμογή τις νέες φωτογραφίες και την πρόοδο της κατασκευής.' } },
   { category: 'special', title: 'Κάθε Δευτέρα 10:00 SMS στους επενδυτές', input: { name: 'Εβδομαδιαία ενημέρωση επενδυτών', kind: 'schedule', channel: 'sms', schedule: { kind: 'weekly', weekdays: [1], time: '10:00' }, audience: { kind: 'role', role: 'investor' }, body: 'Καλημέρα {{first_name}}! Δείτε τα νέα διαθέσιμα ακίνητα αυτής της εβδομάδας στην εφαρμογή. Oramira' } },
   { category: 'special', title: 'Μηνιαίο newsletter την 1η του μήνα', input: { name: 'Μηνιαίο newsletter', kind: 'schedule', channel: 'email', schedule: { kind: 'monthly', day: 1, time: '09:00' }, audience: { kind: 'role', role: 'newsletter' }, subject: 'Τα νέα του μήνα', body: 'Γεια σας {{first_name}},\n\nΑυτά είναι τα νέα μας για αυτόν τον μήνα…\n\nOramira' } },
 ];

@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { Mail, MessageSquare, FileBarChart, Gift, Plus, Search, X, Trash2, Copy, Send, Bell, Handshake, Pencil, Power, Zap } from 'lucide-react';
+import { FileBarChart, Gift, Plus, Search, X, Trash2, Copy, Send, Handshake, Pencil, Power, Zap } from 'lucide-react';
 import { PopSelect } from '@/components/ui/PopSelect';
 import { Briefing, Pager } from '@/components/ui/SidePanel';
 import { saveReferralCode, setReferralActive, addRedemption, setRedemptionStatus } from '@/app/actions/referrals';
@@ -10,11 +10,12 @@ import { HubCards } from '@/components/ui/HubCards';
 import { saveCampaign, deleteCampaign } from '@/app/actions/campaigns';
 import { STATUS_LABEL, CHANNEL_NAME, audienceLabel, smsParts, type CampaignAudience, type CampaignChannel, type CampaignRow } from '@/lib/campaigns-shared';
 import { ROLE_EL } from '@/lib/contacts-hub-shared';
-import { formatDate } from '@/lib/format';
+import { localParts } from '@/lib/marketing-automations-shared';
+import { formatDate, formatDateTime } from '@/lib/format';
 
 import { AudiencePicker, type PickContact, type AudienceCount } from '@/components/marketing/AudiencePicker';
 export type { PickContact };
-export interface Prefill { tab?: string; group?: string; tag?: string; role?: string; ids?: string }
+export interface Prefill { tab?: string; channel?: string; cat?: string; group?: string; tag?: string; role?: string; ids?: string }
 
 const iconBtn = 'flex h-8 w-8 items-center justify-center rounded-full text-charcoal-600 transition hover:bg-forest/10 hover:text-forest';
 const lbl = 'mb-1 block text-[12px] font-semibold uppercase tracking-wide text-charcoal-600';
@@ -25,15 +26,30 @@ const BRIEF: Record<CampaignChannel, [string, string, string]> = {
   push: ['Ενημέρωση push', 'Ειδοποιήσεις στην εφαρμογή αγοραστών και ιδιοκτητών.', 'Ιδανικό για νέα του έργου, πρόοδο κατασκευής, παραδόσεις και προσφορές συνεργατών. Μόνο όσοι έχουν λογαριασμό στην εφαρμογή τα λαμβάνουν.'],
 };
 
+const BRIEF_ALL: [string, string, string] = ['Καμπάνιες', 'Ένα μήνυμα σε πολλούς πελάτες, μία φορά.', 'Στείλτε τώρα ή προγραμματίστε ημερομηνία και ώρα. Για μηνύματα που επαναλαμβάνονται ή φεύγουν όταν συμβεί κάτι, χρησιμοποιήστε τους Αυτοματισμούς.'];
+type Main = 'campaigns' | 'automations' | 'referrals';
+type ChanFilter = 'all' | CampaignChannel;
+const CHANNELS: CampaignChannel[] = ['email', 'sms', 'whatsapp', 'push'];
+
+/** Παλιοί σύνδεσμοι (?tab=email|sms|whatsapp|push) → Καμπάνιες με φίλτρο καναλιού. */
+function fromPrefill(p: Prefill): { main: Main; channel: ChanFilter } {
+  const t = p.tab ?? '';
+  if (t === 'automations') return { main: 'automations', channel: 'all' };
+  if (t === 'referrals') return { main: 'referrals', channel: 'all' };
+  const ch = (CHANNELS as string[]).includes(p.channel ?? '') ? (p.channel as CampaignChannel) : (CHANNELS as string[]).includes(t) ? (t as CampaignChannel) : 'all';
+  return { main: 'campaigns', channel: ch };
+}
+
 /**
- * Marketing (όπως στο FitnessCRM): κάρτες Email · WhatsApp · Push · Συστάσεις ·
- * Αναφορές · Benefits — από κάτω ο πίνακας του καναλιού και δεξιά η ενημέρωση.
+ * Marketing (όπως στο FitnessCRM): δύο επιλογές — «Καμπάνιες» (μία φορά, τώρα ή
+ * σε ημερομηνία) και «Αυτοματισμοί» (μηνύματα που φεύγουν μόνα τους).
+ * Συστάσεις, Αναφορές και Benefits ως δευτερεύοντες σύνδεσμοι.
  */
-export function MarketingHub({ campaigns, groups, contacts, tags, prefill, referrals, canEdit, leadAutomation, automations }: { automations?: React.ReactNode; campaigns: CampaignRow[]; groups: { name: string; n: number }[]; contacts: PickContact[]; tags: string[]; prefill: Prefill; referrals: ReferralData; canEdit: boolean; leadAutomation?: React.ReactNode }) {
+export function MarketingHub({ campaigns, groups, contacts, tags, prefill, referrals, canEdit, leadAutomation, automations, activeAutomations = 0 }: { automations?: React.ReactNode; activeAutomations?: number; campaigns: CampaignRow[]; groups: { name: string; n: number }[]; contacts: PickContact[]; tags: string[]; prefill: Prefill; referrals: ReferralData; canEdit: boolean; leadAutomation?: React.ReactNode }) {
   const router = useRouter();
-  const t0 = prefill.tab === 'whatsapp' ? 'sms' : prefill.tab ?? '';
-  const [tab, setTab] = useState<string>(['sms', 'push', 'referrals', 'automations'].includes(t0) ? t0 : 'email');
-  const [mobile, setMobile] = useState<'sms' | 'whatsapp'>(prefill.tab === 'whatsapp' ? 'whatsapp' : 'sms');
+  const init = fromPrefill(prefill);
+  const [tab, setTab] = useState<Main>(init.main);
+  const [chan, setChan] = useState<ChanFilter>(init.channel);
   const wantsNew = !!(prefill.group || prefill.tag || prefill.role || prefill.ids);
   const [dlg, setDlg] = useState<{ row?: CampaignRow; copy?: boolean } | null>(wantsNew ? {} : null);
   const [view, setView] = useState<CampaignRow | null>(null);
@@ -42,8 +58,7 @@ export function MarketingHub({ campaigns, groups, contacts, tags, prefill, refer
   const [per, setPer] = useState(25);
   const [pg, setPg] = useState(0);
   const [, start] = useTransition();
-  const channel: CampaignChannel = tab === 'sms' ? mobile : tab === 'push' ? 'push' : 'email';
-  const mine = campaigns.filter((c) => c.channel === channel);
+  const mine = chan === 'all' ? campaigns : campaigns.filter((c) => c.channel === chan);
   const filtered = mine.filter((c) => !q || c.name.toLowerCase().includes(q.toLowerCase()));
   const pages = Math.max(1, Math.ceil(filtered.length / per));
   const p = Math.min(pg, pages - 1);
@@ -51,30 +66,31 @@ export function MarketingHub({ campaigns, groups, contacts, tags, prefill, refer
   const sentMsgs = mine.reduce((n, c) => n + c.sent, 0);
   const failedMsgs = mine.reduce((n, c) => n + c.failed, 0);
   const openedMsgs = mine.reduce((n, c) => n + (c.opened ?? 0), 0);
-  const tracksOpens = channel === 'email';
+  const tracksOpens = chan === 'email';
+  const brief = chan === 'all' ? BRIEF_ALL : BRIEF[chan];
   const roleLabel = (r: string) => `Όλοι: ${ROLE_EL[r] ?? r}`;
-  const n = (ch: CampaignChannel) => campaigns.filter((c) => c.channel === ch).length;
-
   const go = (k: string) => {
-    if (k === 'reports') { router.push('/reports?tab=campaigns'); return; }
-    if (k === 'benefits') { router.push('/benefits'); return; }
-    setTab(k); setPg(0); setQ('');
+    setTab(k as Main); setPg(0); setQ('');
+    const u = new URL(window.location.href);
+    u.search = k === 'campaigns' ? (chan === 'all' ? '?tab=campaigns' : `?tab=campaigns&channel=${chan}`) : `?tab=${k}`;
+    window.history.replaceState(null, '', u.toString());
   };
   const del = (c: CampaignRow) => {
-    if (!confirm(`Διαγραφή του προχείρου «${c.name}»;`)) return;
-    start(async () => { const r = await deleteCampaign(c.id); setMsg(r.ok ? { ok: true, text: 'Το πρόχειρο διαγράφηκε.' } : { ok: false, text: r.error }); router.refresh(); });
+    if (!confirm(`Διαγραφή της καμπάνιας «${c.name}»;`)) return;
+    start(async () => { const r = await deleteCampaign(c.id); setMsg(r.ok ? { ok: true, text: 'Η καμπάνια διαγράφηκε.' } : { ok: false, text: r.error }); router.refresh(); });
   };
+  const link = 'inline-flex h-8 items-center gap-1.5 rounded-[10px] border border-stone-line bg-white px-3 text-[13px] font-medium text-charcoal transition-colors hover:border-forest/40';
 
   return (
     <div className="space-y-5">
-      <HubCards cols={3} active={tab} onSelect={go} cards={[
-        { key: 'email', icon: Mail, title: 'Email', value: n('email'), sub: 'Email marketing σε ομάδες πελατών' },
-        { key: 'sms', icon: MessageSquare, title: 'SMS', value: n('sms') + n('whatsapp'), sub: 'SMS και WhatsApp στο κινητό των πελατών' },
-        { key: 'push', icon: Bell, title: 'Push', value: n('push'), sub: 'Ειδοποιήσεις στην εφαρμογή των πελατών' },
-        { key: 'referrals', icon: Gift, title: 'Συστάσεις', value: referrals.codes.length, sub: 'Κωδικοί σύστασης και εξαργυρώσεις' },
-        { key: 'automations', icon: Zap, title: 'Αυτοματισμοί', sub: 'Μηνύματα που φεύγουν μόνα τους: γεγονότα και προγραμματισμένα' },
-        { key: 'reports', icon: FileBarChart, title: 'Αναφορές', sub: 'Αποστολές, ανοίγματα και αποτυχίες ανά κανάλι' },
-        { key: 'benefits', icon: Handshake, title: 'Benefits', sub: 'Εκπτώσεις συνεργατών για τους πελάτες σας' },
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <button type="button" onClick={() => go('referrals')} className={`${link} ${tab === 'referrals' ? '!border-forest !bg-forest !text-white' : ''}`}><Gift size={14} /> Συστάσεις <span className="tabular-nums opacity-70">{referrals.codes.length}</span></button>
+        <button type="button" onClick={() => router.push('/reports?tab=campaigns')} className={link}><FileBarChart size={14} /> Αναφορές</button>
+        <button type="button" onClick={() => router.push('/benefits')} className={link}><Handshake size={14} /> Benefits</button>
+      </div>
+      <HubCards cols={2} active={tab} onSelect={go} cards={[
+        { key: 'campaigns', icon: Send, title: 'Καμπάνιες', value: campaigns.length, sub: 'Μηνύματα μία φορά: τώρα ή σε ημερομηνία' },
+        { key: 'automations', icon: Zap, title: 'Αυτοματισμοί', value: activeAutomations, sub: 'Μηνύματα που φεύγουν μόνα τους, κάθε μέρα' },
       ]} />
 
       {msg && <p className={`anim-fade rounded-xl border px-4 py-2.5 text-sm ${msg.ok ? 'border-forest/20 bg-forest/[0.05] text-forest' : 'border-signal-danger/30 bg-rose-50 text-signal-danger'}`}>{msg.text}</p>}
@@ -93,17 +109,15 @@ export function MarketingHub({ campaigns, groups, contacts, tags, prefill, refer
         </div>
       )}
 
-      {['email', 'sms', 'push'].includes(tab) && (
+      {tab === 'campaigns' && (
         <div className="grid items-start gap-5 2xl:grid-cols-[minmax(0,1fr)_300px]">
           <div className="min-w-0 rounded-2xl border border-stone-line bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-            {tab === 'sms' && (
-              <div className="flex flex-wrap items-center gap-2 border-b border-stone-line px-4 pb-3 pt-4 sm:px-5">
-                <span className="inline-flex rounded-[10px] border border-stone-line p-0.5">
-                  {(['sms', 'whatsapp'] as const).map((m) => <button key={m} type="button" onClick={() => { setMobile(m); setPg(0); }} className={`rounded-lg px-3 py-1 text-[13px] font-medium transition-colors ${mobile === m ? 'bg-forest text-white' : 'text-charcoal-600 hover:text-charcoal'}`}>{CHANNEL_NAME[m]}</button>)}
-                </span>
-                <span className="text-[13px] text-charcoal-600">{mobile === 'sms' ? 'Γραπτά μηνύματα στο κινητό του πελάτη.' : 'Μηνύματα WhatsApp στο κινητό του πελάτη.'}</span>
-              </div>
-            )}
+            <div className="flex flex-wrap items-center gap-1.5 border-b border-stone-line px-4 pb-3 pt-4 sm:px-5">
+              {(['all', ...CHANNELS] as ChanFilter[]).map((c) => {
+                const n = c === 'all' ? campaigns.length : campaigns.filter((x) => x.channel === c).length;
+                return <button key={c} type="button" onClick={() => { setChan(c); setPg(0); window.history.replaceState(null, '', c === 'all' ? '?tab=campaigns' : `?tab=campaigns&channel=${c}`); }} className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[13px] font-medium transition-colors ${chan === c ? 'border-forest bg-forest text-white' : 'border-stone-line text-charcoal-600 hover:text-charcoal'}`}>{c === 'all' ? <span>Όλα</span> : <span data-no-tr>{CHANNEL_NAME[c]}</span>}<span className="tabular-nums opacity-70">{n}</span></button>;
+              })}
+            </div>
             <div className="flex flex-wrap items-center gap-2 p-4 text-[14px] text-charcoal-600 sm:p-5">
               <span>Εμφάνιση</span>
               <PopSelect ariaLabel="Εγγραφές ανά σελίδα" width="w-[72px]" value={String(per)} onChange={(v) => { setPer(Number(v)); setPg(0); }} options={[['10', '10'], ['25', '25'], ['50', '50'], ['100', '100']]} />
@@ -115,40 +129,47 @@ export function MarketingHub({ campaigns, groups, contacts, tags, prefill, refer
             </div>
             <div className="overflow-x-auto border-t border-stone-line">
               <table className="o-table">
-                <thead><tr><th>Καμπάνια</th><th>Κατάσταση</th><th>Κοινό</th><th className="text-right">Στάλθηκαν</th><th className="text-right">Άνοιξαν</th><th className="text-right">Απέτυχαν</th><th className="w-24" /></tr></thead>
+                <thead><tr><th>Καμπάνια</th><th>Κανάλι</th><th>Κατάσταση</th><th>Κοινό</th><th className="text-right">Στάλθηκαν</th><th className="text-right">Άνοιξαν</th><th className="text-right">Απέτυχαν</th><th className="w-24" /></tr></thead>
                 <tbody>
-                  {list.map((c) => (
-                    <tr key={c.id} className="cursor-pointer" onClick={() => setView(c)}>
-                      <td className="o-strong"><span className="block max-w-[260px] truncate" data-no-tr>{c.name}</span><span className="block text-[11px] font-normal text-charcoal-600">{formatDate(c.sentAt ?? c.createdAt)}</span></td>
-                      <td><span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${c.status === 'sent' ? 'bg-forest/[0.09] text-forest' : 'bg-stone-100 text-charcoal-600'}`}>{STATUS_LABEL[c.status]}</span></td>
-                      <td data-no-tr><span className="block max-w-[180px] truncate">{audienceLabel(c.audience, roleLabel)}</span></td>
-                      <td className="text-right tabular-nums">{c.status === 'draft' ? '—' : c.sent}</td>
-                      <td className="text-right tabular-nums">{c.status === 'draft' || !tracksOpens ? '—' : c.opened ?? 0}</td>
-                      <td className="text-right tabular-nums">{c.status === 'draft' ? '—' : c.failed}</td>
-                      <td onClick={(e) => e.stopPropagation()}>
-                        <span className="flex justify-end gap-1">
-                          {canEdit && c.status === 'draft' && <button type="button" onClick={() => setDlg({ row: c })} title="Συνέχεια / αποστολή" aria-label="Συνέχεια" className={iconBtn}><Send size={15} /></button>}
-                          {canEdit && <button type="button" onClick={() => setDlg({ row: c, copy: true })} title="Αντίγραφο" aria-label="Αντίγραφο" className={iconBtn}><Copy size={15} /></button>}
-                          {canEdit && c.status === 'draft' && <button type="button" onClick={() => del(c)} title="Διαγραφή" aria-label="Διαγραφή" className="flex h-8 w-8 items-center justify-center rounded-full text-signal-danger transition hover:bg-rose-50"><Trash2 size={15} /></button>}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                  {list.length === 0 && <tr><td colSpan={7} className="!py-10 text-center">Δεν υπάρχουν ακόμη καμπάνιες. Δημιουργήστε την πρώτη.</td></tr>}
+                  {list.map((c) => {
+                    const open = c.status === 'draft' || c.status === 'scheduled';
+                    return (
+                      <tr key={c.id} className="cursor-pointer" onClick={() => setView(c)}>
+                        <td className="o-strong"><span className="block max-w-[260px] truncate" data-no-tr>{c.name}</span><span className="block text-[11px] font-normal text-charcoal-600">{formatDate(c.sentAt ?? c.createdAt)}</span></td>
+                        <td><span data-no-tr>{CHANNEL_NAME[c.channel]}</span></td>
+                        <td>
+                          <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${c.status === 'sent' ? 'bg-forest/[0.09] text-forest' : c.status === 'scheduled' ? 'bg-forest text-white' : 'bg-stone-100 text-charcoal-600'}`}>{STATUS_LABEL[c.status]}</span>
+                          {c.status === 'scheduled' && c.scheduledAt && <span className="mt-0.5 block whitespace-nowrap text-[11px] tabular-nums text-charcoal-600">{formatDateTime(c.scheduledAt)}</span>}
+                        </td>
+                        <td data-no-tr><span className="block max-w-[180px] truncate">{audienceLabel(c.audience, roleLabel)}</span></td>
+                        <td className="text-right tabular-nums">{open ? '—' : c.sent}</td>
+                        <td className="text-right tabular-nums">{open || c.channel !== 'email' ? '—' : c.opened ?? 0}</td>
+                        <td className="text-right tabular-nums">{open ? '—' : c.failed}</td>
+                        <td onClick={(e) => e.stopPropagation()}>
+                          <span className="flex justify-end gap-1">
+                            {canEdit && open && <button type="button" onClick={() => setDlg({ row: c })} title="Συνέχεια / αποστολή" aria-label="Συνέχεια" className={iconBtn}><Pencil size={15} /></button>}
+                            {canEdit && <button type="button" onClick={() => setDlg({ row: c, copy: true })} title="Αντίγραφο" aria-label="Αντίγραφο" className={iconBtn}><Copy size={15} /></button>}
+                            {canEdit && open && <button type="button" onClick={() => del(c)} title="Διαγραφή" aria-label="Διαγραφή" className="flex h-8 w-8 items-center justify-center rounded-full text-signal-danger transition hover:bg-rose-50"><Trash2 size={15} /></button>}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {list.length === 0 && <tr><td colSpan={8} className="!py-10 text-center">Δεν υπάρχουν ακόμη καμπάνιες. Δημιουργήστε την πρώτη.</td></tr>}
                 </tbody>
               </table>
             </div>
             {filtered.length ? <Pager from={p * per + 1} to={Math.min(filtered.length, p * per + per)} total={filtered.length} page={p} pages={pages} onPage={setPg} /> : <p className="border-t border-stone-line px-5 py-3 text-sm text-charcoal-600">Καμία εγγραφή</p>}
           </div>
           <aside className="min-w-0">
-            <Briefing tag={BRIEF[channel][0]} title={BRIEF[channel][1]} text={BRIEF[channel][2]} metrics={[['Στάλθηκαν', sentMsgs, 'μηνύματα'], tracksOpens ? ['Άνοιξαν', openedMsgs, 'μηνύματα'] : ['Καμπάνιες', mine.length, 'σύνολο'], ['Απέτυχαν', failedMsgs, 'σφάλματα']]} />
+            <Briefing tag={brief[0]} title={brief[1]} text={brief[2]} metrics={[['Στάλθηκαν', sentMsgs, 'μηνύματα'], tracksOpens ? ['Άνοιξαν', openedMsgs, 'μηνύματα'] : ['Καμπάνιες', mine.length, 'σύνολο'], ['Απέτυχαν', failedMsgs, 'σφάλματα']]} />
           </aside>
         </div>
       )}
 
-      {dlg && <CampaignDialog channel={dlg.row?.channel ?? channel} row={dlg.row} copy={dlg.copy} groups={groups} contacts={contacts} tags={tags} prefill={dlg.row ? {} : prefill}
-        onClose={() => { setDlg(null); if (wantsNew) router.replace('/marketing'); }}
-        onDone={(t, ok = true) => { setDlg(null); setMsg({ ok, text: t }); router.replace('/marketing'); router.refresh(); }} />}
+      {dlg && <CampaignDialog channel={dlg.row?.channel ?? (chan === 'all' ? 'email' : chan)} row={dlg.row} copy={dlg.copy} groups={groups} contacts={contacts} tags={tags} prefill={dlg.row ? {} : prefill}
+        onClose={() => { setDlg(null); if (wantsNew) router.replace('/marketing?tab=campaigns'); }}
+        onDone={(t, ok = true) => { setDlg(null); setMsg({ ok, text: t }); router.replace(chan === 'all' ? '/marketing?tab=campaigns' : `/marketing?tab=campaigns&channel=${chan}`); router.refresh(); }} />}
       {view && <ViewDialog c={view} roleLabel={roleLabel} onClose={() => setView(null)} />}
     </div>
   );
@@ -314,13 +335,21 @@ function CampaignDialog({ channel: ch0, row, copy, groups, contacts, tags, prefi
   const [err, setErr] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const insert = (t: string) => setBody((b) => `${b}${t}`);
+  // «Αποστολή τώρα | Προγραμματισμός»: ημερομηνία και ώρα Κύπρου.
+  const sch0 = row?.status === 'scheduled' && !copy && row.scheduledAt ? localParts(new Date(row.scheduledAt)) : null;
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const [mode, setMode] = useState<'now' | 'later'>(sch0 ? 'later' : 'now');
+  const [date, setDate] = useState(sch0 ? `${sch0.y}-${pad(sch0.m)}-${pad(sch0.d)}` : '');
+  const [time, setTime] = useState(sch0 ? `${pad(sch0.hh)}:${pad(sch0.mm)}` : '10:00');
+  const later = mode === 'later';
 
   const submit = (send: boolean) => start(async () => {
     setErr(null);
-    if (send && !confirm(`Αποστολή σε ${count?.reachable ?? 'όλους τους'} παραλήπτες τώρα;`)) return;
-    const r = await saveCampaign({ id: row && !copy ? row.id : undefined, name, channel, audience, subject, preview, body }, send);
+    if (send && !later && !confirm(`Αποστολή σε ${count?.reachable ?? 'όλους τους'} παραλήπτες τώρα;`)) return;
+    const r = await saveCampaign({ id: row && !copy ? row.id : undefined, name, channel, audience, subject, preview, body, ...(send && later ? { scheduleDate: date, scheduleTime: time } : {}) }, send);
     if (!r.ok) { setErr(r.error); return; }
     if (!send) { onDone(`Το «${name}» αποθηκεύτηκε ως πρόχειρο.`); return; }
+    if (r.scheduledAt) { onDone(`Το «${name}» προγραμματίστηκε για ${formatDateTime(r.scheduledAt)}.`); return; }
     if (r.providerMissing) onDone(`Το «${name}» καταγράφηκε για ${r.queued ?? 0} παραλήπτες, αλλά δεν έχει συνδεθεί πάροχος ${channel === 'email' ? 'email (Resend / Postmark)' : channel === 'sms' ? 'SMS (Twilio)' : 'WhatsApp'} — δεν στάλθηκε πραγματικά.`, false);
     else onDone(`Το «${name}» στάλθηκε: ${r.sent ?? 0} επιτυχίες${r.failed ? `, ${r.failed} αποτυχίες` : ''}.`);
   });
@@ -349,12 +378,23 @@ function CampaignDialog({ channel: ch0, row, copy, groups, contacts, tags, prefi
             <textarea className={`input ${channel === 'sms' ? 'min-h-[110px]' : 'min-h-[180px]'}`} value={body} onChange={(e) => setBody(e.target.value)} placeholder={'Αγαπητέ/ή {{first_name}},\n\n…'} />
             {channel === 'sms' && <SmsCounter text={body} />}
           </div>
+          <p className="pt-2 text-[13px] font-semibold uppercase tracking-wide text-charcoal-600">Αποστολή</p>
+          <div className="flex flex-wrap items-end gap-3">
+            <span className="inline-flex rounded-[10px] border border-stone-line p-0.5">
+              {([['now', 'Αποστολή τώρα'], ['later', 'Προγραμματισμός']] as const).map(([m, l]) => <button key={m} type="button" onClick={() => setMode(m)} className={`rounded-lg px-3 py-1.5 text-[13px] font-medium ${mode === m ? 'bg-forest text-white' : 'text-charcoal-600 hover:text-charcoal'}`}>{l}</button>)}
+            </span>
+            {later && <>
+              <label className="block"><span className={lbl}>Ημερομηνία</span><input type="date" className="input h-9" value={date} onChange={(e) => setDate(e.target.value)} /></label>
+              <label className="block"><span className={lbl}>Ώρα (Κύπρου)</span><input type="time" className="input h-9 w-28" value={time} onChange={(e) => setTime(e.target.value)} /></label>
+            </>}
+          </div>
+          {later && <p className="text-[12px] text-charcoal-600">Θα σταλεί αυτόματα την ώρα που ορίσατε (με απόκλιση έως 15 λεπτά). Μέχρι τότε μπορείτε να την αλλάξετε ή να τη διαγράψετε.</p>}
           {err && <p className="text-sm text-signal-danger">{err}</p>}
         </div>
         <div className="flex flex-wrap justify-end gap-2 border-t border-stone-line px-6 py-4">
           <button type="button" className="btn-ghost" onClick={onClose}>Ακύρωση</button>
           <button type="button" className="rounded-full border border-stone-line px-4 py-2 text-sm font-medium text-charcoal hover:border-forest/40" disabled={pending || !name.trim()} onClick={() => submit(false)}>Αποθήκευση προχείρου</button>
-          <button type="button" className="btn-primary" disabled={pending || !name.trim() || !body.trim() || !count?.reachable} onClick={() => submit(true)}>{pending ? 'Αποστολή…' : 'Δημιουργία & αποστολή'}</button>
+          <button type="button" className="btn-primary" disabled={pending || !name.trim() || !body.trim() || !count?.reachable || (later && !date)} onClick={() => submit(true)}>{pending ? 'Αποθήκευση…' : later ? 'Προγραμματισμός' : 'Δημιουργία & αποστολή'}</button>
         </div>
       </div>
     </div>
@@ -373,7 +413,7 @@ function ViewDialog({ c, roleLabel, onClose }: { c: CampaignRow; roleLabel: (r: 
           <p><span className="text-charcoal-600">Κοινό:</span> <span data-no-tr>{audienceLabel(c.audience, roleLabel)}</span>{c.skipped ? ` · ${c.skipped} παραλείφθηκαν (χωρίς συγκατάθεση ή διεύθυνση)` : ''}</p>
           {c.subject && <p><span className="text-charcoal-600">Θέμα:</span> <span data-no-tr>{c.subject}</span></p>}
           <div className="whitespace-pre-wrap rounded-xl border border-stone-line bg-stone-50 p-4 text-charcoal" data-no-tr>{c.body || '—'}</div>
-          <p className="text-[13px] text-charcoal-600"><span data-no-tr>{CHANNEL_NAME[c.channel]}</span> · <span>{c.sentAt ? `Στάλθηκε ${formatDate(c.sentAt)}` : `Δημιουργήθηκε ${formatDate(c.createdAt)}`}</span></p>
+          <p className="text-[13px] text-charcoal-600"><span data-no-tr>{CHANNEL_NAME[c.channel]}</span> · <span>{c.sentAt ? `Στάλθηκε ${formatDate(c.sentAt)}` : c.status === 'scheduled' && c.scheduledAt ? `Προγραμματισμένη για ${formatDateTime(c.scheduledAt)}` : `Δημιουργήθηκε ${formatDate(c.createdAt)}`}</span></p>
         </div>
       </div>
     </div>

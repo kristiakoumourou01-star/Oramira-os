@@ -19,11 +19,13 @@ export type CampaignAudience =
 
 export interface CampaignRow {
   id: string; name: string; channel: CampaignChannel; audience: CampaignAudience; subject: string | null; preview: string | null; body: string;
-  status: 'draft' | 'sending' | 'sent' | 'cancelled'; recipients: number; sent: number; failed: number; skipped: number; opened?: number;
+  status: 'draft' | 'scheduled' | 'sending' | 'sent' | 'cancelled'; recipients: number; sent: number; failed: number; skipped: number; opened?: number;
   createdAt: string; sentAt: string | null; createdBy: string | null;
+  /** Προγραμματισμένη αποστολή (status 'scheduled'). */
+  scheduledAt?: string | null;
 }
 
-export const STATUS_LABEL: Record<CampaignRow['status'], string> = { draft: 'Πρόχειρο', sending: 'Αποστολή…', sent: 'Στάλθηκε', cancelled: 'Ακυρώθηκε' };
+export const STATUS_LABEL: Record<CampaignRow['status'], string> = { draft: 'Πρόχειρο', scheduled: 'Προγραμματισμένη', sending: 'Αποστολή…', sent: 'Στάλθηκε', cancelled: 'Ακυρώθηκε' };
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
