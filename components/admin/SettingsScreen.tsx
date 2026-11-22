@@ -34,7 +34,7 @@ import { GoogleCalendarConnect } from '@/components/dashboard/GoogleCalendarConn
 import type { Branding } from '@/lib/branding-shared';
 import type { OrgSettings } from '@/lib/org-settings-shared';
 import type { ExtraSettings } from '@/lib/settings-extra-shared';
-import { SignInCodeSection, ReceiptExtras, PaymentsSection, AtlasSection, SessionCard } from '@/components/admin/ExtraSettings';
+import { SignInCodeSection, ReceiptExtras, PaymentsSection, SessionCard } from '@/components/admin/ExtraSettings';
 
 
 export function SettingsScreen({
@@ -141,8 +141,6 @@ export function SettingsScreen({
             <SignInCodeSection initial={extra} canEdit={canEdit} />
           ) : section.key === 'payments' ? (
             <PaymentsSection initial={extra} canEdit={canEdit} connected={payConnected} />
-          ) : section.key === 'atlas' ? (
-            <AtlasSection initial={extra} canEdit={canEdit} connected={aiConnected} />
           ) : section.key === 'notifications' ? (
             <NotificationsSection initial={settings.notifications} canEdit={canEdit} />
           ) : section.key === 'security' ? (

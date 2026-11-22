@@ -11,7 +11,7 @@ export type SettingsKey =
   | 'business' | 'appearance' | 'layout' | 'dashboard' | 'invoices'
   | 'notifications' | 'security' | 'tags' | 'pipelines' | 'leads' | 'integrations' | 'gdpr' | 'portals' | 'unitforms'
   | 'departments' | 'customerFields' | 'communication'
-  | 'privacy' | 'otp' | 'vats' | 'receipts' | 'payments' | 'atlas';
+  | 'privacy' | 'otp' | 'vats' | 'receipts' | 'payments';
 
 export interface SettingsSection {
   key: SettingsKey;
@@ -50,10 +50,9 @@ SETTINGS_SECTIONS.push(
   { key: 'vats', label: 'ΦΠΑ', subtitle: 'Οι συντελεστές ΦΠΑ για πωλήσεις, υπηρεσίες και τιμολόγια', group: 'Money', ready: true, outline: [] },
   { key: 'receipts', label: 'Αποδείξεις', subtitle: 'Διάταξη, αρίθμηση και αυτόματη αποστολή με email, με ζωντανή προεπισκόπηση', group: 'Money', ready: true, outline: [] },
   { key: 'payments', label: 'Πληρωμές', subtitle: 'Νόμισμα και πληρωμές με κάρτα', group: 'Connections', ready: true, outline: [] },
-  { key: 'atlas', label: 'Atlas AI', subtitle: 'Ρύθμιση του βοηθού AI', group: 'Connections', ready: true, outline: [] },
 );
 // Παλιοί σύνδεσμοι → οι νέες ενότητες (όπως στο FitnessCRM).
-const ALIAS: Record<string, SettingsKey> = { security: 'privacy', gdpr: 'privacy', invoices: 'receipts', integrations: 'communication' };
+const ALIAS: Record<string, SettingsKey> = { security: 'privacy', gdpr: 'privacy', invoices: 'receipts', integrations: 'communication', atlas: 'communication' };
 
 export const SETTINGS_GROUPS: SettingsSection['group'][] = ['Account', 'Work', 'Money', 'Connections'];
 
@@ -102,6 +101,5 @@ export const SETTINGS_NAV: SettingsNavGroup[] = [
   { label: 'Συνδέσεις', items: [
     { label: 'Επικοινωνία', href: '/settings?section=communication', icon: 'communication' },
     { label: 'Πληρωμές', href: '/settings?section=payments', icon: 'payments' },
-    { label: 'Atlas AI', href: '/settings?section=atlas', icon: 'atlas' },
   ] },
 ];
