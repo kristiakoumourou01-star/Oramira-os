@@ -51,10 +51,30 @@ export function UnitFormsEditor({ initial, canEdit }: { initial: UnitFormsSettin
 
   return (
     <div className="space-y-4">
+      <div className="panel p-5">
+        <h4>Πώς λειτουργεί</h4>
+        <p className="mt-1 text-sm text-charcoal-600">Εδώ ορίζετε τι συμπληρώνετε όταν φτιάχνετε ή αλλάζετε μια μονάδα (διαμέρισμα, βίλα, οικόπεδο…) στα Έργα.</p>
+        <ol className="mt-3 grid gap-2 sm:grid-cols-3">
+          {[
+            ['1', 'Τύποι μονάδων', 'Τα είδη ακινήτων που πουλάτε, στα ελληνικά και στα αγγλικά.'],
+            ['2', 'Πεδία', 'Οι ερωτήσεις της φόρμας (π.χ. εμβαδόν, parking) και σε ποιους τύπους εμφανίζονται.'],
+            ['3', 'Υδατογράφημα', 'Το logo που μπαίνει αυτόματα πάνω στις φωτογραφίες των μονάδων.'],
+          ].map(([n, title, text]) => (
+            <li key={n} className="flex gap-2.5 rounded-xl border border-stone-line p-3">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-forest text-xs font-semibold text-white">{n}</span>
+              <span className="min-w-0"><span className="block text-sm font-medium text-charcoal">{title}</span><span className="block text-xs text-charcoal-600">{text}</span></span>
+            </li>
+          ))}
+        </ol>
+      </div>
+
       <div className="panel space-y-3 p-5">
         <div>
-          <h4>Τύποι μονάδων</h4>
-          <p className="text-xs text-charcoal-600/60">Ελληνική και αγγλική ονομασία. Ο τύπος κάθε μονάδας ορίζει ποια πεδία εμφανίζονται στη φόρμα της.</p>
+          <h4>1. Τύποι μονάδων</h4>
+          <p className="text-xs text-charcoal-600">Κάθε μονάδα έχει έναν τύπο, και ο τύπος αποφασίζει ποια πεδία βλέπετε στη φόρμα της. Σύρετε για να αλλάξετε σειρά.</p>
+        </div>
+        <div className="hidden grid-cols-[auto_1fr_1fr_auto] gap-2 px-1 text-[11px] font-semibold uppercase tracking-wide text-charcoal-600/70 sm:grid">
+          <span className="w-[15px]" /><span>Ελληνικά</span><span>English</span><span className="w-[14px]" />
         </div>
         {v.types.map((t, i) => (
           <div key={t.key} {...dndT.item(i)} className={`grid grid-cols-[auto_1fr_1fr_auto] items-center gap-2 ${dndT.cls(i)}`}>
@@ -73,12 +93,21 @@ export function UnitFormsEditor({ initial, canEdit }: { initial: UnitFormsSettin
 
       <div className="panel space-y-2 p-5">
         <div>
-          <h4>Πεδία</h4>
-          <p className="text-xs text-charcoal-600/60">
-            <Eye size={11} className="inline" /> = το βλέπει ο αγοραστής στο portal του · <EyeOff size={11} className="inline" /> = μόνο το προσωπικό · <Target size={11} className="inline" /> = μετρά στο matching (ο αγοραστής δηλώνει τι θέλει στο lead του).
-          </p>
+          <h4>2. Πεδία της φόρμας</h4>
+          <p className="text-xs text-charcoal-600">Πατήστε ένα πεδίο για να το αλλάξετε. Οι ετικέτες δείχνουν με μια ματιά:</p>
+          <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-charcoal-600">
+            <li className="flex items-center gap-1.5"><span className="rounded-full bg-forest/10 px-2 py-0.5 text-[11px] text-charcoal">Ορατό στον πελάτη</span><span>το βλέπει ο αγοραστής στο portal του</span></li>
+            <li className="flex items-center gap-1.5"><span className="rounded-full bg-stone px-2 py-0.5 text-[11px] text-charcoal">Μόνο προσωπικό</span><span>το βλέπει μόνο η ομάδα</span></li>
+            <li className="flex items-center gap-1.5"><span className="rounded-full border border-forest/40 px-2 py-0.5 text-[11px] text-charcoal">Matching</span><span>χρησιμοποιείται για να βρει ακίνητα που ταιριάζουν στο lead</span></li>
+          </ul>
         </div>
-        {v.fields.map((f, i) => {
+        {UNIT_SECTIONS.map((sec) => {
+          const rows = v.fields.map((f, i) => ({ f, i })).filter(({ f }) => f.section === sec.key);
+          if (!rows.length) return null;
+          return (
+            <div key={sec.key} className="space-y-2 pt-2">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-charcoal-600/70">{sec.el} <span className="font-normal normal-case">· {rows.length}</span></p>
+        {rows.map(({ f, i }) => {
           const isOpen = open === f.key;
           return (
             <div key={f.key} {...dndF.item(i)} className={`rounded-md border border-stone-line ${dndF.cls(i)}`}>
@@ -87,10 +116,12 @@ export function UnitFormsEditor({ initial, canEdit }: { initial: UnitFormsSettin
                 <button type="button" onClick={() => setOpen(isOpen ? null : f.key)} className="flex min-w-0 flex-1 items-center gap-2 text-left">
                   {isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                   <span className="truncate text-sm font-medium text-charcoal">{f.el}</span>
-                  <span className="truncate text-xs text-charcoal-600/60">{f.en} · {UNIT_FIELD_TYPES.find((t) => t.value === f.type)?.label}{f.types.length ? ` · ${f.types.length} τύποι` : ''}</span>
+                  <span className="hidden truncate text-xs text-charcoal-600/70 sm:inline">{UNIT_FIELD_TYPES.find((t) => t.value === f.type)?.label}</span>
                 </button>
-                <span title={f.visibleToClient ? 'Το βλέπει ο αγοραστής' : 'Μόνο προσωπικό'} className="text-charcoal-600/60">{f.visibleToClient ? <Eye size={13} /> : <EyeOff size={13} />}</span>
-                {f.useInMatching && <span title="Matching" className="text-forest"><Target size={13} /></span>}
+                <span className="hidden shrink-0 text-[11px] text-charcoal-600 md:inline">{f.types.length ? <><span>Σε</span> {f.types.length} <span>τύπους</span></> : <span>Σε όλους τους τύπους</span>}</span>
+                <span className={`hidden shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] text-charcoal sm:inline-flex ${f.visibleToClient ? 'bg-forest/10' : 'bg-stone'}`}>{f.visibleToClient ? <Eye size={11} /> : <EyeOff size={11} />}<span>{f.visibleToClient ? 'Ορατό στον πελάτη' : 'Μόνο προσωπικό'}</span></span>
+                {f.useInMatching && <span className="hidden shrink-0 items-center gap-1 rounded-full border border-forest/40 px-2 py-0.5 text-[11px] text-charcoal sm:inline-flex"><Target size={11} /><span>Matching</span></span>}
+                {f.required && <span className="hidden shrink-0 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] text-amber-800 lg:inline">Υποχρεωτικό</span>}
                 {canEdit && (
                   <>
                     <button type="button" onClick={() => { if (confirm(`Διαγραφή του πεδίου «${f.el}»; Οι τιμές που έχουν ήδη συμπληρωθεί κρατιούνται, αλλά δεν θα εμφανίζονται.`)) patch({ fields: v.fields.filter((_, idx) => idx !== i) }); }} className="text-charcoal-600/50 hover:text-signal-danger"><Trash2 size={14} /></button>
@@ -130,6 +161,9 @@ export function UnitFormsEditor({ initial, canEdit }: { initial: UnitFormsSettin
                   </div>
                 </div>
               )}
+            </div>
+          );
+        })}
             </div>
           );
         })}

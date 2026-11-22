@@ -216,22 +216,22 @@ export function BusinessSection({ initial, companyName, canEdit, logoUrl = null,
         </label>
       </SettingsBlock>
 
-      <SettingsBlock title="Γραφεία">
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-charcoal-600/70">{b.offices.length ? `${b.offices.length} γραφεία` : 'Δεν υπάρχουν γραφεία ακόμα.'}</p>
-          {canEdit && <button type="button" onClick={addOffice} className="btn-ghost text-xs"><Plus size={13} /> Νέο γραφείο</button>}
-        </div>
-        <div className="space-y-3">
-          {b.offices.map((o, i) => (
-            <div key={i} className="flex flex-wrap items-center gap-2 rounded-lg border border-stone-line p-2">
-              <input className="input min-w-[8rem] flex-1" disabled={dis} placeholder="Πόλη / όνομα" value={o.name} onChange={(e) => setOffice(i, { name: e.target.value })} />
-              <input className="input min-w-[10rem] flex-[1.4]" disabled={dis} placeholder="Διεύθυνση" value={o.address} onChange={(e) => setOffice(i, { address: e.target.value })} />
-              <PhoneInput className="min-w-[14rem] flex-1" disabled={dis} placeholder="Τηλέφωνο" value={o.phone} onChange={(v) => setOffice(i, { phone: v })} />
-              <button type="button" onClick={() => makeMain(i)} disabled={dis} className={`badge ${o.main ? 'badge-forest' : 'badge-neutral'}`}>{o.main ? 'Κεντρικό' : 'Ορισμός κεντρικού'}</button>
-              {canEdit && <button type="button" onClick={() => removeOffice(i)} className="text-signal-danger/70 hover:text-signal-danger" aria-label="Διαγραφή γραφείου"><Trash2 size={15} /></button>}
+      <SettingsBlock title="Έδρα">
+        {(() => {
+          // Μόνο η κεντρική διεύθυνση (μπαίνει στα τιμολόγια). Τα γραφεία / τμήματα (π.χ. Λεμεσός) ορίζονται στα «Τμήματα».
+          const mi = Math.max(0, b.offices.findIndex((o) => o.main));
+          const o = b.offices[mi] ?? { ...EMPTY_OFFICE, main: true };
+          const edit = (patch: Partial<Office>) => (b.offices.length ? setOffice(mi, patch) : set('offices', [{ ...o, ...patch, main: true }]));
+          return (
+            <div className="space-y-2">
+              <div className="grid gap-2 sm:grid-cols-2">
+                <input className="input" disabled={dis} placeholder="Διεύθυνση έδρας" value={o.address} onChange={(e) => edit({ address: e.target.value })} />
+                <PhoneInput disabled={dis} placeholder="Τηλέφωνο" value={o.phone} onChange={(v) => edit({ phone: v })} />
+              </div>
+              <p className="text-xs text-charcoal-600">Η διεύθυνση και το τηλέφωνο της εταιρείας στα τιμολόγια και τις αποδείξεις. Τα γραφεία και τα τμήματα (π.χ. Λεμεσός) τα προσθέτετε στα <a href="/settings?section=departments" className="text-forest underline">Τμήματα</a>.</p>
             </div>
-          ))}
-        </div>
+          );
+        })()}
       </SettingsBlock>
 
       {canEdit && (

@@ -46,6 +46,8 @@ export interface CurrentProfile {
   mustChangePassword: boolean;
   /** False once an admin deactivates the account. */
   isActive: boolean;
+  /** Η θέση του (π.χ. «Owner») — φαίνεται πάνω δεξιά αντί για τον ρόλο. */
+  jobTitle?: string | null;
   /** Settings → Ασφάλεια "change every 90 days" and this password is older. */
   passwordExpired: boolean;
   /** Set only while an admin is impersonating this (effective) identity. */
@@ -63,7 +65,7 @@ async function loadProfile(
   // If an older database lacks one, fall back to the core columns so sign-in
   // never breaks on a missing column.
   const [{ data: full, error }, { roles: rolesEarly }] = await Promise.all([
-    supabase.from('profiles').select('id, role, full_name, contact_id, contractor_id, module_access, permissions, must_change_password, is_active, custom_role').eq('id', userId).maybeSingle(),
+    supabase.from('profiles').select('id, role, full_name, contact_id, contractor_id, module_access, permissions, must_change_password, is_active, custom_role, job_title').eq('id', userId).maybeSingle(),
     getOrgSettingsRaw(),
   ]);
   let profile: any = full;
@@ -85,6 +87,7 @@ async function loadProfile(
     id: profile.id,
     role: profile.role as UserRole,
     fullName: profile.full_name,
+    jobTitle: typeof profile.job_title === 'string' && profile.job_title.trim() ? profile.job_title.trim() : null,
     contactId: profile.contact_id,
     contractorId: profile.contractor_id,
     moduleAccess,
