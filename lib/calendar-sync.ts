@@ -4,7 +4,7 @@ import { getApprovedLeaveBlocks } from '@/lib/leave-availability';
 
 /** Resolve a usable access token for a user, refreshing if expired. Returns the
  *  token + calendarId, or null when Google isn't configured / connected. */
-async function activeToken(profileId: string): Promise<{ token: string; calendarId: string } | null> {
+export async function activeToken(profileId: string): Promise<{ token: string; calendarId: string } | null> {
   if (!googleConfigured()) return null;
   const svc = createSupabaseServiceRoleClient();
   const { data: conn } = await svc.from('calendar_connections').select('*').eq('profile_id', profileId).eq('provider', 'google').maybeSingle();

@@ -121,6 +121,8 @@ export async function queueNotificationEmail(params: {
   recipientEmail: string;
   subject: string;
   body: string;
+  /** Αν δεν έχει ρυθμιστεί άλλη αποστολή, στέλνεται από το Gmail αυτού του χρήστη (όταν έχει συνδέσει το Google). */
+  senderProfileId?: string;
 }): Promise<boolean> {
   const supabase = createSupabaseServiceRoleClient();
   await supabase.from('notification_events').insert({
@@ -134,7 +136,12 @@ export async function queueNotificationEmail(params: {
 
   // Actual send — Resend. Kept as a thin call so swapping providers later
   // only touches this one function.
-  if (!process.env.RESEND_API_KEY) return false; // δεν έχει ρυθμιστεί αποστολή email
+  if (!process.env.RESEND_API_KEY) {
+    // Χωρίς υπηρεσία email: αποστολή από το Gmail του χρήστη που κάνει την ενέργεια.
+    if (!params.senderProfileId) return false;
+    const { sendViaGmail } = await import('@/lib/gmail-send');
+    return sendViaGmail(params.senderProfileId, params.recipientEmail, params.subject, params.body);
+  }
   try {
     const { Resend } = await import('resend');
     const resend = new Resend(process.env.RESEND_API_KEY);

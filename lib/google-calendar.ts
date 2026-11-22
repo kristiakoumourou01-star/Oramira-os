@@ -7,6 +7,8 @@
 const SCOPES = [
   'https://www.googleapis.com/auth/calendar.events',
   'https://www.googleapis.com/auth/calendar.readonly',
+  // Αποστολή email (προσκλήσεις υπαλλήλων κ.λπ.) από τον λογαριασμό του χρήστη.
+  'https://www.googleapis.com/auth/gmail.send',
   'openid',
   'email',
 ];
