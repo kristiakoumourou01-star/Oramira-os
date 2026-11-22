@@ -8,14 +8,16 @@ import { Briefing, Pager } from '@/components/ui/SidePanel';
 import { saveReferralCode, setReferralActive, addRedemption, setRedemptionStatus } from '@/app/actions/referrals';
 import { HubCards } from '@/components/ui/HubCards';
 import { saveCampaign, deleteCampaign } from '@/app/actions/campaigns';
-import { STATUS_LABEL, CHANNEL_NAME, audienceLabel, smsParts, type CampaignAudience, type CampaignChannel, type CampaignRow } from '@/lib/campaigns-shared';
+import { STATUS_LABEL, CHANNEL_NAME, audienceLabel, renderCampaign, senderDefaultFor, type SenderDefaults, type CampaignAudience, type CampaignChannel, type CampaignRow } from '@/lib/campaigns-shared';
 import { ROLE_EL } from '@/lib/contacts-hub-shared';
 import { localParts } from '@/lib/marketing-automations-shared';
 import { formatDate, formatDateTime } from '@/lib/format';
 
+import { MessageComposer, type MessageValue } from '@/components/marketing/MessageComposer';
+import type { MsgLang, SignatureInfo } from '@/lib/message-format-shared';
 import { AudiencePicker, type PickContact, type AudienceCount } from '@/components/marketing/AudiencePicker';
 export type { PickContact };
-export interface Prefill { tab?: string; channel?: string; cat?: string; group?: string; tag?: string; role?: string; ids?: string }
+export interface Prefill { tab?: string; channel?: string; cat?: string; open?: string; group?: string; tag?: string; role?: string; ids?: string }
 
 const iconBtn = 'flex h-8 w-8 items-center justify-center rounded-full text-charcoal-600 transition hover:bg-forest/10 hover:text-forest';
 const lbl = 'mb-1 block text-[12px] font-semibold uppercase tracking-wide text-charcoal-600';
@@ -45,14 +47,14 @@ function fromPrefill(p: Prefill): { main: Main; channel: ChanFilter } {
  * σε ημερομηνία) και «Αυτοματισμοί» (μηνύματα που φεύγουν μόνα τους).
  * Συστάσεις, Αναφορές και Benefits ως δευτερεύοντες σύνδεσμοι.
  */
-export function MarketingHub({ campaigns, groups, contacts, tags, prefill, referrals, canEdit, leadAutomation, automations, activeAutomations = 0 }: { automations?: React.ReactNode; activeAutomations?: number; campaigns: CampaignRow[]; groups: { name: string; n: number }[]; contacts: PickContact[]; tags: string[]; prefill: Prefill; referrals: ReferralData; canEdit: boolean; leadAutomation?: React.ReactNode }) {
+export function MarketingHub({ campaigns, groups, contacts, tags, prefill, referrals, canEdit, leadAutomation, automations, activeAutomations = 0, senderDefaults = { email: '', sms: '' }, signature = null }: { automations?: React.ReactNode; activeAutomations?: number; senderDefaults?: SenderDefaults; signature?: SignatureInfo | null; campaigns: CampaignRow[]; groups: { name: string; n: number }[]; contacts: PickContact[]; tags: string[]; prefill: Prefill; referrals: ReferralData; canEdit: boolean; leadAutomation?: React.ReactNode }) {
   const router = useRouter();
   const init = fromPrefill(prefill);
   const [tab, setTab] = useState<Main>(init.main);
   const [chan, setChan] = useState<ChanFilter>(init.channel);
   const wantsNew = !!(prefill.group || prefill.tag || prefill.role || prefill.ids);
   const [dlg, setDlg] = useState<{ row?: CampaignRow; copy?: boolean } | null>(wantsNew ? {} : null);
-  const [view, setView] = useState<CampaignRow | null>(null);
+  const [view, setView] = useState<CampaignRow | null>(() => (prefill.open ? campaigns.find((c) => c.id === prefill.open) ?? null : null));
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [q, setQ] = useState('');
   const [per, setPer] = useState(25);
@@ -171,7 +173,7 @@ export function MarketingHub({ campaigns, groups, contacts, tags, prefill, refer
         </div>
       )}
 
-      {dlg && <CampaignDialog channel={dlg.row?.channel ?? (chan === 'all' ? 'email' : chan)} row={dlg.row} copy={dlg.copy} groups={groups} contacts={contacts} tags={tags} prefill={dlg.row ? {} : prefill}
+      {dlg && <CampaignDialog channel={dlg.row?.channel ?? (chan === 'all' ? 'email' : chan)} row={dlg.row} copy={dlg.copy} groups={groups} contacts={contacts} tags={tags} prefill={dlg.row ? {} : prefill} defaults={senderDefaults} signature={signature}
         onClose={() => { setDlg(null); if (wantsNew) router.replace('/marketing?tab=campaigns'); }}
         onDone={(t, ok = true) => { setDlg(null); setMsg({ ok, text: t }); router.replace(chan === 'all' ? '/marketing?tab=campaigns' : `/marketing?tab=campaigns&channel=${chan}`); router.refresh(); }} />}
       {view && <ViewDialog c={view} roleLabel={roleLabel} onClose={() => setView(null)} />}
@@ -328,17 +330,16 @@ function RedemptionDialog({ codes, contacts, onClose, onDone }: { codes: Referra
   );
 }
 
-function CampaignDialog({ channel: ch0, row, copy, groups, contacts, tags, prefill, onClose, onDone }: { channel: CampaignChannel; row?: CampaignRow; copy?: boolean; groups: { name: string; n: number }[]; contacts: PickContact[]; tags: string[]; prefill: Prefill; onClose: () => void; onDone: (msg: string, ok?: boolean) => void }) {
+function CampaignDialog({ channel: ch0, row, copy, groups, contacts, tags, prefill, defaults, signature, onClose, onDone }: { channel: CampaignChannel; row?: CampaignRow; copy?: boolean; groups: { name: string; n: number }[]; contacts: PickContact[]; tags: string[]; prefill: Prefill; defaults: SenderDefaults; signature: SignatureInfo | null; onClose: () => void; onDone: (msg: string, ok?: boolean) => void }) {
   const [channel, setChannel] = useState<CampaignChannel>(ch0);
   const [name, setName] = useState(row ? `${row.name}${copy ? ' (αντίγραφο)' : ''}` : '');
   const [audience, setAudience] = useState<CampaignAudience | null>(row?.audience ?? null);
-  const [subject, setSubject] = useState(row?.subject ?? '');
-  const [preview, setPreview] = useState(row?.preview ?? '');
-  const [body, setBody] = useState(row?.body ?? '');
+  const [m, setM] = useState<MessageValue>({ senderName: row?.senderName || senderDefaultFor(ch0, defaults), subject: row?.subject ?? '', subjectEn: row?.subjectEn ?? '', body: row?.body ?? '', bodyEn: row?.bodyEn ?? '', preview: row?.preview ?? '' });
+  const [lang, setLang] = useState<MsgLang>('el');
+  const body = `${m.body}${m.bodyEn}`;
   const [count, setCount] = useState<AudienceCount | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [pending, start] = useTransition();
-  const insert = (t: string) => setBody((b) => `${b}${t}`);
   // «Αποστολή τώρα | Προγραμματισμός»: ημερομηνία και ώρα Κύπρου.
   const sch0 = row?.status === 'scheduled' && !copy && row.scheduledAt ? localParts(new Date(row.scheduledAt)) : null;
   const pad = (n: number) => String(n).padStart(2, '0');
@@ -350,7 +351,7 @@ function CampaignDialog({ channel: ch0, row, copy, groups, contacts, tags, prefi
   const submit = (send: boolean) => start(async () => {
     setErr(null);
     if (send && !later && !confirm(`Αποστολή σε ${count?.reachable ?? 'όλους τους'} παραλήπτες τώρα;`)) return;
-    const r = await saveCampaign({ id: row && !copy ? row.id : undefined, name, channel, audience, subject, preview, body, ...(send && later ? { scheduleDate: date, scheduleTime: time } : {}) }, send);
+    const r = await saveCampaign({ id: row && !copy ? row.id : undefined, name, channel, audience, subject: m.subject, subjectEn: m.subjectEn, preview: m.preview, body: m.body, bodyEn: m.bodyEn, senderName: m.senderName === senderDefaultFor(channel, defaults) ? '' : m.senderName, ...(send && later ? { scheduleDate: date, scheduleTime: time } : {}) }, send);
     if (!r.ok) { setErr(r.error); return; }
     if (!send) { onDone(`Το «${name}» αποθηκεύτηκε ως πρόχειρο.`); return; }
     if (r.scheduledAt) { onDone(`Το «${name}» προγραμματίστηκε για ${formatDateTime(r.scheduledAt)}.`); return; }
@@ -365,23 +366,12 @@ function CampaignDialog({ channel: ch0, row, copy, groups, contacts, tags, prefi
         <div className="space-y-4 overflow-y-auto px-6 py-5">
           <p className="text-[13px] font-semibold uppercase tracking-wide text-charcoal-600">Βασικά</p>
           <label className="block"><span className={lbl}>Όνομα καμπάνιας *</span><input autoFocus className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="π.χ. Νέο έργο Λεμεσός — προπώληση" /></label>
-          <div className="flex flex-wrap gap-2">
-            {(['email', 'sms', 'whatsapp', 'push'] as const).map((c) => <button key={c} type="button" onClick={() => setChannel(c)} className={`rounded-full border px-3 py-1 text-sm ${channel === c ? 'border-forest bg-forest text-white' : 'border-stone-line text-charcoal'}`}>{CHANNEL_NAME[c]}</button>)}
-          </div>
           <AudiencePicker channel={channel} initial={row?.audience ?? null} prefill={prefill} groups={groups} contacts={contacts} tags={tags} onChange={setAudience} onCount={setCount} />
 
           <p className="pt-2 text-[13px] font-semibold uppercase tracking-wide text-charcoal-600">Μήνυμα</p>
-          {channel === 'push' && <label className="block"><span className={lbl}>Τίτλος ειδοποίησης</span><input className="input" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="π.χ. Νέα φωτογραφίες από το εργοτάξιο" /></label>}
-          {channel === 'email' && <>
-            <label className="block"><span className={lbl}>Θέμα</span><input className="input" value={subject} onChange={(e) => setSubject(e.target.value)} /></label>
-            <label className="block"><span className={lbl}>Κείμενο προεπισκόπησης</span><input className="input" value={preview} onChange={(e) => setPreview(e.target.value)} /></label>
-          </>}
-          <div>
-            <div className="mb-1 flex items-center justify-between"><span className={lbl}>Μήνυμα *</span>
-              <span className="flex gap-1 text-[12px]"><button type="button" onClick={() => insert('{{first_name}}')} className="rounded-full border border-stone-line px-2 py-0.5 hover:border-forest/40">+ Μικρό όνομα</button><button type="button" onClick={() => insert('{{name}}')} className="rounded-full border border-stone-line px-2 py-0.5 hover:border-forest/40">+ Ονοματεπώνυμο</button></span></div>
-            <textarea className={`input ${channel === 'sms' ? 'min-h-[110px]' : 'min-h-[180px]'}`} value={body} onChange={(e) => setBody(e.target.value)} placeholder={'Αγαπητέ/ή {{first_name}},\n\n…'} />
-            {channel === 'sms' && <SmsCounter text={body} />}
-          </div>
+          <MessageComposer channel={channel} onChannel={setChannel} value={m} onChange={setM} lang={lang} onLang={setLang} emailPreviewLine
+            vars={[{ key: 'first_name', label: 'Μικρό όνομα' }, { key: 'name', label: 'Ονοματεπώνυμο' }]} defaults={defaults} signature={signature}
+            render={(t) => renderCampaign(t, 'Μαρία Παπαδοπούλου')} />
           <p className="pt-2 text-[13px] font-semibold uppercase tracking-wide text-charcoal-600">Αποστολή</p>
           <div className="flex flex-wrap items-end gap-3">
             <span className="inline-flex rounded-[10px] border border-stone-line p-0.5">
@@ -417,6 +407,7 @@ function ViewDialog({ c, roleLabel, onClose }: { c: CampaignRow; roleLabel: (r: 
           <p><span className="text-charcoal-600">Κοινό:</span> <span data-no-tr>{audienceLabel(c.audience, roleLabel)}</span>{c.skipped ? ` · ${c.skipped} παραλείφθηκαν (χωρίς συγκατάθεση ή διεύθυνση)` : ''}</p>
           {c.subject && <p><span className="text-charcoal-600">Θέμα:</span> <span data-no-tr>{c.subject}</span></p>}
           <div className="whitespace-pre-wrap rounded-xl border border-stone-line bg-stone-50 p-4 text-charcoal" data-no-tr>{c.body || '—'}</div>
+          {c.bodyEn && <><p className="text-[12px] font-semibold uppercase tracking-wide text-charcoal-600" data-no-tr>English</p><div className="whitespace-pre-wrap rounded-xl border border-stone-line bg-stone-50 p-4 text-charcoal" data-no-tr>{c.bodyEn}</div></>}
           <p className="text-[13px] text-charcoal-600"><span data-no-tr>{CHANNEL_NAME[c.channel]}</span> · <span>{c.sentAt ? `Στάλθηκε ${formatDate(c.sentAt)}` : c.status === 'scheduled' && c.scheduledAt ? `Προγραμματισμένη για ${formatDateTime(c.scheduledAt)}` : `Δημιουργήθηκε ${formatDate(c.createdAt)}`}</span></p>
         </div>
       </div>
@@ -424,13 +415,3 @@ function ViewDialog({ c, roleLabel, onClose }: { c: CampaignRow; roleLabel: (r: 
   );
 }
 
-function SmsCounter({ text }: { text: string }) {
-  const p = smsParts(text);
-  return (
-    <p className="mt-1 flex flex-wrap gap-x-2 text-[12px] text-charcoal-600">
-      <span>{`${p.chars} χαρακτήρες`}</span>
-      <span>{`${p.parts} SMS ανά παραλήπτη`}</span>
-      {p.unicode && <span>Ελληνικά: 70 χαρακτήρες ανά SMS</span>}
-    </p>
-  );
-}

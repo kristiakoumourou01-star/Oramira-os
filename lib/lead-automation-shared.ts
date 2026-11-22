@@ -40,13 +40,22 @@ export interface LeadAutomationSettings {
 
 export type ApptChannel = 'whatsapp' | 'sms' | 'email';
 export interface AppointmentMessages {
-  confirm: { enabled: boolean; channel: ApptChannel; text: string };
-  reminder: { enabled: boolean; channel: ApptChannel; hoursBefore: number; text: string };
+  /** text: ελληνικά· textEn: αγγλικά (για πελάτες με γλώσσα εκτός ελληνικών). */
+  confirm: { enabled: boolean; channel: ApptChannel; text: string; textEn: string };
+  reminder: { enabled: boolean; channel: ApptChannel; hoursBefore: number; text: string; textEn: string };
 }
 export const APPT_VARS = ['{{name}}', '{{date}}', '{{time}}', '{{place}}', '{{title}}', '{{agent}}'] as const;
 export const DEFAULT_APPOINTMENTS: AppointmentMessages = {
-  confirm: { enabled: true, channel: 'whatsapp', text: 'Γεια σας {{name}}, επιβεβαιώνουμε το ραντεβού σας «{{title}}» στις {{date}}, ώρα {{time}}{{place}}. Για αλλαγή απαντήστε σε αυτό το μήνυμα. {{agent}}, Oramira' },
-  reminder: { enabled: true, channel: 'whatsapp', hoursBefore: 24, text: 'Υπενθύμιση: {{name}}, σας περιμένουμε αύριο {{date}} στις {{time}}{{place}} για «{{title}}». {{agent}}, Oramira' },
+  confirm: {
+    enabled: true, channel: 'whatsapp',
+    text: 'Αγαπητέ/ή {{name}}, επιβεβαιώνουμε το ραντεβού σας «{{title}}» στις {{date}}, ώρα {{time}}{{place}}. Για οποιαδήποτε αλλαγή, παρακαλούμε απαντήστε σε αυτό το μήνυμα. {{agent}}',
+    textEn: 'Dear {{name}}, we confirm your appointment "{{title}}" on {{date}} at {{time}}{{place}}. Should you need to make any change, please reply to this message. {{agent}}',
+  },
+  reminder: {
+    enabled: true, channel: 'whatsapp', hoursBefore: 24,
+    text: 'Αγαπητέ/ή {{name}}, σας υπενθυμίζουμε το ραντεβού σας «{{title}}» στις {{date}}, ώρα {{time}}{{place}}. Ανυπομονούμε να σας δούμε. {{agent}}',
+    textEn: 'Dear {{name}}, this is a reminder of your appointment "{{title}}" on {{date}} at {{time}}{{place}}. We look forward to seeing you. {{agent}}',
+  },
 };
 export function mergeAppointments(v: any): AppointmentMessages {
   const a = v && typeof v === 'object' ? v : {};
@@ -57,8 +66,8 @@ export function mergeAppointments(v: any): AppointmentMessages {
   const h = Math.round(Number(r.hoursBefore));
   const D = DEFAULT_APPOINTMENTS;
   return {
-    confirm: { enabled: c.enabled !== undefined ? !!c.enabled : D.confirm.enabled, channel: ch(c.channel, D.confirm.channel), text: txt(c.text, D.confirm.text) },
-    reminder: { enabled: r.enabled !== undefined ? !!r.enabled : D.reminder.enabled, channel: ch(r.channel, D.reminder.channel), hoursBefore: Number.isFinite(h) ? Math.min(72, Math.max(1, h)) : D.reminder.hoursBefore, text: txt(r.text, D.reminder.text) },
+    confirm: { enabled: c.enabled !== undefined ? !!c.enabled : D.confirm.enabled, channel: ch(c.channel, D.confirm.channel), text: txt(c.text, D.confirm.text), textEn: txt(c.textEn, D.confirm.textEn) },
+    reminder: { enabled: r.enabled !== undefined ? !!r.enabled : D.reminder.enabled, channel: ch(r.channel, D.reminder.channel), hoursBefore: Number.isFinite(h) ? Math.min(72, Math.max(1, h)) : D.reminder.hoursBefore, text: txt(r.text, D.reminder.text), textEn: txt(r.textEn, D.reminder.textEn) },
   };
 }
 /** Συμπληρώνει τις μεταβλητές ενός μηνύματος ραντεβού. */

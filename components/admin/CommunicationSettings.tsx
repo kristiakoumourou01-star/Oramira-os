@@ -49,6 +49,10 @@ export function CommunicationSettingsForm({ initial, canEdit, emailConnected }: 
         <h3 className="font-display text-xl text-charcoal">Επικοινωνία</h3>
         <p className="text-sm text-charcoal-600/75">Κανάλια SMS, email και push.</p>
       </div>
+      <div className="panel space-y-2 p-5">
+        <label className="block max-w-sm"><FieldLabel>Υπογραφή μηνυμάτων</FieldLabel><input className="input" disabled={dis} value={v.signature} maxLength={80} placeholder="Oramira Ltd" onChange={(e) => set({ signature: e.target.value })} /></label>
+        <p className="flex flex-wrap gap-x-1 text-sm text-charcoal-600/80"><span>Μπαίνει αυτόματα στο τέλος κάθε μηνύματος προς πελάτες.</span><span>SMS / WhatsApp: τελευταία γραμμή</span><span data-no-tr>«— {v.signature || 'Oramira Ltd'}».</span><span>Email: υποσέλιδο με το τηλέφωνο, το email και το website από τα Στοιχεία εταιρείας.</span><span>Κενό = χωρίς υπογραφή.</span></p>
+      </div>
       <div className="grid items-start gap-5 lg:grid-cols-2">
         <div className="space-y-5">
           <Card title="SMS" connected={false}>

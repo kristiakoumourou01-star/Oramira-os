@@ -2,12 +2,14 @@ import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import { sendMessage } from '@/lib/communications';
 import { notifyUser } from '@/lib/notifications';
 import { formatCurrency } from '@/lib/format';
-import { resolveAudience, deliverCampaign, htmlBody } from '@/lib/campaign-send';
+import { resolveAudience, deliverCampaign, htmlBody, stripNewCols, NEW_COL_RE } from '@/lib/campaign-send';
+import { langOf, pickText } from '@/lib/message-format-shared';
 import {
   cleanSchedule, cleanTrigger, delayMs, localParts, nextRun, renderAutomation, zonedToUtc,
   type AutoTrigger, type AutoVars,
 } from '@/lib/marketing-automations-shared';
 import { cleanAudience, type CampaignChannel } from '@/lib/campaigns-shared';
+import type { SendReason } from '@/lib/marketing-automations-shared';
 
 /**
  * Marketing → Δικοί μου αυτοματισμοί: η εργασία που τρέχει κάθε 15 λεπτά.
@@ -168,23 +170,30 @@ async function candidates(svc: any, t: AutoTrigger, lower: Date, now: Date): Pro
   return out;
 }
 
+type SendOutcome = { status: 'sent' | 'queued' | 'failed' | 'skipped'; reason?: SendReason };
+
 /** Στέλνει ένα μήνυμα σε μία επαφή, με τη συγκατάθεση του καναλιού (receive_email / receive_sms / receive_push). */
-async function sendToContact(svc: any, a: { id: string; channel: CampaignChannel; subject: string | null; body: string; name: string }, c: any, vars: AutoVars): Promise<'sent' | 'queued' | 'failed' | 'skipped'> {
-  if (!c || c.anonymized_at || c.status === 'archived' || c.status === 'do_not_contact') return 'skipped';
+async function sendToContact(svc: any, a: { id: string; channel: CampaignChannel; subject: string | null; body: string; name: string; sender_name?: string | null; subject_en?: string | null; body_en?: string | null }, c: any, vars: AutoVars): Promise<SendOutcome> {
+  if (!c || c.anonymized_at || c.status === 'archived' || c.status === 'do_not_contact') return { status: 'skipped', reason: 'archived' };
   const v = { ...vars, name: c.full_name ?? '' };
-  const text = renderAutomation(a.body, v);
+  const lang = langOf(c.preferred_language);
+  const text = renderAutomation(pickText(a.body, a.body_en, lang), v);
+  const subj = pickText(a.subject, a.subject_en, lang) || a.name;
   if (a.channel === 'push') {
-    if (c.receive_push === false) return 'skipped';
+    if (c.receive_push === false) return { status: 'skipped', reason: 'no_consent' };
     const { data: prof } = await svc.from('profiles').select('id').eq('contact_id', c.id).maybeSingle();
-    if (!prof) return 'skipped';
-    try { await notifyUser({ userId: prof.id, title: renderAutomation(a.subject ?? a.name, v), body: text.slice(0, 500), link: '/' }); return 'sent'; } catch { return 'failed'; }
+    if (!prof) return { status: 'skipped', reason: 'no_app' };
+    try { await notifyUser({ userId: prof.id, title: renderAutomation(subj, v), body: text.slice(0, 500), link: '/' }); return { status: 'sent' }; } catch { return { status: 'failed', reason: 'provider_error' }; }
   }
   const consent = a.channel === 'email' ? c.receive_email : c.receive_sms;
-  if (!consent) return 'skipped';
+  if (!consent) return { status: 'skipped', reason: 'no_consent' };
   const to = String((a.channel === 'email' ? c.email : c.phone) ?? '').trim();
-  if (!to) return 'skipped';
-  const res = await sendMessage({ contactId: c.id, channel: a.channel, to, subject: a.channel === 'email' ? renderAutomation(a.subject ?? a.name, v) : null, body: a.channel === 'email' ? htmlBody(text) : text, templateKey: `automation:${a.id}` });
-  return res.status === 'sent' ? 'sent' : res.status === 'queued' ? 'queued' : 'failed';
+  if (!to) return { status: 'skipped', reason: 'no_address' };
+  const res = await sendMessage({ contactId: c.id, channel: a.channel, to, subject: a.channel === 'email' ? renderAutomation(subj, v) : null, body: a.channel === 'email' ? htmlBody(text) : text, templateKey: `automation:${a.id}`, lang, marketing: true, ...(a.sender_name ? { fromName: a.sender_name } : {}) });
+  if (res.status === 'failed') return { status: 'failed', reason: 'provider_error' };
+  // Χωρίς συνδεδεμένο πάροχο το μήνυμα μόνο καταγράφεται.
+  if (res.provider === 'log') return { status: 'queued', reason: 'no_provider' };
+  return { status: res.status === 'sent' ? 'sent' : 'queued' };
 }
 
 async function runEventAutomation(svc: any, a: any, now: Date): Promise<number> {
@@ -194,7 +203,7 @@ async function runEventAutomation(svc: any, a: any, now: Date): Promise<number> 
   const cands = await candidates(svc, t, lower, now);
   if (!cands.length) return 0;
   const ids = Array.from(new Set(cands.map((c) => c.contactId)));
-  const { data: people } = await svc.from('contacts').select('id, full_name, email, phone, status, anonymized_at, groups, tags, receive_email, receive_sms, receive_push').in('id', ids);
+  const { data: people } = await svc.from('contacts').select('id, full_name, email, phone, status, anonymized_at, groups, tags, receive_email, receive_sms, receive_push, preferred_language').in('id', ids);
   const byId = new Map(((people ?? []) as any[]).map((p) => [p.id, p]));
   let sent = 0;
   for (const c of cands) {
@@ -207,9 +216,12 @@ async function runEventAutomation(svc: any, a: any, now: Date): Promise<number> 
       .upsert({ automation_id: a.id, contact_id: c.contactId, record_key: c.key, status: 'pending' }, { onConflict: 'automation_id,record_key', ignoreDuplicates: true })
       .select('id');
     if (!claim?.length) continue;
-    const status = await sendToContact(svc, a, p, c.vars);
-    await svc.from('marketing_automation_sends').update({ status, sent_at: new Date().toISOString() }).eq('id', claim[0].id);
-    if (status === 'sent' || status === 'queued') sent++;
+    const out = await sendToContact(svc, a, p, c.vars);
+    const upd = { status: out.status, sent_at: new Date().toISOString() };
+    // channel / reason: migration 0111 — αν λείπει, κρατάμε τουλάχιστον την κατάσταση.
+    const { error } = await svc.from('marketing_automation_sends').update({ ...upd, channel: a.channel, reason: out.reason ?? null }).eq('id', claim[0].id);
+    if (error) await svc.from('marketing_automation_sends').update(upd).eq('id', claim[0].id);
+    if (out.status === 'sent' || out.status === 'queued') sent++;
   }
   if (sent) await svc.from('marketing_automations').update({ last_run_at: now.toISOString(), runs: (a.runs ?? 0) + sent }).eq('id', a.id);
   return sent;
@@ -226,18 +238,18 @@ async function runScheduledAutomation(svc: any, a: any, now: Date): Promise<numb
   const audience = cleanAudience(a.audience, a.channel);
   if (!audience) return 0;
   const { list, noConsent, noAddress } = await resolveAudience(svc, audience, a.channel);
-  const { data: camp, error } = await svc.from('marketing_campaigns').insert({
-    name: `${a.name} · ${dmy(now)}`.slice(0, 120), channel: a.channel, audience, subject: a.subject, body: a.body, status: 'sending', created_by: a.created_by,
-  }).select('id').single();
+  const campRow = { name: `${a.name} · ${dmy(now)}`.slice(0, 120), channel: a.channel, audience, subject: a.subject, body: a.body, status: 'sending', created_by: a.created_by, automation_id: a.id, sender_name: a.sender_name ?? null, subject_en: a.subject_en ?? null, body_en: a.body_en ?? null };
+  let { data: camp, error } = await svc.from('marketing_campaigns').insert(campRow).select('id').single();
+  if (error && NEW_COL_RE.test(error.message)) ({ data: camp, error } = await svc.from('marketing_campaigns').insert(stripNewCols(campRow)).select('id').single());
   if (error || !camp) return 0;
   if (!list.length) { await svc.from('marketing_campaigns').update({ status: 'sent', recipients: 0, skipped: noConsent + noAddress, sent_at: now.toISOString() }).eq('id', camp.id); return 0; }
-  const r = await deliverCampaign(svc, { id: camp.id, name: a.name, channel: a.channel, subject: a.subject, body: a.body }, list, noConsent + noAddress);
+  const r = await deliverCampaign(svc, { id: camp.id, name: a.name, channel: a.channel, subject: a.subject, body: a.body, subjectEn: a.subject_en ?? null, bodyEn: a.body_en ?? null, senderName: a.sender_name ?? null }, list, noConsent + noAddress);
   return r.sent + r.queued;
 }
 
 /** Προγραμματισμένες καμπάνιες (Marketing → Καμπάνιες → Προγραμματισμός) που έφτασε η ώρα τους. */
 async function runScheduledCampaigns(svc: any, now: Date): Promise<{ campaigns: number; messages: number }> {
-  const { data, error } = await svc.from('marketing_campaigns').select('id, name, channel, audience, subject, body, scheduled_at').eq('status', 'scheduled').lte('scheduled_at', now.toISOString()).limit(50);
+  const { data, error } = await svc.from('marketing_campaigns').select('*').eq('status', 'scheduled').lte('scheduled_at', now.toISOString()).limit(50);
   if (error) return { campaigns: 0, messages: 0 }; // χωρίς το migration 0110 δεν υπάρχουν προγραμματισμένες
   let campaigns = 0, messages = 0;
   for (const c of (data ?? []) as any[]) {
@@ -248,7 +260,7 @@ async function runScheduledCampaigns(svc: any, now: Date): Promise<{ campaigns: 
     const audience = cleanAudience(c.audience, c.channel);
     const { list, noConsent, noAddress } = audience ? await resolveAudience(svc, audience, c.channel) : { list: [], noConsent: 0, noAddress: 0 };
     if (!list.length) { await svc.from('marketing_campaigns').update({ status: 'sent', recipients: 0, skipped: noConsent + noAddress, sent_at: now.toISOString() }).eq('id', c.id); continue; }
-    const r = await deliverCampaign(svc, { id: c.id, name: c.name, channel: c.channel, subject: c.subject, body: c.body ?? '' }, list, noConsent + noAddress);
+    const r = await deliverCampaign(svc, { id: c.id, name: c.name, channel: c.channel, subject: c.subject, body: c.body ?? '', subjectEn: c.subject_en ?? null, bodyEn: c.body_en ?? null, senderName: c.sender_name ?? null }, list, noConsent + noAddress);
     messages += r.sent + r.queued;
   }
   return { campaigns, messages };

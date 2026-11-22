@@ -1,15 +1,19 @@
 'use client';
 
-import { useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { UserPlus, Handshake, CalendarCheck, Home, CreditCard, Gift, Plus, Pencil, Trash2, X, Lock, Sparkles, Send, Zap, Clock } from 'lucide-react';
+import Link from 'next/link';
+import { UserPlus, Handshake, CalendarCheck, Home, CreditCard, Gift, Plus, Pencil, Trash2, X, Lock, Sparkles, Send, Zap, Clock, History, Play } from 'lucide-react';
 import { HubCards } from '@/components/ui/HubCards';
 import { PopSelect } from '@/components/ui/PopSelect';
 import { Pager } from '@/components/ui/SidePanel';
 import { Switch } from '@/components/admin/settings-ui';
 import { AudiencePicker, type PickContact, type AudienceCount } from '@/components/marketing/AudiencePicker';
-import { saveAutomation, setAutomationActive, deleteAutomation, testAutomation } from '@/app/actions/marketing-automations';
-import { CHANNEL_NAME, audienceLabel, smsParts, type CampaignAudience, type CampaignChannel } from '@/lib/campaigns-shared';
+import { saveAutomation, setAutomationActive, deleteAutomation, testAutomation, automationHistory, runAutomationsNow } from '@/app/actions/marketing-automations';
+import { CHANNEL_NAME, audienceLabel, senderDefaultFor, type CampaignAudience, type CampaignChannel, type SenderDefaults } from '@/lib/campaigns-shared';
+import { MessageComposer, type MessageValue } from '@/components/marketing/MessageComposer';
+import { reasonText, type AutomationStats, type SendHistoryRow, type RunHistoryRow } from '@/lib/marketing-automations-shared';
+import type { MsgLang, SignatureInfo } from '@/lib/message-format-shared';
 import { ROLE_EL } from '@/lib/contacts-hub-shared';
 import { formatDateTime } from '@/lib/format';
 import {
@@ -31,9 +35,12 @@ export function Segs({ segs }: { segs: Seg[] }) {
 }
 
 /** Marketing → Δικοί μου αυτοματισμοί: κατηγορίες, λίστα, έτοιμες ιδέες και ο οδηγός σε 3 βήματα. */
-export function MarketingAutomations({ rows, builtins, groups, contacts, tags, stages, sources, canEdit, initialCat }: {
+export interface LastCheck { at: string; status: string; summary: string | null }
+
+export function MarketingAutomations({ rows, builtins, groups, contacts, tags, stages, sources, canEdit, initialCat, stats = {}, lastCheck = null, isAdmin = false, senderDefaults, signature }: {
   rows: AutomationRow[]; builtins: BuiltinAutomation[]; groups: { name: string; n: number }[]; contacts: PickContact[]; tags: string[];
   stages: { key: string; label: string }[]; sources: [string, string][]; canEdit: boolean; initialCat?: string;
+  stats?: Record<string, AutomationStats>; lastCheck?: LastCheck | null; isAdmin?: boolean; senderDefaults: SenderDefaults; signature: SignatureInfo | null;
 }) {
   const router = useRouter();
   const [cat, setCat] = useState<CategoryKey>(CATEGORIES.some((c) => c.key === initialCat) ? (initialCat as CategoryKey) : 'leads');
@@ -42,6 +49,9 @@ export function MarketingAutomations({ rows, builtins, groups, contacts, tags, s
   const [per, setPer] = useState(10);
   const [pg, setPg] = useState(0);
   const [pending, start] = useTransition();
+  const [hist, setHist] = useState<AutomationRow | null>(null);
+  const [running, startRun] = useTransition();
+  const runNow = () => startRun(async () => { const r = await runAutomationsNow(); setMsg(r.ok ? { ok: true, text: r.summary } : { ok: false, text: r.error }); router.refresh(); });
   const stageLabel = (k: string) => stages.find((s) => s.key === k)?.label ?? k;
   const sourceLabel = (k: string) => sources.find(([s]) => s === k)?.[1] ?? k;
 
@@ -67,6 +77,16 @@ export function MarketingAutomations({ rows, builtins, groups, contacts, tags, s
         {canEdit && <button type="button" onClick={() => setDlg({ init: blank(cat) })} className="inline-flex h-9 items-center gap-1.5 rounded-[10px] bg-forest px-3.5 text-[14px] font-medium text-white hover:bg-forest/90"><Plus size={15} /> Νέος αυτοματισμός</button>}
       </div>
 
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl border border-stone-line bg-white px-4 py-2.5 text-[13px] text-charcoal-600">
+        <span className={`h-2 w-2 rounded-full ${lastCheck?.status === 'failed' ? 'bg-signal-danger' : 'bg-forest'}`} />
+        <span>Ο έλεγχος τρέχει αυτόματα κάθε 15 λεπτά</span>
+        <span>·</span>
+        <span>τελευταίος έλεγχος:</span>
+        <span className="tabular-nums text-charcoal">{lastCheck ? formatDateTime(lastCheck.at) : '—'}</span>
+        {lastCheck?.status === 'failed' && <span className="text-signal-danger">Απέτυχε</span>}
+        {isAdmin && <button type="button" onClick={runNow} disabled={running} className="ml-auto inline-flex h-8 items-center gap-1.5 rounded-[10px] border border-stone-line px-3 text-[13px] font-medium text-charcoal hover:border-forest/40 disabled:opacity-50"><Play size={13} /> {running ? 'Εκτέλεση…' : 'Εκτέλεση τώρα'}</button>}
+      </div>
+
       <HubCards cols={3} active={cat} onSelect={(k) => { setCat(k as CategoryKey); setPg(0); window.history.replaceState(null, '', `?tab=automations&cat=${k}`); }}
         cards={CATEGORIES.map((c) => ({ key: c.key, icon: ICON[c.key], title: c.title, value: rows.filter((r) => categoryOf(r) === c.key).length, sub: c.sub }))} />
 
@@ -81,35 +101,39 @@ export function MarketingAutomations({ rows, builtins, groups, contacts, tags, s
         </div>
         <div className="overflow-x-auto border-t border-stone-line">
           <table className="o-table">
-            <thead><tr><th>Αυτοματισμός</th><th>Πότε</th><th>Κανάλι</th><th>Επόμενη</th><th>Τελευταία</th><th>Ενεργό</th><th className="w-24" /></tr></thead>
+            <thead><tr><th>Αυτοματισμός</th><th>Πότε</th><th>Κανάλι</th><th>Αποστολές</th><th>Επόμενη</th><th>Τελευταία</th><th>Ενεργό</th><th className="w-28" /></tr></thead>
             <tbody>
               {built.map((b) => (
                 <tr key={b.id} className="bg-stone-50/60">
                   <td className="o-strong"><span className="flex items-center gap-1.5"><Lock size={12} className="shrink-0 text-charcoal-600/60" /><span>{b.name}</span></span><span className="block text-[11px] font-normal text-charcoal-600">Αυτοματισμός συστήματος</span></td>
                   <td><Segs segs={b.when} /></td>
                   <td><span data-no-tr>{b.channel}</span></td>
-                  <td>—</td><td>—</td>
+                  <td>—</td><td>—</td><td>—</td>
                   <td><span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${b.active ? 'bg-forest/[0.09] text-forest' : 'bg-stone-100 text-charcoal-600'}`}>{b.active ? 'Ενεργό' : 'Ανενεργό'}</span></td>
                   <td className="text-right"><a href={b.href} className="text-[13px] font-medium text-forest hover:underline">Αλλαγή</a></td>
                 </tr>
               ))}
               {list.map((r) => (
-                <tr key={r.id} className={r.active ? '' : 'opacity-60'}>
+                <tr key={r.id} className={`cursor-pointer ${r.active ? '' : 'opacity-60'}`} onClick={() => setHist(r)}>
                   <td className="o-strong"><span className="block max-w-[240px] truncate" data-no-tr>{r.name}</span><span className="block text-[11px] font-normal text-charcoal-600">{who(r) ? <span data-no-tr>{who(r)}</span> : <span>Ο πελάτης του γεγονότος</span>}</span></td>
                   <td><Segs segs={when(r)} /></td>
                   <td><span data-no-tr>{CHANNEL_NAME[r.channel]}</span></td>
+                  <td className="whitespace-nowrap">{(() => { const st = stats[r.id] ?? { sent: 0, failed: 0, skipped: 0 }; return <span className="inline-flex gap-1"><span className="tabular-nums">{st.sent}</span><span>στάλθηκαν</span><span>·</span><span className={`tabular-nums ${st.failed ? 'text-signal-danger' : ''}`}>{st.failed}</span><span>απέτυχαν</span></span>; })()}</td>
                   <td className="whitespace-nowrap tabular-nums">{r.kind === 'schedule' ? (r.active && r.nextRunAt ? formatDateTime(r.nextRunAt) : '—') : <span className="text-charcoal-600">Με το γεγονός</span>}</td>
                   <td className="whitespace-nowrap tabular-nums">{r.lastRunAt ? formatDateTime(r.lastRunAt) : '—'}</td>
-                  <td><Switch checked={r.active} onChange={() => toggle(r)} disabled={!canEdit || pending} label={r.active ? 'Ενεργό' : 'Σε παύση'} /></td>
-                  <td>
-                    {canEdit && <span className="flex justify-end gap-1">
+                  <td onClick={(e) => e.stopPropagation()}><Switch checked={r.active} onChange={() => toggle(r)} disabled={!canEdit || pending} label={r.active ? 'Ενεργό' : 'Σε παύση'} /></td>
+                  <td onClick={(e) => e.stopPropagation()}>
+                    <span className="flex justify-end gap-1">
+                      <button type="button" onClick={() => setHist(r)} title="Ιστορικό" aria-label="Ιστορικό" className={iconBtn}><History size={15} /></button>
+                    {canEdit && <>
                       <button type="button" onClick={() => setDlg({ row: r })} title="Επεξεργασία" aria-label="Επεξεργασία" className={iconBtn}><Pencil size={15} /></button>
                       <button type="button" onClick={() => del(r)} title="Διαγραφή" aria-label="Διαγραφή" className="flex h-8 w-8 items-center justify-center rounded-full text-signal-danger transition hover:bg-rose-50"><Trash2 size={15} /></button>
-                    </span>}
+                    </>}
+                    </span>
                   </td>
                 </tr>
               ))}
-              {!list.length && !built.length && <tr><td colSpan={7} className="!py-8 text-center">Δεν έχετε ακόμη αυτοματισμούς εδώ. Ξεκινήστε από μια έτοιμη ιδέα παρακάτω.</td></tr>}
+              {!list.length && !built.length && <tr><td colSpan={8} className="!py-8 text-center">Δεν έχετε ακόμη αυτοματισμούς εδώ. Ξεκινήστε από μια έτοιμη ιδέα παρακάτω.</td></tr>}
             </tbody>
           </table>
         </div>
@@ -133,7 +157,8 @@ export function MarketingAutomations({ rows, builtins, groups, contacts, tags, s
         </div>
       )}
 
-      {dlg && <AutomationDialog row={dlg.row} init={dlg.init} groups={groups} contacts={contacts} tags={tags} stages={stages} sources={sources}
+      {hist && <HistoryDrawer row={hist} onClose={() => setHist(null)} />}
+      {dlg && <AutomationDialog row={dlg.row} init={dlg.init} groups={groups} contacts={contacts} tags={tags} stages={stages} sources={sources} defaults={senderDefaults} signature={signature}
         onClose={() => setDlg(null)} onDone={(t) => { setDlg(null); setMsg({ ok: true, text: t }); router.refresh(); }} />}
     </section>
   );
@@ -149,12 +174,12 @@ const DELAY_UNITS: [DelayUnit, string][] = [['minutes', 'λεπτά'], ['hours',
 const SCHED: [ScheduleKind, string][] = [['daily', 'Κάθε μέρα'], ['weekly', 'Κάθε εβδομάδα'], ['monthly', 'Κάθε μήνα']];
 const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0];
 
-function AutomationDialog({ row, init, groups, contacts, tags, stages, sources, onClose, onDone }: {
+function AutomationDialog({ row, init, groups, contacts, tags, stages, sources, defaults, signature, onClose, onDone }: {
   row?: AutomationRow; init?: AutomationInput; groups: { name: string; n: number }[]; contacts: PickContact[]; tags: string[];
-  stages: { key: string; label: string }[]; sources: [string, string][]; onClose: () => void; onDone: (t: string) => void;
+  stages: { key: string; label: string }[]; sources: [string, string][]; defaults: SenderDefaults; signature: SignatureInfo | null; onClose: () => void; onDone: (t: string) => void;
 }) {
   const src: AutomationInput = row
-    ? { id: row.id, name: row.name, kind: row.kind, channel: row.channel, audience: row.audience, trigger: row.trigger, schedule: row.schedule, subject: row.subject ?? '', body: row.body }
+    ? { id: row.id, name: row.name, kind: row.kind, channel: row.channel, audience: row.audience, trigger: row.trigger, schedule: row.schedule, subject: row.subject ?? '', body: row.body, subjectEn: row.subjectEn ?? '', bodyEn: row.bodyEn ?? '', senderName: row.senderName ?? '' }
     : init ?? blank('leads');
   const t0 = (src.kind === 'event' ? cleanTrigger(src.trigger) : null) ?? { event: 'new_lead' as EventKey, params: {}, delay: { amount: 0, unit: 'hours' as DelayUnit, dir: 'after' as const }, filter: {} };
   const s1 = src.schedule as AutoSchedule | undefined;
@@ -172,19 +197,19 @@ function AutomationDialog({ row, init, groups, contacts, tags, stages, sources, 
   const [audience, setAudience] = useState<CampaignAudience | null>((src.audience as CampaignAudience) ?? null);
   const [count, setCount] = useState<AudienceCount | null>(null);
   const [channel, setChannel] = useState<CampaignChannel>(src.channel);
-  const [subject, setSubject] = useState(src.subject ?? '');
-  const [body, setBody] = useState(src.body);
+  const [msg, setMsg] = useState<MessageValue>({ senderName: src.senderName ?? senderDefaultFor(src.channel, defaults), subject: src.subject ?? '', subjectEn: src.subjectEn ?? '', body: src.body ?? '', bodyEn: src.bodyEn ?? '' });
+  const [lang, setLang] = useState<MsgLang>('el');
+  const body = `${msg.body}${msg.bodyEn}`;
   const [err, setErr] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [pending, start] = useTransition();
 
   const def = EVENT_BY_KEY[event];
   const trigger: AutoTrigger = { event, params: { ...params, ...(def.dateOnly ? { time: params.time ?? '10:00' } : {}) }, delay: { amount: mode === 'now' ? 0 : amount, unit, dir: mode === 'before' ? 'before' : 'after' }, filter };
-  const input: AutomationInput = { id: row?.id, name, kind, channel, subject, body, ...(kind === 'event' ? { trigger } : { schedule: sched, audience }) };
+  const input: AutomationInput = { id: row?.id, name, kind, channel, subject: msg.subject, subjectEn: msg.subjectEn, body: msg.body, bodyEn: msg.bodyEn, senderName: msg.senderName === senderDefaultFor(channel, defaults) ? '' : msg.senderName, ...(kind === 'event' ? { trigger } : { schedule: sched, audience }) };
   const segs = kind === 'event' ? (cleanTrigger(trigger) ? triggerSegments(cleanTrigger(trigger)!, (k) => stages.find((s) => s.key === k)?.label ?? k, (k) => sources.find(([s]) => s === k)?.[1] ?? k) : []) : (cleanSchedule(sched) ? scheduleSegments(cleanSchedule(sched)!) : []);
   const next = kind === 'schedule' && cleanSchedule(sched) ? nextRun(cleanSchedule(sched)!, new Date()) : null;
   const vars = useMemo(() => ['first_name', 'name', ...(kind === 'event' ? def.vars : [])], [kind, def]);
-  const preview = renderAutomation(body, SAMPLE_VARS);
 
   const pickCat = (c: CategoryKey) => {
     setCat(c);
@@ -193,9 +218,8 @@ function AutomationDialog({ row, init, groups, contacts, tags, stages, sources, 
     if (first) { setKind('event'); setEvent(first.key); setParams({}); setMode('now'); }
   };
   const pickEvent = (e: EventKey) => { setKind('event'); setEvent(e); setParams(e === 'no_contact' ? { days: 30 } : {}); if (!EVENT_BY_KEY[e].before && mode === 'before') setMode('after'); };
-  const insert = (k: string) => setBody((b) => `${b}{{${k}}}`);
   const save = () => start(async () => { setErr(null); const r = await saveAutomation(input); if (!r.ok) { setErr(r.error); return; } onDone(row ? `Ο αυτοματισμός «${name}» αποθηκεύτηκε.` : `Ο αυτοματισμός «${name}» δημιουργήθηκε και είναι ενεργός.`); });
-  const test = () => start(async () => { setErr(null); setNote(null); const r = await testAutomation(input); if (!r.ok) { setErr(r.error); return; } setNote(r.logged ? 'Η δοκιμή καταγράφηκε, αλλά δεν έχει συνδεθεί πάροχος για αυτό το κανάλι — δεν στάλθηκε πραγματικά.' : `Η δοκιμή στάλθηκε σε ${r.to}.`); });
+  const test = () => start(async () => { setErr(null); setNote(null); const r = await testAutomation(input, lang); if (!r.ok) { setErr(r.error); return; } setNote(r.logged ? 'Η δοκιμή καταγράφηκε, αλλά δεν έχει συνδεθεί πάροχος για αυτό το κανάλι — δεν στάλθηκε πραγματικά.' : `Η δοκιμή στάλθηκε σε ${r.to}.`); });
 
   const Step = ({ n, title, children }: { n: number; title: string; children: React.ReactNode }) => (
     <section className="space-y-3 rounded-2xl border border-stone-line p-4">
@@ -278,25 +302,10 @@ function AutomationDialog({ row, init, groups, contacts, tags, stages, sources, 
           </> : <AudiencePicker channel={channel} initial={audience} groups={groups} contacts={contacts} tags={tags} onChange={setAudience} onCount={setCount} label="Παραλήπτες *" /> })}
 
           {/* 3. Τι λέει */}
-          {Step({ n: 3, title: 'Τι λέει', children: <>
-            <div className="flex flex-wrap gap-1.5">{(['email', 'sms', 'whatsapp', 'push'] as const).map((c) => <button key={c} type="button" onClick={() => setChannel(c)} className={chip(channel === c)}>{CHANNEL_NAME[c]}</button>)}</div>
-            {(channel === 'email' || channel === 'push') && <label className="block"><span className={lbl}>{channel === 'email' ? 'Θέμα *' : 'Τίτλος ειδοποίησης'}</span><input className="input" value={subject} onChange={(e) => setSubject(e.target.value)} /></label>}
-            <div>
-              <span className={lbl}>Μήνυμα *</span>
-              <div className="mb-1.5 flex flex-wrap gap-1 text-[12px]">{VARIABLES.filter((v) => vars.includes(v.key)).map((v) => <button key={v.key} type="button" onClick={() => insert(v.key)} className="rounded-full border border-stone-line px-2 py-0.5 hover:border-forest/40">+ {v.label}</button>)}</div>
-              <textarea className={`input ${channel === 'sms' ? 'min-h-[100px]' : 'min-h-[150px]'}`} value={body} onChange={(e) => setBody(e.target.value)} placeholder={'Γεια σας {{first_name}},\n\n…'} />
-              {channel === 'sms' && (() => { const sp = smsParts(preview); return <p className="mt-1 flex flex-wrap gap-x-2 text-[12px] text-charcoal-600"><span>{`${sp.chars} χαρακτήρες`}</span><span>{`${sp.parts} SMS ανά παραλήπτη`}</span>{sp.unicode && <span>Ελληνικά: 70 χαρακτήρες ανά SMS</span>}</p>; })()}
-            </div>
-            {body.trim() && (
-              <div>
-                <span className={lbl}>Προεπισκόπηση</span>
-                <div className="whitespace-pre-wrap rounded-xl border border-stone-line bg-stone-50 p-3 text-[14px] text-charcoal" data-no-tr>
-                  {channel === 'email' && subject && <p className="mb-2 font-semibold">{renderAutomation(subject, SAMPLE_VARS)}</p>}
-                  {preview}
-                </div>
-              </div>
-            )}
-          </> })}
+          {Step({ n: 3, title: 'Τι λέει', children: (
+            <MessageComposer channel={channel} onChannel={setChannel} value={msg} onChange={setMsg} lang={lang} onLang={setLang}
+              vars={VARIABLES.filter((v) => vars.includes(v.key))} defaults={defaults} signature={signature} render={(t) => renderAutomation(t, SAMPLE_VARS)} />
+          ) })}
           {kind === 'schedule' && count && !count.reachable && <p className="text-[13px] text-charcoal-600">Προς το παρόν κανείς από αυτούς δεν μπορεί να το λάβει.</p>}
           {note && <p className="text-sm text-forest">{note}</p>}
           {err && <p className="text-sm text-signal-danger">{err}</p>}
@@ -307,6 +316,70 @@ function AutomationDialog({ row, init, groups, contacts, tags, stages, sources, 
           <button type="button" className="btn-primary" disabled={pending || !name.trim() || !body.trim()} onClick={save}>{pending ? 'Αποθήκευση…' : 'Αποθήκευση'}</button>
         </div>
       </div>
+    </div>
+  );
+}
+
+const STATUS: Record<string, [string, string]> = {
+  sent: ['Στάλθηκε', 'bg-forest/[0.09] text-forest'],
+  queued: ['Σε αναμονή', 'bg-stone-100 text-charcoal-600'],
+  pending: ['Σε αναμονή', 'bg-stone-100 text-charcoal-600'],
+  failed: ['Απέτυχε', 'bg-rose-50 text-signal-danger'],
+  skipped: ['Δεν στάλθηκε', 'bg-stone-100 text-charcoal-600'],
+};
+
+/** «Ιστορικό αποστολών»: ποιος το πήρε (γεγονότα) ή κάθε εκτέλεση (επαναλαμβανόμενα). */
+function HistoryDrawer({ row, onClose }: { row: AutomationRow; onClose: () => void }) {
+  const [data, setData] = useState<{ sends: SendHistoryRow[]; runs: RunHistoryRow[] } | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  useEffect(() => { void automationHistory(row.id).then((r) => { if (r.ok) setData({ sends: r.sends, runs: r.runs }); else setErr(r.error); }); }, [row.id]);
+  return (
+    <div className="fixed inset-0 z-50 flex justify-end bg-charcoal/30" onClick={onClose}>
+      <aside className="flex h-full w-full max-w-lg flex-col bg-white shadow-overlay" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-start justify-between gap-3 border-b border-stone-line px-5 py-4">
+          <div className="min-w-0"><h3 className="text-xl">Ιστορικό αποστολών</h3><p className="truncate text-[13px] text-charcoal-600" data-no-tr>{row.name}</p></div>
+          <button type="button" onClick={onClose} aria-label="Κλείσιμο" className="text-charcoal-600 hover:text-charcoal"><X size={18} /></button>
+        </div>
+        <div className="flex-1 overflow-y-auto px-5 py-4">
+          {err && <p className="text-sm text-signal-danger">{err}</p>}
+          {!data && !err && <p className="text-sm text-charcoal-600">Φόρτωση…</p>}
+          {data && row.kind === 'event' && (data.sends.length ? (
+            <ul className="divide-y divide-stone-line">
+              {data.sends.map((s, i) => {
+                const [label, tone] = STATUS[s.status] ?? [s.status, 'bg-stone-100 text-charcoal-600'];
+                const why = reasonText(s.reason, s.channel);
+                return (
+                  <li key={i} className="flex items-start gap-3 py-2.5">
+                    <span className="min-w-0 flex-1">
+                      {s.contactId ? <Link href={`/crm/${s.contactId}`} className="block truncate text-[14px] font-medium text-forest hover:underline" data-no-tr>{s.contactName ?? '—'}</Link> : <span className="block text-[14px]">—</span>}
+                      <span className="flex flex-wrap gap-x-1.5 text-[12px] text-charcoal-600"><span className="tabular-nums">{formatDateTime(s.at)}</span>{s.channel && <span data-no-tr>{CHANNEL_NAME[s.channel as CampaignChannel] ?? s.channel}</span>}</span>
+                      {why && <span className="block text-[12px] text-charcoal-600">{why}</span>}
+                    </span>
+                    <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${tone}`}>{label}</span>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : <p className="text-sm text-charcoal-600">Δεν έχει σταλεί ακόμη σε κανέναν.</p>)}
+          {data && row.kind === 'schedule' && (data.runs.length ? (
+            <div className="overflow-x-auto">
+              <table className="o-table">
+                <thead><tr><th>Ημερομηνία</th><th className="text-right">Παραλήπτες</th><th className="text-right">Στάλθηκαν</th><th className="text-right">Απέτυχαν</th></tr></thead>
+                <tbody>
+                  {data.runs.map((r) => (
+                    <tr key={r.id}>
+                      <td><a href={`/marketing?tab=campaigns&open=${r.id}`} className="tabular-nums text-forest hover:underline">{formatDateTime(r.at)}</a></td>
+                      <td className="text-right tabular-nums">{r.recipients}</td>
+                      <td className="text-right tabular-nums">{r.sent}</td>
+                      <td className="text-right tabular-nums">{r.failed}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : <p className="text-sm text-charcoal-600">Δεν έχει τρέξει ακόμη.</p>)}
+        </div>
+      </aside>
     </div>
   );
 }

@@ -142,7 +142,7 @@ export function SettingsScreen({
           ) : section.key === 'payments' ? (
             <PaymentsSection initial={extra} canEdit={canEdit} connected={payConnected} />
           ) : section.key === 'notifications' ? (
-            <NotificationsSection initial={settings.notifications} canEdit={canEdit} />
+            <NotificationsSection initial={settings.notifications} canEdit={canEdit} signature={settings.communication?.signature ?? ""} />
           ) : section.key === 'security' ? (
             <SecuritySection initial={settings.security} canEdit={canEdit} currentIp={currentIp} />
           ) : section.key === 'tags' ? (

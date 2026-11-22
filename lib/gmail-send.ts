@@ -6,12 +6,19 @@ import { activeToken } from '@/lib/calendar-sync';
  * συνδέσει ξανά το Google ώστε να έχει δοθεί η άδεια «αποστολή email».
  * Επιστρέφει false (χωρίς σφάλμα) όταν δεν γίνεται — τότε δείχνουμε το link.
  */
-export async function sendViaGmail(profileId: string, to: string, subject: string, html: string): Promise<boolean> {
+export async function sendViaGmail(profileId: string, to: string, subject: string, html: string, fromName?: string | null): Promise<boolean> {
   try {
     const t = await activeToken(profileId);
     if (!t) return false;
     const enc = (v: string) => `=?UTF-8?B?${Buffer.from(v, 'utf8').toString('base64')}?=`;
+    // Όνομα αποστολέα: η διεύθυνση μένει του λογαριασμού, αλλάζει μόνο το όνομα που φαίνεται.
+    let from: string | null = null;
+    if (fromName && fromName.trim()) {
+      const p = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/profile', { headers: { authorization: `Bearer ${t.token}` } }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+      if (p?.emailAddress) from = `From: ${enc(fromName.trim())} <${p.emailAddress}>`;
+    }
     const mime = [
+      ...(from ? [from] : []),
       `To: ${to}`,
       `Subject: ${enc(subject)}`,
       'MIME-Version: 1.0',

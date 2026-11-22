@@ -14,6 +14,7 @@ import { getGdprSettingsPublic, runRetention } from '@/lib/gdpr';
 import { mergeReservations, type ReservationSettings } from '@/lib/pricing-shared';
 import { lateBy, mergePipelines, pipelineOf, stageIndex } from '@/lib/pipeline-shared';
 import { runMarketingAutomations } from '@/lib/marketing-automations';
+import { langOf } from '@/lib/message-format-shared';
 import { audienceFor, digestText, dueSteps, localParts, mergeLeadAutomation, type DigestCounts, type LeadAutomationSettings } from '@/lib/lead-automation-shared';
 
 /**
@@ -222,7 +223,7 @@ async function runBirthdays(svc: Svc): Promise<RunResult> {
   const [th, tm] = b.time.split(':').map(Number);
   if (hh * 60 + mm < (th || 0) * 60 + (tm || 0)) return { processed: 0, summary: 'Νωρίτερα από την ώρα αποστολής', details: {} };
   const consent = b.channel === 'sms' ? 'receive_sms' : 'receive_email';
-  const { data: people } = await svc.from('contacts').select('id, full_name, date_of_birth').not('date_of_birth', 'is', null).eq(consent, true).limit(5000);
+  const { data: people } = await svc.from('contacts').select('id, full_name, date_of_birth, preferred_language').not('date_of_birth', 'is', null).eq(consent, true).limit(5000);
   const { data: org } = await svc.from('org_branding').select('company_name').eq('id', 'org').maybeSingle();
   const company = ((org as any)?.company_name as string) || 'Oramira';
   let sent = 0;
@@ -232,8 +233,9 @@ async function runBirthdays(svc: Svc): Promise<RunResult> {
     const { count } = await svc.from('leads').select('id', { count: 'exact', head: true }).eq('contact_id', c.id).neq('status', 'lost');
     const active = (count ?? 0) > 0;
     const first = String(c.full_name ?? '').trim().split(/\s+/)[0] ?? '';
-    const body = renderTemplate(active ? b.messageActive : b.messageInactive, { name: first, company });
-    if (await sendToContactOnce(svc, c.id, b.channel, `birthday_${new Date().getUTCFullYear()}`, 'Χρόνια πολλά!', body, 300)) sent += 1;
+    const en = langOf(c.preferred_language) === 'en';
+    const body = renderTemplate(en ? (active ? b.messageActiveEn : b.messageInactiveEn) : (active ? b.messageActive : b.messageInactive), { name: first, company });
+    if (await sendToContactOnce(svc, c.id, b.channel, `birthday_${new Date().getUTCFullYear()}`, en ? 'Happy birthday!' : 'Χρόνια πολλά!', body, 300)) sent += 1;
   }
   return { processed: sent, summary: `${sent} ευχές γενεθλίων`, details: { sent } };
 }
