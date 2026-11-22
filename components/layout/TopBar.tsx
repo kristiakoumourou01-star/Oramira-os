@@ -38,7 +38,7 @@ export function TopBar({ profile, showSearch = false, start }: { profile: Curren
         <ThemeMenu />
         <NotificationBell userId={profile.id} />
         <AccountMenu name={profile.fullName ?? 'Unnamed'} internal={isInternalRole(profile.role)}
-          role={profile.customRoleId ? (profile.roleName ?? '') : (ROLE_LABEL[profile.role] ? t(`role_${profile.role}` as TKey) : profile.role)} />
+          role={profile.jobTitle ? profile.jobTitle : profile.customRoleId ? (profile.roleName ?? '') : (ROLE_LABEL[profile.role] ? t(`role_${profile.role}` as TKey) : profile.role)} />
       </div>
     </header>
   );
