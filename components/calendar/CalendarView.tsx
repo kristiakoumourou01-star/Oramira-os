@@ -86,7 +86,7 @@ export function CalendarView({
   };
 
   const anchor = useMemo(() => atMidnight(date), [date]);
-  const go = (d: Date, v: View = view, t: boolean = teamMode) => router.push(`/calendar?date=${ymd(d)}&view=${v}${t ? '&team=1' : ''}`);
+  const go = (d: Date, v: View = view, t: boolean = teamMode) => router.push(`/calendar?date=${ymd(d)}&view=${v}${t ? '&team=1' : ''}`, { scroll: false }); // μένει στο ίδιο σημείο της σελίδας
   const step = (dir: number) => {
     if (view === 'day') go(addDays(anchor, dir));
     else if (view === 'week') go(addDays(anchor, dir * 7));
@@ -217,8 +217,9 @@ function TimeGrid({ columns, onSlot, onEvent, onMove }: { columns: GridColumn[];
         {columns.map((c) => {
           const isToday = sameDay(c.date, now);
           return (
-            <div key={c.key} className="sticky top-0 z-30 border-b border-stone-line/70 bg-white px-2 py-2.5 text-center">
+            <div key={c.key} className={`sticky top-0 z-30 border-b px-2 py-2.5 text-center ${isToday ? 'border-b-2 border-b-forest bg-[color-mix(in_srgb,rgb(var(--c-forest))_12%,white)]' : 'border-stone-line/70 bg-white'}`}>
               <p className={`truncate text-[11px] font-semibold uppercase tracking-[0.12em] ${isToday ? 'text-forest' : 'text-charcoal-600/55'}`}>{c.label}</p>
+              {isToday && <p className="text-[10px] font-semibold text-forest">Σήμερα</p>}
               {c.sublabel && <p className={`mx-auto mt-1 flex h-9 w-9 items-center justify-center rounded-full text-lg font-semibold ${isToday ? 'bg-forest text-white shadow-sm' : 'text-charcoal'}`}>{c.sublabel}</p>}
             </div>
           );
@@ -235,7 +236,7 @@ function TimeGrid({ columns, onSlot, onEvent, onMove }: { columns: GridColumn[];
         {columns.map((c) => {
           const isToday = sameDay(c.date, now);
           return (
-            <div key={`col-${c.key}`} onDragOver={(e) => { if (dragging) e.preventDefault(); }} onDrop={(e) => drop(c, e)} className={`relative border-l border-stone-line/50 ${isToday ? 'bg-forest/[0.035]' : c.date.getDay() === 0 || c.date.getDay() === 6 ? 'bg-[#bfab88]/[0.06]' : ''}`} style={{ height: GRID_PX }}>
+            <div key={`col-${c.key}`} onDragOver={(e) => { if (dragging) e.preventDefault(); }} onDrop={(e) => drop(c, e)} className={`relative border-l border-stone-line/50 ${isToday ? 'bg-forest/[0.09]' : c.date.getDay() === 0 || c.date.getDay() === 6 ? 'bg-[#bfab88]/[0.06]' : ''}`} style={{ height: GRID_PX }}>
               {hours.map((h) => (
                 <div
                   key={h}
@@ -305,7 +306,7 @@ function MonthGrid({ anchor, items, onPick, onNew, onEvent }: { anchor: Date; it
           const more = items.filter((it) => sameDay(new Date(it.start), d)).length - dayItems.length;
           const outside = d.getMonth() !== anchor.getMonth();
           return (
-            <div key={ymd(d)} className={`group/day min-h-[112px] border-b border-l border-stone-line/50 p-1.5 transition-colors hover:bg-forest/[0.03] ${outside ? 'bg-stone/30' : sameDay(d, now) ? 'bg-forest/[0.04]' : ''}`}>
+            <div key={ymd(d)} className={`group/day min-h-[112px] border-b border-l border-stone-line/50 p-1.5 transition-colors hover:bg-forest/[0.03] ${outside ? 'bg-stone/30' : sameDay(d, now) ? 'bg-forest/[0.10] ring-2 ring-inset ring-forest/60' : ''}`}>
               <div className="mb-1 flex items-center justify-between">
                 <button onClick={() => onPick(d)} className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold transition ${sameDay(d, now) ? 'bg-forest text-white shadow-sm' : outside ? 'text-charcoal-600/35 hover:bg-stone' : 'text-charcoal hover:bg-forest/10'}`}>{d.getDate()}</button>
                 <button onClick={() => { const s = new Date(d); s.setHours(10, 0, 0, 0); onNew(s.toISOString()); }} className="flex h-6 w-6 items-center justify-center rounded-full text-charcoal-600/30 opacity-0 transition hover:bg-forest/10 hover:text-forest group-hover/day:opacity-100"><Plus size={13} /></button>
