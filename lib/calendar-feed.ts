@@ -1,5 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server';
-import { getGoogleEventsForUser } from '@/lib/calendar-sync';
+import { getGoogleEventsForUser, type ExternalEvent } from '@/lib/calendar-sync';
 import type { CalendarSource, CalendarItem } from '@/lib/calendar-feed-shared';
 import { activityLabel } from '@/lib/activity-types';
 
@@ -32,10 +32,25 @@ export type { CalendarSource, CalendarItem } from '@/lib/calendar-feed-shared';
 
 
 
+const msEq = (a: string, b: string) => Math.abs(new Date(a).getTime() - new Date(b).getTime()) < 60000;
+
 export async function getCalendarFeed(profileId: string, fromISO: string, toISO: string): Promise<CalendarItem[]> {
   const supabase = await createSupabaseServerClient();
   const items: CalendarItem[] = [];
   const mirroredGoogleIds = new Set<string>();
+
+  // Google πρώτα: ό,τι άλλαξε ή σβήστηκε στο Google Calendar περνάει και στο CRM (αμφίδρομος συγχρονισμός).
+  let gevents: ExternalEvent[] = [];
+  try { gevents = await getGoogleEventsForUser(profileId, fromISO, toISO, { includeCancelled: true }); } catch { /* degrade */ }
+  const gById = new Map(gevents.map((g) => [g.id.replace(/^g_/, ''), g]));
+  /** Η εκδοχή του Google για ένα δικό μας γεγονός, αν διαφέρει (ώρα, διάρκεια, τίτλος) ή αν σβήστηκε. */
+  const fromGoogle = (gid: string | null | undefined, cur: { start: string; durationMin?: number; title?: string }) => {
+    const g = gid ? gById.get(gid) : undefined;
+    if (!g || g.allDay) return null;
+    if (g.cancelled) return { cancelled: true as const, g };
+    const changed = !msEq(g.start, cur.start) || (cur.durationMin != null && g.durationMin != null && g.durationMin !== cur.durationMin) || (cur.title != null && g.title !== cur.title);
+    return changed ? { cancelled: false as const, g } : null;
+  };
 
   // Internal planner events.
   try {
@@ -48,6 +63,13 @@ export async function getCalendarFeed(profileId: string, fromISO: string, toISO:
       .lte('start_at', toISO);
     for (const e of data ?? []) {
       if (e.google_event_id) mirroredGoogleIds.add(e.google_event_id);
+      const sync = fromGoogle(e.google_event_id, { start: e.start_at, durationMin: e.duration_min ?? 45, title: e.title });
+      if (sync?.cancelled) { await supabase.from('calendar_events').update({ status: 'cancelled' }).eq('id', e.id); continue; }
+      if (sync) {
+        e.start_at = sync.g.start; e.duration_min = sync.g.durationMin ?? e.duration_min; e.title = sync.g.title;
+        await supabase.from('calendar_events').update({ start_at: e.start_at, duration_min: e.duration_min, title: e.title, ...(sync.g.location != null ? { location: sync.g.location } : {}) }).eq('id', e.id);
+        if (sync.g.location != null) e.location = sync.g.location;
+      }
       items.push({
         id: e.id,
         source: 'internal',
@@ -76,6 +98,9 @@ export async function getCalendarFeed(profileId: string, fromISO: string, toISO:
       .lte('scheduled_at', toISO);
     for (const v of (data ?? []) as any[]) {
       if (v.google_event_id) mirroredGoogleIds.add(v.google_event_id);
+      const sync = fromGoogle(v.google_event_id, { start: v.scheduled_at });
+      if (sync?.cancelled) { await supabase.from('viewings').update({ status: 'cancelled' }).eq('id', v.id); continue; }
+      if (sync) { v.scheduled_at = sync.g.start; await supabase.from('viewings').update({ scheduled_at: v.scheduled_at }).eq('id', v.id); }
       items.push({
         id: v.id,
         source: 'viewing',
@@ -96,31 +121,33 @@ export async function getCalendarFeed(profileId: string, fromISO: string, toISO:
   // Activities του χρήστη (κλήσεις, συναντήσεις, εργασίες…).
   for (const { owner: _o, googleId, ...it } of await activityItems(supabase, [profileId], fromISO, toISO)) {
     if (googleId) mirroredGoogleIds.add(googleId);
+    const sync = fromGoogle(googleId, { start: it.start, durationMin: it.durationMin });
+    if (sync && !sync.cancelled) {
+      it.start = sync.g.start; it.durationMin = sync.g.durationMin ?? it.durationMin;
+      try { await supabase.from('follow_up_tasks').update({ due_at: it.start, duration_min: it.durationMin }).eq('id', it.id); } catch { /* degrade */ }
+    }
     items.push(it);
   }
 
-  // Google Calendar — anything not already mirrored from an internal row/viewing.
-  try {
-    const gevents = await getGoogleEventsForUser(profileId, fromISO, toISO);
-    for (const g of gevents) {
-      const rawId = g.id.replace(/^g_/, '');
-      if (mirroredGoogleIds.has(rawId)) continue;
-      items.push({
-        id: g.id,
-        source: 'google',
-        type: 'google',
-        title: g.title,
-        start: g.start,
-        durationMin: 45,
-        status: null,
-        color: null,
-        location: null,
-        meetingLink: g.meetingLink ?? null,
-        leadId: null,
-        editable: false,
-      });
-    }
-  } catch { /* degrade */ }
+  // Google Calendar — ό,τι δεν είναι ήδη δικό μας γεγονός. Αλλάζει και σβήνει από εδώ (περνάει αμέσως στο Google).
+  for (const g of gevents) {
+    const rawId = g.id.replace(/^g_/, '');
+    if (g.cancelled || mirroredGoogleIds.has(rawId) || (g.seriesId && mirroredGoogleIds.has(g.seriesId))) continue;
+    items.push({
+      id: g.id,
+      source: 'google',
+      type: 'google',
+      title: g.title,
+      start: g.start,
+      durationMin: g.durationMin ?? 45,
+      status: null,
+      color: null,
+      location: g.location ?? null,
+      meetingLink: g.meetingLink ?? null,
+      leadId: null,
+      editable: !g.allDay,
+    });
+  }
 
   items.sort((a, b) => a.start.localeCompare(b.start));
   return items;

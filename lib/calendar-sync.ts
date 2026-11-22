@@ -49,12 +49,12 @@ export async function deleteGoogleEvent(profileId: string, googleEventId: string
 }
 
 /** Patch an existing Google event's time when an internal record is rescheduled. */
-export async function updateGoogleEvent(profileId: string, googleEventId: string, patch: { summary?: string; start: string; durationMin?: number }): Promise<boolean> {
+export async function updateGoogleEvent(profileId: string, googleEventId: string, patch: { summary?: string; start: string; durationMin?: number; location?: string | null }): Promise<boolean> {
   try {
     const t = await activeToken(profileId);
     if (!t) return false;
     const end = new Date(new Date(patch.start).getTime() + (patch.durationMin ?? DEFAULT_DURATION_MIN) * 60000).toISOString();
-    return updateEvent(t.token, t.calendarId, googleEventId, { summary: patch.summary, start: new Date(patch.start).toISOString(), end });
+    return updateEvent(t.token, t.calendarId, googleEventId, { summary: patch.summary, start: new Date(patch.start).toISOString(), end, location: patch.location });
   } catch { return false; }
 }
 
@@ -75,37 +75,36 @@ export async function getBusyForUser(profileId: string, timeMin: string, timeMax
   }
 }
 
-export interface ExternalEvent { id: string; title: string; start: string; meetingLink?: string | null; link?: string | null; }
+export interface ExternalEvent {
+  id: string; title: string; start: string; meetingLink?: string | null; link?: string | null;
+  durationMin?: number; location?: string | null; allDay?: boolean; cancelled?: boolean; seriesId?: string | null;
+}
 
 /**
- * Pull the user's Google Calendar events for a window, refreshing the access
- * token first if it has expired. Returns [] when Google isn't configured or the
- * user hasn't connected — the dashboard then just shows internal events.
+ * Pull the user's Google Calendar events for a window (refreshing the token when
+ * needed). Returns [] when Google isn't configured or the user hasn't connected —
+ * the dashboard then just shows internal events. With includeCancelled the
+ * events deleted in Google come back too (cancelled: true), so the CRM can drop
+ * its own copy.
  */
-export async function getGoogleEventsForUser(profileId: string, timeMin: string, timeMax: string): Promise<ExternalEvent[]> {
-  if (!googleConfigured()) return [];
-  const svc = createSupabaseServiceRoleClient();
-  const { data: conn } = await svc.from('calendar_connections').select('*').eq('profile_id', profileId).eq('provider', 'google').maybeSingle();
-  if (!conn?.access_token) return [];
-
-  let accessToken = conn.access_token;
-  // Refresh if expired.
-  if (conn.token_expiry && new Date(conn.token_expiry).getTime() < Date.now() && conn.refresh_token) {
-    const refreshed = await refreshAccessToken(conn.refresh_token);
-    if (refreshed?.access_token) {
-      accessToken = refreshed.access_token;
-      await svc.from('calendar_connections').update({
-        access_token: refreshed.access_token,
-        token_expiry: new Date(Date.now() + (refreshed.expires_in ?? 3600) * 1000).toISOString(),
-        updated_at: new Date().toISOString(),
-      }).eq('id', conn.id);
-    }
-  }
-
-  const events = await listEvents(accessToken, conn.calendar_id ?? 'primary', timeMin, timeMax);
+export async function getGoogleEventsForUser(profileId: string, timeMin: string, timeMax: string, opts: { includeCancelled?: boolean } = {}): Promise<ExternalEvent[]> {
+  const t = await activeToken(profileId);
+  if (!t) return [];
+  const events = await listEvents(t.token, t.calendarId, timeMin, timeMax, !!opts.includeCancelled);
   return events
-    .map((e) => ({ id: `g_${e.id}`, title: e.summary ?? '(busy)', start: e.start?.dateTime ?? (e.start?.date ? `${e.start.date}T00:00:00` : ''), meetingLink: e.hangoutLink ?? null, link: e.htmlLink ?? null }))
-    .filter((e) => e.start);
+    .map((e) => {
+      const allDay = !e.start?.dateTime && !!e.start?.date;
+      const start = e.start?.dateTime ?? (e.start?.date ? `${e.start.date}T00:00:00` : '');
+      const endRaw = e.end?.dateTime ?? (e.end?.date ? `${e.end.date}T00:00:00` : '');
+      const dur = start && endRaw ? Math.round((new Date(endRaw).getTime() - new Date(start).getTime()) / 60000) : 45;
+      return {
+        id: `g_${e.id}`, title: e.summary ?? '(busy)', start, meetingLink: e.hangoutLink ?? null, link: e.htmlLink ?? null,
+        durationMin: allDay ? 30 : Math.max(5, Math.min(24 * 60, dur || 45)), location: e.location ?? null, allDay,
+        cancelled: e.status === 'cancelled', seriesId: e.recurringEventId ?? null,
+      };
+    })
+    .filter((e) => e.start || e.cancelled)
+    .filter((e) => opts.includeCancelled || !e.cancelled);
 }
 
 export async function isCalendarConnected(profileId: string): Promise<{ connected: boolean; configured: boolean }> {
