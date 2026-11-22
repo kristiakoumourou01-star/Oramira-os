@@ -106,6 +106,10 @@ export function MarketingHub({ campaigns, groups, contacts, tags, prefill, refer
               {leadAutomation}
             </section>
           )}
+          <p className="text-[13px] text-charcoal-600">
+            <span>Θέλετε να δείτε πότε έτρεξε κάθε αυτόματη εργασία και αν είχε σφάλμα;</span>{' '}
+            <a href="/automation" className="text-forest hover:underline">Ιστορικό αυτόματων εργασιών →</a>
+          </p>
         </div>
       )}
 
