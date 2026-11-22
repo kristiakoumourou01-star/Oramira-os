@@ -6,6 +6,7 @@ import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 import Link from 'next/link';
 import { t } from '@/lib/i18n';
 import { markAllNotificationsRead } from '@/app/actions/notifications';
+import { readNotifPrefs, writeNotifPrefs, playChime, NOTIF_PREFS_EVENT, type NotifPrefs } from '@/lib/notify-prefs-shared';
 
 interface NotificationRow {
   id: string;
@@ -23,30 +24,11 @@ interface NotificationRow {
  * inserts so new alerts (defect reported, milestone complete, lead
  * assigned…) appear without a page refresh.
  */
-/* Per-person, per-device preferences (kept in this browser only). */
-const PREFS_KEY = 'oramira_notif_prefs';
-interface Prefs { sound: boolean; desktop: boolean }
-function readPrefs(): Prefs {
-  try { const p = JSON.parse(localStorage.getItem(PREFS_KEY) ?? '{}'); return { sound: p.sound === true, desktop: p.desktop === true }; } catch { return { sound: false, desktop: false }; }
-}
-function writePrefs(p: Prefs) { try { localStorage.setItem(PREFS_KEY, JSON.stringify(p)); } catch { /* private mode */ } }
-
-/** A short two-note chime, generated (no audio file to load). */
-function chime() {
-  try {
-    const Ctx = (window as any).AudioContext || (window as any).webkitAudioContext;
-    if (!Ctx) return;
-    const ctx = new Ctx();
-    [880, 1320].forEach((f, i) => {
-      const o = ctx.createOscillator(); const g = ctx.createGain();
-      o.type = 'sine'; o.frequency.value = f;
-      const t = ctx.currentTime + i * 0.12;
-      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.15, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.25);
-      o.connect(g).connect(ctx.destination); o.start(t); o.stop(t + 0.3);
-    });
-    setTimeout(() => ctx.close?.(), 800);
-  } catch { /* audio blocked */ }
-}
+/* Per-person, per-device preferences (kept in this browser only) — also editable in Settings → Ειδοποιήσεις. */
+type Prefs = NotifPrefs;
+const readPrefs = readNotifPrefs;
+const writePrefs = writeNotifPrefs;
+const chime = () => playChime(readNotifPrefs().volume);
 
 export function NotificationBell({ userId }: { userId: string }) {
   const [open, setOpen] = useState(false);
@@ -72,9 +54,14 @@ export function NotificationBell({ userId }: { userId: string }) {
     document.addEventListener('mousedown', onDown); document.addEventListener('keydown', onKey);
     return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey); };
   }, [open]);
-  const [prefs, setPrefs] = useState<Prefs>({ sound: false, desktop: false });
+  const [prefs, setPrefs] = useState<Prefs>({ sound: false, desktop: false, volume: 75 });
   const prefsRef = useRef(prefs);
-  useEffect(() => { const p = readPrefs(); setPrefs(p); prefsRef.current = p; }, []);
+  useEffect(() => {
+    const load = () => { const p = readPrefs(); setPrefs(p); prefsRef.current = p; };
+    load();
+    window.addEventListener(NOTIF_PREFS_EVENT, load); window.addEventListener('storage', load);
+    return () => { window.removeEventListener(NOTIF_PREFS_EVENT, load); window.removeEventListener('storage', load); };
+  }, []);
   const updatePrefs = async (p: Prefs) => {
     if (p.desktop && typeof Notification !== 'undefined' && Notification.permission !== 'granted') {
       const r = await Notification.requestPermission().catch(() => 'denied');

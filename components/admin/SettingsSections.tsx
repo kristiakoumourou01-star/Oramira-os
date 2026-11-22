@@ -1,8 +1,10 @@
 'use client';
 
-import { Fragment, useState, useTransition } from 'react';
+import { Fragment, useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { Check, Plus, X, Trash2 } from 'lucide-react';
+import { Check, Plus, X, Trash2, Bell, TrendingUp, Building2, Wallet, Users, MessageSquare, ChevronDown } from 'lucide-react';
+import { SettingsBlock, OptionBox, Switch, FieldLabel } from '@/components/admin/settings-ui';
+import { readNotifPrefs, writeNotifPrefs, playChime, DEFAULT_NOTIF_PREFS, type NotifPrefs } from '@/lib/notify-prefs-shared';
 import { saveOrgSlice } from '@/app/actions/org-settings';
 import { UndoButton } from '@/components/admin/UndoButton';
 import { NOTIF_EVENTS } from '@/lib/notification-events';
@@ -75,56 +77,157 @@ export function ChipList({ items, onChange, placeholder, canEdit }: { items: str
 const Lbl = ({ children }: { children: React.ReactNode }) => <span className="eyebrow mb-1 block">{children}</span>;
 
 /* ---------------------------------------------------------- Notifications -- */
+const NOTIF_GROUP_META: Record<string, { icon: typeof Bell; hint: string }> = {
+  'Πωλήσεις': { icon: TrendingUp, hint: 'Νέα leads, αναθέσεις, αναπάντητα, προβολές και κρατήσεις' },
+  'Έργα & πελάτες': { icon: Building2, hint: 'Αιτήματα ιδιοκτητών, συντήρηση, εγγυήσεις και ενημερώσεις κατασκευής' },
+  'Οικονομικά': { icon: Wallet, hint: 'Καθυστερημένες πληρωμές, εργολάβοι και προθεσμίες ΦΠΑ' },
+  'Ομάδα & HR': { icon: Users, hint: 'Εργασίες, άδειες, μισθοδοσία, συμβάσεις και προμήθειες' },
+  'Μηνύματα': { icon: MessageSquare, hint: 'Άμεσα μηνύματα προς την ομάδα' },
+};
+const CHANNELS = [['inApp', 'Εφαρμογή'], ['email', 'Email'], ['push', 'Push'], ['sms', 'SMS']] as const;
+const VARS_BIRTHDAY = ['{{name}}', '{{company}}'];
+
+function HourBar({ from, to }: { from: string; to: string }) {
+  const m = (t: string) => { const [h, mm] = t.split(':').map(Number); return (h || 0) * 60 + (mm || 0); };
+  const f = m(from) / 1440 * 100; const t = m(to) / 1440 * 100;
+  const segs = f <= t ? [[f, t - f]] : [[f, 100 - f], [0, t]];
+  return (
+    <div className="mt-3">
+      <div className="relative h-2.5 rounded-full bg-stone-line/60">
+        {segs.map(([l, w], i) => <span key={i} className="absolute top-0 h-full rounded-full bg-forest/70" style={{ left: `${l}%`, width: `${w}%` }} />)}
+      </div>
+      <div className="mt-1 flex justify-between text-[10px] tabular-nums text-charcoal-600/70"><span>0</span><span>6</span><span>12</span><span>18</span><span>24</span></div>
+    </div>
+  );
+}
+
+function Segmented<T extends string>({ value, options, onChange, disabled }: { value: T; options: readonly (readonly [T, string])[]; onChange: (v: T) => void; disabled?: boolean }) {
+  return (
+    <div className="inline-flex flex-wrap gap-1 rounded-xl border border-stone-line bg-white p-1">
+      {options.map(([k, label]) => (
+        <button key={k} type="button" disabled={disabled} onClick={() => onChange(k)}
+          className={`rounded-lg px-3 py-1.5 text-[13px] transition-colors ${value === k ? 'bg-forest text-white' : 'text-charcoal hover:bg-forest/[0.06]'}`}>{label}</button>
+      ))}
+    </div>
+  );
+}
+
 export function NotificationsSection({ initial, canEdit }: { initial: NotificationSettings; canEdit: boolean }) {
   const { v, setV, patch, save, pending, msg } = useSlice('notifications', initial);
-  const toggle = (key: string, k: 'inApp' | 'email' | 'push' | 'sms') =>
-    setV({ ...v, rows: v.rows.map((r) => (r.key === key ? { ...r, [k]: !r[k] } : r)) });
+  const [openGroup, setOpenGroup] = useState<string | null>(null);
+  const [prefs, setPrefs] = useState<NotifPrefs>(DEFAULT_NOTIF_PREFS);
+  useEffect(() => { setPrefs(readNotifPrefs()); }, []);
+  const setPref = async (p: NotifPrefs) => {
+    if (p.desktop && !prefs.desktop && typeof Notification !== 'undefined' && Notification.permission !== 'granted') {
+      const r = await Notification.requestPermission().catch(() => 'denied');
+      if (r !== 'granted') p = { ...p, desktop: false };
+    }
+    setPrefs(p); writeNotifPrefs(p);
+  };
+  const dis = !canEdit;
   const groups = Array.from(new Set(NOTIF_EVENTS.map((e) => e.group)));
+  const rowsOf = (g: string) => v.rows.filter((r) => NOTIF_EVENTS.find((e) => e.key === r.key)?.group === g);
+  const groupOn = (g: string) => rowsOf(g).some((r) => r.inApp || r.email || r.push || r.sms);
+  const setGroup = (g: string, on: boolean) => {
+    const keys = new Set(rowsOf(g).map((r) => r.key));
+    setV({ ...v, rows: v.rows.map((r) => {
+      if (!keys.has(r.key)) return r;
+      const def = NOTIF_EVENTS.find((e) => e.key === r.key);
+      return on ? { ...r, inApp: true, email: def?.email ?? false } : { ...r, inApp: false, email: false, push: false, sms: false };
+    }) });
+  };
+  const toggle = (key: string, k: 'inApp' | 'email' | 'push' | 'sms') => setV({ ...v, rows: v.rows.map((r) => (r.key === key ? { ...r, [k]: !r[k] } : r)) });
+  const pay = v.payments; const setPay = (p: Partial<typeof pay>) => patch({ payments: { ...pay, ...p } });
+  const bd = v.birthday; const setBd = (p: Partial<typeof bd>) => patch({ birthday: { ...bd, ...p } });
+  const sample = (t: string) => t.replace(/\{\{\s*name\s*\}\}/g, 'Μαρία').replace(/\{\{\s*company\s*\}\}/g, 'Oramira');
+
   return (
-    <div className="space-y-4">
-      <div className="panel overflow-x-auto p-0">
-        <table className="table-base w-full min-w-[640px]">
-          <thead>
-            <tr>
-              <th>Γεγονός</th><th>Ποιος ενημερώνεται</th>
-              <th className="text-center">Στην εφαρμογή</th><th className="text-center">Email</th>
-              <th className="text-center" title="Ενεργοποιείται όταν συνδεθεί πάροχος push">Push</th>
-              <th className="text-center" title="Ενεργοποιείται όταν συνδεθεί πάροχος SMS">SMS</th>
-            </tr>
-          </thead>
-          <tbody>
-            {groups.map((g) => (
-              <Fragment key={g}>
-                <tr><td colSpan={6} className="bg-stone/60 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-charcoal-600/60">{g}</td></tr>
-                {v.rows.filter((r) => NOTIF_EVENTS.find((e) => e.key === r.key)?.group === g).map((r) => (
-                  <tr key={r.key}>
-                    <td className="font-medium text-charcoal">{r.event}</td>
-                    <td className="text-sm text-charcoal-600">{r.who}</td>
-                    {(['inApp', 'email', 'push', 'sms'] as const).map((c) => (
-                      <td key={c} className="text-center">
-                        <input type="checkbox" disabled={!canEdit} checked={r[c]} onChange={() => toggle(r.key, c)}
-                          aria-label={`${r.event}: ${c}`} className="h-4 w-4 accent-[color:rgb(var(--c-forest))]" />
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </Fragment>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <p className="text-xs text-charcoal-600/60">
-        «Στην εφαρμογή» = το καμπανάκι πάνω δεξιά. Το email πηγαίνει στη διεύθυνση σύνδεσης του χρήστη (χρειάζεται ρυθμισμένο email αποστολής).
-        Push και SMS αποθηκεύονται από τώρα και ενεργοποιούνται μόλις συνδεθεί πάροχος στο Integrations.
-      </p>
-      <div className="panel space-y-2 p-5">
-        <h4>Ώρες ησυχίας</h4>
-        <p className="text-xs text-charcoal-600/60">Χωρίς SMS και push προς πελάτες σε αυτές τις ώρες (ώρα Κύπρου). Τα επείγοντα (νέο lead, αναπάντητο lead, καθυστερημένη πληρωμή) εξαιρούνται για την ομάδα.</p>
-        <div className="flex flex-wrap items-end gap-4">
-          <label><Lbl>Από</Lbl><input className="input" type="time" disabled={!canEdit} value={v.quietFrom} onChange={(e) => patch({ quietFrom: e.target.value })} /></label>
-          <label><Lbl>Έως</Lbl><input className="input" type="time" disabled={!canEdit} value={v.quietTo} onChange={(e) => patch({ quietTo: e.target.value })} /></label>
+    <div className="space-y-6">
+      <SettingsBlock title="Ειδοποιήσεις ανά θέμα" note="Ποια γεγονότα ενημερώνουν την ομάδα σας και με ποιο κανάλι. Πατήστε ένα θέμα για να διαλέξετε κανάλια ανά γεγονός.">
+        {groups.map((g) => {
+          const meta = NOTIF_GROUP_META[g] ?? { icon: Bell, hint: '' };
+          const Icon = meta.icon; const isOpen = openGroup === g;
+          return (
+            <div key={g} className="rounded-xl border border-stone-line bg-white transition-colors hover:border-forest/30">
+              <div className="flex items-center gap-3 px-4 py-3">
+                <button type="button" onClick={() => setOpenGroup(isOpen ? null : g)} className="flex min-w-0 flex-1 items-center gap-3 text-left" aria-expanded={isOpen}>
+                  <Icon size={17} className="shrink-0 text-charcoal-600" />
+                  <span className="min-w-0"><span className="block text-sm font-medium text-charcoal">{g}</span><span className="block text-xs text-charcoal-600/75">{meta.hint}</span></span>
+                  <ChevronDown size={15} className={`ml-auto shrink-0 text-charcoal-600/60 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                </button>
+                <Switch checked={groupOn(g)} disabled={dis} onChange={(on) => setGroup(g, on)} label={g} />
+              </div>
+              {isOpen && (
+                <div className="space-y-1.5 border-t border-stone-line px-4 py-3">
+                  {rowsOf(g).map((r) => (
+                    <div key={r.key} className="flex flex-wrap items-center justify-between gap-2 py-1">
+                      <span className="min-w-0"><span className="block text-[13px] text-charcoal">{r.event}</span><span className="block text-[11px] text-charcoal-600/70">{r.who}</span></span>
+                      <span className="flex flex-wrap gap-1">
+                        {CHANNELS.map(([k, label]) => (
+                          <button key={k} type="button" disabled={dis} onClick={() => toggle(r.key, k)}
+                            className={`rounded-full border px-2.5 py-0.5 text-[11px] transition-colors ${r[k] ? 'border-forest bg-forest text-white' : 'border-stone-line bg-white text-charcoal-600 hover:border-forest/30'}`}>{label}</button>
+                        ))}
+                      </span>
+                    </div>
+                  ))}
+                  <p className="pt-1 text-[11px] text-charcoal-600/70">«Εφαρμογή» = το καμπανάκι πάνω δεξιά. Push και SMS στέλνονται μόλις συνδεθεί πάροχος στην Επικοινωνία.</p>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </SettingsBlock>
+
+      <SettingsBlock title="Ειδοποιήσεις πληρωμών" note="Πολιτική λογαριασμού: τι μαθαίνουν οι αγοραστές για τις δόσεις τους.">
+        <OptionBox title="Αποστολή ειδοποιήσεων πληρωμών" hint="Απενεργοποιημένο = δεν στέλνεται τίποτα στους αγοραστές για πληρωμές."><Switch checked={pay.enabled} disabled={dis} onChange={(b) => setPay({ enabled: b })} /></OptionBox>
+        <div className={pay.enabled ? 'space-y-3' : 'pointer-events-none space-y-3 opacity-50'}>
+          <OptionBox title="Δόση πλησιάζει" hint="Υπενθύμιση πριν τη λήξη μιας δόσης. Μία φορά ανά δόση."><Switch checked={pay.dueSoon} disabled={dis} onChange={(b) => setPay({ dueSoon: b })} /></OptionBox>
+          <OptionBox title="Καθυστερημένη δόση" hint="Η δόση πέρασε την ημερομηνία της. Το πολύ μία φορά τη μέρα."><Switch checked={pay.overdue} disabled={dis} onChange={(b) => setPay({ overdue: b })} /></OptionBox>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div><FieldLabel>Τρόπος αποστολής</FieldLabel><Segmented value={pay.delivery} disabled={dis} onChange={(d) => setPay({ delivery: d })} options={[['inapp', 'Εφαρμογή + push'], ['email', 'Email'], ['sms', 'SMS']] as const} /></div>
+            <label className="block"><FieldLabel>Μέρες πριν τη λήξη</FieldLabel><input type="number" min={1} max={30} className="input w-28" disabled={dis} value={pay.daysBefore} onChange={(e) => setPay({ daysBefore: Number(e.target.value) })} /><span className="mt-1 block text-[11px] text-charcoal-600/70">Από 1 έως 30 μέρες.</span></label>
+          </div>
+          <p className="rounded-xl border border-stone-line bg-stone/50 px-4 py-2.5 text-xs text-charcoal-600">Οι ειδοποιήσεις πληρωμών ελέγχονται μία φορά τη μέρα το πρωί. Τα SMS χρεώνονται ανά μήνυμα από τον πάροχο SMS.</p>
         </div>
-      </div>
+      </SettingsBlock>
+
+      <SettingsBlock title="Ευχές γενεθλίων" note="Στέλνονται στους πελάτες τη μέρα των γενεθλίων τους (μόνο σε όσους δέχονται μηνύματα στο κανάλι).">
+        <OptionBox title="Αποστολή ευχών γενεθλίων" hint="Ένα μήνυμα τον χρόνο σε κάθε πελάτη με ημερομηνία γέννησης στην καρτέλα του."><Switch checked={bd.enabled} disabled={dis} onChange={(b) => setBd({ enabled: b })} /></OptionBox>
+        <div className={bd.enabled ? 'space-y-3' : 'pointer-events-none space-y-3 opacity-50'}>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="block"><FieldLabel>Ώρα αποστολής</FieldLabel><input type="time" className="input w-32" disabled={dis} value={bd.time} onChange={(e) => setBd({ time: e.target.value })} /><span className="mt-1 block text-[11px] text-charcoal-600/70">Ώρα Κύπρου.</span></label>
+            <div><FieldLabel>Κανάλι</FieldLabel><Segmented value={bd.channel} disabled={dis} onChange={(c) => setBd({ channel: c })} options={[['sms', 'SMS'], ['email', 'Email']] as const} /></div>
+          </div>
+          {([['messageActive', 'Μήνυμα για ενεργούς πελάτες'], ['messageInactive', 'Μήνυμα για παλιούς πελάτες']] as const).map(([k, label]) => (
+            <label key={k} className="block">
+              <FieldLabel>{label}</FieldLabel>
+              <textarea className="input min-h-[70px]" disabled={dis} value={bd[k]} onChange={(e) => setBd({ [k]: e.target.value } as any)} />
+              <span className="mt-1 flex flex-wrap gap-1">{VARS_BIRTHDAY.map((x) => <button key={x} type="button" disabled={dis} onClick={() => setBd({ [k]: `${bd[k]} ${x}` } as any)} className="rounded-md border border-stone-line px-1.5 py-0.5 font-mono text-[11px] text-charcoal-600 hover:border-forest/40" data-no-tr>{x}</button>)}</span>
+              <span className="mt-2 block rounded-xl border border-stone-line bg-stone/40 px-3 py-2 text-xs text-charcoal"><span className="mb-0.5 block text-[10px] font-semibold uppercase tracking-wide text-charcoal-600/70">Προεπισκόπηση</span><span data-no-tr>{sample(bd[k])}</span></span>
+            </label>
+          ))}
+          <p className="rounded-xl border border-stone-line bg-stone/50 px-4 py-2.5 text-xs text-charcoal-600">«Ενεργός» = πελάτης με ενεργό lead ή συμβόλαιο. Πελάτες χωρίς ημερομηνία γέννησης παραλείπονται.</p>
+        </div>
+      </SettingsBlock>
+
+      <SettingsBlock title="Ώρες ησυχίας" note="Χωρίς SMS και push προς πελάτες αυτές τις ώρες (ώρα Κύπρου).">
+        <div className="flex flex-wrap items-end gap-4">
+          <label><FieldLabel>Από</FieldLabel><input className="input" type="time" disabled={dis} value={v.quietFrom} onChange={(e) => patch({ quietFrom: e.target.value })} /></label>
+          <label><FieldLabel>Έως</FieldLabel><input className="input" type="time" disabled={dis} value={v.quietTo} onChange={(e) => patch({ quietTo: e.target.value })} /></label>
+        </div>
+        <HourBar from={v.quietFrom} to={v.quietTo} />
+        <OptionBox title="Εξαίρεση για τα επείγοντα" hint="Νέο lead, αναπάντητο lead, καθυστερημένη πληρωμή και αιτήματα ιδιοκτητών περνούν και στις ώρες ησυχίας."><Switch checked={v.urgentBypass} disabled={dis} onChange={(b) => patch({ urgentBypass: b })} /></OptionBox>
+      </SettingsBlock>
+
+      <SettingsBlock title="Ήχοι" note="Ισχύουν για αυτή τη συσκευή και αποθηκεύονται αμέσως.">
+        <OptionBox title="Ήχος σε νέα ειδοποίηση" hint="Ένα σύντομο «ding» όταν έρχεται νέο lead ή άλλη ειδοποίηση."><Switch checked={prefs.sound} onChange={(b) => { void setPref({ ...prefs, sound: b }); if (b) playChime(prefs.volume); }} /></OptionBox>
+        <OptionBox title="Ειδοποιήσεις υπολογιστή" hint="Αναδυόμενο μήνυμα του υπολογιστή όταν η καρτέλα δεν είναι μπροστά (χρειάζεται άδεια του browser)."><Switch checked={prefs.desktop} onChange={(b) => void setPref({ ...prefs, desktop: b })} /></OptionBox>
+        <div className="rounded-xl border border-stone-line bg-white px-4 py-3">
+          <div className="flex items-center justify-between text-sm"><span className="font-medium text-charcoal">Ένταση</span><span className="tabular-nums text-charcoal-600">{prefs.volume}%</span></div>
+          <input type="range" min={0} max={100} step={5} value={prefs.volume} onChange={(e) => void setPref({ ...prefs, volume: Number(e.target.value) })} onMouseUp={() => playChime(prefs.volume)} onTouchEnd={() => playChime(prefs.volume)} className="mt-2 w-full accent-[color:rgb(var(--c-forest))]" aria-label="Ένταση" />
+        </div>
+      </SettingsBlock>
+
       <SaveBar onSave={save} pending={pending} msg={msg} canEdit={canEdit} slice="notifications" onReset={() => setV(DEFAULT_ORG_SETTINGS.notifications as any)} />
     </div>
   );
