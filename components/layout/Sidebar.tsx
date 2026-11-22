@@ -27,6 +27,8 @@ export function Sidebar({
   accordion?: boolean;
   className?: string;
 }) {
+  // Όλες οι διευθύνσεις του μενού: ενεργό είναι μόνο το πιο συγκεκριμένο (π.χ. «Τιμολόγια», όχι και «Οικονομικά»).
+  const allHrefs = sections.flatMap((s) => s.items.flatMap((it) => [it.href, ...((it.children ?? []) as { href: string }[]).map((c) => c.href)])).map((h) => h.split('?')[0]);
   return (
     <aside className={`${className} sticky top-0 flex h-screen shrink-0 flex-col self-start [background:var(--sidebar-bg)] border-r border-[color:var(--sb-line)] py-4 ${compact ? 'w-[72px] px-2' : 'w-56 px-3'}`}>
       <div className={`pb-5 ${compact ? 'flex justify-center' : 'px-2'}`}>
@@ -50,7 +52,7 @@ export function Sidebar({
                 item.children && item.children.length > 0 ? (
                   <NavGroup key={item.href} href={item.href} label={item.label} icon={<item.icon size={16} strokeWidth={1.75} />} items={item.children} compact={compact} accordion={accordion} />
                 ) : (
-                  <NavItem key={item.href} href={item.href} label={item.label} icon={<item.icon size={16} strokeWidth={1.75} />} compact={compact} />
+                  <NavItem key={item.href} href={item.href} label={item.label} icon={<item.icon size={16} strokeWidth={1.75} />} compact={compact} others={allHrefs} />
                 )
               )}
             </div>

@@ -155,6 +155,27 @@ const postmarkEmailAdapter: ChannelAdapter = {
   },
 };
 
+// ── Email: από το Gmail της εταιρείας (δωρεάν), όταν δεν υπάρχει Resend / Postmark ──
+// Στέλνει από τον λογαριασμό Google ενός admin που έχει συνδέσει Google (π.χ. info@oramiraltd.com).
+const gmailEmailAdapter: ChannelAdapter = {
+  provider: 'gmail',
+  async send(to, payload) {
+    try {
+      const { createSupabaseServiceRoleClient } = await import('@/lib/supabase/server');
+      const svc = createSupabaseServiceRoleClient();
+      const { data: conns } = await svc.from('calendar_connections').select('profile_id, updated_at, profiles!inner(role)').eq('provider', 'google').eq('profiles.role', 'admin').order('updated_at', { ascending: false }).limit(3);
+      const { sendViaGmail } = await import('@/lib/gmail-send');
+      const html = /<[a-z][\s\S]*>/i.test(payload.body) ? payload.body : payload.body.replace(/\n/g, '<br>');
+      for (const c of (conns ?? []) as any[]) {
+        if (await sendViaGmail(c.profile_id, to, payload.subject ?? 'Oramira', html)) return { status: 'sent', provider: 'gmail' };
+      }
+      return { status: 'queued', provider: 'log' };
+    } catch (err: any) {
+      return { status: 'failed', provider: 'gmail', error: err?.message ?? 'send failed' };
+    }
+  },
+};
+
 /**
  * Registry. Env-driven: the first provider with credentials wins, else the log
  * adapter. The `integrations` table is the future home for admin-configured
@@ -173,7 +194,7 @@ export function getChannelAdapter(channel: Channel): ChannelAdapter {
   if (channel === 'email') {
     if (process.env.RESEND_API_KEY) return resendEmailAdapter;
     if (process.env.POSTMARK_SERVER_TOKEN) return postmarkEmailAdapter;
-    return logAdapter;
+    return gmailEmailAdapter;
   }
   return logAdapter;
 }

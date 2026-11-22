@@ -9,6 +9,7 @@ export function NavItem({
   label,
   icon,
   compact = false,
+  others = [],
 }: {
   href: string;
   label: string;
@@ -17,9 +18,12 @@ export function NavItem({
   // Sidebar renders it on the server). See components/layout/Sidebar.tsx.
   icon: ReactNode;
   compact?: boolean;
+  /** Οι άλλες διευθύνσεις του μενού — αν κάποια ταιριάζει πιο συγκεκριμένα, αυτό δεν είναι ενεργό. */
+  others?: string[];
 }) {
   const pathname = usePathname();
-  const active = pathname === href || pathname.startsWith(href + '/');
+  const matches = (h: string) => pathname === h || pathname.startsWith(h + '/');
+  const active = matches(href) && !others.some((o) => o !== href && o.length > href.length && matches(o));
 
   return (
     <Link

@@ -34,6 +34,43 @@ export interface LeadAutomationSettings {
   unanswered: { minutes: number; notifyOwner: boolean; notifyManagers: boolean; reassignAfterMinutes: number | null };
   sequence: { enabled: boolean; stopOnReply: boolean; steps: SeqStep[] };
   digest: { enabled: boolean; hour: number; managers: boolean };
+  /** Μηνύματα για ραντεβού (ξεναγήσεις και συναντήσεις με lead): επιβεβαίωση και υπενθύμιση. Marketing → Αυτοματισμοί leads. */
+  appointments: AppointmentMessages;
+}
+
+export type ApptChannel = 'whatsapp' | 'sms' | 'email';
+export interface AppointmentMessages {
+  confirm: { enabled: boolean; channel: ApptChannel; text: string };
+  reminder: { enabled: boolean; channel: ApptChannel; hoursBefore: number; text: string };
+}
+export const APPT_VARS = ['{{name}}', '{{date}}', '{{time}}', '{{place}}', '{{title}}', '{{agent}}'] as const;
+export const DEFAULT_APPOINTMENTS: AppointmentMessages = {
+  confirm: { enabled: true, channel: 'whatsapp', text: 'Γεια σας {{name}}, επιβεβαιώνουμε το ραντεβού σας «{{title}}» στις {{date}}, ώρα {{time}}{{place}}. Για αλλαγή απαντήστε σε αυτό το μήνυμα. {{agent}}, Oramira' },
+  reminder: { enabled: true, channel: 'whatsapp', hoursBefore: 24, text: 'Υπενθύμιση: {{name}}, σας περιμένουμε αύριο {{date}} στις {{time}}{{place}} για «{{title}}». {{agent}}, Oramira' },
+};
+export function mergeAppointments(v: any): AppointmentMessages {
+  const a = v && typeof v === 'object' ? v : {};
+  const c = a.confirm && typeof a.confirm === 'object' ? a.confirm : {};
+  const r = a.reminder && typeof a.reminder === 'object' ? a.reminder : {};
+  const ch = (x: any, d: ApptChannel): ApptChannel => (['whatsapp', 'sms', 'email'].includes(x) ? x : d);
+  const txt = (x: any, d: string) => (typeof x === 'string' && x.trim() ? x.slice(0, 1000) : d);
+  const h = Math.round(Number(r.hoursBefore));
+  const D = DEFAULT_APPOINTMENTS;
+  return {
+    confirm: { enabled: c.enabled !== undefined ? !!c.enabled : D.confirm.enabled, channel: ch(c.channel, D.confirm.channel), text: txt(c.text, D.confirm.text) },
+    reminder: { enabled: r.enabled !== undefined ? !!r.enabled : D.reminder.enabled, channel: ch(r.channel, D.reminder.channel), hoursBefore: Number.isFinite(h) ? Math.min(72, Math.max(1, h)) : D.reminder.hoursBefore, text: txt(r.text, D.reminder.text) },
+  };
+}
+/** Συμπληρώνει τις μεταβλητές ενός μηνύματος ραντεβού. */
+export function renderAppt(text: string, v: { name?: string | null; date: string; time: string; place?: string | null; title?: string | null; agent?: string | null }): string {
+  return text
+    .replace(/\{\{\s*name\s*\}\}/g, (v.name ?? '').split(' ')[0] || '')
+    .replace(/\{\{\s*date\s*\}\}/g, v.date)
+    .replace(/\{\{\s*time\s*\}\}/g, v.time)
+    .replace(/\{\{\s*place\s*\}\}/g, v.place ? ` (${v.place})` : '')
+    .replace(/\{\{\s*title\s*\}\}/g, v.title ?? 'ραντεβού')
+    .replace(/\{\{\s*agent\s*\}\}/g, v.agent ?? '')
+    .replace(/\s+,/g, ',').trim();
 }
 
 export const SEQUENCE_TEMPLATES = ['follow_up', 'nurture_intro', 'nurture_market', 'nurture_objections', 'reactivation'] as const;
@@ -55,6 +92,7 @@ export const DEFAULT_LEAD_AUTOMATION: LeadAutomationSettings = {
       { afterHours: 168, action: 'email', templateKey: 'nurture_objections' },
     ],
   },
+  appointments: DEFAULT_APPOINTMENTS,
   digest: { enabled: true, hour: 8, managers: true },
 };
 
@@ -110,6 +148,7 @@ export function mergeLeadAutomation(x: any): LeadAutomationSettings {
     },
     sequence: { enabled: bool(s.enabled, D.sequence.enabled), stopOnReply: bool(s.stopOnReply, D.sequence.stopOnReply), steps },
     digest: { enabled: bool(g.enabled, D.digest.enabled), hour: int(g.hour, D.digest.hour, 0, 23), managers: bool(g.managers, D.digest.managers) },
+    appointments: mergeAppointments((v as any)?.appointments),
   };
 }
 

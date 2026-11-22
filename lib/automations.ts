@@ -3,6 +3,7 @@ import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import { resolveContactFormLead, resolveNewsletter } from '@/lib/intake';
 import { sendTemplate, sendMessage, renderTemplate } from '@/lib/communications';
 import { mergeNotifications } from '@/lib/org-settings-shared';
+import { appointmentSettings, sendAppointmentMessage } from '@/lib/appointment-messages';
 import { pushEventToGoogle } from '@/lib/calendar-sync';
 import { templateAudience } from '@/lib/sales-doctrine';
 import { persistLearningInsights } from '@/lib/learning-loop';
@@ -598,62 +599,52 @@ async function runContractReminders(svc: Svc): Promise<RunResult> {
 // ── Viewing reminders ────────────────────────────────────────────────────────
 
 async function runViewingReminders(svc: Svc): Promise<RunResult> {
+  const cfg = await appointmentSettings();
+  if (!cfg.reminder.enabled) return { processed: 0, summary: 'Υπενθυμίσεις ραντεβού απενεργοποιημένες (Marketing → Αυτοματισμοί leads)' };
   const now = Date.now();
-  const in24h = new Date(now + DAY).toISOString();
+  const until = new Date(now + cfg.reminder.hoursBefore * 3600 * 1000).toISOString();
   const { data: viewings } = await svc
     .from('viewings')
-    .select('id, lead_id, contact_id, scheduled_at, contacts(full_name, phone, buyer_type, preferred_language), projects(name)')
+    .select('id, lead_id, contact_id, agent_id, scheduled_at, projects(name)')
     .eq('status', 'scheduled')
     .is('reminder_sent_at', null)
     .gte('scheduled_at', new Date(now).toISOString())
-    .lte('scheduled_at', in24h);
+    .lte('scheduled_at', until);
 
   let processed = 0;
-  for (const v of viewings ?? []) {
-    const c = (v as any).contacts;
-    const audience = templateAudience(c?.buyer_type, c?.preferred_language);
-    const vars = { name: c?.full_name ?? 'there', project: (v as any).projects?.name ?? 'Oramira', agent: 'the Oramira team', date: formatDateTime(v.scheduled_at) };
-    await sendTemplate({ contactId: v.contact_id, leadId: v.lead_id, channel: 'whatsapp', templateKey: 'viewing_reminder', to: c?.phone ?? null, vars, audience });
+  for (const v of (viewings ?? []) as any[]) {
     await svc.from('viewings').update({ reminder_sent_at: new Date().toISOString() }).eq('id', v.id);
-    processed += 1;
+    const project = v.projects?.name ?? null;
+    if (await sendAppointmentMessage('reminder', { contactId: v.contact_id, leadId: v.lead_id, startISO: v.scheduled_at, title: `Ξενάγηση${project ? ` — ${project}` : ''}`, place: project, agentId: v.agent_id })) processed += 1;
   }
-  return { processed, summary: processed > 0 ? `${processed} viewing reminder(s) sent` : 'No viewings within 24h' };
+  return { processed, summary: processed > 0 ? `${processed} viewing reminder(s) sent` : 'No viewing reminders due' };
 }
 
 // ── Meeting reminders ────────────────────────────────────────────────────────
 
-/**
- * WhatsApp reminders for planner meetings that are linked to a lead/contact and
- * start within the next ~2 hours. Idempotent via calendar_events.reminder_sent_at.
- * Complements viewing_reminders (which covers the viewings table); together they
- * extend the WhatsApp automation layer across the planner + sales cadence.
- */
+/** Υπενθύμιση για ραντεβού του ημερολογίου που συνδέονται με lead / πελάτη (μία φορά ανά ραντεβού). */
 async function runMeetingReminders(svc: Svc): Promise<RunResult> {
+  const cfg = await appointmentSettings();
+  if (!cfg.reminder.enabled) return { processed: 0, summary: 'Υπενθυμίσεις ραντεβού απενεργοποιημένες (Marketing → Αυτοματισμοί leads)' };
   const now = Date.now();
-  const in2h = new Date(now + 2 * 60 * 60 * 1000).toISOString();
+  const until = new Date(now + cfg.reminder.hoursBefore * 3600 * 1000).toISOString();
   const { data: events } = await svc
     .from('calendar_events')
-    .select('id, title, start_at, related_lead_id, leads:related_lead_id(id, contact_id, contacts(full_name, phone, buyer_type, preferred_language))')
+    .select('id, title, start_at, location, profile_id, related_lead_id, related_client_id, leads:related_lead_id(contact_id)')
     .in('type', ['meeting', 'viewing'])
     .neq('status', 'cancelled')
     .is('reminder_sent_at', null)
-    .not('related_lead_id', 'is', null)
+    .or('related_lead_id.not.is.null,related_client_id.not.is.null')
     .gte('start_at', new Date(now).toISOString())
-    .lte('start_at', in2h);
+    .lte('start_at', until);
 
   let processed = 0;
-  for (const e of events ?? []) {
-    const lead = (e as any).leads;
-    const c = lead?.contacts;
-    // Mark handled regardless, so a missing phone/template doesn't re-fire hourly.
+  for (const e of (events ?? []) as any[]) {
     await svc.from('calendar_events').update({ reminder_sent_at: new Date().toISOString() }).eq('id', e.id);
-    if (!c?.phone || !lead?.contact_id) continue;
-    const audience = templateAudience(c.buyer_type, c.preferred_language);
-    const vars = { name: c.full_name ?? 'there', title: e.title, time: formatTime(e.start_at) };
-    await sendTemplate({ contactId: lead.contact_id, leadId: lead.id, channel: 'whatsapp', templateKey: 'meeting_reminder', to: c.phone, vars, audience });
-    processed += 1;
+    const contactId = e.related_client_id ?? e.leads?.contact_id ?? null;
+    if (await sendAppointmentMessage('reminder', { contactId, leadId: e.related_lead_id, startISO: e.start_at, title: e.title, place: e.location, agentId: e.profile_id })) processed += 1;
   }
-  return { processed, summary: processed > 0 ? `${processed} meeting reminder(s) sent` : 'No meetings within 2h' };
+  return { processed, summary: processed > 0 ? `${processed} meeting reminder(s) sent` : 'No meeting reminders due' };
 }
 
 // ── Dead-lead reactivation ───────────────────────────────────────────────────

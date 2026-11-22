@@ -6,6 +6,7 @@ import { sendTemplate } from '@/lib/communications';
 import { notifyUser } from '@/lib/notifications';
 import { templateAudience } from '@/lib/sales-doctrine';
 import { pushEventToGoogle, updateGoogleEvent } from '@/lib/calendar-sync';
+import { sendAppointmentMessage } from '@/lib/appointment-messages';
 import { isOnLeave } from '@/lib/leave-availability';
 import { revalidatePath } from 'next/cache';
 import { formatDateTime } from '@/lib/format';
@@ -55,8 +56,9 @@ export async function scheduleViewing(params: {
   }
   const audience = templateAudience(contact?.buyer_type, contact?.preferred_language);
   const vars = { name: contact?.full_name ?? 'there', project: projectName, agent: profile.fullName ?? 'the Oramira team', date: formatDateTime(params.scheduledAt) };
-  await sendTemplate({ contactId: params.contactId, leadId: params.leadId, channel: 'whatsapp', templateKey: 'viewing_confirmation', to: contact?.phone ?? null, vars, audience });
-  await sendTemplate({ contactId: params.contactId, leadId: params.leadId, channel: 'email', templateKey: 'viewing_confirmation', to: contact?.email ?? null, vars, audience });
+  // Επιβεβαίωση με το κανάλι και το κείμενο του Marketing → Αυτοματισμοί leads → Ραντεβού.
+  void audience;
+  await sendAppointmentMessage('confirm', { contactId: params.contactId, leadId: params.leadId ?? null, startISO: params.scheduledAt, title: `Ξενάγηση${projectName !== 'Oramira' ? ` — ${projectName}` : ''}`, place: projectName !== 'Oramira' ? projectName : null, agentId: params.agentId ?? profile.id });
 
   if (params.agentId && params.agentId !== profile.id) {
     await notifyUser({ userId: params.agentId, title: 'Viewing assigned to you', body: `${vars.name} · ${vars.date}`, link: params.leadId ? `/crm/leads/${params.leadId}` : '/crm/leads', event: 'viewing_assigned' });
