@@ -5334,4 +5334,10 @@ export const EN: Record<string, string> = {
 "Άδειες & προσωπικό": "Leave & staff",
 "Μεγάλη εικόνα": "Hero image",
 "Φωτογραφία σε όλο το πλάτος με τίτλο και κουμπί.": "Full-width photo with a title and button.",
+"Ραντεβού: επιβεβαίωση και υπενθύμιση": "Appointments: confirmation and reminder",
+"Για κάθε ραντεβού στο Ημερολόγιο που συνδέεται με lead ή πελάτη (ξεναγήσεις, συναντήσεις). Ο πελάτης παίρνει μήνυμα με τις πληροφορίες του ραντεβού.": "For every appointment in the Calendar linked to a lead or client (viewings, meetings). The client gets a message with the appointment details.",
+"Στέλνεται αμέσως μόλις κλειστεί το ραντεβού.": "Sent as soon as the appointment is booked.",
+"Στέλνεται πριν το ραντεβού, μία φορά.": "Sent once, before the appointment.",
+"ώρες πριν": "hours before",
+"Μεταβλητές: όνομα, ημερομηνία, ώρα, τοποθεσία, τίτλος ραντεβού, υπεύθυνος. Τα email φεύγουν από το Gmail της εταιρείας· WhatsApp και SMS μόλις συνδεθεί πάροχος.": "Variables: name, date, time, place, appointment title, agent. Emails go out from the company Gmail; WhatsApp and SMS once a provider is connected.",
 };

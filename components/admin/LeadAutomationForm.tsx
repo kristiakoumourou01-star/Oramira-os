@@ -3,11 +3,11 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Check, Shuffle, MessageCircle, BellRing, ListOrdered, Sun, Plus, Trash2, Palmtree } from 'lucide-react';
+import { Check, Shuffle, MessageCircle, BellRing, ListOrdered, Sun, Plus, Trash2, Palmtree, CalendarCheck } from 'lucide-react';
 import { saveOrgSlice } from '@/app/actions/org-settings';
 import { UndoButton } from '@/components/admin/UndoButton';
 import {
-  ACTION_EL, LEAD_SOURCES, SEQUENCE_TEMPLATES, SOURCE_EL, TEMPLATE_EL, pickRoundRobin,
+  ACTION_EL, APPT_VARS, renderAppt, type ApptChannel, LEAD_SOURCES, SEQUENCE_TEMPLATES, SOURCE_EL, TEMPLATE_EL, pickRoundRobin,
   type LeadAutomationSettings, type RouteTarget, type TeamMember, type SeqAction, type SeqStep, type SourceRule,
 } from '@/lib/lead-automation-shared';
 
@@ -245,6 +245,46 @@ export function LeadAutomationForm({ initial, canEdit, team, part = 'settings' }
       </div>
 
       </>)}
+      {showMessages && (() => {
+        const ap = v.appointments;
+        const setAp = (k: 'confirm' | 'reminder', p: Record<string, unknown>) => set((x) => ({ ...x, appointments: { ...x.appointments, [k]: { ...x.appointments[k], ...p } } }));
+        const chOpts: [ApptChannel, string][] = [['whatsapp', 'WhatsApp'], ['sms', 'SMS'], ['email', 'Email']];
+        const sample = (t: string) => renderAppt(t, { name: 'Μαρία Γεωργίου', date: '25/11/2026', time: '11:00', place: 'Ora Homes, Λεμεσός', title: 'Ξενάγηση', agent: 'Ελένη' });
+        return (
+          <div className="panel space-y-4 p-5">
+            <div>
+              <h4 className="flex items-center gap-2"><CalendarCheck size={16} /> Ραντεβού: επιβεβαίωση και υπενθύμιση</h4>
+              <p className="text-xs text-charcoal-600/70">Για κάθε ραντεβού στο Ημερολόγιο που συνδέεται με lead ή πελάτη (ξεναγήσεις, συναντήσεις). Ο πελάτης παίρνει μήνυμα με τις πληροφορίες του ραντεβού.</p>
+            </div>
+            {([['confirm', 'Επιβεβαίωση', 'Στέλνεται αμέσως μόλις κλειστεί το ραντεβού.'], ['reminder', 'Υπενθύμιση', 'Στέλνεται πριν το ραντεβού, μία φορά.']] as const).map(([k, title, hint]) => (
+              <div key={k} className="space-y-3 rounded-xl border border-stone-line p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div><p className="text-sm font-medium text-charcoal">{title}</p><p className="text-xs text-charcoal-600/70">{hint}</p></div>
+                  <button type="button" role="switch" aria-checked={ap[k].enabled} disabled={!canEdit} onClick={() => setAp(k, { enabled: !ap[k].enabled })}
+                    className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:opacity-40 ${ap[k].enabled ? 'bg-forest' : 'bg-stone-line'}`}>
+                    <span className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${ap[k].enabled ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
+                  </button>
+                </div>
+                <div className={`space-y-3 ${ap[k].enabled ? '' : 'pointer-events-none opacity-50'}`}>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <span className="inline-flex rounded-xl border border-stone-line p-1">
+                      {chOpts.map(([c, label]) => <button key={c} type="button" disabled={!canEdit} onClick={() => setAp(k, { channel: c })} className={`rounded-lg px-3 py-1 text-[13px] ${ap[k].channel === c ? 'bg-forest text-white' : 'text-charcoal hover:bg-forest/[0.06]'}`}>{label}</button>)}
+                    </span>
+                    {k === 'reminder' && (
+                      <label className="flex items-center gap-2 text-sm"><input type="number" min={1} max={72} className="input w-20 py-1" disabled={!canEdit} value={ap.reminder.hoursBefore} onChange={(e) => setAp('reminder', { hoursBefore: Number(e.target.value) })} /><span>ώρες πριν</span></label>
+                    )}
+                  </div>
+                  <textarea className="input min-h-[80px]" disabled={!canEdit} value={ap[k].text} onChange={(e) => setAp(k, { text: e.target.value })} />
+                  <div className="flex flex-wrap gap-1">{APPT_VARS.map((x) => <button key={x} type="button" disabled={!canEdit} onClick={() => setAp(k, { text: `${ap[k].text} ${x}` })} className="rounded-md border border-stone-line px-1.5 py-0.5 font-mono text-[11px] text-charcoal-600 hover:border-forest/40" data-no-tr>{x}</button>)}</div>
+                  <div className="rounded-xl border border-stone-line bg-stone/40 px-3 py-2 text-xs text-charcoal"><span className="mb-0.5 block text-[10px] font-semibold uppercase tracking-wide text-charcoal-600/70">Προεπισκόπηση</span><span data-no-tr>{sample(ap[k].text)}</span></div>
+                </div>
+              </div>
+            ))}
+            <p className="text-[11px] text-charcoal-600/70">Μεταβλητές: όνομα, ημερομηνία, ώρα, τοποθεσία, τίτλος ραντεβού, υπεύθυνος. Τα email φεύγουν από το Gmail της εταιρείας· WhatsApp και SMS μόλις συνδεθεί πάροχος.</p>
+          </div>
+        );
+      })()}
+
       {canEdit && (
         <div className="flex flex-wrap items-center gap-3">
           <button type="button" disabled={pending} onClick={save} className="btn-primary"><Check size={14} /> {pending ? 'Αποθήκευση…' : 'Αποθήκευση'}</button>

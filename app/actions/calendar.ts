@@ -3,6 +3,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { requireProfile } from '@/lib/auth';
 import { pushEventToGoogle, deleteGoogleEvent, updateGoogleEvent } from '@/lib/calendar-sync';
+import { sendAppointmentMessage } from '@/lib/appointment-messages';
 import { logActivity } from '@/lib/activity';
 import { revalidatePath } from 'next/cache';
 
@@ -112,6 +113,15 @@ export async function createCalendarEvent(params: {
     });
     if (sync) {
       await supabase.from('calendar_events').update({ google_event_id: sync.googleEventId, calendar_synced_at: new Date().toISOString(), meeting_link: sync.meetLink }).eq('id', event.id);
+    }
+    // Επιβεβαίωση στον πελάτη (Marketing → Αυτοματισμοί leads → Ραντεβού).
+    if (params.leadId || params.contactId) {
+      let contactId = params.contactId ?? null;
+      if (!contactId && params.leadId) {
+        const { data: l } = await supabase.from('leads').select('contact_id').eq('id', params.leadId).maybeSingle();
+        contactId = (l as any)?.contact_id ?? null;
+      }
+      await sendAppointmentMessage('confirm', { contactId, leadId: params.leadId ?? null, startISO: params.startISO, title: params.title, place: params.location ?? null, agentId: profile.id });
     }
     // Linked to a lead → record on the lead's timeline.
     if (params.leadId) {
