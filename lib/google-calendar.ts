@@ -23,7 +23,7 @@ function redirectUri(origin?: string): string {
 /** Build the consent URL. `state` carries the user id back to the callback. */
 export function googleAuthUrl(state: string, origin?: string): string {
   const params = new URLSearchParams({
-    client_id: process.env.GOOGLE_CLIENT_ID!,
+    client_id: (process.env.GOOGLE_CLIENT_ID ?? '').trim(),
     redirect_uri: redirectUri(origin),
     response_type: 'code',
     access_type: 'offline',
@@ -42,7 +42,7 @@ export async function exchangeCode(code: string, origin?: string): Promise<Googl
       method: 'POST',
       headers: { 'content-type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
-        code, client_id: process.env.GOOGLE_CLIENT_ID!, client_secret: process.env.GOOGLE_CLIENT_SECRET!,
+        code, client_id: (process.env.GOOGLE_CLIENT_ID ?? '').trim(), client_secret: (process.env.GOOGLE_CLIENT_SECRET ?? '').trim(),
         redirect_uri: redirectUri(origin), grant_type: 'authorization_code',
       }).toString(),
     });
@@ -57,7 +57,7 @@ export async function refreshAccessToken(refreshToken: string): Promise<GoogleTo
       method: 'POST',
       headers: { 'content-type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
-        refresh_token: refreshToken, client_id: process.env.GOOGLE_CLIENT_ID!, client_secret: process.env.GOOGLE_CLIENT_SECRET!,
+        refresh_token: refreshToken, client_id: (process.env.GOOGLE_CLIENT_ID ?? '').trim(), client_secret: (process.env.GOOGLE_CLIENT_SECRET ?? '').trim(),
         grant_type: 'refresh_token',
       }).toString(),
     });
