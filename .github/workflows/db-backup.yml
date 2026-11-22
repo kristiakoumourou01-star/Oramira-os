@@ -1,0 +1,51 @@
+# Καθημερινό αντίγραφο ασφαλείας της βάσης (δωρεάν, GitHub Actions).
+# Χρειάζεται το secret SUPABASE_DB_URL (Supabase → Connect → Session pooler URI, με τον κωδικό της βάσης).
+# Τα αντίγραφα κρατιούνται 90 μέρες: Actions → «Αντίγραφο ασφαλείας βάσης» → τελευταία εκτέλεση → Artifacts.
+name: Αντίγραφο ασφαλείας βάσης
+
+on:
+  schedule:
+    - cron: '17 0 * * *' # κάθε βράδυ 02:17 ώρα Κύπρου
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Εγκατάσταση pg_dump 17
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client-17
+
+      - name: Αντίγραφο της βάσης
+        env:
+          DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          if [ -z "$DB_URL" ]; then echo "Λείπει το secret SUPABASE_DB_URL"; exit 1; fi
+          STAMP=$(date -u +%Y-%m-%d)
+          mkdir -p backup
+          /usr/lib/postgresql/17/bin/pg_dump "$DB_URL" --no-owner --no-privileges --schema=public --schema=auth --schema=storage \
+            --format=custom --file="backup/oramira-db-$STAMP.dump"
+          /usr/lib/postgresql/17/bin/pg_dump "$DB_URL" --no-owner --no-privileges --schema=public --data-only --inserts \
+            | gzip -9 > "backup/oramira-data-$STAMP.sql.gz"
+          ls -lh backup
+          echo "STAMP=$STAMP" >> "$GITHUB_ENV"
+
+      - name: Φύλαξη αντιγράφου (90 μέρες)
+        uses: actions/upload-artifact@v4
+        with:
+          name: oramira-backup-${{ env.STAMP }}
+          path: backup/
+          retention-days: 90
+          if-no-files-found: error
+
+      - name: Η βάση μένει ενεργή
+        if: always()
+        run: curl -fsS https://oramira-os-3mbm.vercel.app/api/public/health || true
