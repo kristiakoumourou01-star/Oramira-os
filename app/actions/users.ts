@@ -44,9 +44,14 @@ function inviteEmailHtml(name: string | undefined, link: string): string {
 
 export async function inviteUser(params: {
   email: string;
-  role: AppRole;
+  /** Βασικός ρόλος ή «custom:<id>» (ρόλος από Staff → Ρόλοι). */
+  role: string;
   fullName?: string;
   position?: string;
+  department?: string;
+  phone?: string;
+  dateOfBirth?: string;
+  calendarColor?: string;
   workSchedule?: string;
   annualLeaveDays?: number;
   sickLeaveDays?: number;
@@ -57,15 +62,24 @@ export async function inviteUser(params: {
 }) {
   const profile = await requireRole(['admin']);
   const supabase = await createSupabaseServerClient();
+  const chosen = await resolveChoice(params.role);
+  if (!chosen) throw new Error('Μη έγκυρος ρόλος.');
 
   const token = randomBytes(24).toString('hex');
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
 
   // Onboarding config is applied to the new profile (+ seeds leave balances)
   // by accept_invite when the employee activates their account.
+  // custom_role / date_of_birth / calendar_color: migration 0106.
   const onboarding = {
     full_name: params.fullName ?? null,
     position: params.position ?? null,
+    department: params.department ?? null,
+    phone: params.phone ?? null,
+    date_of_birth: params.dateOfBirth ?? null,
+    calendar_color: params.calendarColor ?? null,
+    custom_role: chosen.customRole,
+    salary_frequency: params.agreedSalary ? 'monthly' : null,
     work_schedule: params.workSchedule ?? null,
     annual_leave_days: params.annualLeaveDays ?? null,
     sick_leave_days: params.sickLeaveDays ?? null,
@@ -77,7 +91,7 @@ export async function inviteUser(params: {
 
   const { error } = await supabase.from('invites').insert({
     email: params.email,
-    role: params.role,
+    role: chosen.role,
     token,
     expires_at: expiresAt,
     invited_by: profile.id,
@@ -94,7 +108,7 @@ export async function inviteUser(params: {
     senderProfileId: profile.id,
   });
 
-  await logActivity({ entityType: 'invite', entityId: profile.id, action: 'user_invited', metadata: { email: params.email, role: params.role, emailSent } });
+  await logActivity({ entityType: 'invite', entityId: profile.id, action: 'user_invited', metadata: { email: params.email, role: chosen.role, customRole: chosen.customRole, emailSent } });
   revalidatePath('/settings/users');
   return { link, emailSent };
 }
@@ -269,6 +283,26 @@ export async function revokeInvite(inviteId: string) {
 
 export type UserActionResult = { ok: true } | { ok: false; error: string };
 
+/** Στοιχεία υπαλλήλου από το «Νέο μέλος ομάδας». */
+export interface StaffDetails {
+  phone?: string; dateOfBirth?: string; startDate?: string; position?: string; department?: string;
+  calendarColor?: string; agreedSalary?: number; commissionPct?: number;
+}
+
+/** Γράφει τα στοιχεία HR στο προφίλ. Το χρώμα ημερολογίου ξεχωριστά: η στήλη έρχεται με το migration 0106. */
+async function saveStaffDetails(service: ReturnType<typeof createSupabaseServiceRoleClient>, id: string, d: StaffDetails) {
+  const row: Record<string, unknown> = {};
+  if (d.phone) row.phone = d.phone;
+  if (d.dateOfBirth) row.date_of_birth = d.dateOfBirth;
+  if (d.startDate) row.employment_start_date = d.startDate;
+  if (d.position) row.job_title = d.position;
+  if (d.department) row.department = d.department;
+  if (d.agreedSalary != null) { row.agreed_salary = d.agreedSalary; row.salary_frequency = 'monthly'; }
+  if (d.commissionPct != null) row.commission_pct = d.commissionPct;
+  if (Object.keys(row).length) await service.from('profiles').update(row as any).eq('id', id);
+  if (d.calendarColor) await service.from('profiles').update({ calendar_color: d.calendarColor } as any).eq('id', id);
+}
+
 
 function cleanEmail(email: string) {
   return email.trim().toLowerCase();
@@ -283,6 +317,10 @@ export async function createUserWithPassword(params: {
   /** null = follow the role's defaults. */
   permissions: UserPermissions | null;
   mustChangePassword: boolean;
+  /** false = μέλος της ομάδας χωρίς σύνδεση (ο λογαριασμός μένει κλειδωμένος). */
+  canLogin?: boolean;
+  /** Στοιχεία υπαλλήλου (νέο μέλος ομάδας). */
+  details?: StaffDetails;
 }): Promise<UserActionResult> {
   const admin = await requireRole(['admin']);
   const email = cleanEmail(params.email);
@@ -290,7 +328,10 @@ export async function createUserWithPassword(params: {
 
   if (!fullName) return { ok: false, error: 'Συμπληρώστε το όνομα.' };
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return { ok: false, error: 'Το email δεν είναι έγκυρο.' };
-  const pwIssue = passwordProblem(params.password, (await getOrgSettingsRaw()).security);
+  const canLogin = params.canLogin !== false;
+  // Χωρίς σύνδεση: τυχαίος κωδικός που δεν εμφανίζεται πουθενά.
+  const password = canLogin ? params.password : randomBytes(24).toString('base64url') + 'aA1!';
+  const pwIssue = canLogin ? passwordProblem(password, (await getOrgSettingsRaw()).security) : null;
   if (pwIssue) return { ok: false, error: pwIssue };
   const chosen = await resolveChoice(params.role);
   if (!chosen) return { ok: false, error: 'Μη έγκυρος ρόλος.' };
@@ -298,9 +339,10 @@ export async function createUserWithPassword(params: {
   const service = createSupabaseServiceRoleClient();
   const { data: created, error: authError } = await service.auth.admin.createUser({
     email,
-    password: params.password,
+    password,
     email_confirm: true,
     user_metadata: { full_name: fullName, pw_changed_at: new Date().toISOString() },
+    ...(canLogin ? {} : { ban_duration: '876000h' }),
   });
   if (authError || !created.user) {
     const msg = authError?.message ?? '';
@@ -314,7 +356,7 @@ export async function createUserWithPassword(params: {
     full_name: fullName,
     is_active: true,
     permissions: params.permissions ? storedPermissions(sanitizePermissions(params.permissions, false)) : null,
-    must_change_password: params.mustChangePassword,
+    must_change_password: canLogin && params.mustChangePassword,
   } as any);
   if (profileError) {
     // Never leave a login without a profile behind.
@@ -324,12 +366,13 @@ export async function createUserWithPassword(params: {
   if (chosen.customRole) {
     await service.from('profiles').update({ custom_role: chosen.customRole } as any).eq('id', created.user.id);
   }
+  if (params.details) await saveStaffDetails(service, created.user.id, params.details);
 
   await logActivity({
     entityType: 'profile',
     entityId: created.user.id,
     action: 'user_created_by_admin',
-    metadata: { email, role: chosen.role, customRole: chosen.customRole, customPermissions: !!params.permissions, by: admin.id },
+    metadata: { email, role: chosen.role, customRole: chosen.customRole, customPermissions: !!params.permissions, canLogin, by: admin.id },
   });
   revalidatePath('/settings/users');
   return { ok: true };
@@ -354,7 +397,8 @@ export async function setUserPassword(profileId: string, password: string, mustC
   const pwIssue = passwordProblem(password, (await getOrgSettingsRaw()).security);
   if (pwIssue) return { ok: false, error: pwIssue };
   const service = createSupabaseServiceRoleClient();
-  const { error } = await service.auth.admin.updateUserById(profileId, { password, user_metadata: { pw_changed_at: new Date().toISOString() } });
+  // Νέος κωδικός = μπορεί να συνδεθεί (ξεκλειδώνει και όσους φτιάχτηκαν «χωρίς σύνδεση»).
+  const { error } = await service.auth.admin.updateUserById(profileId, { password, ban_duration: 'none', user_metadata: { pw_changed_at: new Date().toISOString() } });
   if (error) return { ok: false, error: error.message };
   await service.from('profiles').update({ must_change_password: mustChange && profileId !== admin.id } as any).eq('id', profileId);
   await logActivity({ entityType: 'profile', entityId: profileId, action: 'password_set_by_admin' });

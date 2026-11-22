@@ -1,7 +1,8 @@
 import { deliverNotification } from '@/lib/notifications';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import { resolveContactFormLead, resolveNewsletter } from '@/lib/intake';
-import { sendTemplate } from '@/lib/communications';
+import { sendTemplate, sendMessage, renderTemplate } from '@/lib/communications';
+import { mergeNotifications } from '@/lib/org-settings-shared';
 import { pushEventToGoogle } from '@/lib/calendar-sync';
 import { templateAudience } from '@/lib/sales-doctrine';
 import { persistLearningInsights } from '@/lib/learning-loop';
@@ -142,8 +143,28 @@ async function runWarrantyExpiry(svc: Svc): Promise<RunResult> {
 
 // ── 3. Payment reminders ────────────────────────────────────────────────────
 
+/** Η πολιτική ειδοποιήσεων πληρωμών / γενεθλίων (Ρυθμίσεις → Ειδοποιήσεις). */
+async function notifPolicy(svc: Svc) {
+  const { data } = await svc.from('org_settings').select('data').eq('id', 'org').maybeSingle();
+  return mergeNotifications((data?.data as any)?.notifications);
+}
+
+/** Μήνυμα σε επαφή με email/SMS, μία φορά ανά «κλειδί» μέσα στο διάστημα (για να μη στέλνεται διπλό). */
+async function sendToContactOnce(svc: Svc, contactId: string, channel: 'email' | 'sms', key: string, subject: string, body: string, withinDays: number): Promise<boolean> {
+  const since = new Date(Date.now() - withinDays * DAY).toISOString();
+  const { data: done } = await svc.from('contact_communications').select('id').eq('contact_id', contactId).eq('template_key', key).gte('created_at', since).limit(1).maybeSingle();
+  if (done) return false;
+  const { data: c } = await svc.from('contacts').select('email, phone').eq('id', contactId).maybeSingle();
+  const to = channel === 'email' ? (c as any)?.email : (c as any)?.phone;
+  if (!to) return false;
+  const r = await sendMessage({ contactId, channel, to, subject, body, templateKey: key });
+  return r.status !== 'failed';
+}
+
 async function runPaymentReminders(svc: Svc): Promise<RunResult> {
-  const soon = new Date(Date.now() + 14 * DAY).toISOString().slice(0, 10);
+  const policy = (await notifPolicy(svc)).payments;
+  if (!policy.enabled) return { processed: 0, summary: 'Ειδοποιήσεις πληρωμών απενεργοποιημένες (Ρυθμίσεις → Ειδοποιήσεις)', details: {} };
+  const soon = new Date(Date.now() + policy.daysBefore * DAY).toISOString().slice(0, 10);
   const today = new Date().toISOString().slice(0, 10);
 
   const { data: schedules } = await svc
@@ -165,16 +186,54 @@ async function runPaymentReminders(svc: Svc): Promise<RunResult> {
     const buyerProfile = await profileForContact(svc, buyerContact);
     const due = s.due_date as string;
     const isOverdue = due < today;
-    const link = '/buyer/payments';
     const amount = `${formatCurrency(Number(s.amount))}`;
     if (isOverdue) {
-      if (buyerProfile && (await notifyOnce(svc, buyerProfile, link, 'Payment overdue', `Installment ${s.installment_number} of ${amount} was due on ${formatDate(due)}.`))) overdue += 1;
       await notifyStaffOnce(svc, staff, '/financials', 'Overdue payment', `Installment ${s.installment_number} (${amount}) is overdue.`, 'payment_overdue');
+      if (!policy.overdue) continue;
+      const title = 'Καθυστερημένη δόση';
+      const text = `Η δόση ${s.installment_number} (${amount}) έληγε στις ${formatDate(due)}.`;
+      if (policy.delivery === 'inapp') {
+        if (buyerProfile && (await notifyOnce(svc, buyerProfile, `/buyer/payments?d=${s.id}&o=${today}`, title, text))) overdue += 1;
+      } else if (buyerContact && (await sendToContactOnce(svc, buyerContact, policy.delivery, `pay_overdue_${s.id}`, title, text, 1))) overdue += 1;
     } else {
-      if (buyerProfile && (await notifyOnce(svc, buyerProfile, link, 'Upcoming payment', `Installment ${s.installment_number} of ${amount} is due on ${formatDate(due)}.`))) upcoming += 1;
+      if (!policy.dueSoon) continue;
+      const title = 'Επερχόμενη δόση';
+      const text = `Η δόση ${s.installment_number} (${amount}) λήγει στις ${formatDate(due)}.`;
+      if (policy.delivery === 'inapp') {
+        if (buyerProfile && (await notifyOnce(svc, buyerProfile, `/buyer/payments?d=${s.id}`, title, text))) upcoming += 1;
+      } else if (buyerContact && (await sendToContactOnce(svc, buyerContact, policy.delivery, `pay_due_${s.id}`, title, text, 365))) upcoming += 1;
     }
   }
   return { processed: upcoming + overdue, summary: `${upcoming} upcoming reminder(s), ${overdue} overdue alert(s)`, details: { upcoming, overdue } };
+}
+
+// ── 3b. Ευχές γενεθλίων ──────────────────────────────────────────────────────
+
+async function runBirthdays(svc: Svc): Promise<RunResult> {
+  const b = (await notifPolicy(svc)).birthday;
+  if (!b.enabled) return { processed: 0, summary: 'Ευχές γενεθλίων απενεργοποιημένες', details: {} };
+  const { hh, mm, month, day } = (() => {
+    const p = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Nicosia', hour: '2-digit', minute: '2-digit', month: '2-digit', day: '2-digit', hour12: false }).formatToParts(new Date());
+    const g = (t: string) => Number(p.find((x) => x.type === t)?.value ?? 0);
+    return { hh: g('hour'), mm: g('minute'), month: g('month'), day: g('day') };
+  })();
+  const [th, tm] = b.time.split(':').map(Number);
+  if (hh * 60 + mm < (th || 0) * 60 + (tm || 0)) return { processed: 0, summary: 'Νωρίτερα από την ώρα αποστολής', details: {} };
+  const consent = b.channel === 'sms' ? 'receive_sms' : 'receive_email';
+  const { data: people } = await svc.from('contacts').select('id, full_name, date_of_birth').not('date_of_birth', 'is', null).eq(consent, true).limit(5000);
+  const { data: org } = await svc.from('org_branding').select('company_name').eq('id', 'org').maybeSingle();
+  const company = ((org as any)?.company_name as string) || 'Oramira';
+  let sent = 0;
+  for (const c of (people ?? []) as any[]) {
+    const [, m, d] = String(c.date_of_birth).split('-').map(Number);
+    if (m !== month || d !== day) continue;
+    const { count } = await svc.from('leads').select('id', { count: 'exact', head: true }).eq('contact_id', c.id).neq('status', 'lost');
+    const active = (count ?? 0) > 0;
+    const first = String(c.full_name ?? '').trim().split(/\s+/)[0] ?? '';
+    const body = renderTemplate(active ? b.messageActive : b.messageInactive, { name: first, company });
+    if (await sendToContactOnce(svc, c.id, b.channel, `birthday_${new Date().getUTCFullYear()}`, 'Χρόνια πολλά!', body, 300)) sent += 1;
+  }
+  return { processed: sent, summary: `${sent} ευχές γενεθλίων`, details: { sent } };
 }
 
 // ── 4. Website lead sync (reconciliation of any unprocessed submissions) ─────
@@ -1172,6 +1231,7 @@ export const JOBS: JobDef[] = [
   { key: 'reservation_expiry', label: 'Reservation expiry', description: 'Release units from lapsed reservations and alert staff.', schedule: 'Hourly', run: runReservationExpiry },
   { key: 'warranty_expiry', label: 'Warranty expiry', description: 'Remind homeowners and staff of warranties ending within 60 days.', schedule: 'Daily', run: runWarrantyExpiry },
   { key: 'payment_reminders', label: 'Payment reminders', description: 'Upcoming-payment reminders and overdue alerts.', schedule: 'Daily', run: runPaymentReminders },
+  { key: 'birthdays', label: 'Ευχές γενεθλίων', description: 'Μήνυμα στους πελάτες τη μέρα των γενεθλίων τους — Ρυθμίσεις → Ειδοποιήσεις.', schedule: 'Hourly (στέλνει μετά την ώρα που ορίσατε)', run: runBirthdays },
   { key: 'website_sync', label: 'Website lead sync', description: 'Reconcile any unprocessed website/newsletter submissions into the CRM.', schedule: 'Every 15 min', run: runWebsiteSync },
   { key: 'maintenance', label: 'Maintenance', description: 'Visit reminders, overdue alerts, and unresolved-ticket escalation.', schedule: 'Every 6 hours', run: runMaintenance },
   { key: 'crm', label: 'CRM follow-ups', description: 'Inactive-lead reminders, status aging, high-value priority and pipeline stage delays.', schedule: 'Daily', run: runCrm },

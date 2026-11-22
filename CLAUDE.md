@@ -9,7 +9,7 @@
 ## Στόχος εμφάνισης
 - Η εφαρμογή πρέπει να μοιάζει **ακριβώς με το FitnessCRM** (fitness.thinkcrm.com) σε layout, γραμματοσειρές, πίνακες, κινήσεις — με δεδομένα real estate.
 - **Ένα χρώμα έμφασης**: το χρώμα της εταιρείας από τις Ρυθμίσεις (Tailwind `forest`, CSS `rgb(var(--c-forest))`). Όπου το FitnessCRM έχει μωβ, εδώ μπαίνει `forest`. Ποτέ hardcoded χρώματα.
-- Κάθε **επιλεγμένο** στοιχείο (sidebar, κάρτες, chips, segmented) είναι γεμάτο: `bg-forest text-white`.
+- Κάθε **επιλεγμένο** στοιχείο (sidebar, chips, segmented) είναι γεμάτο: `bg-forest text-white`. **Εξαίρεση: οι κάρτες `HubCards`** — επιλεγμένη = απαλή απόχρωση + πλαίσιο (`border-forest/40 bg-gradient-to-br from-white to-forest/[0.10]`), σκούρα γράμματα, όπως στο FitnessCRM.
 - **Πουθενά** δεν εμφανίζεται "ThinkCRM" ή "FitnessCRM".
 - Πίνακες: κλάση `o-table`, μέσα σε `overflow-x-auto`, σελιδοποίηση με `Pager` (10/25/50/100 γραμμές). Ποτέ οριζόντιο overflow της σελίδας.
 - Έτοιμα κομμάτια UI (χρησιμοποίησέ τα, μη φτιάχνεις καινούρια): `HubCards`, `HubLinks`, `HubTabs` (εικονίδια με όνομα από το `ICONS` στο `HubTabs.tsx`), `PopSelect`, `Pager`, `Briefing`, `SideStat`, `SettingsFrame`, `MobileNav`.

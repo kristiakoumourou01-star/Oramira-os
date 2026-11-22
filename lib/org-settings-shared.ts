@@ -110,7 +110,17 @@ export function mergePortal(x: any): PortalSettings {
 
 /* ---- Notifications ---- */
 export interface NotifRow { key: string; event: string; who: string; inApp: boolean; push: boolean; email: boolean; sms: boolean }
-export interface NotificationSettings { rows: NotifRow[]; quietFrom: string; quietTo: string }
+/** Ειδοποιήσεις πληρωμών προς αγοραστές (δόσεις): πολιτική λογαριασμού, όπως στο FitnessCRM. */
+export interface PaymentNotifPolicy { enabled: boolean; dueSoon: boolean; overdue: boolean; received: boolean; delivery: 'inapp' | 'email' | 'sms'; daysBefore: number }
+/** Ευχές γενεθλίων προς πελάτες (μόνο όσοι δέχονται μηνύματα στο κανάλι). */
+export interface BirthdayPolicy { enabled: boolean; time: string; channel: 'sms' | 'email'; messageActive: string; messageInactive: string }
+export interface NotificationSettings {
+  rows: NotifRow[]; quietFrom: string; quietTo: string;
+  /** Τα επείγοντα (νέο lead, αναπάντητο lead, καθυστερημένη πληρωμή) περνούν και στις ώρες ησυχίας. */
+  urgentBypass: boolean;
+  payments: PaymentNotifPolicy;
+  birthday: BirthdayPolicy;
+}
 
 /* ---- Security ---- */
 export interface SecuritySettings {
@@ -406,6 +416,13 @@ export function mergeInvoices(x: any): InvoiceSettings {
 export const DEFAULT_NOTIFICATIONS: NotificationSettings = {
   rows: NOTIF_EVENTS.map((e) => ({ key: e.key, event: e.label, who: e.who, inApp: e.inApp, push: false, email: e.email, sms: false })),
   quietFrom: '21:00', quietTo: '08:30',
+  urgentBypass: true,
+  payments: { enabled: true, dueSoon: true, overdue: true, received: true, delivery: 'inapp', daysBefore: 14 },
+  birthday: {
+    enabled: false, time: '09:00', channel: 'sms',
+    messageActive: 'Χρόνια πολλά {{name}}! Όλη η ομάδα της {{company}} σας εύχεται μια υπέροχη μέρα.',
+    messageInactive: 'Χρόνια πολλά {{name}}! Από όλους εμάς στην {{company}}, να έχετε μια υπέροχη χρονιά.',
+  },
 };
 
 /** Legacy rows (English names) → event keys, so earlier choices carry over. */
@@ -435,6 +452,27 @@ export function mergeNotifications(n: any): NotificationSettings {
     }),
     quietFrom: time(v.quietFrom, DEFAULT_NOTIFICATIONS.quietFrom),
     quietTo: time(v.quietTo, DEFAULT_NOTIFICATIONS.quietTo),
+    urgentBypass: v.urgentBypass !== false,
+    payments: (() => {
+      const p = v.payments && typeof v.payments === 'object' ? v.payments : {};
+      const d = DEFAULT_NOTIFICATIONS.payments;
+      const days = Math.round(Number(p.daysBefore));
+      return {
+        enabled: p.enabled !== false, dueSoon: p.dueSoon !== false, overdue: p.overdue !== false, received: p.received !== false,
+        delivery: (['inapp', 'email', 'sms'] as const).includes(p.delivery) ? p.delivery : d.delivery,
+        daysBefore: Number.isFinite(days) ? Math.min(30, Math.max(1, days)) : d.daysBefore,
+      };
+    })(),
+    birthday: (() => {
+      const b = v.birthday && typeof v.birthday === 'object' ? v.birthday : {};
+      const d = DEFAULT_NOTIFICATIONS.birthday;
+      const txt = (t: any, fb: string) => (typeof t === 'string' && t.trim() ? t.slice(0, 600) : fb);
+      return {
+        enabled: b.enabled === true, time: time(b.time, d.time),
+        channel: b.channel === 'email' ? 'email' as const : 'sms' as const,
+        messageActive: txt(b.messageActive, d.messageActive), messageInactive: txt(b.messageInactive, d.messageInactive),
+      };
+    })(),
   };
 }
 

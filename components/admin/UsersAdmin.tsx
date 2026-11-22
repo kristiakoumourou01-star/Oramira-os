@@ -2,6 +2,8 @@
 
 import { EmployeesPanel } from '@/components/admin/EmployeesPanel';
 import { PopSelect } from '@/components/ui/PopSelect';
+import { PhoneInput } from '@/components/ui/PhoneInput';
+import Link from 'next/link';
 import type { EmployeeHr } from '@/lib/staff-shared';
 
 import { useEffect, useState, useTransition } from 'react';
@@ -18,30 +20,6 @@ import { PermissionMatrix } from '@/components/admin/PermissionMatrix';
 import { DEFAULT_ROLES, resolveRole, type RolesSettings } from '@/lib/roles-shared';
 import { DATE_TAG, currentLocale } from '@/lib/locale-shared';
 
-/** One dropdown for built-in roles and the company's own roles ("custom:<id>"). */
-function RoleOptions({ roles }: { roles: RolesSettings }) {
-  return (
-    <>
-      <optgroup label="Βασικοί ρόλοι">
-        {INTERNAL_ROLES.map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
-      </optgroup>
-      {roles.custom.length > 0 && (
-        <optgroup label="Δικοί σας ρόλοι">
-          {roles.custom.map((c) => <option key={c.id} value={`custom:${c.id}`}>{c.name}</option>)}
-        </optgroup>
-      )}
-    </>
-  );
-}
-
-/** The matrix a role choice ("sales" / "custom:<id>") gives, for the editor's starting point. */
-function permsForChoice(choice: string, roles: RolesSettings): UserPermissions {
-  if (choice.startsWith('custom:')) {
-    const c = roles.custom.find((x) => `custom:${x.id}` === choice);
-    return c ? c.permissions : {};
-  }
-  return resolveRole(choice, null, roles).permissions ?? defaultPermissionsFor(choice);
-}
 function roleChoiceLabel(choice: string, roles: RolesSettings): string {
   if (choice.startsWith('custom:')) return roles.custom.find((x) => `custom:${x.id}` === choice)?.name ?? 'Ρόλος';
   return ROLE_LABEL[choice as AppRole] ?? choice;
@@ -100,50 +78,130 @@ function ErrorLine({ text }: { text: string | null }) {
   return <p className="rounded-md bg-signal-danger/10 px-4 py-2 text-sm text-signal-danger">{text}</p>;
 }
 
-/** Create a user directly: name, email, password, role and exactly what they can access. */
-function CreateUserModal({ onClose, onDone, roles }: { onClose: () => void; onDone: () => void; roles: RolesSettings }) {
-  const [fullName, setFullName] = useState('');
-  const [email, setEmail] = useState('');
+/** Χρώματα ημερολογίου για κάθε μέλος (τιμή που αποθηκεύεται, όχι στυλ της εφαρμογής). */
+const CAL_COLORS = ['#2f6e54', '#4a8668', '#8fae6e', '#5b8db8', '#3f6fb0', '#7c6bb5', '#b0607f', '#c2554d', '#d98b5f', '#e0b84c', '#bfab88', '#6b7280'];
+
+/** Μικρός τίτλος ενότητας (όπως στο «New staff»). */
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="space-y-3">
+      <p className="eyebrow border-b border-stone-line pb-1.5">{title}</p>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">{children}</div>
+    </section>
+  );
+}
+function Field({ label, children, wide = false }: { label: string; children: React.ReactNode; wide?: boolean }) {
+  return (
+    <label className={`block min-w-0 ${wide ? 'sm:col-span-2' : ''}`}>
+      <span className="mb-1.5 block text-[13px] text-charcoal-600">{label}</span>
+      {children}
+    </label>
+  );
+}
+
+/** Αποτέλεσμα πρόσκλησης: link + Αντιγραφή / Email / WhatsApp. */
+function InviteResult({ result, onClose }: { result: { link: string; emailSent: boolean; email: string; name: string }; onClose: () => void }) {
+  const [copied, setCopied] = useState(false);
+  const text = `Γεια σου${result.name ? ` ${result.name}` : ''}! Σε προσκαλούμε στην ομάδα της Oramira. Πάτησε εδώ για να ενεργοποιήσεις τον λογαριασμό σου: ${result.link}`;
+  return (
+    <Modal title={result.emailSent ? 'Η πρόσκληση στάλθηκε' : 'Η πρόσκληση δημιουργήθηκε'} onClose={onClose}>
+      <p className="mb-3 text-sm text-charcoal-600">
+        {result.emailSent
+          ? <><span>Στάλθηκε email με το link στο</span> <strong data-no-tr>{result.email}</strong><span>. Μόλις το πατήσει, φτιάχνει κωδικό και μπαίνει στην ομάδα.</span></>
+          : <><span>Δεν στάλθηκε αυτόματα email. Στείλτε το link στο</span> <strong data-no-tr>{result.email}</strong> <span>με ένα από τα κουμπιά.</span></>}
+      </p>
+      <input readOnly value={result.link} onFocus={(e) => e.target.select()} className="input mb-3 text-xs" data-no-tr />
+      <div className="flex flex-wrap gap-2">
+        <button type="button" onClick={() => { void navigator.clipboard?.writeText(result.link); setCopied(true); }} className="btn-secondary text-sm"><Copy size={14} /> {copied ? 'Αντιγράφηκε ✓' : 'Αντιγραφή link'}</button>
+        <a href={`mailto:${result.email}?subject=${encodeURIComponent('Πρόσκληση στην ομάδα Oramira')}&body=${encodeURIComponent(text)}`} className="btn-secondary text-sm"><Mail size={14} /> Άνοιγμα email</a>
+        <a href={`https://wa.me/?text=${encodeURIComponent(text)}`} target="_blank" rel="noreferrer" className="btn-secondary text-sm">WhatsApp</a>
+        <button type="button" onClick={onClose} className="btn-primary ml-auto text-sm">Τέλος</button>
+      </div>
+    </Modal>
+  );
+}
+
+/**
+ * «Νέο μέλος ομάδας» (όπως το «New staff»): στοιχεία, ημερομηνίες, ρόλος από τους Ρόλους,
+ * αμοιβή και πρόσβαση. Τα δικαιώματα τα ορίζει ο ρόλος — εξαιρέσεις αργότερα από «Δικαιώματα».
+ */
+function CreateUserModal({ onClose, onDone, roles, departments }: { onClose: () => void; onDone: () => void; roles: RolesSettings; departments: string[] }) {
+  const [f, setF] = useState({
+    firstName: '', lastName: '', email: '', phone: '', dateOfBirth: '', startDate: '',
+    role: 'sales', calendarColor: CAL_COLORS[0], position: '', department: '', salary: '', commission: '',
+  });
+  const set = (patch: Partial<typeof f>) => setF((x) => ({ ...x, ...patch }));
+  const [canLogin, setCanLogin] = useState(true);
+  const [access, setAccess] = useState<'invite' | 'password'>('invite');
   const [password, setPassword] = useState(() => generatePassword());
-  const [role, setRole] = useState<string>('sales');
-  const [custom, setCustom] = useState(false);
-  const [perms, setPerms] = useState<UserPermissions>(() => permsForChoice('sales', roles));
   const [mustChange, setMustChange] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [created, setCreated] = useState<{ email: string; password: string } | null>(null);
+  const [created, setCreated] = useState<{ email: string; password: string | null } | null>(null);
+  const [invited, setInvited] = useState<{ link: string; emailSent: boolean; email: string; name: string } | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  function changeRole(r: string) {
-    setRole(r);
-    if (!custom) setPerms(permsForChoice(r, roles));
-  }
+  const roleOptions: [string, string][] = [
+    ...INTERNAL_ROLES.map((r) => [r, ROLE_LABEL[r]] as [string, string]),
+    ...roles.custom.map((c) => [`custom:${c.id}`, c.name] as [string, string]),
+  ];
+  const deptOptions: [string, string][] = [['', '—'], ...departments.map((d) => [d, d] as [string, string])];
 
   function submit() {
     setError(null);
+    const fullName = `${f.firstName.trim()} ${f.lastName.trim()}`.trim();
+    const email = f.email.trim().toLowerCase();
+    if (!f.firstName.trim()) { setError('Συμπληρώστε το όνομα.'); return; }
+    if (!email) { setError('Συμπληρώστε το email.'); return; }
+    const num = (v: string) => (v.trim() === '' || Number.isNaN(Number(v)) ? undefined : Number(v));
+    const details = {
+      phone: f.phone.trim() || undefined, dateOfBirth: f.dateOfBirth || undefined, startDate: f.startDate || undefined,
+      position: f.position.trim() || undefined, department: f.department || undefined, calendarColor: f.calendarColor || undefined,
+      agreedSalary: num(f.salary), commissionPct: num(f.commission),
+    };
     startTransition(async () => {
+      if (canLogin && access === 'invite') {
+        try {
+          const r = await inviteUser({
+            email, fullName, role: f.role, position: details.position, department: details.department, phone: details.phone,
+            dateOfBirth: details.dateOfBirth, calendarColor: details.calendarColor, startDate: details.startDate,
+            agreedSalary: details.agreedSalary, commissionPct: details.commissionPct,
+          });
+          setInvited({ link: r.link, emailSent: r.emailSent, email, name: f.firstName.trim() });
+          onDone();
+        } catch {
+          setError('Η πρόσκληση δεν δημιουργήθηκε. Δοκιμάστε ξανά.');
+        }
+        return;
+      }
       const res = await createUserWithPassword({
-        fullName,
-        email,
-        password,
-        role,
-        permissions: role !== 'admin' && custom ? perms : null,
-        mustChangePassword: mustChange,
+        fullName, email, password, role: f.role, permissions: null,
+        mustChangePassword: mustChange, canLogin, details,
       });
       if (!res.ok) { setError(res.error); return; }
-      setCreated({ email: email.trim().toLowerCase(), password });
+      setCreated({ email, password: canLogin ? password : null });
       onDone();
     });
   }
 
+  if (invited) return <InviteResult result={invited} onClose={onClose} />;
+
   if (created) {
+    if (!created.password) {
+      return (
+        <Modal title="Το μέλος προστέθηκε" onClose={onClose}>
+          <p className="mb-4 text-sm text-charcoal-600">Προστέθηκε στην ομάδα χωρίς δυνατότητα σύνδεσης. Για να μπορεί να συνδεθεί, ορίστε του κωδικό από το «Νέος κωδικός».</p>
+          <div className="flex"><button onClick={onClose} className="btn-primary ml-auto">Τέλος</button></div>
+        </Modal>
+      );
+    }
     const text = `Email: ${created.email}\nΚωδικός: ${created.password}`;
     return (
       <Modal title="Ο χρήστης δημιουργήθηκε" onClose={onClose}>
         <p className="mb-3 text-sm text-charcoal-600">
-          Δώστε αυτά τα στοιχεία στον χρήστη. Ο κωδικός δεν θα ξαναφανεί.
-          {mustChange && ' Στην πρώτη του είσοδο θα του ζητηθεί να βάλει δικό του κωδικό.'}
+          <span>Δώστε αυτά τα στοιχεία στον χρήστη. Ο κωδικός δεν θα ξαναφανεί.</span>
+          {mustChange && <span> Στην πρώτη του είσοδο θα του ζητηθεί να βάλει δικό του κωδικό.</span>}
         </p>
-        <pre className="mb-4 rounded-md bg-stone px-4 py-3 text-sm text-charcoal">{text}</pre>
+        <pre className="mb-4 overflow-x-auto rounded-md bg-stone px-4 py-3 text-sm text-charcoal" data-no-tr>{text}</pre>
         <div className="flex gap-2">
           <button onClick={() => navigator.clipboard?.writeText(text)} className="btn-ghost"><Copy size={14} strokeWidth={1.75} /> Αντιγραφή</button>
           <button onClick={onClose} className="btn-primary ml-auto">Τέλος</button>
@@ -152,63 +210,102 @@ function CreateUserModal({ onClose, onDone, roles }: { onClose: () => void; onDo
     );
   }
 
+  const seg = (k: 'invite' | 'password', label: string) => (
+    <button type="button" onClick={() => setAccess(k)}
+      className={`flex-1 rounded-[10px] px-3 py-2 text-[13px] font-medium transition-colors ${access === k ? 'bg-forest text-white' : 'text-charcoal-600 hover:bg-stone-100'}`}>{label}</button>
+  );
+
   return (
-    <Modal title="Νέος χρήστης" onClose={onClose} wide>
-      <div className="space-y-4">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <label className="block">
-            <span className="eyebrow mb-1.5 block">Ονοματεπώνυμο</span>
-            <input value={fullName} onChange={(e) => setFullName(e.target.value)} className="input" autoFocus />
-          </label>
-          <label className="block">
-            <span className="eyebrow mb-1.5 block">Email σύνδεσης</span>
-            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="input" />
-          </label>
-          <label className="block">
-            <span className="eyebrow mb-1.5 block">Κωδικός</span>
-            <div className="flex gap-2">
-              <input value={password} onChange={(e) => setPassword(e.target.value)} className="input font-mono" />
-              <button type="button" onClick={() => setPassword(generatePassword())} className="btn-ghost" title="Νέος τυχαίος κωδικός">
-                <RefreshCw size={14} strokeWidth={1.75} />
-              </button>
-            </div>
-          </label>
-          <label className="block">
-            <span className="eyebrow mb-1.5 block">Ρόλος</span>
-            <select value={role} onChange={(e) => changeRole(e.target.value)} className="input">
-              <RoleOptions roles={roles} />
-            </select>
-          </label>
-        </div>
+    <Modal title="Νέο μέλος ομάδας" onClose={onClose} wide>
+      <div className="space-y-6">
+        <Section title="Στοιχεία">
+          <Field label="Όνομα"><input value={f.firstName} onChange={(e) => set({ firstName: e.target.value })} className="input" autoFocus /></Field>
+          <Field label="Επώνυμο"><input value={f.lastName} onChange={(e) => set({ lastName: e.target.value })} className="input" /></Field>
+          <Field label="Email"><input type="email" value={f.email} onChange={(e) => set({ email: e.target.value })} className="input" /></Field>
+          <Field label="Κινητό"><PhoneInput value={f.phone} onChange={(v) => set({ phone: v })} /></Field>
+        </Section>
 
-        <label className="flex items-center gap-2 text-sm text-charcoal">
-          <input type="checkbox" checked={mustChange} onChange={(e) => setMustChange(e.target.checked)} />
-          Να αλλάξει τον κωδικό στην πρώτη είσοδο
-        </label>
+        <Section title="Ημερομηνίες">
+          <Field label="Ημερομηνία γέννησης"><input type="date" value={f.dateOfBirth} onChange={(e) => set({ dateOfBirth: e.target.value })} className="input" /></Field>
+          <Field label="Ημερομηνία πρόσληψης"><input type="date" value={f.startDate} onChange={(e) => set({ startDate: e.target.value })} className="input" /></Field>
+        </Section>
 
-        {role === 'admin' ? (
-          <p className="rounded-md bg-stone px-4 py-3 text-sm text-charcoal-600">Ο admin έχει πρόσβαση σε όλα.</p>
-        ) : (
-          <div className="space-y-3">
-            <div className="flex flex-wrap gap-4 text-sm">
-              <label className="flex items-center gap-2">
-                <input type="radio" checked={!custom} onChange={() => { setCustom(false); setPerms(permsForChoice(role, roles)); }} />
-                Δικαιώματα του ρόλου ({roleChoiceLabel(role, roles)})
-              </label>
-              <label className="flex items-center gap-2">
-                <input type="radio" checked={custom} onChange={() => setCustom(true)} />
-                Επιλέγω εγώ τι βλέπει
-              </label>
+        <Section title="Ρόλος & πρόγραμμα">
+          <div className="min-w-0">
+            <div className="mb-1.5 flex items-center justify-between gap-2">
+              <span className="text-[13px] text-charcoal-600">Ρόλος</span>
+              <Link href="/settings/roles" className="text-[12px] font-medium text-forest hover:underline">+ Νέος ρόλος</Link>
             </div>
-            <PermissionMatrix value={perms} onChange={(p) => { setCustom(true); setPerms(p); }} disabled={isPending} />
+            <PopSelect ariaLabel="Ρόλος" width="w-full" value={f.role} onChange={(v) => set({ role: v })} options={roleOptions} />
+            <p className="mt-1 text-[12px] text-charcoal-600/80">Ο ρόλος ορίζει τι βλέπει και τι αλλάζει.</p>
           </div>
-        )}
+          <div className="min-w-0">
+            <span className="mb-1.5 block text-[13px] text-charcoal-600">Χρώμα ημερολογίου</span>
+            <div className="flex flex-wrap gap-1.5">
+              {CAL_COLORS.map((c) => (
+                <button key={c} type="button" onClick={() => set({ calendarColor: c })} aria-label={c} title={c} style={{ backgroundColor: c }}
+                  className={`h-6 w-6 rounded-full transition ${f.calendarColor === c ? 'ring-2 ring-forest ring-offset-2' : 'hover:scale-110'}`} />
+              ))}
+            </div>
+          </div>
+          <Field label="Θέση εργασίας"><input value={f.position} onChange={(e) => set({ position: e.target.value })} placeholder="π.χ. Sales Manager" className="input" /></Field>
+          <div className="min-w-0">
+            <div className="mb-1.5 flex items-center justify-between gap-2">
+              <span className="text-[13px] text-charcoal-600">Τμήμα</span>
+              {departments.length === 0 && <Link href="/settings?section=departments" className="text-[12px] font-medium text-forest hover:underline">+ Νέο τμήμα</Link>}
+            </div>
+            <PopSelect ariaLabel="Τμήμα" width="w-full" value={f.department} onChange={(v) => set({ department: v })} options={deptOptions} />
+          </div>
+        </Section>
+
+        <Section title="Αμοιβή">
+          <Field label="Μισθός (€/μήνα)"><input type="number" min={0} value={f.salary} onChange={(e) => set({ salary: e.target.value })} className="input" /></Field>
+          <Field label="Προμήθεια %"><input type="number" min={0} step="0.1" value={f.commission} onChange={(e) => set({ commission: e.target.value })} className="input" /></Field>
+        </Section>
+
+        <section className="space-y-3">
+          <p className="eyebrow border-b border-stone-line pb-1.5">Πρόσβαση</p>
+          <div className="flex items-start justify-between gap-3 rounded-xl border border-stone-line bg-white px-4 py-3">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-charcoal">Μπορεί να συνδεθεί</p>
+              <p className="text-[12px] text-charcoal-600/80">Κλειστό: μπαίνει στην ομάδα (ημερολόγιο, HR) χωρίς λογαριασμό σύνδεσης.</p>
+            </div>
+            <button type="button" role="switch" aria-checked={canLogin} aria-label="Μπορεί να συνδεθεί" onClick={() => setCanLogin((v) => !v)}
+              className={`relative mt-0.5 h-5 w-9 shrink-0 rounded-full transition-colors ${canLogin ? 'bg-forest' : 'bg-stone-line'}`}>
+              <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-all ${canLogin ? 'left-[18px]' : 'left-0.5'}`} />
+            </button>
+          </div>
+          {canLogin && (
+            <>
+              <div className="flex gap-1 rounded-xl border border-stone-line bg-white p-1">
+                {seg('invite', 'Αποστολή πρόσκλησης με email')}
+                {seg('password', 'Ορίζω εγώ κωδικό')}
+              </div>
+              {access === 'invite' ? (
+                <p className="text-[12px] text-charcoal-600/80">Θα του σταλεί email με link. Πατώντας το, φτιάχνει τον κωδικό του και μπαίνει στην ομάδα.</p>
+              ) : (
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <input value={password} onChange={(e) => setPassword(e.target.value)} className="input font-mono" aria-label="Κωδικός" data-no-tr />
+                    <button type="button" onClick={() => setPassword(generatePassword())} className="btn-ghost" title="Νέος τυχαίος κωδικός" aria-label="Νέος τυχαίος κωδικός">
+                      <RefreshCw size={14} strokeWidth={1.75} />
+                    </button>
+                  </div>
+                  <label className="flex items-center gap-2 text-sm text-charcoal">
+                    <input type="checkbox" checked={mustChange} onChange={(e) => setMustChange(e.target.checked)} />
+                    Να αλλάξει τον κωδικό στην πρώτη είσοδο
+                  </label>
+                </div>
+              )}
+            </>
+          )}
+        </section>
 
         <ErrorLine text={error} />
-        <div className="sticky -bottom-5 -mx-5 -mb-5 flex justify-end gap-2 border-t border-stone-line bg-white px-5 py-3 sm:-mx-6 sm:px-6">
-          <button onClick={onClose} className="btn-ghost">Άκυρο</button>
-          <button onClick={submit} disabled={isPending} className="btn-primary">
-            {isPending ? 'Δημιουργία…' : 'Δημιουργία χρήστη'}
+        <div className="sticky -bottom-5 z-10 -mx-5 -mb-5 flex justify-end gap-2 border-t border-stone-line bg-white px-5 py-3 sm:-mx-6 sm:px-6">
+          <button type="button" onClick={onClose} className="btn-ghost">Άκυρο</button>
+          <button type="button" onClick={submit} disabled={isPending} className="btn-primary">
+            {isPending ? 'Αποθήκευση…' : 'Αποθήκευση'}
           </button>
         </div>
       </div>
@@ -325,6 +422,7 @@ export function UsersAdmin({
   roles = DEFAULT_ROLES,
   mode = 'employees',
   canEditDocs = false,
+  departments = [],
 }: {
   mode?: 'employees' | 'external';
   users: AdminUser[];
@@ -334,6 +432,8 @@ export function UsersAdmin({
   canImpersonate?: boolean;
   roles?: RolesSettings;
   canEditDocs?: boolean;
+  /** Ονόματα ενεργών τμημάτων (Ρυθμίσεις → Τμήματα). */
+  departments?: string[];
 }) {
   const [showInvite, setShowInvite] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
@@ -471,7 +571,7 @@ export function UsersAdmin({
         </Modal>
       )}
       {historyFor && <HistoryDrawer user={historyFor} onClose={() => setHistoryFor(null)} />}
-      {showCreate && <CreateUserModal roles={roles} onClose={() => setShowCreate(false)} onDone={() => router.refresh()} />}
+      {showCreate && <CreateUserModal roles={roles} departments={departments} onClose={() => setShowCreate(false)} onDone={() => router.refresh()} />}
       {permsFor && <PermissionsModal roles={roles} user={permsFor} onClose={() => setPermsFor(null)} onDone={() => router.refresh()} />}
       {passwordFor && <PasswordModal user={passwordFor} onClose={() => setPasswordFor(null)} onDone={() => router.refresh()} />}
 
@@ -588,28 +688,9 @@ function InviteModal({ onClose, onDone }: { onClose: () => void; onDone: () => v
   const [more, setMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{ link: string; emailSent: boolean; email: string; name: string } | null>(null);
-  const [copied, setCopied] = useState(false);
   const [busy, start] = useTransition();
 
-  if (result) {
-    const text = `Γεια σου${result.name ? ` ${result.name}` : ''}! Σε προσκαλούμε στην ομάδα της Oramira. Πάτησε εδώ για να ενεργοποιήσεις τον λογαριασμό σου: ${result.link}`;
-    return (
-      <Modal title={result.emailSent ? 'Η πρόσκληση στάλθηκε' : 'Η πρόσκληση δημιουργήθηκε'} onClose={onClose}>
-        <p className="mb-3 text-sm text-charcoal-600">
-          {result.emailSent
-            ? <><span>Στάλθηκε email με το link στο</span> <strong data-no-tr>{result.email}</strong><span>. Μόλις το πατήσει, φτιάχνει κωδικό και μπαίνει στην ομάδα.</span></>
-            : <><span>Δεν στάλθηκε αυτόματα email. Στείλτε το link στο</span> <strong data-no-tr>{result.email}</strong> <span>με ένα από τα κουμπιά.</span></>}
-        </p>
-        <input readOnly value={result.link} onFocus={(e) => e.target.select()} className="input mb-3 text-xs" data-no-tr />
-        <div className="flex flex-wrap gap-2">
-          <button type="button" onClick={() => { void navigator.clipboard?.writeText(result.link); setCopied(true); }} className="btn-secondary text-sm"><Copy size={14} /> {copied ? 'Αντιγράφηκε ✓' : 'Αντιγραφή link'}</button>
-          <a href={`mailto:${result.email}?subject=${encodeURIComponent('Πρόσκληση στην ομάδα Oramira')}&body=${encodeURIComponent(text)}`} className="btn-secondary text-sm"><Mail size={14} /> Άνοιγμα email</a>
-          <a href={`https://wa.me/?text=${encodeURIComponent(text)}`} target="_blank" rel="noreferrer" className="btn-secondary text-sm">WhatsApp</a>
-          <button type="button" onClick={onClose} className="btn-primary ml-auto text-sm">Τέλος</button>
-        </div>
-      </Modal>
-    );
-  }
+  if (result) return <InviteResult result={result} onClose={onClose} />;
 
   return (
     <Modal title="Πρόσκληση υπαλλήλου" onClose={onClose}>
