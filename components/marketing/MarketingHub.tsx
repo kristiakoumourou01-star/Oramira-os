@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { Mail, MessageSquare, FileBarChart, Gift, Plus, Search, X, Trash2, Copy, Send, Bell, Handshake, Pencil, Power } from 'lucide-react';
+import { Mail, MessageSquare, FileBarChart, Gift, Plus, Search, X, Trash2, Copy, Send, Bell, Handshake, Pencil, Power, Zap } from 'lucide-react';
 import { PopSelect } from '@/components/ui/PopSelect';
 import { Briefing, Pager } from '@/components/ui/SidePanel';
 import { saveReferralCode, setReferralActive, addRedemption, setRedemptionStatus } from '@/app/actions/referrals';
@@ -28,10 +28,10 @@ const BRIEF: Record<CampaignChannel, [string, string, string]> = {
  * Marketing (όπως στο FitnessCRM): κάρτες Email · WhatsApp · Push · Συστάσεις ·
  * Αναφορές · Benefits — από κάτω ο πίνακας του καναλιού και δεξιά η ενημέρωση.
  */
-export function MarketingHub({ campaigns, groups, contacts, tags, prefill, referrals, canEdit }: { campaigns: CampaignRow[]; groups: { name: string; n: number }[]; contacts: PickContact[]; tags: string[]; prefill: Prefill; referrals: ReferralData; canEdit: boolean }) {
+export function MarketingHub({ campaigns, groups, contacts, tags, prefill, referrals, canEdit, leadAutomation }: { campaigns: CampaignRow[]; groups: { name: string; n: number }[]; contacts: PickContact[]; tags: string[]; prefill: Prefill; referrals: ReferralData; canEdit: boolean; leadAutomation?: React.ReactNode }) {
   const router = useRouter();
   const t0 = prefill.tab === 'whatsapp' ? 'sms' : prefill.tab ?? '';
-  const [tab, setTab] = useState<string>(['sms', 'push', 'referrals'].includes(t0) ? t0 : 'email');
+  const [tab, setTab] = useState<string>(['sms', 'push', 'referrals', 'automations'].includes(t0) ? t0 : 'email');
   const [mobile, setMobile] = useState<'sms' | 'whatsapp'>(prefill.tab === 'whatsapp' ? 'whatsapp' : 'sms');
   const wantsNew = !!(prefill.group || prefill.tag || prefill.role || prefill.ids);
   const [dlg, setDlg] = useState<{ row?: CampaignRow; copy?: boolean } | null>(wantsNew ? {} : null);
@@ -71,6 +71,7 @@ export function MarketingHub({ campaigns, groups, contacts, tags, prefill, refer
         { key: 'sms', icon: MessageSquare, title: 'SMS', value: n('sms') + n('whatsapp'), sub: 'SMS και WhatsApp στο κινητό των πελατών' },
         { key: 'push', icon: Bell, title: 'Push', value: n('push'), sub: 'Ειδοποιήσεις στην εφαρμογή των πελατών' },
         { key: 'referrals', icon: Gift, title: 'Συστάσεις', value: referrals.codes.length, sub: 'Κωδικοί σύστασης και εξαργυρώσεις' },
+        { key: 'automations', icon: Zap, title: 'Αυτοματισμοί leads', sub: 'Καλωσόρισμα και follow-up μηνύματα στα νέα leads' },
         { key: 'reports', icon: FileBarChart, title: 'Αναφορές', sub: 'Αποστολές, ανοίγματα και αποτυχίες ανά κανάλι' },
         { key: 'benefits', icon: Handshake, title: 'Benefits', sub: 'Εκπτώσεις συνεργατών για τους πελάτες σας' },
       ]} />
@@ -78,6 +79,7 @@ export function MarketingHub({ campaigns, groups, contacts, tags, prefill, refer
       {msg && <p className={`anim-fade rounded-xl border px-4 py-2.5 text-sm ${msg.ok ? 'border-forest/20 bg-forest/[0.05] text-forest' : 'border-signal-danger/30 bg-rose-50 text-signal-danger'}`}>{msg.text}</p>}
 
       {tab === 'referrals' && <ReferralsPanel data={referrals} contacts={contacts} canEdit={canEdit} />}
+      {tab === 'automations' && leadAutomation}
 
       {['email', 'sms', 'push'].includes(tab) && (
         <div className="grid items-start gap-5 2xl:grid-cols-[minmax(0,1fr)_300px]">

@@ -4,6 +4,8 @@ import { WorkspaceHeader } from '@/components/ui/WorkspaceHeader';
 import { effectiveCan } from '@/lib/permissions';
 import { MarketingHub, type PickContact, type ReferralData } from '@/components/marketing/MarketingHub';
 import type { CampaignRow } from '@/lib/campaigns-shared';
+import { LeadAutomationForm } from '@/components/admin/LeadAutomationForm';
+import { getOrgSettingsRaw } from '@/lib/org-settings';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -32,10 +34,12 @@ export default async function MarketingPage({ searchParams }: { searchParams: { 
     redemptions: redRows.map((r) => ({ id: r.id, codeId: r.code_id, code: r.code?.code ?? '—', referee: r.referee?.full_name ?? null, status: r.status, createdAt: r.created_at })),
   };
   const canEdit = effectiveCan(profile.role, profile.moduleAccess, 'marketing', 'edit', profile.permissions);
+  const leadAutomation = (await getOrgSettingsRaw()).leadAutomation;
   return (
     <div className="space-y-5">
       <WorkspaceHeader eyebrow="Marketing" title="Marketing" description="Καμπάνιες προς τους πελάτες σας ανά κανάλι: email, SMS στο κινητό και ειδοποιήσεις στην εφαρμογή τους." />
-      <MarketingHub campaigns={campaigns} groups={groups} contacts={picks} tags={tagList} prefill={searchParams} referrals={referrals} canEdit={canEdit} />
+      <MarketingHub campaigns={campaigns} groups={groups} contacts={picks} tags={tagList} prefill={searchParams} referrals={referrals} canEdit={canEdit}
+        leadAutomation={leadAutomation ? <LeadAutomationForm part="marketing" initial={leadAutomation} canEdit={canEdit} team={[]} /> : null} />
     </div>
   );
 }

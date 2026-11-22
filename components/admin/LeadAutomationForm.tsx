@@ -18,7 +18,10 @@ const TARGET_EL: Record<RouteTarget, string> = { round_robin: 'Round robin (σε
  * Ρυθμίσεις → Leads & αυτοματισμοί: ποιος παίρνει κάθε νέο lead, το καλωσόρισμα,
  * τι γίνεται όταν μείνει αναπάντητο, η σειρά follow-up και η πρωινή σύνοψη.
  */
-export function LeadAutomationForm({ initial, canEdit, team }: { initial: LeadAutomationSettings; canEdit: boolean; team: TeamMember[] }) {
+export function LeadAutomationForm({ initial, canEdit, team, part = 'settings' }: { initial: LeadAutomationSettings; canEdit: boolean; team: TeamMember[]; part?: 'settings' | 'marketing' }) {
+  // Ρυθμίσεις: τα γενικά (ανάθεση, αναπάντητα, σύνοψη). Marketing: τα μηνύματα (καλωσόρισμα, follow-up).
+  const showGeneral = part === 'settings';
+  const showMessages = part === 'marketing';
   const router = useRouter();
   const [v, setV] = useState(initial);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
@@ -62,7 +65,20 @@ export function LeadAutomationForm({ initial, canEdit, team }: { initial: LeadAu
 
   return (
     <div className="space-y-4">
+      {showGeneral && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-stone-line bg-stone/40 px-4 py-3 text-sm">
+          <span className="text-charcoal-600">Τα μηνύματα προς τα νέα leads (καλωσόρισμα και follow-up) αλλάζουν στο Marketing.</span>
+          <Link href="/marketing?tab=automations" className="text-forest hover:underline">Marketing → Αυτοματισμοί leads →</Link>
+        </div>
+      )}
+      {showMessages && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-stone-line bg-stone/40 px-4 py-3 text-sm">
+          <span className="text-charcoal-600">Ποιος παίρνει κάθε lead, τα αναπάντητα και η πρωινή σύνοψη ρυθμίζονται στις Ρυθμίσεις.</span>
+          <Link href="/settings?section=leads" className="text-forest hover:underline">Ρυθμίσεις → Leads & αυτοματισμοί →</Link>
+        </div>
+      )}
       {/* ── Ανάθεση ── */}
+      {showGeneral && (<>
       <div className="panel space-y-4 p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -126,7 +142,9 @@ export function LeadAutomationForm({ initial, canEdit, team }: { initial: LeadAu
         </div>
       </div>
 
+      </>)}
       {/* ── Καλωσόρισμα ── */}
+      {showMessages && (<>
       <div className="panel space-y-3 p-5">
         <div>
           <h4 className="flex items-center gap-2"><MessageCircle size={16} /> Καλωσόρισμα στη γλώσσα του πελάτη</h4>
@@ -139,7 +157,9 @@ export function LeadAutomationForm({ initial, canEdit, team }: { initial: LeadAu
         </div>
       </div>
 
+      </>)}
       {/* ── Αναπάντητο ── */}
+      {showGeneral && (<>
       <div className="panel space-y-3 p-5">
         <div>
           <h4 className="flex items-center gap-2"><BellRing size={16} /> Αναπάντητο lead</h4>
@@ -164,7 +184,9 @@ export function LeadAutomationForm({ initial, canEdit, team }: { initial: LeadAu
         </div>
       </div>
 
+      </>)}
       {/* ── Follow-up sequence ── */}
+      {showMessages && (<>
       <div className="panel space-y-3 p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -203,7 +225,9 @@ export function LeadAutomationForm({ initial, canEdit, team }: { initial: LeadAu
         </label>
       </div>
 
+      </>)}
       {/* ── Σύνοψη ── */}
+      {showGeneral && (<>
       <div className="panel space-y-3 p-5">
         <div>
           <h4 className="flex items-center gap-2"><Sun size={16} /> Ημερήσια σύνοψη</h4>
@@ -220,6 +244,7 @@ export function LeadAutomationForm({ initial, canEdit, team }: { initial: LeadAu
         </div>
       </div>
 
+      </>)}
       {canEdit && (
         <div className="flex flex-wrap items-center gap-3">
           <button type="button" disabled={pending} onClick={save} className="btn-primary"><Check size={14} /> {pending ? 'Αποθήκευση…' : 'Αποθήκευση'}</button>
