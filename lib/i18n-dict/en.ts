@@ -5197,4 +5197,7 @@ export const EN: Record<string, string> = {
 "χρησιμοποιείται για να βρει ακίνητα που ταιριάζουν στο lead": "used to find properties that match the lead",
 "τύπους": "types",
 "Σε όλους τους τύπους": "On all types",
+"Έδρα": "Head office",
+"Διεύθυνση έδρας": "Head office address",
+"Η διεύθυνση και το τηλέφωνο της εταιρείας στα τιμολόγια και τις αποδείξεις. Τα γραφεία και τα τμήματα (π.χ. Λεμεσός) τα προσθέτετε στα": "The company address and phone shown on invoices and receipts. Add offices and departments (e.g. Limassol) in",
 };
