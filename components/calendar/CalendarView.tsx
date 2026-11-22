@@ -93,6 +93,7 @@ export function CalendarView({
   const viewingsN = items.filter((it) => it.type === 'viewing').length;
   return (
     <div className="space-y-4">
+      {googleConfigured && <GoogleCalendarConnect big connected={googleConnected} configured={googleConfigured} />}
       <HubCards active={useTeam ? 'team' : view === 'day' && sameDay(anchor, today0) ? 'today' : 'range'} onSelect={(k) => { if (k === 'today') go(new Date(), 'day', false); else if (k === 'range') go(anchor, 'week', false); else if (k === 'team') go(anchor, 'day', true); }} cards={[
         { key: 'today', icon: CalendarDays, title: 'Σήμερα', value: todayN, sub: 'Ραντεβού και εργασίες σήμερα' },
         { key: 'range', icon: CalendarRange, title: 'Σε αυτή την προβολή', value: items.length, sub: `${viewingsN} προβολές ακινήτων` },

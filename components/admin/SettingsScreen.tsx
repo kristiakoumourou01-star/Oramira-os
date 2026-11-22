@@ -201,7 +201,7 @@ function IntegrationsSection({ googleConnected, googleConfigured }: { googleConn
           <h3 className="font-semibold text-charcoal">Google Calendar</h3>
           <p className="text-sm text-charcoal-600/75">Συγχρονισμός ραντεβού και ξεναγήσεων με το ημερολόγιο κάθε συνεργάτη.</p>
         </div>
-        <GoogleCalendarConnect connected={googleConnected} configured={googleConfigured} />
+        <GoogleCalendarConnect big connected={googleConnected} configured={googleConfigured} />
       </div>
     </section>
   );
