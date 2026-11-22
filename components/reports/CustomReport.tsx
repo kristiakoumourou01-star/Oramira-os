@@ -130,7 +130,7 @@ export function CustomReport({ rows, fields, templates, canExport, staff, me }: 
             <div className="flex flex-wrap justify-end gap-2">
               <CallListButton onClick={() => setCallDlg(true)} />
               <button type="button" onClick={toGroup} disabled={pending} className="inline-flex h-8 items-center gap-1.5 rounded-[10px] border border-stone-line bg-white px-2.5 text-[13px] font-medium text-charcoal hover:border-forest/40"><FolderPlus size={14} /> Αποθήκευση ως ομάδα</button>
-              <Link href={`/marketing?tab=email&ids=${result.slice(0, 300).map((r) => r.id).join(',')}`} className="inline-flex h-8 items-center gap-1.5 rounded-[10px] border border-stone-line bg-white px-2.5 text-[13px] font-medium text-charcoal hover:border-forest/40"><Megaphone size={14} /> Καμπάνια σε αυτούς</Link>
+              <Link href={`/marketing?tab=campaigns&ids=${result.slice(0, 300).map((r) => r.id).join(',')}`} className="inline-flex h-8 items-center gap-1.5 rounded-[10px] border border-stone-line bg-white px-2.5 text-[13px] font-medium text-charcoal hover:border-forest/40"><Megaphone size={14} /> Καμπάνια σε αυτούς</Link>
             </div>
           )}
           <DataReportView key={`${per}-${JSON.stringify(ran)}`} report={report} title="Custom report πελατών" canExport={canExport} pageSize={per} />

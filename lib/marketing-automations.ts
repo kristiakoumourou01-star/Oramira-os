@@ -235,11 +235,31 @@ async function runScheduledAutomation(svc: any, a: any, now: Date): Promise<numb
   return r.sent + r.queued;
 }
 
+/** Προγραμματισμένες καμπάνιες (Marketing → Καμπάνιες → Προγραμματισμός) που έφτασε η ώρα τους. */
+async function runScheduledCampaigns(svc: any, now: Date): Promise<{ campaigns: number; messages: number }> {
+  const { data, error } = await svc.from('marketing_campaigns').select('id, name, channel, audience, subject, body, scheduled_at').eq('status', 'scheduled').lte('scheduled_at', now.toISOString()).limit(50);
+  if (error) return { campaigns: 0, messages: 0 }; // χωρίς το migration 0110 δεν υπάρχουν προγραμματισμένες
+  let campaigns = 0, messages = 0;
+  for (const c of (data ?? []) as any[]) {
+    // «Κλείνουμε» την καμπάνια ώστε να μη σταλεί δύο φορές.
+    const { data: claim } = await svc.from('marketing_campaigns').update({ status: 'sending' }).eq('id', c.id).eq('status', 'scheduled').select('id');
+    if (!claim?.length) continue;
+    campaigns++;
+    const audience = cleanAudience(c.audience, c.channel);
+    const { list, noConsent, noAddress } = audience ? await resolveAudience(svc, audience, c.channel) : { list: [], noConsent: 0, noAddress: 0 };
+    if (!list.length) { await svc.from('marketing_campaigns').update({ status: 'sent', recipients: 0, skipped: noConsent + noAddress, sent_at: now.toISOString() }).eq('id', c.id); continue; }
+    const r = await deliverCampaign(svc, { id: c.id, name: c.name, channel: c.channel, subject: c.subject, body: c.body ?? '' }, list, noConsent + noAddress);
+    messages += r.sent + r.queued;
+  }
+  return { campaigns, messages };
+}
+
 export async function runMarketingAutomations(svc: Svc): Promise<{ processed: number; summary: string; details?: Record<string, unknown> }> {
   const db = svc as any;
   const now = new Date();
+  const sc = await runScheduledCampaigns(db, now);
   const { data, error } = await db.from('marketing_automations').select('*').eq('active', true).limit(500);
-  if (error) return { processed: 0, summary: /does not exist|schema cache/i.test(error.message) ? 'Λείπει το migration 0109.' : error.message };
+  if (error) return { processed: sc.messages, summary: /does not exist|schema cache/i.test(error.message) ? 'Λείπει το migration 0109.' : error.message };
   let messages = 0, ran = 0;
   for (const a of (data ?? []) as any[]) {
     try {
@@ -247,6 +267,6 @@ export async function runMarketingAutomations(svc: Svc): Promise<{ processed: nu
       else if (a.next_run_at && new Date(a.next_run_at).getTime() <= now.getTime()) { messages += await runScheduledAutomation(db, a, now); ran++; }
     } catch { /* ένας αυτοματισμός με πρόβλημα δεν σταματά τους άλλους */ }
   }
-  return { processed: messages, summary: `${ran} αυτοματισμοί έτρεξαν, ${messages} μηνύματα.`, details: { active: (data ?? []).length } };
+  return { processed: messages + sc.messages, summary: `${ran} αυτοματισμοί έτρεξαν, ${messages} μηνύματα · ${sc.campaigns} προγραμματισμένες καμπάνιες, ${sc.messages} μηνύματα.`, details: { active: (data ?? []).length, scheduledCampaigns: sc.campaigns } };
 }
 

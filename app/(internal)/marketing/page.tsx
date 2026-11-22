@@ -16,7 +16,7 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 /** Marketing ανά κανάλι: Email · SMS (και WhatsApp) · Push · Συστάσεις · Αναφορές · Benefits. */
-export default async function MarketingPage({ searchParams }: { searchParams: { tab?: string; group?: string; tag?: string; role?: string; ids?: string } }) {
+export default async function MarketingPage({ searchParams }: { searchParams: { tab?: string; channel?: string; cat?: string; group?: string; tag?: string; role?: string; ids?: string } }) {
   const profile = await requirePermission('marketing');
   const supabase = await createSupabaseServerClient();
   const db = supabase as any;
@@ -39,7 +39,7 @@ export default async function MarketingPage({ searchParams }: { searchParams: { 
   const groups = groupNames.map((name) => ({ name, n: contactsAll.filter((c) => (c.groups ?? []).includes(name)).length }));
   const tagList = Array.from(new Set(contactsAll.flatMap((c) => (c.tags ?? []) as string[]))).sort();
   const picks: PickContact[] = contactsAll.map((c) => ({ id: c.id, name: c.full_name ?? c.email ?? '—', email: c.email, phone: c.phone, optIn: !!c.marketing_opt_in }));
-  const campaigns: CampaignRow[] = ((camps ?? []) as any[]).map((c) => ({ id: c.id, name: c.name, channel: c.channel, audience: c.audience ?? {}, subject: c.subject, preview: c.preview, body: c.body ?? '', status: c.status, recipients: c.recipients ?? 0, sent: c.sent ?? 0, failed: c.failed ?? 0, skipped: c.skipped ?? 0, opened: c.opened ?? 0, createdAt: c.created_at, sentAt: c.sent_at, createdBy: c.created_by }));
+  const campaigns: CampaignRow[] = ((camps ?? []) as any[]).map((c) => ({ id: c.id, name: c.name, channel: c.channel, audience: c.audience ?? {}, subject: c.subject, preview: c.preview, body: c.body ?? '', status: c.status, recipients: c.recipients ?? 0, sent: c.sent ?? 0, failed: c.failed ?? 0, skipped: c.skipped ?? 0, opened: c.opened ?? 0, createdAt: c.created_at, sentAt: c.sent_at, createdBy: c.created_by, scheduledAt: c.scheduled_at ?? null }));
   const redRows = (reds ?? []) as any[];
   const referrals: ReferralData = {
     codes: ((codes ?? []) as any[]).map((c) => ({ id: c.id, code: c.code, referrer: c.referrer?.full_name ?? null, referrerId: c.referrer_contact_id, refType: c.referrer_reward_type, refValue: c.referrer_reward_value == null ? null : Number(c.referrer_reward_value), eeType: c.referee_reward_type, eeValue: c.referee_reward_value == null ? null : Number(c.referee_reward_value), active: !!c.active, note: c.note, createdAt: c.created_at, uses: redRows.filter((r) => r.code_id === c.id).length })),
@@ -62,8 +62,8 @@ export default async function MarketingPage({ searchParams }: { searchParams: { 
   ];
   return (
     <div className="space-y-5">
-      <WorkspaceHeader eyebrow="Marketing" title="Marketing" description="Καμπάνιες προς τους πελάτες σας ανά κανάλι: email, SMS στο κινητό και ειδοποιήσεις στην εφαρμογή τους." />
-      <MarketingHub automations={<MarketingAutomations rows={automations} builtins={builtins} groups={groups} contacts={picks} tags={tagList} stages={stages} sources={sources} canEdit={canEdit} />} campaigns={campaigns} groups={groups} contacts={picks} tags={tagList} prefill={searchParams} referrals={referrals} canEdit={canEdit}
+      <WorkspaceHeader eyebrow="Marketing" title="Marketing" description="Όλα τα μηνύματα προς τους πελάτες σας σε ένα μέρος: καμπάνιες (μία φορά) και αυτοματισμοί (μόνα τους)." />
+      <MarketingHub automations={<MarketingAutomations rows={automations} builtins={builtins} groups={groups} contacts={picks} tags={tagList} stages={stages} sources={sources} canEdit={canEdit} initialCat={searchParams.cat} />} activeAutomations={automations.filter((a) => a.active).length + builtins.filter((b) => b.active).length} campaigns={campaigns} groups={groups} contacts={picks} tags={tagList} prefill={searchParams} referrals={referrals} canEdit={canEdit}
         leadAutomation={leadAutomation ? <LeadAutomationForm part="marketing" initial={leadAutomation} canEdit={canEdit} team={[]} /> : null} />
     </div>
   );

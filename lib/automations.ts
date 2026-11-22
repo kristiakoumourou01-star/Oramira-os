@@ -1224,7 +1224,7 @@ export const JOBS: JobDef[] = [
   { key: 'warranty_expiry', label: 'Warranty expiry', description: 'Remind homeowners and staff of warranties ending within 60 days.', schedule: 'Daily', run: runWarrantyExpiry },
   { key: 'payment_reminders', label: 'Payment reminders', description: 'Upcoming-payment reminders and overdue alerts.', schedule: 'Daily', run: runPaymentReminders },
   { key: 'birthdays', label: 'Ευχές γενεθλίων', description: 'Μήνυμα στους πελάτες τη μέρα των γενεθλίων τους — Ρυθμίσεις → Ειδοποιήσεις.', schedule: 'Hourly (στέλνει μετά την ώρα που ορίσατε)', run: runBirthdays },
-  { key: 'marketing_automations', label: 'Δικοί μου αυτοματισμοί (Marketing)', description: 'Οι αυτοματισμοί που φτιάχνετε στο Marketing: προγραμματισμένα μηνύματα και μηνύματα όταν συμβεί κάτι (νέο lead, ραντεβού, δόση, γενέθλια…).', schedule: 'Every 15 min', run: runMarketingAutomations },
+  { key: 'marketing_automations', label: 'Δικοί μου αυτοματισμοί (Marketing)', description: 'Οι αυτοματισμοί του Marketing (επαναλαμβανόμενα μηνύματα και μηνύματα όταν συμβεί κάτι) και οι προγραμματισμένες καμπάνιες.', schedule: 'Every 15 min', run: runMarketingAutomations },
   { key: 'website_sync', label: 'Website lead sync', description: 'Reconcile any unprocessed website/newsletter submissions into the CRM.', schedule: 'Every 15 min', run: runWebsiteSync },
   { key: 'maintenance', label: 'Maintenance', description: 'Visit reminders, overdue alerts, and unresolved-ticket escalation.', schedule: 'Every 6 hours', run: runMaintenance },
   { key: 'crm', label: 'CRM follow-ups', description: 'Inactive-lead reminders, status aging, high-value priority and pipeline stage delays.', schedule: 'Daily', run: runCrm },
