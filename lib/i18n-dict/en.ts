@@ -5137,4 +5137,9 @@ export const EN: Record<string, string> = {
 "Ανάλυση (Deal Analyzer)": "Analysis (Deal Analyzer)",
 "Η χώρα αναγνωρίστηκε αυτόματα:": "Country detected automatically:",
 "· αλλάξτε την από τη λίστα αν δεν είναι σωστή.": "· change it from the list if it's wrong.",
+"Το Google Calendar δεν έχει ρυθμιστεί": "Google Calendar is not set up",
+"Το Google Calendar σας είναι συνδεδεμένο": "Your Google Calendar is connected",
+"Συνδέστε το Google Calendar σας": "Connect your Google Calendar",
+"Οι ξεναγήσεις και τα ραντεβού σας μπαίνουν αυτόματα στο ημερολόγιό σας. Συνδέεται μόνο το δικό σας.": "Your viewings and appointments go into your calendar automatically. Only your own calendar is connected.",
+"Σύνδεση με Google Calendar": "Connect Google Calendar",
 };
