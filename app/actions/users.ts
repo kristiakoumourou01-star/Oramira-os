@@ -1,5 +1,7 @@
 'use server';
 
+import { headers } from 'next/headers';
+
 import { createSupabaseServerClient, createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import { requireRole } from '@/lib/auth';
 import { getOrgSettingsRaw } from '@/lib/org-settings';
@@ -16,6 +18,30 @@ import { isInternalRole, sanitizePermissions, storedPermissions, type AppRole, t
  * with the invited role, so no self-registration exists for staff either.
  * Admin-only — the one place roles/access change.
  */
+/** Η βάση των link: η διεύθυνση από την οποία δουλεύει ο admin (vercel.app ή app.oramiraltd.com). */
+async function appBase(): Promise<string> {
+  try {
+    const h = await headers();
+    const host = h.get('x-forwarded-host') ?? h.get('host');
+    if (host) return `${h.get('x-forwarded-proto') ?? 'https'}://${host}`;
+  } catch { /* fall back */ }
+  return process.env.NEXT_PUBLIC_APP_URL ?? '';
+}
+
+/** Email πρόσκλησης (ελληνικά + αγγλικά) με κουμπί ενεργοποίησης. */
+function inviteEmailHtml(name: string | undefined, link: string): string {
+  const btn = `<a href="${link}" style="display:inline-block;background:#2f4a3f;color:#fff;text-decoration:none;padding:12px 22px;border-radius:10px;font-weight:600">`;
+  return `<div style="font-family:Arial,sans-serif;font-size:15px;color:#1f2a24;line-height:1.55;max-width:520px">
+<p>Γεια σου${name ? ` ${name}` : ''},</p>
+<p>Σε προσκαλούμε στην ομάδα της <strong>Oramira</strong>. Πάτησε το κουμπί για να φτιάξεις τον κωδικό σου και να μπεις στο σύστημα:</p>
+<p>${btn}Ενεργοποίηση λογαριασμού</a></p>
+<hr style="border:none;border-top:1px solid #e5e2da;margin:22px 0">
+<p>Hi${name ? ` ${name}` : ''}, you have been invited to join the <strong>Oramira</strong> team. Click the button to set your password and sign in:</p>
+<p>${btn}Activate account</a></p>
+<p style="font-size:12px;color:#7a807c">Το link ισχύει 7 μέρες. / The link is valid for 7 days.<br>${link}</p>
+</div>`;
+}
+
 export async function inviteUser(params: {
   email: string;
   role: AppRole;
@@ -59,15 +85,18 @@ export async function inviteUser(params: {
   });
   if (error) throw error;
 
-  await queueNotificationEmail({
+  const link = `${await appBase()}/invite/${token}`;
+  const emailSent = await queueNotificationEmail({
     triggerType: 'staff_invite',
     recipientEmail: params.email,
-    subject: 'Your Oramira access is ready',
-    body: `<p>You've been invited to Oramira as <strong>${params.role}</strong>. Set up your account: <a href="${process.env.NEXT_PUBLIC_APP_URL}/invite/${token}">Activate access</a></p>`,
+    subject: 'Πρόσκληση στην ομάδα Oramira / Invitation to the Oramira team',
+    body: inviteEmailHtml(params.fullName, link),
+    senderProfileId: profile.id,
   });
 
-  await logActivity({ entityType: 'invite', entityId: profile.id, action: 'user_invited', metadata: { email: params.email, role: params.role } });
+  await logActivity({ entityType: 'invite', entityId: profile.id, action: 'user_invited', metadata: { email: params.email, role: params.role, emailSent } });
   revalidatePath('/settings/users');
+  return { link, emailSent };
 }
 
 export interface VerificationContract {
@@ -146,12 +175,13 @@ export async function createEmployeeInvite(params: {
   });
   if (error) throw error;
 
-  const link = `${process.env.NEXT_PUBLIC_APP_URL}/invite/${token}`;
+  const link = `${await appBase()}/invite/${token}`;
   const emailSent = await queueNotificationEmail({
     triggerType: 'staff_invite',
     recipientEmail: params.email,
-    subject: 'Your Oramira access is ready',
-    body: `<p>Welcome to the team. Your account has been set up as <strong>${params.position ?? params.role}</strong>. Activate your access: <a href="${link}">Activate account</a></p>`,
+    subject: 'Πρόσκληση στην ομάδα Oramira / Invitation to the Oramira team',
+    body: inviteEmailHtml(params.fullName, link),
+    senderProfileId: profile.id,
   });
 
   await logActivity({ entityType: 'invite', entityId: profile.id, action: 'employee_verified_invited', metadata: { email: params.email, role: params.role, emailSent } });
@@ -201,6 +231,23 @@ export async function setUserActive(profileId: string, isActive: boolean) {
   await supabase.from('profiles').update({ is_active: isActive }).eq('id', profileId);
   await logActivity({ entityType: 'profile', entityId: profileId, action: isActive ? 'activated' : 'deactivated' });
   revalidatePath('/settings/users');
+}
+
+/** Το link μιας εκκρεμούς πρόσκλησης (για αντιγραφή) — και, με send, ξαναστέλνει το email. */
+export async function inviteLink(inviteId: string, send = false): Promise<{ link: string | null; emailSent: boolean }> {
+  const profile = await requireRole(['admin']);
+  const supabase = await createSupabaseServerClient();
+  const { data: inv } = await supabase.from('invites').select('email, token, onboarding').eq('id', inviteId).maybeSingle();
+  if (!inv?.token) return { link: null, emailSent: false };
+  const link = `${await appBase()}/invite/${inv.token}`;
+  if (!send) return { link, emailSent: false };
+  const name = ((inv as any).onboarding?.full_name as string | undefined) ?? undefined;
+  const emailSent = await queueNotificationEmail({
+    triggerType: 'staff_invite', recipientEmail: inv.email,
+    subject: 'Πρόσκληση στην ομάδα Oramira / Invitation to the Oramira team',
+    body: inviteEmailHtml(name, link), senderProfileId: profile.id,
+  });
+  return { link, emailSent };
 }
 
 export async function revokeInvite(inviteId: string) {

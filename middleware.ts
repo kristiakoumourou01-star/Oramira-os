@@ -29,9 +29,39 @@ export async function middleware(request: NextRequest) {
   return res;
 }
 
+/** Ο χρήστης από το cookie της συνεδρίας (χωρίς δίκτυο) — μόνο για να ξεκινήσει νωρίτερα η αναζήτηση ρόλου· επιβεβαιώνεται πάντα από το getUser. */
+function userIdFromCookie(request: NextRequest): string | null {
+  try {
+    const parts = request.cookies.getAll().filter((c) => /^sb-.+-auth-token(\.\d+)?$/.test(c.name))
+      .sort((a, b) => a.name.localeCompare(b.name, 'en', { numeric: true }));
+    if (!parts.length) return null;
+    let raw = parts.map((c) => c.value).join('');
+    if (raw.startsWith('base64-')) raw = atob(raw.slice(7).replace(/-/g, '+').replace(/_/g, '/'));
+    const token = JSON.parse(raw)?.access_token as string | undefined;
+    const payload = token?.split('.')[1];
+    if (!payload) return null;
+    const json = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
+    return typeof json.sub === 'string' ? json.sub : null;
+  } catch { return null; }
+}
+
+function roleClient(request: NextRequest) {
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { cookies: { getAll: () => request.cookies.getAll(), setAll: () => {} } },
+  );
+}
+
 async function guard(request: NextRequest) {
-  const { response, user } = await updateSession(request);
   const path = request.nextUrl.pathname;
+  const isPublic = PUBLIC_PATHS.some((p) => path.startsWith(p)) || path.startsWith('/api/public') || path.startsWith('/api/cron');
+  // Ο έλεγχος σύνδεσης και η αναζήτηση ρόλου τρέχουν ταυτόχρονα (πιο γρήγορη αλλαγή σελίδας).
+  const guessId = isPublic ? null : userIdFromCookie(request);
+  const earlyRole = guessId
+    ? roleClient(request).from('profiles').select('role').eq('id', guessId).maybeSingle().then((r) => r.data?.role as string | undefined, () => undefined)
+    : Promise.resolve(undefined);
+  const [{ response, user }, early] = await Promise.all([updateSession(request), earlyRole]);
 
   if (
     PUBLIC_PATHS.some((p) => path.startsWith(p)) ||
@@ -47,24 +77,12 @@ async function guard(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // Look up role directly (lightweight query, cached per-request by Supabase client)
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll: () => request.cookies.getAll(),
-        setAll: () => {},
-      },
-    }
-  );
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single();
-
-  const role = profile?.role as string | undefined;
+  // Ο ρόλος: από την ταυτόχρονη αναζήτηση αν αφορά τον ίδιο χρήστη, αλλιώς (π.χ. μετά από ανανέωση συνεδρίας) ξανά.
+  let role = guessId === user.id ? early : undefined;
+  if (!role) {
+    const { data: profile } = await roleClient(request).from('profiles').select('role').eq('id', user.id).maybeSingle();
+    role = profile?.role as string | undefined;
+  }
   if (!role) {
     return NextResponse.redirect(new URL('/login', request.url));
   }

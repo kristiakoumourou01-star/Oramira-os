@@ -8,7 +8,7 @@ import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { UserPlus, X, Mail, Eye, KeyRound, ShieldCheck, Copy, RefreshCw, UserX, UserCheck, History, MoreHorizontal } from 'lucide-react';
 import {
-  inviteUser, assignRole, setUserActive, revokeInvite,
+  inviteUser, assignRole, setUserActive, revokeInvite, inviteLink,
   createUserWithPassword, setUserPermissions, setUserPassword, getUserHistory,
 } from '@/app/actions/users';
 import { startImpersonation } from '@/app/actions/impersonation';
@@ -82,13 +82,14 @@ function generatePassword(length = 14): string {
 
 function Modal({ title, onClose, children, wide = false }: { title: string; onClose: () => void; children: React.ReactNode; wide?: boolean }) {
   return (
-    <div className="fixed inset-0 z-30 flex items-center justify-center overflow-y-auto bg-forest-deep/40 p-4">
-      <div className={`my-8 w-full ${wide ? 'max-w-3xl' : 'max-w-lg'} rounded-md bg-white p-6 shadow-overlay`}>
-        <div className="mb-4 flex items-center justify-between">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-forest-deep/40 p-3 sm:p-4" onClick={onClose}>
+      {/* Το παράθυρο χωράει πάντα στην οθόνη: ο τίτλος μένει πάνω και το περιεχόμενο κυλάει μέσα του. */}
+      <div onClick={(e) => e.stopPropagation()} className={`flex max-h-[calc(100dvh-1.5rem)] w-full ${wide ? 'max-w-3xl' : 'max-w-lg'} flex-col overflow-hidden rounded-2xl bg-white shadow-overlay`}>
+        <div className="flex shrink-0 items-center justify-between border-b border-stone-line px-5 py-4 sm:px-6">
           <h3 className="text-xl">{title}</h3>
           <button onClick={onClose} className="text-charcoal-600 hover:text-charcoal" aria-label="Κλείσιμο"><X size={18} strokeWidth={1.75} /></button>
         </div>
-        {children}
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6">{children}</div>
       </div>
     </div>
   );
@@ -204,7 +205,7 @@ function CreateUserModal({ onClose, onDone, roles }: { onClose: () => void; onDo
         )}
 
         <ErrorLine text={error} />
-        <div className="flex justify-end gap-2">
+        <div className="sticky -bottom-5 -mx-5 -mb-5 flex justify-end gap-2 border-t border-stone-line bg-white px-5 py-3 sm:-mx-6 sm:px-6">
           <button onClick={onClose} className="btn-ghost">Άκυρο</button>
           <button onClick={submit} disabled={isPending} className="btn-primary">
             {isPending ? 'Δημιουργία…' : 'Δημιουργία χρήστη'}
@@ -253,7 +254,7 @@ function PermissionsModal({ user, onClose, onDone, roles }: { user: AdminUser; o
           </div>
           <PermissionMatrix value={perms} onChange={(p) => { setCustom(true); setPerms(p); }} disabled={isPending} />
           <ErrorLine text={error} />
-          <div className="flex justify-end gap-2">
+          <div className="sticky -bottom-5 -mx-5 -mb-5 flex justify-end gap-2 border-t border-stone-line bg-white px-5 py-3 sm:-mx-6 sm:px-6">
             <button onClick={onClose} className="btn-ghost">Άκυρο</button>
             <button onClick={save} disabled={isPending} className="btn-primary">{isPending ? 'Αποθήκευση…' : 'Αποθήκευση'}</button>
           </div>
@@ -305,7 +306,7 @@ function PasswordModal({ user, onClose, onDone }: { user: AdminUser; onClose: ()
             Να τον αλλάξει στην επόμενη είσοδο
           </label>
           <ErrorLine text={error} />
-          <div className="flex justify-end gap-2">
+          <div className="sticky -bottom-5 -mx-5 -mb-5 flex justify-end gap-2 border-t border-stone-line bg-white px-5 py-3 sm:-mx-6 sm:px-6">
             <button onClick={onClose} className="btn-ghost">Άκυρο</button>
             <button onClick={save} disabled={isPending} className="btn-primary">{isPending ? 'Αποθήκευση…' : 'Ορισμός κωδικού'}</button>
           </div>
@@ -436,19 +437,19 @@ export function UsersAdmin({
 
       {/* Pending invites */}
       {mode === 'employees' && <div className="panel p-6">
-        <h4 className="mb-4">Pending invites</h4>
+        <h4 className="mb-4">Εκκρεμείς προσκλήσεις</h4>
         {invites.length === 0 ? (
-          <p className="text-sm text-charcoal-600/70">No pending invites.</p>
+          <p className="text-sm text-charcoal-600/70">Δεν υπάρχουν εκκρεμείς προσκλήσεις.</p>
         ) : (
           <ul className="divide-y divide-stone-line">
             {invites.map((inv) => (
-              <li key={inv.id} className="flex items-center justify-between py-2.5">
-                <div className="flex items-center gap-2">
+              <li key={inv.id} className="flex flex-wrap items-center justify-between gap-2 py-2.5">
+                <div className="flex min-w-0 items-center gap-2">
                   <Mail size={14} className="text-olive" strokeWidth={1.75} />
-                  <span className="text-sm text-charcoal">{inv.email}</span>
+                  <span className="truncate text-sm text-charcoal" data-no-tr>{inv.email}</span>
                   <span className="badge-neutral capitalize">{ROLE_LABEL[inv.role as AppRole] ?? inv.role}</span>
                 </div>
-                <button onClick={() => run(() => revokeInvite(inv.id))} disabled={isPending} className="btn-ghost text-xs text-signal-danger">Revoke</button>
+                <PendingInviteActions id={inv.id} onRevoke={() => run(() => revokeInvite(inv.id))} disabled={isPending} />
               </li>
             ))}
           </ul>
@@ -474,58 +475,7 @@ export function UsersAdmin({
       {permsFor && <PermissionsModal roles={roles} user={permsFor} onClose={() => setPermsFor(null)} onDone={() => router.refresh()} />}
       {passwordFor && <PasswordModal user={passwordFor} onClose={() => setPasswordFor(null)} onDone={() => router.refresh()} />}
 
-      {showInvite && (
-        <div className="fixed inset-0 z-30 flex items-center justify-center overflow-y-auto bg-forest-deep/40 p-4">
-          <div className="my-8 w-full max-w-lg rounded-md bg-white p-6 shadow-overlay">
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-xl">Invite employee</h3>
-              <button onClick={() => setShowInvite(false)} className="text-charcoal-600 hover:text-charcoal"><X size={18} strokeWidth={1.75} /></button>
-            </div>
-            <form
-              action={(fd) => {
-                const email = String(fd.get('email'));
-                if (!email.trim()) return;
-                run(() => inviteUser({
-                  email,
-                  fullName: String(fd.get('fullName') || '') || undefined,
-                  role: String(fd.get('role')) as AppRole,
-                  position: String(fd.get('position') || '') || undefined,
-                  workSchedule: String(fd.get('workSchedule') || '') || undefined,
-                  annualLeaveDays: Number(fd.get('annualLeave')) || undefined,
-                  sickLeaveDays: Number(fd.get('sickLeave')) || undefined,
-                  startDate: String(fd.get('startDate') || '') || undefined,
-                  agreedSalary: Number(fd.get('salary')) || undefined,
-                  salaryBasis: String(fd.get('salaryBasis') || '') || undefined,
-                  commissionPct: Number(fd.get('commission')) || undefined,
-                }));
-                setShowInvite(false);
-              }}
-              className="grid grid-cols-2 gap-3"
-            >
-              <input name="fullName" placeholder="Full name" className="input" autoFocus />
-              <input name="email" type="email" required placeholder="Email" className="input" />
-              <select name="role" defaultValue="sales" className="input capitalize">
-                {INTERNAL_ROLES.map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
-              </select>
-              <input name="position" placeholder="Position (e.g. Sales Manager)" className="input" />
-              <select name="workSchedule" defaultValue="5_day" className="input">
-                <option value="5_day">5-day week</option>
-                <option value="6_day">6-day week</option>
-              </select>
-              <input name="startDate" type="date" className="input" />
-              <input name="annualLeave" type="number" placeholder="Annual leave (days)" className="input" />
-              <input name="sickLeave" type="number" placeholder="Sick leave (days)" className="input" />
-              <input name="salary" type="number" placeholder="Salary (€/month)" className="input" />
-              <select name="salaryBasis" defaultValue="net" className="input">
-                <option value="net">Net agreed</option>
-                <option value="gross">Gross</option>
-              </select>
-              <input name="commission" type="number" step="0.1" placeholder="Commission % (sales)" className="input col-span-2" />
-              <button type="submit" disabled={isPending} className="btn-primary col-span-2">Send invite</button>
-            </form>
-          </div>
-        </div>
-      )}
+      {showInvite && <InviteModal onClose={() => setShowInvite(false)} onDone={() => router.refresh()} />}
     </div>
   );
 }
@@ -616,5 +566,107 @@ function HistoryDrawer({ user, onClose }: { user: AdminUser; onClose: () => void
         </div>
       </aside>
     </div>
+  );
+}
+
+/** Κουμπιά μιας εκκρεμούς πρόσκλησης: αντιγραφή link, νέα αποστολή, ακύρωση. */
+function PendingInviteActions({ id, onRevoke, disabled }: { id: string; onRevoke: () => void; disabled: boolean }) {
+  const [msg, setMsg] = useState<string | null>(null);
+  const [busy, start] = useTransition();
+  return (
+    <div className="flex flex-wrap items-center gap-1">
+      {msg && <span className="text-xs text-charcoal-600">{msg}</span>}
+      <button type="button" disabled={busy || disabled} onClick={() => start(async () => { const r = await inviteLink(id); if (r.link) { await navigator.clipboard?.writeText(r.link); setMsg('Το link αντιγράφηκε'); } })} className="btn-ghost text-xs"><Copy size={13} /> Αντιγραφή link</button>
+      <button type="button" disabled={busy || disabled} onClick={() => start(async () => { const r = await inviteLink(id, true); setMsg(r.emailSent ? 'Το email στάλθηκε ξανά' : 'Δεν στάλθηκε email· στείλτε το link'); if (!r.emailSent && r.link) await navigator.clipboard?.writeText(r.link).catch(() => {}); })} className="btn-ghost text-xs"><Mail size={13} /> Αποστολή ξανά</button>
+      <button type="button" disabled={busy || disabled} onClick={onRevoke} className="btn-ghost text-xs text-signal-danger">Ακύρωση</button>
+    </div>
+  );
+}
+
+/** Πρόσκληση υπαλλήλου: όνομα + email (+ προαιρετικά στοιχεία). Του έρχεται email με link για να μπει στην ομάδα. */
+function InviteModal({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
+  const [more, setMore] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<{ link: string; emailSent: boolean; email: string; name: string } | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [busy, start] = useTransition();
+
+  if (result) {
+    const text = `Γεια σου${result.name ? ` ${result.name}` : ''}! Σε προσκαλούμε στην ομάδα της Oramira. Πάτησε εδώ για να ενεργοποιήσεις τον λογαριασμό σου: ${result.link}`;
+    return (
+      <Modal title={result.emailSent ? 'Η πρόσκληση στάλθηκε' : 'Η πρόσκληση δημιουργήθηκε'} onClose={onClose}>
+        <p className="mb-3 text-sm text-charcoal-600">
+          {result.emailSent
+            ? <><span>Στάλθηκε email με το link στο</span> <strong data-no-tr>{result.email}</strong><span>. Μόλις το πατήσει, φτιάχνει κωδικό και μπαίνει στην ομάδα.</span></>
+            : <><span>Δεν στάλθηκε αυτόματα email. Στείλτε το link στο</span> <strong data-no-tr>{result.email}</strong> <span>με ένα από τα κουμπιά.</span></>}
+        </p>
+        <input readOnly value={result.link} onFocus={(e) => e.target.select()} className="input mb-3 text-xs" data-no-tr />
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={() => { void navigator.clipboard?.writeText(result.link); setCopied(true); }} className="btn-secondary text-sm"><Copy size={14} /> {copied ? 'Αντιγράφηκε ✓' : 'Αντιγραφή link'}</button>
+          <a href={`mailto:${result.email}?subject=${encodeURIComponent('Πρόσκληση στην ομάδα Oramira')}&body=${encodeURIComponent(text)}`} className="btn-secondary text-sm"><Mail size={14} /> Άνοιγμα email</a>
+          <a href={`https://wa.me/?text=${encodeURIComponent(text)}`} target="_blank" rel="noreferrer" className="btn-secondary text-sm">WhatsApp</a>
+          <button type="button" onClick={onClose} className="btn-primary ml-auto text-sm">Τέλος</button>
+        </div>
+      </Modal>
+    );
+  }
+
+  return (
+    <Modal title="Πρόσκληση υπαλλήλου" onClose={onClose}>
+      <form
+        action={(fd) => {
+          const email = String(fd.get('email') ?? '').trim();
+          const name = String(fd.get('fullName') ?? '').trim();
+          if (!email) { setError('Συμπληρώστε το email.'); return; }
+          setError(null);
+          start(async () => {
+            try {
+              const r = await inviteUser({
+                email,
+                fullName: name || undefined,
+                role: String(fd.get('role')) as AppRole,
+                position: String(fd.get('position') || '') || undefined,
+                workSchedule: String(fd.get('workSchedule') || '') || undefined,
+                annualLeaveDays: Number(fd.get('annualLeave')) || undefined,
+                sickLeaveDays: Number(fd.get('sickLeave')) || undefined,
+                startDate: String(fd.get('startDate') || '') || undefined,
+                agreedSalary: Number(fd.get('salary')) || undefined,
+                salaryBasis: String(fd.get('salaryBasis') || '') || undefined,
+                commissionPct: Number(fd.get('commission')) || undefined,
+              });
+              setResult({ link: r.link, emailSent: r.emailSent, email, name });
+              onDone();
+            } catch {
+              setError('Η πρόσκληση δεν δημιουργήθηκε. Δοκιμάστε ξανά.');
+            }
+          });
+        }}
+        className="grid grid-cols-1 gap-3 sm:grid-cols-2"
+      >
+        <label className="block"><span className="eyebrow mb-1.5 block">Ονοματεπώνυμο</span><input name="fullName" className="input" autoFocus /></label>
+        <label className="block"><span className="eyebrow mb-1.5 block">Email</span><input name="email" type="email" required className="input" /></label>
+        <label className="block"><span className="eyebrow mb-1.5 block">Ρόλος</span>
+          <select name="role" defaultValue="sales" className="input">{INTERNAL_ROLES.map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}</select>
+        </label>
+        <label className="block"><span className="eyebrow mb-1.5 block">Θέση</span><input name="position" placeholder="π.χ. Sales Manager" className="input" /></label>
+        <button type="button" onClick={() => setMore((m) => !m)} className="text-left text-sm text-forest hover:underline sm:col-span-2">{more ? 'Λιγότερα στοιχεία' : '+ Περισσότερα στοιχεία (προαιρετικά)'}</button>
+        <div className={`${more ? 'grid' : 'hidden'} grid-cols-1 gap-3 sm:col-span-2 sm:grid-cols-2`}>
+          <label className="block"><span className="eyebrow mb-1.5 block">Ωράριο</span>
+            <select name="workSchedule" defaultValue="5_day" className="input"><option value="5_day">5ήμερο</option><option value="6_day">6ήμερο</option></select>
+          </label>
+          <label className="block"><span className="eyebrow mb-1.5 block">Ημερομηνία έναρξης</span><input name="startDate" type="date" className="input" /></label>
+          <label className="block"><span className="eyebrow mb-1.5 block">Άδεια (μέρες)</span><input name="annualLeave" type="number" className="input" /></label>
+          <label className="block"><span className="eyebrow mb-1.5 block">Άδεια ασθενείας (μέρες)</span><input name="sickLeave" type="number" className="input" /></label>
+          <label className="block"><span className="eyebrow mb-1.5 block">Μισθός (€/μήνα)</span><input name="salary" type="number" className="input" /></label>
+          <label className="block"><span className="eyebrow mb-1.5 block">Βάση μισθού</span>
+            <select name="salaryBasis" defaultValue="net" className="input"><option value="net">Καθαρός</option><option value="gross">Μικτός</option></select>
+          </label>
+          <label className="block sm:col-span-2"><span className="eyebrow mb-1.5 block">Προμήθεια % (πωλήσεις)</span><input name="commission" type="number" step="0.1" className="input" /></label>
+        </div>
+        {error && <p className="text-sm text-signal-danger sm:col-span-2">{error}</p>}
+        <p className="text-xs text-charcoal-600 sm:col-span-2">Θα του σταλεί email με link. Πατώντας το, φτιάχνει τον κωδικό του και μπαίνει στην ομάδα.</p>
+        <button type="submit" disabled={busy} className="btn-primary sm:col-span-2">{busy ? 'Αποστολή…' : 'Αποστολή πρόσκλησης'}</button>
+      </form>
+    </Modal>
   );
 }
