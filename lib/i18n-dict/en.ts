@@ -5499,4 +5499,6 @@ export const EN: Record<string, string> = {
 "Marketing → Αυτοματισμοί →": "Marketing → Automations →",
 "Οι αυτοματισμοί του Marketing (επαναλαμβανόμενα μηνύματα και μηνύματα όταν συμβεί κάτι) και οι προγραμματισμένες καμπάνιες.": "Marketing automations (recurring messages and messages when something happens) and scheduled campaigns.",
 "{} αυτοματισμοί έτρεξαν, {} μηνύματα · {} προγραμματισμένες καμπάνιες, {} μηνύματα.": "{} automations ran, {} messages · {} scheduled campaigns, {} messages.",
+"Θέλετε να δείτε πότε έτρεξε κάθε αυτόματη εργασία και αν είχε σφάλμα;": "Want to see when each automatic job ran and whether it had an error?",
+"Ιστορικό αυτόματων εργασιών →": "Automatic jobs history →",
 };
