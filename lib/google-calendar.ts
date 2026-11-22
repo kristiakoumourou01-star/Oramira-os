@@ -15,15 +15,16 @@ export function googleConfigured(): boolean {
   return !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
 }
 
-function redirectUri(): string {
-  return `${process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'}/api/google/callback`;
+/** Η διεύθυνση επιστροφής από τη Google — από το domain που άνοιξε ο χρήστης (π.χ. το vercel.app ή το app.oramiraltd.com). */
+function redirectUri(origin?: string): string {
+  return `${origin ?? process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'}/api/google/callback`;
 }
 
 /** Build the consent URL. `state` carries the user id back to the callback. */
-export function googleAuthUrl(state: string): string {
+export function googleAuthUrl(state: string, origin?: string): string {
   const params = new URLSearchParams({
     client_id: process.env.GOOGLE_CLIENT_ID!,
-    redirect_uri: redirectUri(),
+    redirect_uri: redirectUri(origin),
     response_type: 'code',
     access_type: 'offline',
     prompt: 'consent',
@@ -35,14 +36,14 @@ export function googleAuthUrl(state: string): string {
 
 export interface GoogleTokens { access_token: string; refresh_token?: string; expires_in: number; }
 
-export async function exchangeCode(code: string): Promise<GoogleTokens | null> {
+export async function exchangeCode(code: string, origin?: string): Promise<GoogleTokens | null> {
   try {
     const res = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
       headers: { 'content-type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
         code, client_id: process.env.GOOGLE_CLIENT_ID!, client_secret: process.env.GOOGLE_CLIENT_SECRET!,
-        redirect_uri: redirectUri(), grant_type: 'authorization_code',
+        redirect_uri: redirectUri(origin), grant_type: 'authorization_code',
       }).toString(),
     });
     if (!res.ok) return null;
