@@ -5,13 +5,13 @@ import { CalendarDays, CalendarRange, RefreshCw } from 'lucide-react';
 
 import { DATE_TAG, currentLocale } from '@/lib/locale-shared';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type DragEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ChevronLeft, ChevronRight, Plus, Video, X, CheckCircle2, Trash2, ExternalLink, Users } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Video, X, CheckCircle2, Trash2, ExternalLink, Users, Pencil } from 'lucide-react';
 import { CreateEventModal, type LeadOption, type ProjectOption, type TeamOption, type ModalPreset } from '@/components/dashboard/CreateEventModal';
 import { GoogleCalendarConnect } from '@/components/dashboard/GoogleCalendarConnect';
-import { cancelCalendarEvent, setEventStatus } from '@/app/actions/calendar';
+import { cancelCalendarEvent, setEventStatus, updateCalendarEvent, updateGoogleCalendarItem, deleteGoogleCalendarItem } from '@/app/actions/calendar';
 import { formatWeekdayLongDate, formatMonthYear, formatTime } from '@/lib/format';
 import type { CalendarItem } from '@/lib/calendar-feed-shared';
 
@@ -70,6 +70,20 @@ export function CalendarView({
   const [preset, setPreset] = useState<ModalPreset | null>(null);
   const [detail, setDetail] = useState<CalendarItem | null>(null);
   useEffect(() => setMounted(true), []);
+  // Αμφίδρομος συγχρονισμός: ό,τι αλλάζει στο Google Calendar εμφανίζεται εδώ μέσα σε λίγα δευτερόλεπτα.
+  useEffect(() => {
+    if (!googleConnected) return;
+    const tick = () => { if (document.visibilityState === 'visible') router.refresh(); };
+    const t = window.setInterval(tick, 20000);
+    window.addEventListener('focus', tick);
+    return () => { window.clearInterval(t); window.removeEventListener('focus', tick); };
+  }, [googleConnected, router]);
+  /** Μετακίνηση γεγονότος με σύρσιμο: αποθηκεύεται και περνά αμέσως στο Google Calendar. */
+  const moveItem = async (it: CalendarItem, startISO: string) => {
+    if (it.source === 'google') await updateGoogleCalendarItem(it.id, { title: it.title, startISO, durationMin: it.durationMin });
+    else if (it.source === 'internal') await updateCalendarEvent(it.id, { startISO });
+    router.refresh();
+  };
 
   const anchor = useMemo(() => atMidnight(date), [date]);
   const go = (d: Date, v: View = view, t: boolean = teamMode) => router.push(`/calendar?date=${ymd(d)}&view=${v}${t ? '&team=1' : ''}`);
@@ -151,7 +165,7 @@ export function CalendarView({
       ) : view === 'month' ? (
         <MonthGrid anchor={anchor} items={items} onPick={(d) => go(d, 'day')} onNew={(iso) => setPreset({ startISO: iso })} onEvent={setDetail} />
       ) : (
-        <TimeGrid columns={columns} onSlot={(iso) => setPreset({ startISO: iso })} onEvent={setDetail} />
+        <TimeGrid columns={columns} onSlot={(iso) => setPreset({ startISO: iso })} onEvent={setDetail} onMove={useTeam ? undefined : moveItem} />
       )}
 
       {preset && (
@@ -177,9 +191,24 @@ function defaultSlot(anchor: Date): string {
 /* ---- Time grid: columns are either days (day/week) or people (team day) ---- */
 interface GridColumn { key: string; label: string; sublabel?: string; date: Date; items: CalendarItem[] }
 
-function TimeGrid({ columns, onSlot, onEvent }: { columns: GridColumn[]; onSlot: (iso: string) => void; onEvent: (i: CalendarItem) => void }) {
+const movable = (it: CalendarItem) => it.editable && (it.source === 'internal' || it.source === 'google');
+
+function TimeGrid({ columns, onSlot, onEvent, onMove }: { columns: GridColumn[]; onSlot: (iso: string) => void; onEvent: (i: CalendarItem) => void; onMove?: (i: CalendarItem, startISO: string) => Promise<void> }) {
   const hours = Array.from({ length: DAY_END - DAY_START }, (_, i) => DAY_START + i);
   const now = new Date();
+  const [dragging, setDragging] = useState<CalendarItem | null>(null);
+  const [moved, setMoved] = useState<Record<string, string>>({});
+  const drop = (c: GridColumn, e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const it = dragging; setDragging(null);
+    if (!it || !onMove) return;
+    const y = e.clientY - e.currentTarget.getBoundingClientRect().top;
+    const mins = Math.round((DAY_START * 60 + (y / HOUR_PX) * 60) / 15) * 15;
+    const s = new Date(c.date); s.setHours(0, Math.max(DAY_START * 60, Math.min(DAY_END * 60 - 15, mins)), 0, 0);
+    const iso = s.toISOString();
+    setMoved((m) => ({ ...m, [it.id]: iso }));
+    onMove(it, iso).finally(() => setMoved((m) => { const { [it.id]: _x, ...rest } = m; return rest; }));
+  };
   return (
     <div className="overflow-x-auto rounded-2xl border border-stone-line bg-white shadow-[0_1px_2px_rgba(17,49,36,0.04)]">
       <div className="grid min-w-[640px]" style={{ gridTemplateColumns: `56px repeat(${columns.length}, minmax(0,1fr))` }}>
@@ -206,7 +235,7 @@ function TimeGrid({ columns, onSlot, onEvent }: { columns: GridColumn[]; onSlot:
         {columns.map((c) => {
           const isToday = sameDay(c.date, now);
           return (
-            <div key={`col-${c.key}`} className={`relative border-l border-stone-line/50 ${isToday ? 'bg-forest/[0.035]' : c.date.getDay() === 0 || c.date.getDay() === 6 ? 'bg-[#bfab88]/[0.06]' : ''}`} style={{ height: GRID_PX }}>
+            <div key={`col-${c.key}`} onDragOver={(e) => { if (dragging) e.preventDefault(); }} onDrop={(e) => drop(c, e)} className={`relative border-l border-stone-line/50 ${isToday ? 'bg-forest/[0.035]' : c.date.getDay() === 0 || c.date.getDay() === 6 ? 'bg-[#bfab88]/[0.06]' : ''}`} style={{ height: GRID_PX }}>
               {hours.map((h) => (
                 <div
                   key={h}
@@ -220,7 +249,11 @@ function TimeGrid({ columns, onSlot, onEvent }: { columns: GridColumn[]; onSlot:
                   <span className="absolute -left-1.5 -top-[5px] h-2.5 w-2.5 rounded-full bg-signal-danger ring-2 ring-white" />
                 </div>
               )}
-              {c.items.map((it) => <EventBlock key={`${c.key}-${it.source}-${it.id}`} item={it} onClick={() => onEvent(it)} />)}
+              {c.items.filter((it) => !moved[it.id]).map((it) => <EventBlock key={`${c.key}-${it.source}-${it.id}`} item={it} onClick={() => onEvent(it)} draggable={!!onMove && movable(it)} onDragStart={() => setDragging(it)} onDragEnd={() => setDragging(null)} />)}
+              {columns.length > 0 && Object.entries(moved).map(([id, iso]) => {
+                const all = columns.flatMap((x) => x.items); const it = all.find((x) => x.id === id);
+                return it && sameDay(new Date(iso), c.date) ? <EventBlock key={`mv-${id}`} item={{ ...it, start: iso }} onClick={() => {}} /> : null;
+              })}
             </div>
           );
         })}
@@ -233,7 +266,7 @@ function minsToPx(min: number): number {
   const clamped = Math.max(DAY_START * 60, Math.min(DAY_END * 60, min));
   return ((clamped - DAY_START * 60) / 60) * HOUR_PX;
 }
-function EventBlock({ item, onClick }: { item: CalendarItem; onClick: () => void }) {
+function EventBlock({ item, onClick, draggable, onDragStart, onDragEnd }: { item: CalendarItem; onClick: () => void; draggable?: boolean; onDragStart?: () => void; onDragEnd?: () => void }) {
   const d = new Date(item.start);
   const startMin = d.getHours() * 60 + d.getMinutes();
   const top = minsToPx(startMin);
@@ -242,7 +275,10 @@ function EventBlock({ item, onClick }: { item: CalendarItem; onClick: () => void
   return (
     <button
       onClick={(e) => { e.stopPropagation(); onClick(); }}
-      className={`absolute left-1 right-1 z-20 overflow-hidden rounded-lg border-0 border-l-[3px] px-2 py-1 text-left text-[11px] leading-tight shadow-[0_2px_8px_-3px_rgba(17,49,36,0.25)] transition hover:-translate-y-px hover:shadow-[0_6px_14px_-6px_rgba(17,49,36,0.35)] ${s.chip}`}
+      draggable={draggable}
+      onDragStart={draggable ? (e) => { e.dataTransfer.effectAllowed = 'move'; onDragStart?.(); } : undefined}
+      onDragEnd={draggable ? onDragEnd : undefined}
+      className={`absolute left-1 right-1 z-20 ${draggable ? 'cursor-grab active:cursor-grabbing' : ''} overflow-hidden rounded-lg border-0 border-l-[3px] px-2 py-1 text-left text-[11px] leading-tight shadow-[0_2px_8px_-3px_rgba(17,49,36,0.25)] transition hover:-translate-y-px hover:shadow-[0_6px_14px_-6px_rgba(17,49,36,0.35)] ${s.chip}`}
       style={{ top, height, ...(item.color ? { borderLeftColor: item.color, borderLeftWidth: 3 } : {}) }}
       title={item.title}
     >
@@ -295,33 +331,84 @@ function MonthGrid({ anchor, items, onPick, onNew, onEvent }: { anchor: Date; it
 }
 
 /* ---- Event detail modal ---- */
+const toLocalDate = (iso: string) => { const d = new Date(iso); return `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`; };
+const toLocalTime = (iso: string) => { const d = new Date(iso); return `${p2(d.getHours())}:${p2(d.getMinutes())}`; };
+
 function EventDetail({ item, onClose, onChanged }: { item: CalendarItem; onClose: () => void; onChanged: () => void }) {
   const [busy, setBusy] = useState(false);
+  const [edit, setEdit] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [f, setF] = useState({ title: item.title, date: toLocalDate(item.start), time: toLocalTime(item.start), dur: String(item.durationMin), location: item.location ?? '' });
   const s = styleFor(item.type);
+  const canEdit = item.editable && (item.source === 'internal' || item.source === 'google');
   const run = (fn: () => Promise<unknown>) => { setBusy(true); fn().then(onChanged).finally(() => setBusy(false)); };
+  const save = async () => {
+    const [y, m, d] = f.date.split('-').map(Number); const [hh, mm] = f.time.split(':').map(Number);
+    const start = new Date(y, (m ?? 1) - 1, d ?? 1, hh ?? 9, mm ?? 0);
+    if (!f.title.trim() || isNaN(start.getTime())) { setErr('Συμπληρώστε τίτλο, ημερομηνία και ώρα.'); return; }
+    const durationMin = Math.max(5, Math.min(24 * 60, Number(f.dur) || item.durationMin));
+    setBusy(true); setErr(null);
+    try {
+      if (item.source === 'google') {
+        const r = await updateGoogleCalendarItem(item.id, { title: f.title.trim(), startISO: start.toISOString(), durationMin, location: f.location.trim() || null });
+        if (!r.ok) { setErr('Το Google Calendar δεν δέχτηκε την αλλαγή. Δοκιμάστε ξανά.'); return; }
+      } else {
+        await updateCalendarEvent(item.id, { title: f.title.trim(), startISO: start.toISOString(), durationMin, location: f.location.trim() || null });
+      }
+      onChanged();
+    } finally { setBusy(false); }
+  };
+  const field = 'w-full rounded-lg border border-stone-line bg-white px-3 py-2 text-sm text-charcoal outline-none focus:border-forest';
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-forest-deep/40 p-4" onClick={onClose}>
       <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-overlay" onClick={(e) => e.stopPropagation()}>
         <div className="mb-3 flex items-start justify-between">
-          <div>
+          <div className="min-w-0">
             <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold ${s.chip}`}><span className={`h-1.5 w-1.5 rounded-full ${s.dot}`} />{s.label}</span>
-            <h3 className="mt-2 font-display text-xl text-charcoal">{item.title}</h3>
-            <p className="text-sm text-charcoal-600">{formatWeekdayLongDate(item.start)} · {formatTime(item.start)}</p>
+            {!edit && <h3 className="mt-2 font-display text-xl text-charcoal" data-no-tr={item.source === 'google' ? '' : undefined}>{item.title}</h3>}
+            {!edit && <p className="text-sm text-charcoal-600">{formatWeekdayLongDate(item.start)} · {formatTime(item.start)}</p>}
           </div>
           <button onClick={onClose} className="text-charcoal-600/60 hover:text-charcoal"><X size={18} /></button>
         </div>
-        {item.location && <p className="mb-2 text-sm text-charcoal-600">📍 {item.location}</p>}
-        <div className="flex flex-wrap gap-2">
-          {item.meetingLink && <a href={item.meetingLink} target="_blank" rel="noreferrer" className="btn-secondary px-3 py-1.5 text-xs"><Video size={13} /> Join</a>}
-          {item.leadId && <Link href={`/crm/leads/${item.leadId}`} className="btn-secondary px-3 py-1.5 text-xs"><ExternalLink size={13} /> Lead</Link>}
-          {item.editable && (
-            <>
-              <button disabled={busy} onClick={() => run(() => setEventStatus(item.id, 'completed'))} className="btn-ghost text-xs"><CheckCircle2 size={14} /> Ολοκληρώθηκε</button>
-              <button disabled={busy} onClick={() => run(() => cancelCalendarEvent(item.id))} className="btn-ghost text-xs text-signal-danger"><Trash2 size={14} /> Ακύρωση</button>
-            </>
-          )}
-        </div>
-        {!item.editable && item.source === 'google' && <p className="mt-3 text-xs text-charcoal-600/60">Συγχρονισμένο από Google Calendar (read-only εδώ).</p>}
+        {edit ? (
+          <div className="mb-3 space-y-2.5">
+            <label className="block text-xs text-charcoal-600"><span>Τίτλος</span><input className={`${field} mt-1`} value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} /></label>
+            <div className="grid grid-cols-2 gap-2">
+              <label className="block text-xs text-charcoal-600"><span>Ημερομηνία</span><input type="date" className={`${field} mt-1`} value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} /></label>
+              <label className="block text-xs text-charcoal-600"><span>Ώρα</span><input type="time" step={300} className={`${field} mt-1`} value={f.time} onChange={(e) => setF({ ...f, time: e.target.value })} /></label>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <label className="block text-xs text-charcoal-600"><span>Διάρκεια (λεπτά)</span><input type="number" min={5} step={5} className={`${field} mt-1`} value={f.dur} onChange={(e) => setF({ ...f, dur: e.target.value })} /></label>
+              <label className="block text-xs text-charcoal-600"><span>Τοποθεσία</span><input className={`${field} mt-1`} value={f.location} onChange={(e) => setF({ ...f, location: e.target.value })} /></label>
+            </div>
+            {err && <p className="text-xs text-signal-danger">{err}</p>}
+            <div className="flex gap-2 pt-1">
+              <button disabled={busy} onClick={save} className="btn-primary px-3 py-1.5 text-xs">Αποθήκευση</button>
+              <button disabled={busy} onClick={() => setEdit(false)} className="btn-ghost text-xs">Άκυρο</button>
+            </div>
+          </div>
+        ) : (
+          <>
+            {item.location && <p className="mb-2 text-sm text-charcoal-600">📍 <span data-no-tr>{item.location}</span></p>}
+            <div className="flex flex-wrap gap-2">
+              {item.meetingLink && <a href={item.meetingLink} target="_blank" rel="noreferrer" className="btn-secondary px-3 py-1.5 text-xs"><Video size={13} /> Join</a>}
+              {item.leadId && <Link href={`/crm/leads/${item.leadId}`} className="btn-secondary px-3 py-1.5 text-xs"><ExternalLink size={13} /> Lead</Link>}
+              {canEdit && <button disabled={busy} onClick={() => setEdit(true)} className="btn-secondary px-3 py-1.5 text-xs"><Pencil size={13} /> Επεξεργασία</button>}
+              {item.editable && item.source === 'internal' && (
+                <>
+                  <button disabled={busy} onClick={() => run(() => setEventStatus(item.id, 'completed'))} className="btn-ghost text-xs"><CheckCircle2 size={14} /> Ολοκληρώθηκε</button>
+                  <button disabled={busy} onClick={() => run(() => cancelCalendarEvent(item.id))} className="btn-ghost text-xs text-signal-danger"><Trash2 size={14} /> Ακύρωση</button>
+                </>
+              )}
+              {item.editable && item.source === 'google' && (
+                <button disabled={busy} onClick={() => run(() => deleteGoogleCalendarItem(item.id))} className="btn-ghost text-xs text-signal-danger"><Trash2 size={14} /> Διαγραφή</button>
+              )}
+            </div>
+          </>
+        )}
+        {item.source === 'google' && <p className="mt-3 text-xs text-charcoal-600/60">Από το Google Calendar. Ό,τι αλλάζετε εδώ περνά αμέσως και εκεί.</p>}
+        {item.source === 'google' && !item.editable && <p className="mt-1 text-xs text-charcoal-600/60">Ολοήμερο γεγονός· αλλάζει από το Google Calendar.</p>}
+        {item.source === 'internal' && item.editable && <p className="mt-3 text-xs text-charcoal-600/60">Σύρετε το γεγονός σε άλλη ώρα ή πατήστε Επεξεργασία· αν έχετε συνδέσει Google Calendar, η αλλαγή περνά αμέσως και εκεί.</p>}
         {item.source === 'activity' && <p className="mt-3 text-xs text-charcoal-600/60">Activity από το Sales → Activities· αλλάζει ή ολοκληρώνεται από εκεί ή από το deal.</p>}
       </div>
     </div>

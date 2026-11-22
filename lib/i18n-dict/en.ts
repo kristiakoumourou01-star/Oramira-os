@@ -5142,4 +5142,10 @@ export const EN: Record<string, string> = {
 "Συνδέστε το Google Calendar σας": "Connect your Google Calendar",
 "Οι ξεναγήσεις και τα ραντεβού σας μπαίνουν αυτόματα στο ημερολόγιό σας. Συνδέεται μόνο το δικό σας.": "Your viewings and appointments go into your calendar automatically. Only your own calendar is connected.",
 "Σύνδεση με Google Calendar": "Connect Google Calendar",
+"Διάρκεια (λεπτά)": "Duration (minutes)",
+"Συμπληρώστε τίτλο, ημερομηνία και ώρα.": "Enter a title, date and time.",
+"Το Google Calendar δεν δέχτηκε την αλλαγή. Δοκιμάστε ξανά.": "Google Calendar did not accept the change. Please try again.",
+"Από το Google Calendar. Ό,τι αλλάζετε εδώ περνά αμέσως και εκεί.": "From Google Calendar. Any change you make here is applied there immediately.",
+"Ολοήμερο γεγονός· αλλάζει από το Google Calendar.": "All-day event; change it in Google Calendar.",
+"Σύρετε το γεγονός σε άλλη ώρα ή πατήστε Επεξεργασία· αν έχετε συνδέσει Google Calendar, η αλλαγή περνά αμέσως και εκεί.": "Drag the event to another time or press Edit; if Google Calendar is connected, the change is applied there immediately.",
 };

@@ -242,3 +242,22 @@ export async function updateCalendarEvent(id: string, patch: {
   }
   revalidatePath('/dashboard');
 }
+
+/** Αλλαγή γεγονότος που φτιάχτηκε στο Google Calendar: γράφεται κατευθείαν στο Google. */
+export async function updateGoogleCalendarItem(itemId: string, patch: { title?: string; startISO: string; durationMin?: number; location?: string | null }) {
+  const profile = await requireProfile();
+  const gid = itemId.replace(/^g_/, '');
+  const ok = await updateGoogleEvent(profile.id, gid, { summary: patch.title, start: patch.startISO, durationMin: patch.durationMin, location: patch.location });
+  revalidatePath('/calendar');
+  revalidatePath('/dashboard');
+  return { ok };
+}
+
+/** Διαγραφή γεγονότος του Google Calendar από το CRM. */
+export async function deleteGoogleCalendarItem(itemId: string) {
+  const profile = await requireProfile();
+  const ok = await deleteGoogleEvent(profile.id, itemId.replace(/^g_/, ''));
+  revalidatePath('/calendar');
+  revalidatePath('/dashboard');
+  return { ok };
+}

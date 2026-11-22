@@ -66,11 +66,17 @@ export async function refreshAccessToken(refreshToken: string): Promise<GoogleTo
   } catch { return null; }
 }
 
-export interface GCalEvent { id: string; summary?: string; start?: { dateTime?: string; date?: string }; hangoutLink?: string; htmlLink?: string }
+export interface GCalEvent {
+  id: string; summary?: string; status?: string; location?: string; recurringEventId?: string;
+  start?: { dateTime?: string; date?: string }; end?: { dateTime?: string; date?: string };
+  hangoutLink?: string; htmlLink?: string;
+}
 
-export async function listEvents(accessToken: string, calendarId: string, timeMin: string, timeMax: string): Promise<GCalEvent[]> {
+/** Τα γεγονότα ενός διαστήματος. Με showDeleted επιστρέφει και όσα σβήστηκαν στο Google (status «cancelled»). */
+export async function listEvents(accessToken: string, calendarId: string, timeMin: string, timeMax: string, showDeleted = false): Promise<GCalEvent[]> {
   try {
-    const params = new URLSearchParams({ timeMin, timeMax, singleEvents: 'true', orderBy: 'startTime', maxResults: '50' });
+    const params = new URLSearchParams({ timeMin, timeMax, singleEvents: 'true', orderBy: 'startTime', maxResults: '250' });
+    if (showDeleted) params.set('showDeleted', 'true');
     const res = await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?${params}`, {
       headers: { authorization: `Bearer ${accessToken}` },
     });
@@ -122,13 +128,14 @@ export async function deleteEvent(accessToken: string, calendarId: string, event
 }
 
 /** Patch an existing event's time (two-way sync on internal reschedule). */
-export async function updateEvent(accessToken: string, calendarId: string, eventId: string, patch: { summary?: string; start?: string; end?: string }): Promise<boolean> {
+export async function updateEvent(accessToken: string, calendarId: string, eventId: string, patch: { summary?: string; start?: string; end?: string; location?: string | null }): Promise<boolean> {
   try {
     const body: any = {};
     if (patch.summary) body.summary = patch.summary;
+    if (patch.location !== undefined) body.location = patch.location ?? '';
     if (patch.start) body.start = { dateTime: patch.start };
     if (patch.end) body.end = { dateTime: patch.end };
-    const res = await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${eventId}`, {
+    const res = await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}?sendUpdates=all`, {
       method: 'PATCH',
       headers: { authorization: `Bearer ${accessToken}`, 'content-type': 'application/json' },
       body: JSON.stringify(body),
