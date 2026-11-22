@@ -1,18 +1,19 @@
 'use client';
 
-import { useEffect, useState, useTransition } from 'react';
+import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Mail, MessageSquare, FileBarChart, Gift, Plus, Search, X, Trash2, Copy, Send, Bell, Handshake, Pencil, Power, Zap } from 'lucide-react';
 import { PopSelect } from '@/components/ui/PopSelect';
 import { Briefing, Pager } from '@/components/ui/SidePanel';
 import { saveReferralCode, setReferralActive, addRedemption, setRedemptionStatus } from '@/app/actions/referrals';
 import { HubCards } from '@/components/ui/HubCards';
-import { saveCampaign, deleteCampaign, previewAudience } from '@/app/actions/campaigns';
-import { STATUS_LABEL, CHANNEL_NAME, audienceLabel, parseAddresses, smsParts, type CampaignAudience, type CampaignChannel, type CampaignRow } from '@/lib/campaigns-shared';
-import { ROLE_EL, ALL_ROLES } from '@/lib/contacts-hub-shared';
+import { saveCampaign, deleteCampaign } from '@/app/actions/campaigns';
+import { STATUS_LABEL, CHANNEL_NAME, audienceLabel, smsParts, type CampaignAudience, type CampaignChannel, type CampaignRow } from '@/lib/campaigns-shared';
+import { ROLE_EL } from '@/lib/contacts-hub-shared';
 import { formatDate } from '@/lib/format';
 
-export interface PickContact { id: string; name: string; email: string | null; phone: string | null; optIn: boolean }
+import { AudiencePicker, type PickContact, type AudienceCount } from '@/components/marketing/AudiencePicker';
+export type { PickContact };
 export interface Prefill { tab?: string; group?: string; tag?: string; role?: string; ids?: string }
 
 const iconBtn = 'flex h-8 w-8 items-center justify-center rounded-full text-charcoal-600 transition hover:bg-forest/10 hover:text-forest';
@@ -28,7 +29,7 @@ const BRIEF: Record<CampaignChannel, [string, string, string]> = {
  * Marketing (όπως στο FitnessCRM): κάρτες Email · WhatsApp · Push · Συστάσεις ·
  * Αναφορές · Benefits — από κάτω ο πίνακας του καναλιού και δεξιά η ενημέρωση.
  */
-export function MarketingHub({ campaigns, groups, contacts, tags, prefill, referrals, canEdit, leadAutomation }: { campaigns: CampaignRow[]; groups: { name: string; n: number }[]; contacts: PickContact[]; tags: string[]; prefill: Prefill; referrals: ReferralData; canEdit: boolean; leadAutomation?: React.ReactNode }) {
+export function MarketingHub({ campaigns, groups, contacts, tags, prefill, referrals, canEdit, leadAutomation, automations }: { automations?: React.ReactNode; campaigns: CampaignRow[]; groups: { name: string; n: number }[]; contacts: PickContact[]; tags: string[]; prefill: Prefill; referrals: ReferralData; canEdit: boolean; leadAutomation?: React.ReactNode }) {
   const router = useRouter();
   const t0 = prefill.tab === 'whatsapp' ? 'sms' : prefill.tab ?? '';
   const [tab, setTab] = useState<string>(['sms', 'push', 'referrals', 'automations'].includes(t0) ? t0 : 'email');
@@ -71,7 +72,7 @@ export function MarketingHub({ campaigns, groups, contacts, tags, prefill, refer
         { key: 'sms', icon: MessageSquare, title: 'SMS', value: n('sms') + n('whatsapp'), sub: 'SMS και WhatsApp στο κινητό των πελατών' },
         { key: 'push', icon: Bell, title: 'Push', value: n('push'), sub: 'Ειδοποιήσεις στην εφαρμογή των πελατών' },
         { key: 'referrals', icon: Gift, title: 'Συστάσεις', value: referrals.codes.length, sub: 'Κωδικοί σύστασης και εξαργυρώσεις' },
-        { key: 'automations', icon: Zap, title: 'Αυτοματισμοί leads', sub: 'Καλωσόρισμα και follow-up μηνύματα στα νέα leads' },
+        { key: 'automations', icon: Zap, title: 'Αυτοματισμοί', sub: 'Μηνύματα που φεύγουν μόνα τους: γεγονότα και προγραμματισμένα' },
         { key: 'reports', icon: FileBarChart, title: 'Αναφορές', sub: 'Αποστολές, ανοίγματα και αποτυχίες ανά κανάλι' },
         { key: 'benefits', icon: Handshake, title: 'Benefits', sub: 'Εκπτώσεις συνεργατών για τους πελάτες σας' },
       ]} />
@@ -79,7 +80,18 @@ export function MarketingHub({ campaigns, groups, contacts, tags, prefill, refer
       {msg && <p className={`anim-fade rounded-xl border px-4 py-2.5 text-sm ${msg.ok ? 'border-forest/20 bg-forest/[0.05] text-forest' : 'border-signal-danger/30 bg-rose-50 text-signal-danger'}`}>{msg.text}</p>}
 
       {tab === 'referrals' && <ReferralsPanel data={referrals} contacts={contacts} canEdit={canEdit} />}
-      {tab === 'automations' && leadAutomation}
+      {tab === 'automations' && (
+        <div className="space-y-8">
+          {automations}
+          {leadAutomation && (
+            <section id="lead-messages" className="scroll-mt-24 space-y-3">
+              <h2 className="font-display text-xl text-charcoal">Μηνύματα συστήματος</h2>
+              <p className="text-[14px] text-charcoal-600">Καλωσόρισμα, follow-up και μηνύματα ραντεβού που στέλνει η πλατφόρμα.</p>
+              {leadAutomation}
+            </section>
+          )}
+        </div>
+      )}
 
       {['email', 'sms', 'push'].includes(tab) && (
         <div className="grid items-start gap-5 2xl:grid-cols-[minmax(0,1fr)_300px]">
@@ -291,33 +303,16 @@ function RedemptionDialog({ codes, contacts, onClose, onDone }: { codes: Referra
   );
 }
 
-type Kind = CampaignAudience['kind'];
-
 function CampaignDialog({ channel: ch0, row, copy, groups, contacts, tags, prefill, onClose, onDone }: { channel: CampaignChannel; row?: CampaignRow; copy?: boolean; groups: { name: string; n: number }[]; contacts: PickContact[]; tags: string[]; prefill: Prefill; onClose: () => void; onDone: (msg: string, ok?: boolean) => void }) {
-  const a0 = row?.audience;
-  const preIds = prefill.ids ? prefill.ids.split(',').filter(Boolean) : [];
   const [channel, setChannel] = useState<CampaignChannel>(ch0);
   const [name, setName] = useState(row ? `${row.name}${copy ? ' (αντίγραφο)' : ''}` : '');
-  const [kind, setKind] = useState<Kind>(a0?.kind ?? (preIds.length ? 'contacts' : prefill.tag ? 'tag' : prefill.role ? 'role' : 'groups'));
-  const [selGroups, setSelGroups] = useState<string[]>(a0?.kind === 'groups' ? a0.groups : prefill.group ? [prefill.group] : []);
-  const [ids, setIds] = useState<Set<string>>(new Set(a0?.kind === 'contacts' ? a0.ids : preIds));
-  const [addrText, setAddrText] = useState(a0?.kind === 'addresses' ? a0.addresses.join('\n') : '');
-  const [tag, setTag] = useState(a0?.kind === 'tag' ? a0.tag : prefill.tag ?? '');
-  const [role, setRole] = useState(a0?.kind === 'role' ? a0.role : prefill.role ?? 'buyer');
+  const [audience, setAudience] = useState<CampaignAudience | null>(row?.audience ?? null);
   const [subject, setSubject] = useState(row?.subject ?? '');
   const [preview, setPreview] = useState(row?.preview ?? '');
   const [body, setBody] = useState(row?.body ?? '');
-  const [q, setQ] = useState('');
-  const [count, setCount] = useState<{ total: number; reachable: number; noConsent: number; noAddress: number } | null>(null);
+  const [count, setCount] = useState<AudienceCount | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [pending, start] = useTransition();
-
-  const audience: CampaignAudience | null = kind === 'groups' ? { kind, groups: selGroups } : kind === 'contacts' ? { kind, ids: [...ids] } : kind === 'addresses' ? { kind, addresses: parseAddresses(addrText) } : kind === 'tag' ? { kind, tag } : { kind: 'role', role };
-  const key = JSON.stringify([audience, channel]);
-  useEffect(() => { setCount(null); const t = setTimeout(() => { void previewAudience(audience, channel).then((r) => { if (r.ok) setCount(r); }); }, 350); return () => clearTimeout(t); }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
-  const ql = q.trim().toLowerCase();
-  const shown = contacts.filter((c) => !ql || [c.name, c.email ?? '', c.phone ?? ''].join(' ').toLowerCase().includes(ql)).slice(0, 150);
-  const flip = (id: string) => setIds((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const insert = (t: string) => setBody((b) => `${b}${t}`);
 
   const submit = (send: boolean) => start(async () => {
@@ -330,7 +325,6 @@ function CampaignDialog({ channel: ch0, row, copy, groups, contacts, tags, prefi
     else onDone(`Το «${name}» στάλθηκε: ${r.sent ?? 0} επιτυχίες${r.failed ? `, ${r.failed} αποτυχίες` : ''}.`);
   });
 
-  const KINDS: [Kind, string][] = [['groups', 'Ομάδα πελατών'], ['contacts', 'Συγκεκριμένοι πελάτες'], ['tag', 'Tag'], ['role', 'Ιδιότητα'], ...(channel === 'push' ? [] : [['addresses', channel === 'email' ? 'Γραπτές διευθύνσεις' : 'Γραπτά τηλέφωνα'] as [Kind, string]])];
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-charcoal/30 sm:items-center sm:p-4" onClick={onClose}>
       <div className="flex max-h-[94vh] w-full max-w-2xl flex-col rounded-t-2xl bg-white shadow-overlay sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
@@ -339,38 +333,9 @@ function CampaignDialog({ channel: ch0, row, copy, groups, contacts, tags, prefi
           <p className="text-[13px] font-semibold uppercase tracking-wide text-charcoal-600">Βασικά</p>
           <label className="block"><span className={lbl}>Όνομα καμπάνιας *</span><input autoFocus className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="π.χ. Νέο έργο Λεμεσός — προπώληση" /></label>
           <div className="flex flex-wrap gap-2">
-            {(['email', 'sms', 'whatsapp', 'push'] as const).map((c) => <button key={c} type="button" onClick={() => { setChannel(c); if (c === 'push' && kind === 'addresses') setKind('groups'); }} className={`rounded-full border px-3 py-1 text-sm ${channel === c ? 'border-forest bg-forest text-white' : 'border-stone-line text-charcoal'}`}>{CHANNEL_NAME[c]}</button>)}
+            {(['email', 'sms', 'whatsapp', 'push'] as const).map((c) => <button key={c} type="button" onClick={() => setChannel(c)} className={`rounded-full border px-3 py-1 text-sm ${channel === c ? 'border-forest bg-forest text-white' : 'border-stone-line text-charcoal'}`}>{CHANNEL_NAME[c]}</button>)}
           </div>
-          <div>
-            <span className={lbl}>Κοινό *</span>
-            <select value={kind} onChange={(e) => setKind(e.target.value as Kind)} className="input w-auto text-sm">{KINDS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
-            <div className="mt-2">
-              {kind === 'groups' && (groups.length ? (
-                <div className="flex flex-wrap gap-1.5">{groups.map((g) => { const on = selGroups.includes(g.name); return <button key={g.name} type="button" onClick={() => setSelGroups((x) => (on ? x.filter((y) => y !== g.name) : [...x, g.name]))} className={`rounded-full border px-3 py-1 text-sm ${on ? 'border-forest bg-forest text-white' : 'border-stone-line text-charcoal'}`} data-no-tr>{g.name} <span className="text-charcoal-600">· {g.n}</span></button>; })}</div>
-              ) : <p className="text-sm text-charcoal-600">Δεν υπάρχουν ομάδες. Φτιάξτε μία στους Πελάτες → Ομάδες.</p>)}
-              {kind === 'contacts' && (
-                <div>
-                  <label className="relative block"><Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-charcoal-600/60" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Αναζήτηση πελάτη…" className="input pl-9" /></label>
-                  <div className="mt-2 max-h-56 divide-y divide-stone-line overflow-y-auto rounded-xl border border-stone-line">
-                    {shown.map((c) => (
-                      <label key={c.id} className="flex cursor-pointer items-center gap-3 px-3 py-2 text-sm hover:bg-stone-50">
-                        <input type="checkbox" checked={ids.has(c.id)} onChange={() => flip(c.id)} />
-                        <span className="min-w-0 flex-1"><span className="block truncate font-medium text-charcoal" data-no-tr>{c.name}</span><span className="block truncate text-[12px] text-charcoal-600" data-no-tr>{channel === 'email' ? c.email ?? 'χωρίς email' : c.phone ?? 'χωρίς τηλέφωνο'}</span></span>
-                        {!c.optIn && <span className="text-[12px] text-charcoal-600">χωρίς συγκατάθεση</span>}
-                      </label>
-                    ))}
-                  </div>
-                  <p className="mt-1 text-[13px] text-charcoal-600">{ids.size} επιλεγμένοι</p>
-                </div>
-              )}
-              {kind === 'tag' && <select value={tag} onChange={(e) => setTag(e.target.value)} className="input text-sm"><option value="">Διαλέξτε tag…</option>{tags.map((t) => <option key={t} value={t}>{t}</option>)}</select>}
-              {kind === 'role' && <select value={role} onChange={(e) => setRole(e.target.value)} className="input text-sm">{ALL_ROLES.map((r) => <option key={r} value={r}>{ROLE_EL[r]}</option>)}</select>}
-              {kind === 'addresses' && <textarea value={addrText} onChange={(e) => setAddrText(e.target.value)} className="input min-h-[90px] text-sm" placeholder={channel === 'email' ? 'ένα email ανά γραμμή ή με κόμμα' : 'ένα τηλέφωνο ανά γραμμή, με κωδικό χώρας (+357…)'} />}
-            </div>
-            <p className="mt-2 rounded-lg bg-stone-50 px-3 py-2 text-[13px] text-charcoal-600">
-              {count === null ? 'Υπολογισμός παραληπτών…' : kind === 'addresses' ? `${count.reachable} έγκυρες διευθύνσεις.` : <>Θα το λάβουν <b className="text-charcoal">{count.reachable}</b> από {count.total}{count.noConsent ? ` · ${count.noConsent} χωρίς συγκατάθεση marketing (GDPR)` : ''}{count.noAddress ? ` · ${count.noAddress} χωρίς ${channel === 'email' ? 'email' : channel === 'push' ? 'λογαριασμό στην εφαρμογή' : 'τηλέφωνο'}` : ''}.</>}
-            </p>
-          </div>
+          <AudiencePicker channel={channel} initial={row?.audience ?? null} prefill={prefill} groups={groups} contacts={contacts} tags={tags} onChange={setAudience} onCount={setCount} />
 
           <p className="pt-2 text-[13px] font-semibold uppercase tracking-wide text-charcoal-600">Μήνυμα</p>
           {channel === 'push' && <label className="block"><span className={lbl}>Τίτλος ειδοποίησης</span><input className="input" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="π.χ. Νέα φωτογραφίες από το εργοτάξιο" /></label>}
