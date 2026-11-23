@@ -114,7 +114,7 @@ export function CustomReport({ rows, fields, templates, canExport, staff, me }: 
             </div>}
           </div>
           <span className="flex items-center gap-2 sm:ml-auto">
-            <span>Εμφάνιση</span>
+            <span>Προβάλλονται</span>
             <PopSelect ariaLabel="Εγγραφές ανά σελίδα" width="w-[72px]" value={String(per)} onChange={(v) => setPer(Number(v))} options={[['10', '10'], ['25', '25'], ['50', '50'], ['100', '100']]} />
             <button type="button" onClick={() => setRan({ ...def })} className="inline-flex h-8 items-center gap-1.5 rounded-[10px] bg-forest px-3 text-[14px] font-medium text-white hover:bg-forest/90"><Search size={15} /> Εκτέλεση αναφοράς</button>
           </span>

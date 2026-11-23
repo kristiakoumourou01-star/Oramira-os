@@ -72,7 +72,7 @@ export function AutomationHub({ jobs, runs, categories }: { jobs: AutoJob[]; run
           ) : (
             <>
               <div className="flex flex-wrap items-center gap-2 p-4 text-[14px] text-charcoal-600 sm:p-5">
-                <span>Εμφάνιση</span>
+                <span>Προβάλλονται</span>
                 <PopSelect width="w-[72px]" value={String(per)} onChange={(v) => { setPer(Number(v)); setPg(0); }} options={[['10', '10'], ['25', '25'], ['50', '50'], ['100', '100']]} />
                 <span>εγγραφές</span>
                 <span className="ml-auto"><PopSelect width="min-w-[160px]" value={rs} onChange={(v) => { setRs(v); setPg(0); }} options={[['', 'Όλες οι καταστάσεις'], ...Object.entries(ST)]} /></span>
