@@ -39,7 +39,7 @@ export function NotificationsPanel({ notifications }: { notifications: Notificat
         {TABS.map((t) => {
           const count = t.v === 'all' ? totalUnread : unreadByCat[t.v] ?? 0;
           return (
-            <button key={t.v} onClick={() => setTab(t.v)} className={`flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium transition-colors ${tab === t.v ? 'bg-forest text-white' : 'bg-[#F5F1E8] text-charcoal-600 hover:bg-[#EFE8DA]'}`}>
+            <button key={t.v} onClick={() => setTab(t.v)} className={`flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium transition-colors ${tab === t.v ? 'bg-forest text-white' : 'bg-forest/[0.06] text-charcoal-600 hover:bg-forest/[0.1]'}`}>
               {t.label}
               {count > 0 && <span className={`rounded-full px-1 text-[9px] ${tab === t.v ? 'bg-white/25 text-white' : 'bg-champagne-600 text-white'}`}>{count}</span>}
             </button>

@@ -183,7 +183,7 @@ export function NewLeadForm({ projects, agents = [], required = [], pipelines = 
           </div>
 
           {/* More details (kept in the DOM so FormData still captures them) */}
-          <button type="button" onClick={() => setShowMore((v) => !v)} className="mt-3 flex w-full items-center gap-2 rounded-lg border border-[#EBE3D3] bg-[#FAF7F0] px-3 py-2 text-left text-sm font-medium text-charcoal transition-colors hover:bg-[#F5F1E8]">
+          <button type="button" onClick={() => setShowMore((v) => !v)} className="mt-3 flex w-full items-center gap-2 rounded-lg border border-stone-line bg-forest/[0.03] px-3 py-2 text-left text-sm font-medium text-charcoal transition-colors hover:bg-forest/[0.06]">
             Qualification &amp; assignment
             <ChevronDown size={15} className={`ml-auto text-charcoal-600/40 transition-transform ${showMore ? 'rotate-180' : ''}`} />
           </button>

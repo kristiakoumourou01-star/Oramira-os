@@ -8,7 +8,7 @@ export function CommandKButton() {
   return (
     <button
       onClick={() => window.dispatchEvent(new Event('open-command-palette'))}
-      className="group flex w-full max-w-sm items-center gap-2.5 rounded-xl bg-[#F5F1E8]/70 px-3.5 py-1.5 text-sm text-charcoal-600/70 shadow-[inset_0_0_0_1px_rgba(31,77,58,0.06)] transition-all duration-200 hover:bg-white hover:shadow-[inset_0_0_0_1px_rgba(31,77,58,0.14),0_4px_14px_rgba(31,77,58,0.06)]"
+      className="group flex w-full max-w-sm items-center gap-2.5 rounded-xl bg-forest/[0.05] px-3.5 py-1.5 text-sm text-charcoal-600/70 shadow-[inset_0_0_0_1px_rgba(31,77,58,0.06)] transition-all duration-200 hover:bg-white hover:shadow-[inset_0_0_0_1px_rgba(31,77,58,0.14),0_4px_14px_rgba(31,77,58,0.06)]"
     >
       <Search size={15} strokeWidth={1.85} className="text-forest/70" />
       <span>{t('search')}</span>

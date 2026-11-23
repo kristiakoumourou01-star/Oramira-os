@@ -85,7 +85,7 @@ export function BookingWidget({ agent, days, totalSlots, project, consentWording
           <div className="mb-3 flex gap-1.5 overflow-x-auto pb-1">
             {days.map((d, i) => (
               <button key={d.date} onClick={() => setActiveDay(i)}
-                className={`shrink-0 rounded-xl px-3 py-2 text-center transition-colors ${i === activeDay ? 'bg-forest text-white' : 'bg-[#F5F1E8] text-charcoal-600 hover:bg-[#EFE8DA]'}`}>
+                className={`shrink-0 rounded-xl px-3 py-2 text-center transition-colors ${i === activeDay ? 'bg-forest text-white' : 'bg-forest/[0.06] text-charcoal-600 hover:bg-forest/[0.1]'}`}>
                 <span className="block text-[10px] font-semibold uppercase tracking-wide opacity-70">{formatWeekdayDate(d.slots[0]).split(',')[0]}</span>
                 <span className="figure block text-sm">{formatWeekdayDate(d.slots[0]).split(', ')[1]}</span>
               </button>
@@ -113,7 +113,7 @@ export function BookingWidget({ agent, days, totalSlots, project, consentWording
           {/* Meeting type — in-person viewing vs video call. */}
           <div className="mb-3 grid grid-cols-2 gap-2">
             {([['in_person', Home, 'In person'], ['video', Video, 'Video call']] as const).map(([v, Icon, label]) => (
-              <button key={v} onClick={() => setMeetingType(v)} className={`flex items-center justify-center gap-1.5 rounded-lg border py-2 text-[13px] font-medium transition-colors ${meetingType === v ? 'border-forest bg-forest/[0.07] text-forest' : 'border-stone-line text-charcoal-600 hover:bg-[#F5F1E8]'}`}>
+              <button key={v} onClick={() => setMeetingType(v)} className={`flex items-center justify-center gap-1.5 rounded-lg border py-2 text-[13px] font-medium transition-colors ${meetingType === v ? 'border-forest bg-forest/[0.07] text-forest' : 'border-stone-line text-charcoal-600 hover:bg-forest/[0.06]'}`}>
                 <Icon size={14} strokeWidth={1.9} /> {label}
               </button>
             ))}

@@ -134,7 +134,7 @@ export function CreateEventModal({ preset, leads = [], projects = [], team = [],
   const Label = ({ children }: { children: React.ReactNode }) => <span className="mb-1 block text-[11px] font-medium text-charcoal-600/60">{children}</span>;
   const SectionTitle = ({ children }: { children: React.ReactNode }) => <p className="text-[10px] font-semibold uppercase tracking-wide text-charcoal-600/40">{children}</p>;
   const Disclosure = ({ open, onToggle, icon: Icon, label, badge }: { open: boolean; onToggle: () => void; icon: any; label: string; badge?: number }) => (
-    <button type="button" onClick={onToggle} className="flex w-full items-center gap-2 rounded-lg border border-[#EBE3D3] bg-[#FAF7F0] px-3 py-2 text-left transition-colors hover:bg-[#F5F1E8]">
+    <button type="button" onClick={onToggle} className="flex w-full items-center gap-2 rounded-lg border border-stone-line bg-forest/[0.03] px-3 py-2 text-left transition-colors hover:bg-forest/[0.06]">
       <Icon size={14} className="text-forest" />
       <span className="text-sm font-medium text-charcoal">{label}</span>
       {badge ? <span className="figure rounded-full bg-forest/10 px-1.5 text-[10px] text-forest">{badge}</span> : null}
@@ -157,7 +157,7 @@ export function CreateEventModal({ preset, leads = [], projects = [], team = [],
           <div className="space-y-2.5">
             <div className="flex flex-wrap gap-1.5">
               {TYPES.map((t) => (
-                <button key={t.v} onClick={() => setType(t.v)} className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-colors ${type === t.v ? 'bg-forest text-white' : 'bg-[#F5F1E8] text-charcoal-600 hover:bg-[#EFE8DA]'}`}>{t.label}</button>
+                <button key={t.v} onClick={() => setType(t.v)} className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-colors ${type === t.v ? 'bg-forest text-white' : 'bg-forest/[0.06] text-charcoal-600 hover:bg-forest/[0.1]'}`}>{t.label}</button>
               ))}
             </div>
             <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Event title" className="input" autoFocus />
@@ -172,7 +172,7 @@ export function CreateEventModal({ preset, leads = [], projects = [], team = [],
             </div>
             {suggestions.length > 0 && (
               <div className="flex flex-wrap gap-1.5">
-                {suggestions.map((s) => <button key={s} type="button" onClick={() => setWhen(toLocalInput(s))} className="rounded bg-[#F5F1E8] px-2 py-1 text-[11px] text-charcoal-600 hover:bg-[#EFE8DA]">{formatWeekdayTime(new Date(s))}</button>)}
+                {suggestions.map((s) => <button key={s} type="button" onClick={() => setWhen(toLocalInput(s))} className="rounded bg-forest/[0.06] px-2 py-1 text-[11px] text-charcoal-600 hover:bg-forest/[0.1]">{formatWeekdayTime(new Date(s))}</button>)}
               </div>
             )}
             {conflicts.length > 0 && (
@@ -191,7 +191,7 @@ export function CreateEventModal({ preset, leads = [], projects = [], team = [],
 
           {/* Integrations (essential toggle) */}
           {!editing && (
-            <label className="flex cursor-pointer items-center justify-between rounded-lg bg-[#F5F1E8] px-3 py-2 text-sm text-charcoal">
+            <label className="flex cursor-pointer items-center justify-between rounded-lg bg-forest/[0.06] px-3 py-2 text-sm text-charcoal">
               <span className="flex items-center gap-2"><Video size={14} className="text-forest" /> Generate Google Meet link</span>
               <input type="checkbox" checked={withMeet} onChange={(e) => setWithMeet(e.target.checked)} className="h-4 w-4 rounded border-[#E8E0D2]" />
             </label>
@@ -217,7 +217,7 @@ export function CreateEventModal({ preset, leads = [], projects = [], team = [],
                 {teamMatches.length > 0 && (
                   <div className="absolute z-10 mt-1 w-full overflow-hidden rounded-lg border border-[#E8E0D2] bg-white shadow-overlay">
                     {teamMatches.map((m) => (
-                      <button key={m.id} type="button" onClick={() => { setSelectedTeam((s) => [...s, m]); setTeamQuery(''); }} className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-[#F5F1E8]">
+                      <button key={m.id} type="button" onClick={() => { setSelectedTeam((s) => [...s, m]); setTeamQuery(''); }} className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-forest/[0.06]">
                         <span className="flex h-6 w-6 items-center justify-center rounded-full bg-forest text-[10px] font-medium text-champagne">{m.name.slice(0, 1).toUpperCase()}</span>
                         <span className="text-charcoal">{m.name}</span>
                         {m.email && <span className="ml-auto truncate text-xs text-charcoal-600/50">{m.email}</span>}
@@ -252,7 +252,7 @@ export function CreateEventModal({ preset, leads = [], projects = [], team = [],
         <div className="border-t border-stone-line px-5 py-3.5">
           {err && <p className="mb-2.5 rounded-lg bg-signal-danger/10 px-3 py-2 text-xs text-signal-danger">{err}</p>}
           <div className="flex gap-2">
-            <button onClick={onClose} className="rounded-xl border border-stone-line px-4 py-2 text-sm font-medium text-charcoal-600 hover:bg-[#F5F1E8]">Cancel</button>
+            <button onClick={onClose} className="rounded-xl border border-stone-line px-4 py-2 text-sm font-medium text-charcoal-600 hover:bg-forest/[0.06]">Cancel</button>
             <button onClick={submit} disabled={isPending || !title.trim()} className="btn-primary flex-1">{isPending ? 'Saving…' : editing ? 'Save changes' : 'Create event'}</button>
           </div>
         </div>

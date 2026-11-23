@@ -67,7 +67,7 @@ const Card = ({ children, className = '' }: { children: React.ReactNode; classNa
   <div className={`ws-card ${className}`}>{children}</div>
 );
 const MenuItem = ({ icon: Icon, label, onClick, danger }: { icon: any; label: string; onClick: () => void; danger?: boolean }) => (
-  <button onClick={onClick} className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs transition-colors ${danger ? 'text-signal-danger hover:bg-signal-danger/5' : 'text-charcoal hover:bg-[#F5F1E8]'}`}><Icon size={13} strokeWidth={1.9} /> {label}</button>
+  <button onClick={onClick} className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs transition-colors ${danger ? 'text-signal-danger hover:bg-signal-danger/5' : 'text-charcoal hover:bg-forest/[0.06]'}`}><Icon size={13} strokeWidth={1.9} /> {label}</button>
 );
 
 export function PlannerBoard({ events: propEvents, leads = [], projects = [], team = [], routePlan }: { events: CalendarEvent[]; leads?: LeadOption[]; projects?: ProjectOption[]; team?: TeamOption[]; routePlan?: RoutePlanData }) {
@@ -249,7 +249,7 @@ export function PlannerBoard({ events: propEvents, leads = [], projects = [], te
           <span className={`truncate text-[11px] font-semibold leading-tight tracking-tight ${completed ? 'line-through' : ''}`}>{e.title}</span>
           <span className="flex shrink-0 items-center gap-1">
             {live && <span className="flex items-center gap-1 rounded-full bg-forest/15 px-1.5 text-[9px] font-semibold text-forest"><span className="ws-pulse-live h-1.5 w-1.5 rounded-full bg-forest" /> Live</span>}
-            {completed && <span className="rounded-full bg-[#F5F1E8] px-1.5 text-[9px] font-semibold text-charcoal-600">✓</span>}
+            {completed && <span className="rounded-full bg-forest/[0.06] px-1.5 text-[9px] font-semibold text-charcoal-600">✓</span>}
             {!live && !completed && highPriority && <span className={`rounded px-1 text-[9px] font-semibold ${e.priority === 'critical' ? 'bg-signal-danger text-white' : 'bg-signal-danger/15 text-signal-danger'}`}>{e.priority === 'critical' ? '!!' : '!'}</span>}
             {e.recurring && <Repeat size={10} className="text-charcoal-600/40" />}
             {e.meetingLink && <a href={e.meetingLink} target="_blank" rel="noopener noreferrer" onPointerDown={(ev) => ev.stopPropagation()} onClick={(ev) => ev.stopPropagation()} className="text-forest"><Video size={11} /></a>}
@@ -334,7 +334,7 @@ export function PlannerBoard({ events: propEvents, leads = [], projects = [], te
             <p className="mt-0.5 text-xs text-charcoal-600/60">Click a time slot, or start from a recommendation below.</p>
             <div className="pointer-events-auto mt-3 flex gap-2">
               <button onClick={() => setPreset({ type: 'meeting', startISO: suggestedSlotISO })} className="rounded-lg bg-forest px-3 py-1.5 text-xs font-medium text-white transition-all duration-150 hover:bg-forest-deep active:scale-[0.98]">Add meeting</button>
-              <button onClick={() => setPreset({ type: 'task', startISO: suggestedSlotISO })} className="rounded-lg border border-[#E8E0D2] bg-white px-3 py-1.5 text-xs font-medium text-charcoal transition-all duration-150 hover:bg-[#F5F1E8] active:scale-[0.98]">Add task</button>
+              <button onClick={() => setPreset({ type: 'task', startISO: suggestedSlotISO })} className="rounded-lg border border-[#E8E0D2] bg-white px-3 py-1.5 text-xs font-medium text-charcoal transition-all duration-150 hover:bg-forest/[0.06] active:scale-[0.98]">Add task</button>
             </div>
 
             {/* System recommendations — overdue ghost blocks + suggested slot */}
@@ -377,7 +377,7 @@ export function PlannerBoard({ events: propEvents, leads = [], projects = [], te
           )}
           {nextEvent && (
             <div className="flex items-center gap-2.5">
-              <span className="flex items-center gap-1 rounded-full bg-[#F5F1E8] px-2 py-0.5 text-[11px] font-medium text-charcoal-600"><CalendarClock size={11} /> Next</span>
+              <span className="flex items-center gap-1 rounded-full bg-forest/[0.06] px-2 py-0.5 text-[11px] font-medium text-charcoal-600"><CalendarClock size={11} /> Next</span>
               <span className="text-sm text-charcoal">{nextEvent.title}</span>
               {mounted && <span className="figure text-xs text-charcoal-600/60">in {countdown(new Date(nextEvent.start).getTime() - nowMs)}</span>}
               {nextEvent.meetingLink && <a href={nextEvent.meetingLink} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 rounded-lg bg-forest/[0.08] px-2 py-1 text-[11px] text-forest hover:bg-forest/[0.12]"><Video size={12} /> Join</a>}
@@ -398,22 +398,22 @@ export function PlannerBoard({ events: propEvents, leads = [], projects = [], te
         )}
         {plannerTab === 'route' && routePlan ? <RoutePlan plan={routePlan} embedded /> : (<>
         {/* Quick add */}
-        <div className="mb-2.5 flex items-center gap-2 rounded-xl bg-[#F5F1E8] px-3 py-1.5 shadow-[inset_0_0_0_1px_rgba(31,77,58,0.05)] transition-shadow focus-within:shadow-[inset_0_0_0_1px_rgba(200,169,107,0.55)]">
+        <div className="mb-2.5 flex items-center gap-2 rounded-xl bg-forest/[0.06] px-3 py-1.5 shadow-[inset_0_0_0_1px_rgba(31,77,58,0.05)] transition-shadow focus-within:shadow-[inset_0_0_0_1px_rgba(200,169,107,0.55)]">
           <Plus size={14} className="text-forest" />
           <input value={quickAdd} onChange={(e) => setQuickAdd(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); submitQuickAdd(); } }} placeholder="Quick add — e.g. Call Michael tomorrow at 11" className="min-w-0 flex-1 bg-transparent text-sm text-charcoal placeholder:text-charcoal-600/50 focus:outline-none" />
         </div>
         <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-1">
-            <button onClick={() => setSelected(addDays(selected, -VIEW_STEP))} className="rounded-lg border border-[#E8E0D2] p-1 text-charcoal-600 hover:bg-[#F5F1E8]"><ChevronLeft size={15} /></button>
-            <button onClick={() => { setSelected(today); setMonth(new Date(today.getFullYear(), today.getMonth(), 1)); }} className="rounded-lg border border-[#E8E0D2] px-2 py-1 text-xs text-charcoal-600 hover:bg-[#F5F1E8]">Today</button>
-            <button onClick={() => setSelected(addDays(selected, VIEW_STEP))} className="rounded-lg border border-[#E8E0D2] p-1 text-charcoal-600 hover:bg-[#F5F1E8]"><ChevronRight size={15} /></button>
+            <button onClick={() => setSelected(addDays(selected, -VIEW_STEP))} className="rounded-lg border border-[#E8E0D2] p-1 text-charcoal-600 hover:bg-forest/[0.06]"><ChevronLeft size={15} /></button>
+            <button onClick={() => { setSelected(today); setMonth(new Date(today.getFullYear(), today.getMonth(), 1)); }} className="rounded-lg border border-[#E8E0D2] px-2 py-1 text-xs text-charcoal-600 hover:bg-forest/[0.06]">Today</button>
+            <button onClick={() => setSelected(addDays(selected, VIEW_STEP))} className="rounded-lg border border-[#E8E0D2] p-1 text-charcoal-600 hover:bg-forest/[0.06]"><ChevronRight size={15} /></button>
             <span className="ml-1 text-sm font-semibold text-charcoal">{view === 'day' ? formatWeekdayDate(selected) : `${formatDayMonth(columns[0])} – ${formatDayMonth(columns[columns.length - 1])}`}</span>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={() => setTeamOpen((o) => !o)} className={`flex items-center gap-1 rounded-lg border px-2 py-1 text-xs font-medium transition-colors ${teamOpen || overlayIds.length ? 'border-forest/40 bg-forest/5 text-forest' : 'border-[#E8E0D2] text-charcoal-600 hover:bg-[#F5F1E8]'}`}><Users size={13} /> Team{overlayIds.length ? ` (${overlayIds.length})` : ''}</button>
+            <button onClick={() => setTeamOpen((o) => !o)} className={`flex items-center gap-1 rounded-lg border px-2 py-1 text-xs font-medium transition-colors ${teamOpen || overlayIds.length ? 'border-forest/40 bg-forest/5 text-forest' : 'border-[#E8E0D2] text-charcoal-600 hover:bg-forest/[0.06]'}`}><Users size={13} /> Team{overlayIds.length ? ` (${overlayIds.length})` : ''}</button>
             <div className="flex gap-0.5 rounded-lg border border-[#E8E0D2] p-0.5">
               {([['day', 'Day'], ['3day', '3-Day'], ['week', 'Week']] as const).map(([v, label]) => (
-                <button key={v} onClick={() => setView(v)} className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${view === v ? 'bg-forest text-white' : 'text-charcoal-600 hover:bg-[#F5F1E8]'}`}>{label}</button>
+                <button key={v} onClick={() => setView(v)} className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${view === v ? 'bg-forest text-white' : 'text-charcoal-600 hover:bg-forest/[0.06]'}`}>{label}</button>
               ))}
             </div>
           </div>
@@ -421,13 +421,13 @@ export function PlannerBoard({ events: propEvents, leads = [], projects = [], te
 
         {/* team availability selector */}
         {teamOpen && (
-          <div className="mb-3 flex flex-wrap items-center gap-1.5 rounded-xl border border-[#E8E0D2] bg-[#F5F1E8] p-2">
+          <div className="mb-3 flex flex-wrap items-center gap-1.5 rounded-xl border border-[#E8E0D2] bg-forest/[0.06] p-2">
             <span className="text-[11px] text-charcoal-600/60">Compare schedules:</span>
             {team.length === 0 && <span className="text-xs text-charcoal-600/50">No team members.</span>}
             {team.map((m) => {
               const on = overlayIds.includes(m.id);
               return (
-                <button key={m.id} onClick={() => setOverlayIds((s) => (on ? s.filter((x) => x !== m.id) : [...s, m.id]))} className={`flex items-center gap-1 rounded-full py-0.5 pl-0.5 pr-2 text-xs transition-colors ${on ? 'bg-forest text-white' : 'border border-[#E8E0D2] bg-white text-charcoal hover:bg-[#EFE8DA]'}`}>
+                <button key={m.id} onClick={() => setOverlayIds((s) => (on ? s.filter((x) => x !== m.id) : [...s, m.id]))} className={`flex items-center gap-1 rounded-full py-0.5 pl-0.5 pr-2 text-xs transition-colors ${on ? 'bg-forest text-white' : 'border border-[#E8E0D2] bg-white text-charcoal hover:bg-forest/[0.1]'}`}>
                   <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[9px] font-medium ${on ? 'bg-white/25 text-white' : 'bg-forest text-champagne'}`}>{m.name.slice(0, 1).toUpperCase()}</span>
                   {m.name}
                 </button>
