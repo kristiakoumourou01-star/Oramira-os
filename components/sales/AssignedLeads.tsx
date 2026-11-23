@@ -140,7 +140,7 @@ export function AssignedLeads({ rows, agents }: { rows: AssignedLeadRow[]; agent
         </div>
         <div className="overflow-x-auto">
           <table className="o-table">
-            <thead><tr><th>Συνεργάτης</th><th>Leads</th><th>Μόνος/η</th><th>Με ανάθεση</th><th>Χωρίς επικοινωνία</th><th>Μέσος χρόνος απάντησης</th></tr></thead>
+            <thead><tr><th>Μέλος ομάδας</th><th>Leads</th><th>Μόνος/η</th><th>Με ανάθεση</th><th>Χωρίς επικοινωνία</th><th>Μέσος χρόνος απάντησης</th></tr></thead>
             <tbody>
               {agentShown.length === 0 && <tr><td colSpan={6} className="py-6 text-center text-sm text-charcoal-600">Δεν βρέθηκε συνεργάτης.</td></tr>}
               {agentShown.map((a) => (
