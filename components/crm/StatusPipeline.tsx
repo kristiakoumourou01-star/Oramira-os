@@ -73,7 +73,7 @@ export function StatusPipeline({ leadId, currentStatus, currentStage = null, pip
         {working.map((s, i) => (
           <button key={s.key} type="button" disabled={pending} onClick={() => set(s.status, undefined, undefined, s.key)}
             title={`${s.label} · πιθανότητα ${s.probability}%${s.maxDays ? ` · έως ${s.maxDays} μέρες` : ''}`}
-            className={`flex-1 truncate rounded px-1.5 py-2 text-center text-xs font-medium transition-colors ${i <= idx ? 'bg-forest text-stone-100' : 'bg-sand-100 text-charcoal-600 hover:bg-sand'} ${i === idx && late ? 'ring-2 ring-signal-danger ring-offset-1' : ''}`}>
+            className={`flex-1 truncate rounded px-1.5 py-2 text-center text-xs font-medium transition-colors ${i === idx ? 'border border-forest bg-forest text-white' : i < idx ? 'border border-forest/25 bg-white text-forest' : 'border border-stone-line bg-white text-charcoal-600 hover:border-forest/30 hover:text-charcoal'} ${i === idx && late ? 'ring-2 ring-signal-danger ring-offset-1' : ''}`}>
             {s.label}
           </button>
         ))}
@@ -83,10 +83,10 @@ export function StatusPipeline({ leadId, currentStatus, currentStage = null, pip
         <p className={`flex flex-wrap items-center gap-1.5 text-xs ${late ? 'text-signal-danger' : 'text-charcoal-600/75'}`}>
           {late ? <AlertTriangle size={12} /> : <Clock size={12} />}
           <span className="font-medium">{stage.label}</span>
-          {days !== null && <>· {days === 0 ? 'από σήμερα' : `${days} ${days === 1 ? 'μέρα' : 'μέρες'}`}</>}
-          {stage.maxDays && <>· όριο {stage.maxDays}</>}
-          {late ? <>· καθυστέρηση {late} {late === 1 ? 'μέρα' : 'μέρες'}</> : null}
-          <span className="text-charcoal-600/50">· πιθανότητα {stage.probability}% · {pipeline.name}</span>
+          {days !== null && <>· <span>{days === 0 ? 'από σήμερα' : days === 1 ? '1 μέρα' : `${days} μέρες`}</span></>}
+          {stage.maxDays && <>· <span>{`όριο ${stage.maxDays}`}</span></>}
+          {late ? <>· <span>{late === 1 ? 'καθυστέρηση 1 μέρα' : `καθυστέρηση ${late} μέρες`}</span></> : null}
+          <span className="text-charcoal-600/50">· <span>{`πιθανότητα ${stage.probability}%`}</span> · <span data-no-tr>{pipeline.name}</span></span>
         </p>
       )}
 
@@ -96,7 +96,7 @@ export function StatusPipeline({ leadId, currentStatus, currentStage = null, pip
         </button>
         {lostReasons.filter((r) => r.quick).map((r) => (
           <button key={r.key} type="button" disabled={pending} onClick={() => set(r.status, r.label, r.key)} title={`${r.label} → ${STATUS_EL[r.status] ?? r.status}`}
-            className={`inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors ${r.status === 'lost' ? 'border-signal-danger/30 text-signal-danger hover:bg-signal-danger hover:text-white' : 'border-stone-line text-charcoal-600 hover:border-champagne hover:bg-champagne-50'}`}>
+            className={`inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors ${r.status === 'lost' ? 'border-stone-line text-charcoal-600 hover:border-signal-danger/40 hover:text-signal-danger' : 'border-stone-line text-charcoal-600 hover:border-forest/30 hover:text-charcoal'}`}>
             <X size={12} /> {r.label}
           </button>
         ))}

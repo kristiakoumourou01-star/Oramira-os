@@ -146,7 +146,7 @@ export default async function ContactDetailPage({ params, searchParams }: { para
         {([
           ['Κατάσταση', STATUS_LABEL[c.status ?? 'active'] ?? c.status, false],
           ['Μονάδες', String(unitsCount), false],
-          ['Ομάδα', groups.join(', ') || 'Χωρίς ομάδα', true],
+          ['Ομάδα', groups.join(', ') || 'Χωρίς ομάδα', groups.length > 0],
           ['Υπόλοιπο', formatCurrency(balance), false],
         ] as [string, string, boolean][]).map(([k, v, data]) => (
           <div key={k} className="min-w-0 rounded-2xl border border-stone-line bg-white px-4 py-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:px-5 sm:py-4"><p className="text-[13px] text-charcoal-600">{k}</p><p className="mt-1 truncate text-[17px] font-semibold leading-snug text-charcoal sm:text-[19px]" {...(data ? { 'data-no-tr': true } : {})}>{v}</p></div>
