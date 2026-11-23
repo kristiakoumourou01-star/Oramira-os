@@ -18,7 +18,7 @@ const PORTAL_PREFIX_TO_ROLE: Record<string, string> = {
   '/contractor': 'contractor',
 };
 
-const PUBLIC_PATHS = ['/login', '/invite', '/reset-password', '/book', '/auth/signout', '/selection/', '/manifest.webmanifest'];
+const PUBLIC_PATHS = ['/api/perf', '/login', '/invite', '/reset-password', '/book', '/auth/signout', '/selection/', '/manifest.webmanifest'];
 
 /** Times the guard; slow runs (sign-in check + role lookup) show up in the logs as «[perf] middleware …». */
 export async function middleware(request: NextRequest) {
@@ -31,6 +31,11 @@ export async function middleware(request: NextRequest) {
 
 /** Ο χρήστης από το cookie της συνεδρίας (χωρίς δίκτυο) — μόνο για να ξεκινήσει νωρίτερα η αναζήτηση ρόλου· επιβεβαιώνεται πάντα από το getUser. */
 function userIdFromCookie(request: NextRequest): string | null {
+  return sessionFromCookie(request)?.sub ?? null;
+}
+
+/** sub + λήξη του access token από το cookie (χωρίς δίκτυο). */
+function sessionFromCookie(request: NextRequest): { sub: string; exp: number } | null {
   try {
     const parts = request.cookies.getAll().filter((c) => /^sb-.+-auth-token(\.\d+)?$/.test(c.name))
       .sort((a, b) => a.name.localeCompare(b.name, 'en', { numeric: true }));
@@ -41,8 +46,14 @@ function userIdFromCookie(request: NextRequest): string | null {
     const payload = token?.split('.')[1];
     if (!payload) return null;
     const json = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
-    return typeof json.sub === 'string' ? json.sub : null;
+    return typeof json.sub === 'string' && typeof json.exp === 'number' ? { sub: json.sub, exp: json.exp } : null;
   } catch { return null; }
+}
+
+function passThrough(request: NextRequest) {
+  const headers = new Headers(request.headers);
+  headers.set('x-pathname', request.nextUrl.pathname);
+  return NextResponse.next({ request: { headers } });
 }
 
 function roleClient(request: NextRequest) {
@@ -61,7 +72,15 @@ async function guard(request: NextRequest) {
   const earlyRole = guessId
     ? roleClient(request).from('profiles').select('role').eq('id', guessId).maybeSingle().then((r) => r.data?.role as string | undefined, () => undefined)
     : Promise.resolve(undefined);
-  const [{ response, user }, early] = await Promise.all([updateSession(request), earlyRole]);
+  // Γρήγορη διαδρομή: αν το token ισχύει ακόμη >2 λεπτά, δεν χρειάζεται ανανέωση
+  // συνεδρίας εδώ — η σελίδα (requireProfile → getUser) και το RLS επαληθεύουν
+  // ξανά τον χρήστη στον server. Έτσι γλιτώνουμε ένα ταξίδι στο Supabase σε κάθε κλικ.
+  const sess = isPublic ? null : sessionFromCookie(request);
+  const fresh = !!sess && sess.exp * 1000 > Date.now() + 120_000;
+  const session = fresh
+    ? Promise.resolve({ response: passThrough(request), user: { id: sess!.sub } as { id: string } | null })
+    : updateSession(request);
+  const [{ response, user }, early] = await Promise.all([session, earlyRole]);
 
   if (
     PUBLIC_PATHS.some((p) => path.startsWith(p)) ||

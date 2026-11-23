@@ -1,5 +1,6 @@
 'use client';
 
+import { currentLocale } from '@/lib/locale-shared';
 import { HubCards } from '@/components/ui/HubCards';
 import { PopSelect } from '@/components/ui/PopSelect';
 
@@ -66,6 +67,8 @@ export function MapWorkspace({ projects, unplaced, units, leads, fields, agents,
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const lead = useMemo(() => leads.find((l) => leadLabel(l) === leadQ) ?? leads.find((l) => l.name === leadQ) ?? null, [leads, leadQ]);
   const projById = useMemo(() => new Map(projects.map((p) => [p.id, p])), [projects]);
+  const nameById = useMemo(() => new Map([...projects, ...unplaced].map((p) => [p.id, p.name])), [projects, unplaced]);
+  const locById = useMemo(() => new Map(unplaced.map((p) => [p.id, p.location])), [unplaced]);
 
   const scored: Scored[] = useMemo(() => {
     const list = units
@@ -117,7 +120,9 @@ export function MapWorkspace({ projects, unplaced, units, leads, fields, agents,
     loadLeaflet().then((L) => {
       if (cancelled || !box.current || mapRef.current) return;
       const m = L.map(box.current, { zoomControl: true }).setView([34.9, 33.2], 9);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(m);
+      // Ελληνικά: OpenStreetMap (τοπικά ονόματα). EN/RU: χάρτης με λατινικά ονόματα.
+      if (currentLocale().lang === 'el') L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(m);
+      else L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution: 'Tiles &copy; Esri' }).addTo(m);
       layerRef.current = L.layerGroup().addTo(m);
       const upd = () => { const b = m.getBounds(); setBounds({ s: b.getSouth(), w: b.getWest(), n: b.getNorth(), e: b.getEast() }); };
       m.on('moveend', upd);
@@ -263,8 +268,8 @@ export function MapWorkspace({ projects, unplaced, units, leads, fields, agents,
                         <button type="button" onClick={() => toggleProj(pid)} className="flex min-w-0 flex-1 items-center gap-2 text-left" aria-expanded={isOpen}>
                           <ChevronRight size={15} className={`shrink-0 text-charcoal-600/60 transition-transform ${isOpen ? 'rotate-90' : ''}`} />
                           <span className="min-w-0">
-                            <span className="block truncate text-sm font-semibold text-charcoal" data-no-tr>{pr?.name ?? 'Έργο'}</span>
-                            <span className="block truncate text-[11px] text-charcoal-600/70">{list.length} μονάδες{pr?.location ? ` · ${pr.location}` : ''}</span>
+                            <span className="block truncate text-sm font-semibold text-charcoal" data-no-tr>{pr?.name ?? nameById.get(list[0].unit.projectId) ?? '—'}</span>
+                            <span className="block truncate text-[11px] text-charcoal-600/70"><span>{`${list.length} μονάδες`}</span>{(pr?.location ?? locById.get(list[0].unit.projectId)) && <> · <span data-no-tr>{pr?.location ?? locById.get(list[0].unit.projectId)}</span></>}</span>
                           </span>
                         </button>
                         {best > 0 && <span className="figure shrink-0 rounded bg-forest px-1.5 py-0.5 text-[11px] font-medium text-white">{best}%</span>}
@@ -276,7 +281,7 @@ export function MapWorkspace({ projects, unplaced, units, leads, fields, agents,
                     <div className="min-w-0 flex-1">
                       <div className="flex items-start justify-between gap-2">
                         <Link href={`/projects/${s.unit.projectId}/units/${s.unit.id}`} className="truncate text-sm font-medium text-charcoal hover:text-forest">
-                          {s.project?.name ?? 'Έργο'} · {s.unit.unitNumber}
+                          <span data-no-tr>{s.project?.name ?? nameById.get(s.unit.projectId) ?? '—'}</span> · <span data-no-tr>{s.unit.unitNumber}</span>
                         </Link>
                         {s.match && <span className="figure shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium text-white" style={{ background: TIER_COLOR[s.match.tier] }}>{s.match.score}%</span>}
                       </div>
