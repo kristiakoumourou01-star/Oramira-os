@@ -82,3 +82,11 @@ export function dayKey(iso: string): string {
   const d = new Date(iso);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
+
+/** Ανατεθειμένα leads — ποιος πήρε ποιο lead και πότε (για Owner / Manager). */
+export interface AssignedLeadRow {
+  id: string; name: string | null; source: string | null; status: string;
+  assignedTo: string | null; assignedToName: string | null;
+  assignedBy: string | null; assignedByName: string | null;
+  assignedAt: string | null; createdAt: string; contacted: boolean;
+}
