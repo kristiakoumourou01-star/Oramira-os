@@ -57,7 +57,7 @@ export default async function AccountPage({ searchParams }: { searchParams: { ta
     ];
     body = (
       <div className="space-y-5">
-        <div><h2 className="font-display text-xl text-charcoal">Πληροφορίες</h2><p className="text-sm text-charcoal-600/75">Το προφίλ σας και τα στοιχεία σύνδεσης</p></div>
+        <h2 className="font-display text-xl text-charcoal">Πληροφορίες</h2>
         <AccountProfile readOnly={!!me.impersonator} initial={{ fullName: row?.full_name ?? me.fullName ?? '', email: auth.user?.email ?? '', phone: row?.phone ?? '', jobTitle: row?.job_title ?? '', avatarUrl: row?.avatar_url ?? null, roleName: me.roleName, department: row?.department ?? '' }} />
         <LanguagePick lang={requestLocale().lang} num={requestLocale().num} />
         {cal.configured && (
@@ -152,7 +152,7 @@ export default async function AccountPage({ searchParams }: { searchParams: { ta
   return (
     <SettingsFrame icon="user" title="Ο λογαριασμός μου" subtitle="Διαχειριστείτε το προφίλ σας και την υποστήριξη."
       groups={groups} activeHref={`/account?tab=${tab}`}
-      aside={<span className="flex items-center gap-2" data-no-tr><span>{me.fullName}</span><span className="text-charcoal-600/60">·</span><span className="text-charcoal-600">{me.roleName}</span></span>}>
+      aside={<span className="flex flex-wrap items-center gap-2"><span data-no-tr>{me.fullName}</span><span className="text-charcoal-600/60">·</span><span className="text-charcoal-600">{me.roleName}</span></span>}>
       {body}
     </SettingsFrame>
   );

@@ -86,6 +86,12 @@ export function CalendarView({
   };
 
   const anchor = useMemo(() => atMidnight(date), [date]);
+  // Στο κινητό η «Εβδομάδα» δεν χωράει: ανοίγει στην «Ημέρα» (εκτός αν διαλέξατε προβολή).
+  useEffect(() => {
+    if (typeof window === 'undefined' || window.innerWidth >= 640 || view !== 'week') return;
+    if (new URLSearchParams(window.location.search).get('view')) return;
+    router.replace(`/calendar?date=${ymd(anchor)}&view=day`, { scroll: false });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const go = (d: Date, v: View = view, t: boolean = teamMode) => router.push(`/calendar?date=${ymd(d)}&view=${v}${t ? '&team=1' : ''}`, { scroll: false }); // μένει στο ίδιο σημείο της σελίδας
   const step = (dir: number) => {
     if (view === 'day') go(addDays(anchor, dir));
