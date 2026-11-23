@@ -4,7 +4,7 @@ import { requirePermission, hasRight } from '@/lib/auth';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { buildBoardReport } from '@/lib/board-report';
 import { buildInvestorReport } from '@/lib/investor-report';
-import { renderReportPdf } from '@/lib/report-pdf';
+import { renderReportPdf, type StructuredReport } from '@/lib/report-pdf';
 
 /** Renders the board pack to a PDF and returns it base64-encoded for download. */
 export async function boardReportPdf(period: 'weekly' | 'monthly'): Promise<{ filename: string; base64: string }> {
@@ -27,4 +27,18 @@ export async function investorReportPdf(): Promise<{ filename: string; base64: s
   const report = await buildInvestorReport(supabase);
   const bytes = await renderReportPdf(report);
   return { filename: `oramira-investor-report-${new Date().toISOString().slice(0, 10)}.pdf`, base64: Buffer.from(bytes).toString('base64') };
+}
+
+/** Τα ίδια δεδομένα για εκτύπωση/PDF στον browser — στη γλώσσα του χρήστη. */
+export async function boardReportData(period: 'weekly' | 'monthly'): Promise<StructuredReport> {
+  const profile = await requirePermission('financials');
+  if (!hasRight(profile, 'export_data')) throw new Error('Δεν έχετε δικαίωμα export.');
+  return buildBoardReport(await createSupabaseServerClient(), period);
+}
+export async function boardReportDataWeekly() { return boardReportData('weekly'); }
+export async function boardReportDataMonthly() { return boardReportData('monthly'); }
+export async function investorReportData(): Promise<StructuredReport> {
+  const profile = await requirePermission('financials');
+  if (!hasRight(profile, 'export_data')) throw new Error('Δεν έχετε δικαίωμα export.');
+  return buildInvestorReport(await createSupabaseServerClient());
 }

@@ -5577,4 +5577,5 @@ export const EN: Record<string, string> = {
 "καθυστέρηση 1 μέρα": "1 day late",
 "καθυστέρηση {} μέρες": "{} days late",
 "πιθανότητα {}%": "probability {}%",
+"Προβάλλονται": "Show",
 };

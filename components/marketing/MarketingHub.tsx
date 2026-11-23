@@ -127,7 +127,7 @@ export function MarketingHub({ campaigns, groups, contacts, tags, prefill, refer
               })}
             </div>
             <div className="flex flex-wrap items-center gap-2 p-4 text-[14px] text-charcoal-600 sm:p-5">
-              <span>Εμφάνιση</span>
+              <span>Προβάλλονται</span>
               <PopSelect ariaLabel="Εγγραφές ανά σελίδα" width="w-[72px]" value={String(per)} onChange={(v) => { setPer(Number(v)); setPg(0); }} options={[['10', '10'], ['25', '25'], ['50', '50'], ['100', '100']]} />
               <span>εγγραφές</span>
               <span className="ml-auto flex items-center gap-2">
@@ -241,7 +241,7 @@ function ReferralsPanel({ data, contacts, canEdit }: { data: ReferralData; conta
         <div className="rounded-2xl border border-stone-line bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
           <div className="flex flex-wrap items-center gap-2 p-4 text-[14px] text-charcoal-600 sm:p-5">
             <span className="mr-2 text-[16px] font-semibold text-charcoal">Εξαργυρώσεις</span>
-            <span>Εμφάνιση</span>
+            <span>Προβάλλονται</span>
             <PopSelect width="w-[72px]" value={String(per)} onChange={(v) => { setPer(Number(v)); setPg(0); }} options={[['10', '10'], ['25', '25'], ['50', '50'], ['100', '100']]} />
             <span>εγγραφές</span>
             <span className="ml-auto flex items-center gap-2">

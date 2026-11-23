@@ -152,7 +152,7 @@ export function ContactsHub({ rows, staff, groupDefs = [], initialRole = '', ini
         <div className="flex min-w-0 flex-col self-stretch rounded-2xl border border-stone-line bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
           <div className="space-y-3 p-4 sm:p-5">
             <div className="flex flex-wrap items-center gap-2 text-[14px] text-charcoal-600">
-              <span>Εμφάνιση</span>
+              <span>Προβάλλονται</span>
               <PopSelect ariaLabel="Εγγραφές ανά σελίδα" width="w-[72px]" value={String(per)} onChange={(v) => { setPer(Number(v)); setPageNo(0); }} options={[['10', '10'], ['25', '25'], ['50', '50'], ['100', '100']]} />
               <span>εγγραφές</span>
               <div className="relative">
@@ -401,7 +401,7 @@ function GroupsPanel({ stats, canEdit, onNew, onEdit, onView, onDelete, campaign
       <div className="rounded-2xl border border-stone-line bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
         <div className="space-y-3 p-4 sm:p-5">
           <div className="flex flex-wrap items-center gap-2 text-[14px] text-charcoal-600">
-            <span>Εμφάνιση</span>
+            <span>Προβάλλονται</span>
             <PopSelect ariaLabel="Εγγραφές ανά σελίδα" width="w-[72px]" value={String(per)} onChange={(v) => { setPer(Number(v)); setPg(0); }} options={[['10', '10'], ['25', '25'], ['50', '50'], ['100', '100']]} />
             <span>εγγραφές</span>
           </div>
@@ -554,7 +554,7 @@ function LeadsPanel({ rows, canEdit, canCreate, onAdd, onEdit, onDelete, onConve
       <div className="min-w-0 rounded-2xl border border-stone-line bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
         <div className="space-y-3 p-4 sm:p-5">
           <div className="flex flex-wrap items-center gap-2 text-[14px] text-charcoal-600">
-            <span>Εμφάνιση</span>
+            <span>Προβάλλονται</span>
             <PopSelect ariaLabel="Εγγραφές ανά σελίδα" width="w-[72px]" value={String(per)} onChange={(v) => { setPer(Number(v)); setPg(0); }} options={[['10', '10'], ['25', '25'], ['50', '50'], ['100', '100']]} />
             <span>εγγραφές</span>
             <div className="relative">

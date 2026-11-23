@@ -9,7 +9,7 @@ const ATTRS = ['placeholder', 'title', 'aria-label'];
 const SKIP = new Set(['SCRIPT', 'STYLE', 'TEXTAREA', 'CODE', 'PRE']);
 
 type Pattern = { re: RegExp; to: string };
-function compile(dict: Record<string, string>) {
+export function compile(dict: Record<string, string>) {
   const exact = new Map<string, string>();
   const patterns: Pattern[] = [];
   for (const [k, v] of Object.entries(dict)) {

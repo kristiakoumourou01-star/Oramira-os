@@ -17,7 +17,7 @@ import { MemoryPanel } from '@/components/reports/MemoryPanel';
 import { ReportsHub } from '@/components/reports/ReportsHub';
 import { CustomReport } from '@/components/reports/CustomReport';
 import { ReportContent } from '@/components/reports/ReportParts';
-import { boardReportPdfWeekly, boardReportPdfMonthly, investorReportPdf } from '@/app/actions/reports';
+import { boardReportDataWeekly, boardReportDataMonthly, investorReportData } from '@/app/actions/reports';
 
 export const dynamic = 'force-dynamic';
 
@@ -52,14 +52,14 @@ export default async function ReportsPage({ searchParams }: { searchParams: Repo
     if (key === 'board') {
       inner = (
         <div className="space-y-4">
-          {canExport && <div className="flex flex-wrap justify-end gap-2"><DownloadReportButton label="Weekly summary PDF" action={boardReportPdfWeekly} /><DownloadReportButton label="Monthly pack PDF" action={boardReportPdfMonthly} /></div>}
+          {canExport && <div className="flex flex-wrap justify-end gap-2"><DownloadReportButton label="Weekly summary PDF" action={boardReportDataWeekly} /><DownloadReportButton label="Monthly pack PDF" action={boardReportDataMonthly} /></div>}
           <ReportView report={await buildBoardReport(supabase, 'monthly')} />
         </div>
       );
     } else if (key === 'investor') {
       inner = (
         <div className="space-y-4">
-          {canExport && <div className="flex justify-end"><DownloadReportButton label="Investor report PDF" action={investorReportPdf} /></div>}
+          {canExport && <div className="flex justify-end"><DownloadReportButton label="Investor report PDF" action={investorReportData} /></div>}
           <ReportView report={await buildInvestorReport(supabase)} />
         </div>
       );

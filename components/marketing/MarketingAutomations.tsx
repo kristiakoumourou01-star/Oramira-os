@@ -97,7 +97,7 @@ export function MarketingAutomations({ rows, builtins, groups, contacts, tags, s
       <div className="min-w-0 rounded-2xl border border-stone-line bg-white">
         <div className="flex flex-wrap items-center gap-2 px-4 py-3 text-[14px] text-charcoal-600 sm:px-5">
           <span className="font-semibold text-charcoal">{CATEGORIES.find((c) => c.key === cat)?.title}</span>
-          <span className="ml-auto flex items-center gap-2"><span>Εμφάνιση</span>
+          <span className="ml-auto flex items-center gap-2"><span>Προβάλλονται</span>
             <PopSelect ariaLabel="Εγγραφές ανά σελίδα" width="w-[72px]" value={String(per)} onChange={(v) => { setPer(Number(v)); setPg(0); }} options={[['10', '10'], ['25', '25'], ['50', '50'], ['100', '100']]} />
           </span>
         </div>
