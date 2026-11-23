@@ -110,13 +110,15 @@ export default async function ContactDetailPage({ params, searchParams }: { para
   const STATUS_LABEL: Record<string, string> = { active: 'Ενεργός', inactive: 'Ανενεργός', do_not_contact: 'Όχι επικοινωνία', archived: 'Αρχειοθετημένος' };
   const joined = contact.created_at ? new Date(contact.created_at).toLocaleDateString(DATE_TAG[currentLocale().lang], { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';
   const interest = lead?.projects?.name ?? (lead ? (LEAD[lead.status] ?? lead.status) : null);
-  const counts: Partial<Record<TabKey, number>> = { activity: viewCount ?? 0, documents: docCount ?? 0, contacts: relCount ?? 0, deals: (leads ?? []).length };
+  const counts: Partial<Record<TabKey, number>> = { activity: viewCount ?? 0, documents: docCount ?? 0, contacts: relCount ?? 0 };
   const [staffList, ledger, family, otp, photoUrl, groupTags, unitRows] = await Promise.all([
     loadStaff(), getCustomers(), loadFamily(contact.id), loadOtpStatus(contact.id), loadPhotoUrl(c.photo_path), loadGroupTagOptions(settings.tags),
     supabase.from('units').select('id, unit_number, project_id, projects(name)').in('status', ['available', 'reserved']).order('unit_number').limit(400),
   ]);
   const money = ledger.rows.find((r) => r.contactId === contact.id);
   const unitsCount = (money?.units ?? 0) + (money?.reservations ?? 0);
+  // Ο αριθμός στην καρτέλα «Μονάδες & πληρωμές» = μονάδες + κρατήσεις (όχι πόσες φορές έκανε ερώτηση).
+  counts.deals = unitsCount;
   const groups: string[] = c.groups ?? [];
   const canMerge = canEdit && ['admin', 'management', 'sales'].includes(profile.role);
   const tabHref = (k: string) => (k === 'info' ? here : `${here}?tab=${k}`);
