@@ -30,7 +30,7 @@ const ROLE_LABEL: Record<string, string> = {
  */
 export function TopBar({ profile, showSearch = false, start }: { profile: CurrentProfile; showSearch?: boolean; start?: ReactNode }) {
   return (
-    <header className="sticky top-0 z-20 flex h-14 items-center justify-between gap-2 bg-white/80 px-3 sm:px-7 shadow-[0_1px_0_rgba(31,77,58,0.08)] backdrop-blur-xl">
+    <header className="sticky top-0 z-40 flex h-14 items-center justify-between gap-2 bg-white/80 px-3 sm:px-7 shadow-[0_1px_0_rgba(31,77,58,0.08)] backdrop-blur-xl">
       <div className="flex min-w-0 items-center">{start}<Suspense fallback={null}><Breadcrumbs /></Suspense></div>
       <div className="flex shrink-0 items-center gap-1.5 sm:gap-3">
         {showSearch ? <div className="hidden w-44 sm:block md:w-56 xl:w-80"><CommandKButton /></div> : null}
