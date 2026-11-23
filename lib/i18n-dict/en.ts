@@ -5546,4 +5546,5 @@ export const EN: Record<string, string> = {
 "Όχι ακόμη": "Not yet",
 "Νέα, χωρίς υπεύθυνο": "New, unassigned",
 "Ποιος πήρε τι": "Who took what",
+"Άτομα που προσκαλέσατε αλλά δεν έχουν ακόμη ενεργοποιήσει τον λογαριασμό τους.": "People you invited who have not activated their account yet.",
 };

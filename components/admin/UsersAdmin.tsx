@@ -536,16 +536,24 @@ export function UsersAdmin({
       )}
 
       {/* Pending invites */}
-      {mode === 'employees' && <div className="panel p-6">
-        <h4 className="mb-4">Εκκρεμείς προσκλήσεις</h4>
+      {mode === 'employees' && <div className="overflow-hidden rounded-2xl border border-forest/25 bg-gradient-to-br from-white to-forest/[0.07] shadow-sm">
+        <div className="flex items-center gap-3 border-b border-forest/15 bg-forest/[0.06] px-6 py-4">
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-forest text-white"><Mail size={16} /></span>
+          <div className="min-w-0 flex-1">
+            <h4 className="text-charcoal">Εκκρεμείς προσκλήσεις</h4>
+            <p className="text-xs text-charcoal-600">Άτομα που προσκαλέσατε αλλά δεν έχουν ακόμη ενεργοποιήσει τον λογαριασμό τους.</p>
+          </div>
+          <span className="rounded-full bg-forest px-2.5 py-0.5 text-xs font-semibold tabular-nums text-white">{invites.length}</span>
+        </div>
+        <div className="px-6 py-2">
         {invites.length === 0 ? (
-          <p className="text-sm text-charcoal-600/70">Δεν υπάρχουν εκκρεμείς προσκλήσεις.</p>
+          <p className="py-3 text-sm text-charcoal-600/70">Δεν υπάρχουν εκκρεμείς προσκλήσεις.</p>
         ) : (
-          <ul className="divide-y divide-stone-line">
+          <ul className="divide-y divide-forest/10">
             {invites.map((inv) => (
               <li key={inv.id} className="flex flex-wrap items-center justify-between gap-2 py-2.5">
                 <div className="flex min-w-0 items-center gap-2">
-                  <Mail size={14} className="text-olive" strokeWidth={1.75} />
+                  <Mail size={14} className="text-forest" strokeWidth={1.75} />
                   <span className="truncate text-sm text-charcoal" data-no-tr>{inv.email}</span>
                   <span className="badge-neutral capitalize">{ROLE_LABEL[inv.role as AppRole] ?? inv.role}</span>
                 </div>
@@ -554,6 +562,7 @@ export function UsersAdmin({
             ))}
           </ul>
         )}
+        </div>
       </div>}
 
       {roleFor && (
