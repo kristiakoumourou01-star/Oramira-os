@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Hand, UserCheck, Users, Inbox, PhoneOff, Timer, Search } from 'lucide-react';
 import type { AssignedLeadRow } from '@/lib/sales-hub-shared';
-import { DATE_TAG, currentLocale } from '@/lib/locale-shared';
+import { DATE_TAG, currentLocale, tx } from '@/lib/locale-shared';
 import { Pager, SideStat } from '@/components/ui/SidePanel';
 import { StatusPill } from '@/components/ui/StatusPill';
 import { PopSelect } from '@/components/ui/PopSelect';
@@ -21,9 +21,11 @@ type AgentStat = { id: string; name: string; total: number; self: number; given:
 /** «45 λ.» / «3 ώ.» / «2 μ.» — μέσος χρόνος πρώτης επικοινωνίας. */
 function dur(min: number | null) {
   if (min == null) return '—';
-  if (min < 60) return `${min} λ.`;
-  if (min < 60 * 24) return `${Math.round(min / 60)} ώ.`;
-  return `${Math.round(min / 1440)} μ.`;
+  // tx: το κουτί σύνοψης δεν περνά από τη μετάφραση οθόνης, οπότε μεταφράζεται εδώ.
+  if (min < 60) return tx(`${min} λ.`, `${min} min`, `${min} мин`);
+  const h = Math.round(min / 60), d = Math.round(min / 1440);
+  if (min < 60 * 24) return tx(`${h} ώ.`, `${h} h`, `${h} ч`);
+  return tx(`${d} μ.`, `${d} d`, `${d} дн.`);
 }
 
 /**
