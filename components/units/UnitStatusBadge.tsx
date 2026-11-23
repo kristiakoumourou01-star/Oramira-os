@@ -1,15 +1,16 @@
+import { StatusPill, type Tone } from '@/components/ui/StatusPill';
+
 /**
  * Unit status pill, shared across the inventory grid, unit detail, and the
  * buyer portal. Pure/presentational so it renders in Server Components too.
- * Champagne is reserved for the "reserved" hold state — the one moment a
- * unit is in play but not yet committed.
+ * Colours: available green, reserved amber, sold red, the rest neutral.
  */
-const STATUS_CLASS: Record<string, string> = {
-  available: 'badge-neutral',
-  reserved: 'badge-champagne',
-  sold: 'badge-forest',
-  handed_over: 'badge-forest',
-  blocked: 'border-signal-danger/30 bg-champagne-50 text-signal-danger badge',
+export const UNIT_TONE: Record<string, Tone> = {
+  available: 'green',
+  reserved: 'amber',
+  sold: 'red',
+  handed_over: 'neutral',
+  blocked: 'neutral',
 };
 
 const STATUS_LABEL: Record<string, string> = {
@@ -21,5 +22,5 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 export function UnitStatusBadge({ status }: { status: string }) {
-  return <span className={STATUS_CLASS[status] ?? 'badge-neutral'}>{STATUS_LABEL[status] ?? status}</span>;
+  return <StatusPill tone={UNIT_TONE[status] ?? 'neutral'} dot>{STATUS_LABEL[status] ?? status}</StatusPill>;
 }

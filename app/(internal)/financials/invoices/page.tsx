@@ -6,12 +6,13 @@ import { listDocuments, KIND_LABEL, KIND_PLURAL, STATUS_LABEL, money, type DocKi
 import { formatDate } from '@/lib/format';
 import { WorkspaceHeader } from '@/components/ui/WorkspaceHeader';
 import { HubLinks } from '@/components/ui/HubTabs';
+import { StatusPill, type Tone } from '@/components/ui/StatusPill';
 
 export const dynamic = 'force-dynamic';
 
-const STATUS_BADGE: Record<string, string> = {
-  issued: 'badge-champagne', partially_paid: 'badge-champagne', paid: 'badge-forest',
-  partially_credited: 'badge-neutral', credited: 'badge-neutral',
+const STATUS_TONE: Record<string, Tone> = {
+  issued: 'blue', partially_paid: 'amber', paid: 'green',
+  partially_credited: 'neutral', credited: 'neutral',
 };
 
 /** Οικονομικά → Τιμολόγια: every invoice, receipt and credit note, with what is still open. */
@@ -127,7 +128,7 @@ export default async function InvoicesPage({ searchParams }: { searchParams: { k
                     <td className="figure text-right text-charcoal-600">{sign}{money(d.vat_total)}</td>
                     <td className="figure text-right">{sign}{money(d.total)}</td>
                     <td className={`figure text-right ${late ? 'text-signal-danger' : 'text-charcoal-600'}`}>{bal == null ? '' : money(bal)}</td>
-                    <td>{isInv ? <span className={STATUS_BADGE[d.status]}>{late ? 'Ληξιπρόθεσμο' : STATUS_LABEL[d.status]}</span> : null}</td>
+                    <td>{isInv ? <StatusPill tone={late ? 'red' : STATUS_TONE[d.status] ?? 'neutral'} dot>{late ? 'Ληξιπρόθεσμο' : STATUS_LABEL[d.status]}</StatusPill> : null}</td>
                   </tr>
                 );
               })}

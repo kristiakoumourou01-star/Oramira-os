@@ -6,6 +6,8 @@ import Link from 'next/link';
 import { UserPlus, Handshake, CalendarCheck, Home, CreditCard, Gift, Plus, Pencil, Trash2, X, Lock, Sparkles, Send, Zap, Clock, History, Play } from 'lucide-react';
 import { HubCards } from '@/components/ui/HubCards';
 import { PopSelect } from '@/components/ui/PopSelect';
+import { StatusPill } from '@/components/ui/StatusPill';
+import { toneFor } from '@/lib/status-tone-shared';
 import { Pager } from '@/components/ui/SidePanel';
 import { Switch } from '@/components/admin/settings-ui';
 import { AudiencePicker, type PickContact, type AudienceCount } from '@/components/marketing/AudiencePicker';
@@ -107,9 +109,9 @@ export function MarketingAutomations({ rows, builtins, groups, contacts, tags, s
                 <tr key={b.id} className="bg-stone-50/60">
                   <td className="o-strong"><span className="flex items-center gap-1.5"><Lock size={12} className="shrink-0 text-charcoal-600/60" /><span>{b.name}</span></span><span className="block text-[11px] font-normal text-charcoal-600">Αυτοματισμός συστήματος</span></td>
                   <td><Segs segs={b.when} /></td>
-                  <td><span data-no-tr>{b.channel}</span></td>
+                  <td><StatusPill tone="blue"><span data-no-tr>{b.channel}</span></StatusPill></td>
                   <td>—</td><td>—</td><td>—</td>
-                  <td><span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${b.active ? 'bg-forest/[0.09] text-forest' : 'bg-stone-100 text-charcoal-600'}`}>{b.active ? 'Ενεργό' : 'Ανενεργό'}</span></td>
+                  <td><StatusPill tone={b.active ? 'green' : 'neutral'} dot>{b.active ? 'Ενεργό' : 'Ανενεργό'}</StatusPill></td>
                   <td className="text-right"><a href={b.href} className="text-[13px] font-medium text-forest hover:underline">Αλλαγή</a></td>
                 </tr>
               ))}
@@ -117,11 +119,11 @@ export function MarketingAutomations({ rows, builtins, groups, contacts, tags, s
                 <tr key={r.id} className={`cursor-pointer ${r.active ? '' : 'opacity-60'}`} onClick={() => setHist(r)}>
                   <td className="o-strong"><span className="block max-w-[240px] truncate" data-no-tr>{r.name}</span><span className="block text-[11px] font-normal text-charcoal-600">{who(r) ? <span data-no-tr>{who(r)}</span> : <span>Ο πελάτης του γεγονότος</span>}</span></td>
                   <td><Segs segs={when(r)} /></td>
-                  <td><span data-no-tr>{CHANNEL_NAME[r.channel]}</span></td>
+                  <td><StatusPill tone="blue"><span data-no-tr>{CHANNEL_NAME[r.channel]}</span></StatusPill></td>
                   <td className="whitespace-nowrap">{(() => { const st = stats[r.id] ?? { sent: 0, failed: 0, skipped: 0 }; return <span className="inline-flex gap-1"><span className="tabular-nums">{st.sent}</span><span>στάλθηκαν</span><span>·</span><span className={`tabular-nums ${st.failed ? 'text-signal-danger' : ''}`}>{st.failed}</span><span>απέτυχαν</span></span>; })()}</td>
                   <td className="whitespace-nowrap tabular-nums">{r.kind === 'schedule' ? (r.active && r.nextRunAt ? formatDateTime(r.nextRunAt) : '—') : <span className="text-charcoal-600">Με το γεγονός</span>}</td>
                   <td className="whitespace-nowrap tabular-nums">{r.lastRunAt ? formatDateTime(r.lastRunAt) : '—'}</td>
-                  <td onClick={(e) => e.stopPropagation()}><Switch checked={r.active} onChange={() => toggle(r)} disabled={!canEdit || pending} label={r.active ? 'Ενεργό' : 'Σε παύση'} /></td>
+                  <td onClick={(e) => e.stopPropagation()}><span className="flex items-center gap-2"><Switch checked={r.active} onChange={() => toggle(r)} disabled={!canEdit || pending} label={r.active ? 'Ενεργό' : 'Σε παύση'} /><StatusPill tone={r.active ? 'green' : 'amber'} dot>{r.active ? 'Ενεργό' : 'Σε παύση'}</StatusPill></span></td>
                   <td onClick={(e) => e.stopPropagation()}>
                     <span className="flex justify-end gap-1">
                       <button type="button" onClick={() => setHist(r)} title="Ιστορικό" aria-label="Ιστορικό" className={iconBtn}><History size={15} /></button>
@@ -346,7 +348,7 @@ function HistoryDrawer({ row, onClose }: { row: AutomationRow; onClose: () => vo
           {data && row.kind === 'event' && (data.sends.length ? (
             <ul className="divide-y divide-stone-line">
               {data.sends.map((s, i) => {
-                const [label, tone] = STATUS[s.status] ?? [s.status, 'bg-stone-100 text-charcoal-600'];
+                const [label] = STATUS[s.status] ?? [s.status];
                 const why = reasonText(s.reason, s.channel);
                 return (
                   <li key={i} className="flex items-start gap-3 py-2.5">
@@ -355,7 +357,7 @@ function HistoryDrawer({ row, onClose }: { row: AutomationRow; onClose: () => vo
                       <span className="flex flex-wrap gap-x-1.5 text-[12px] text-charcoal-600"><span className="tabular-nums">{formatDateTime(s.at)}</span>{s.channel && <span data-no-tr>{CHANNEL_NAME[s.channel as CampaignChannel] ?? s.channel}</span>}</span>
                       {why && <span className="block text-[12px] text-charcoal-600">{why}</span>}
                     </span>
-                    <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${tone}`}>{label}</span>
+                    <StatusPill tone={s.status === 'skipped' ? 'neutral' : s.status === 'queued' ? 'amber' : toneFor(s.status)} className="shrink-0">{label}</StatusPill>
                   </li>
                 );
               })}

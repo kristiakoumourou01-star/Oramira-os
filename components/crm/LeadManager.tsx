@@ -10,7 +10,10 @@ import { DeleteLeadDialog } from '@/components/crm/DeleteLeadDialog';
 import { closedBucket, daysSince, lateBy, pipelineOf, stageIndex, type PipelineSettings } from '@/lib/pipeline-shared';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { PopSelect } from '@/components/ui/PopSelect';
+import { StatusPill } from '@/components/ui/StatusPill';
 import { Pager } from '@/components/ui/SidePanel';
+
+const SRC_BLUE = new Set(['website', 'meta', 'google', 'whatsapp', 'portal', 'facebook', 'instagram']);
 
 interface Agent { id: string; full_name: string | null }
 type Outcome = 'open' | 'closed' | 'won' | 'all';
@@ -215,7 +218,7 @@ export function LeadManager({ leads, agents, currentUserId, pipelines, fixedPipe
                       <td onClick={(e) => e.stopPropagation()}><input type="checkbox" checked={sel.has(l.id)} onChange={() => toggle(l.id)} aria-label="Επιλογή" /></td>
                       <td className="o-strong" data-no-tr><span className="block max-w-[190px] truncate" title={l.full_name ?? l.email ?? ''}>{l.full_name ?? l.email ?? 'Χωρίς όνομα'}</span>{l.is_returning && <span className="text-[11px] font-normal text-forest">επιστρέφων</span>}</td>
                       <td data-no-tr>{l.phone || '—'}</td>
-                      <td>{l.source || '—'}</td>
+                      <td>{l.source ? <StatusPill tone={SRC_BLUE.has(l.source.toLowerCase()) ? 'blue' : 'neutral'}>{l.source}</StatusPill> : '—'}</td>
                       <td>{money(l.budget_min, l.budget_max) || '—'}</td>
                       <td onClick={(e) => e.stopPropagation()}>
                         <StageSelect ids={[l.id]} value={valueOf(l)} />
