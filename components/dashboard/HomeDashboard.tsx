@@ -281,7 +281,7 @@ function RevenueChart({ monthly, yoy }: { monthly: HomeData['monthly']; yoy: num
       <div className="flex flex-wrap items-center justify-between gap-2 px-5 pt-4">
         <h3 className={`${title} flex items-center gap-2`}>Εισπράξεις {yoy !== null && <span className={`rounded-full px-2 py-0.5 text-[12px] font-semibold ${yoy >= 0 ? 'bg-forest/[0.08] text-forest' : 'bg-rose-50 text-signal-danger'}`}>{yoy >= 0 ? '+' : ''}{yoy}% σε σχέση με πέρσι</span>}</h3>
         <div className="flex items-center gap-1.5">
-          {([3, 6, 12] as const).map((n) => <button key={n} type="button" onClick={() => setRange(n)} className={`rounded-lg px-2.5 py-1 text-[13px] font-medium ${range === n ? 'bg-charcoal text-white' : 'border border-stone-line text-charcoal'}`}>{n === 12 ? '1Χ' : `${n}Μ`}</button>)}
+          {([3, 6, 12] as const).map((n) => <button key={n} type="button" onClick={() => setRange(n)} className={`rounded-lg px-2.5 py-1 text-[13px] font-medium ${range === n ? 'bg-forest text-white' : 'border border-stone-line text-charcoal'}`}>{n === 12 ? '1Χ' : `${n}Μ`}</button>)}
           <button type="button" onClick={exportCsv} className="inline-flex items-center gap-1 rounded-lg border border-stone-line px-2.5 py-1 text-[13px] text-charcoal"><Download size={13} /> Export</button>
         </div>
       </div>
