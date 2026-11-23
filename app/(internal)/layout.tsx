@@ -18,6 +18,7 @@ import { cookies } from 'next/headers';
 import { MobileNav } from '@/components/layout/MobileNav';
 import { SidebarToggle } from '@/components/layout/SidebarToggle';
 import { PerfReporter } from '@/components/layout/PerfReporter';
+import { NavProgress } from '@/components/layout/NavProgress';
 import { Suspense } from 'react';
 import { SIDEBAR_COOKIE, parseSidebarMode } from '@/lib/sidebar-mode-shared';
 
@@ -82,6 +83,7 @@ export default async function InternalLayout({ children }: { children: React.Rea
     <div className="min-w-0 flex-1">
       {profile.impersonator && <ImpersonationBanner name={profile.fullName} role={profile.role} />}
       <Suspense fallback={null}><PerfReporter /></Suspense>
+      <Suspense fallback={null}><NavProgress /></Suspense>
       <TopBar profile={profile} showSearch start={menu.position === 'top' ? undefined : <><MobileNav><Sidebar sections={sections} compact={false} accordion={layoutPrefs.sidebarAccordion !== false} footer={signOutFull} /></MobileNav><span className="hidden md:block"><SidebarToggle mode={sidebarMode} /></span></>} />
       <main className={`mx-auto px-3 py-4 sm:px-6 sm:py-5 ${CONTENT_WIDTH_CLASS[contentWidth]}`}>{children}</main>
     </div>
