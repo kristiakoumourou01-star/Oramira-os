@@ -339,6 +339,8 @@ html[data-theme='dark'] .input,
 html[data-theme='dark'] .btn-secondary { background-color: rgb(28 33 31); }
 /* Επιλεγμένες κάρτες με απαλή απόχρωση: στο σκούρο θέμα η βάση είναι σκούρα, όχι λευκή. */
 html[data-theme='dark'] .from-white { --tw-gradient-from: rgb(28 33 31) var(--tw-gradient-from-position); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
+html[data-theme='dark'] .bg-stone-50, html[data-theme='dark'] .bg-stone-100, html[data-theme='dark'] .bg-gray-50, html[data-theme='dark'] .bg-gray-100 { background-color: rgb(var(--c-stone-200)); }
+html[data-theme='dark'] .text-forest\/80, html[data-theme='dark'] .text-forest\/70 { color: rgb(150 196 172 / 0.85); }
 html[data-theme='dark'] .to-white { --tw-gradient-to: rgb(28 33 31) var(--tw-gradient-to-position); }
 html[data-boxcolor='sand']:not([data-theme='dark']) .from-white,
 html[data-boxcolor='cream']:not([data-theme='dark']) .from-white { --tw-gradient-from: rgb(var(--c-box)) var(--tw-gradient-from-position); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }

@@ -58,7 +58,7 @@ export function ViewAsPanel({ users, history }: { users: ViewAsUser[]; history: 
         {shown.map((u) => (
           <div key={u.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-forest/10 text-[13px] font-medium text-forest">{u.name.charAt(0)}</span>
-            <div className="min-w-0 flex-1">
+            <div className="min-w-[14rem] flex-1">
               <p className="truncate text-sm font-medium text-charcoal">{u.name}{!u.active && <span className="ml-2 text-[11px] font-normal text-signal-danger">ανενεργός</span>}</p>
               <p className="truncate text-xs text-charcoal-600/70">{[u.email, u.customRole ?? ROLE_EL[u.role] ?? u.role, u.title].filter(Boolean).join(' · ')}</p>
             </div>

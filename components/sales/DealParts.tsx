@@ -43,7 +43,7 @@ export function DealHeader({ leadId, title, fallbackTitle, status, ownerId, agen
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
+        <div className="min-w-[14rem] flex-1">
           <p className="text-xs text-charcoal-600/70"><Link href="/sales/deals" className="hover:text-forest">Διαχείριση leads</Link> ›</p>
           {editing ? (
             <div className="flex items-center gap-2">
