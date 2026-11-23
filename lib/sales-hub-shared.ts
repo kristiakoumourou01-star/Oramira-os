@@ -89,4 +89,6 @@ export interface AssignedLeadRow {
   assignedTo: string | null; assignedToName: string | null;
   assignedBy: string | null; assignedByName: string | null;
   assignedAt: string | null; createdAt: string; contacted: boolean;
+  /** Λεπτά από την ανάθεση μέχρι την πρώτη επικοινωνία (αν υπάρχει). */
+  responseMin?: number | null;
 }

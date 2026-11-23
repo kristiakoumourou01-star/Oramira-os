@@ -197,5 +197,9 @@ export async function getAssignedLeads(days = 60): Promise<AssignedLeadRow[]> {
     assignedBy: l.assigned_by ?? null, assignedByName: l.assigned_by ? names.get(l.assigned_by) ?? null : null,
     assignedAt: l.assigned_at ?? null, createdAt: l.created_at,
     contacted: !!(l.last_contacted_at || l.first_response_at),
+    responseMin: (() => {
+      const start = Date.parse(l.assigned_at ?? l.created_at); const first = l.first_response_at ? Date.parse(l.first_response_at) : NaN;
+      return Number.isFinite(start) && Number.isFinite(first) && first >= start ? Math.round((first - start) / 60000) : null;
+    })(),
   }));
 }
