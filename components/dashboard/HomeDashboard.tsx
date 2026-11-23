@@ -35,7 +35,7 @@ export function HomeDashboard({ d, name, planner }: { d: HomeData; name: string;
         <div className="relative flex flex-wrap items-start justify-between gap-5">
           <div className="max-w-xl">
             <span className="inline-flex items-center gap-1.5 rounded-full border border-white/25 bg-white/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em]"><Sparkles size={12} /> Καθημερινή ενημέρωση</span>
-            <h1 className="mt-3 font-display text-3xl leading-tight text-white">{greet}{name ? `, ${name.split(' ')[0]}` : ''}</h1>
+            <h1 className="mt-3 font-display text-3xl leading-tight text-white"><span>{greet}</span>{name && <>, <span data-no-tr>{/\b(ltd|limited|llc|inc|plc|gmbh)\.?$|\b(επε|ικε|αε|ο\.?ε\.?)$/i.test(name.trim()) ? name.trim() : name.split(' ')[0]}</span></>}</h1>
             <p className="mt-0.5 text-[14px] capitalize text-white/80">{date}</p>
             <p className="mt-4 text-[15px] leading-relaxed text-white/90">{brief.map((b, i) => <span key={i}>{i > 0 && ' · '}<span>{b}</span></span>)}.</p>
           </div>
