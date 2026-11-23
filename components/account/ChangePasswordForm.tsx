@@ -2,6 +2,7 @@
 
 import { useFormState, useFormStatus } from 'react-dom';
 import { changeOwnPassword, type ChangePasswordState } from '@/app/actions/account';
+import { PasswordInput } from '@/components/ui/PasswordInput';
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -28,12 +29,12 @@ export function ChangePasswordForm({ home, forced, rule = 'Τουλάχιστο�
     <form action={formAction} className="panel space-y-4 p-8">
       <div>
         <label className="eyebrow mb-1.5 block">Νέος κωδικός</label>
-        <input name="password" type="password" required minLength={8} autoComplete="new-password" className="input" />
+        <PasswordInput name="password" required minLength={8} autoComplete="new-password" className="input" />
         <p className="mt-1 text-xs text-charcoal-600/60">{rule}</p>
       </div>
       <div>
         <label className="eyebrow mb-1.5 block">Επανάληψη κωδικού</label>
-        <input name="confirm" type="password" required minLength={8} autoComplete="new-password" className="input" />
+        <PasswordInput name="confirm" required minLength={8} autoComplete="new-password" className="input" />
       </div>
       {state?.error && (
         <p className="rounded border border-signal-danger/30 bg-champagne-50 px-3 py-2 text-sm text-signal-danger">{state.error}</p>

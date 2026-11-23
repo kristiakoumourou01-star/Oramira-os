@@ -30,15 +30,14 @@ async function appBase(): Promise<string> {
 
 /** Email πρόσκλησης (ελληνικά + αγγλικά) με κουμπί ενεργοποίησης. */
 function inviteEmailHtml(name: string | undefined, link: string): string {
-  const btn = `<a href="${link}" style="display:inline-block;background:#2f4a3f;color:#fff;text-decoration:none;padding:12px 22px;border-radius:10px;font-weight:600">`;
-  return `<div style="font-family:Arial,sans-serif;font-size:15px;color:#1f2a24;line-height:1.55;max-width:520px">
-<p>Γεια σου${name ? ` ${name}` : ''},</p>
-<p>Σε προσκαλούμε στην ομάδα της <strong>Oramira</strong>. Πάτησε το κουμπί για να φτιάξεις τον κωδικό σου και να μπεις στο σύστημα:</p>
-<p>${btn}Ενεργοποίηση λογαριασμού</a></p>
-<hr style="border:none;border-top:1px solid #e5e2da;margin:22px 0">
-<p>Hi${name ? ` ${name}` : ''}, you have been invited to join the <strong>Oramira</strong> team. Click the button to set your password and sign in:</p>
-<p>${btn}Activate account</a></p>
-<p style="font-size:12px;color:#7a807c">Το link ισχύει 7 μέρες. / The link is valid for 7 days.<br>${link}</p>
+  const btn = `<a href="${link}" style="display:inline-block;background:#2f4a3f;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:10px;font-weight:600">Activate your account</a>`;
+  return `<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;color:#1f2a24;line-height:1.6;max-width:540px">
+<p>Dear ${name ? name.split(' ')[0] : 'colleague'},</p>
+<p>You have been invited to join the <strong>Oramira Ltd</strong> team platform. Please click the button below to set your password and sign in.</p>
+<p style="margin:24px 0">${btn}</p>
+<p style="font-size:13px;color:#5f6b64">If the button does not work, copy this link into your browser:<br><a href="${link}" style="color:#2f4a3f">${link}</a></p>
+<p style="font-size:13px;color:#5f6b64">This invitation is valid for 7 days.</p>
+<p style="margin-top:28px">Kind regards,<br><strong>Oramira Ltd</strong></p>
 </div>`;
 }
 
@@ -103,9 +102,9 @@ export async function inviteUser(params: {
   const emailSent = await queueNotificationEmail({
     triggerType: 'staff_invite',
     recipientEmail: params.email,
-    subject: 'Πρόσκληση στην ομάδα Oramira / Invitation to the Oramira team',
+    subject: 'Invitation to join the Oramira Ltd team',
     body: inviteEmailHtml(params.fullName, link),
-    senderProfileId: profile.id,
+    senderProfileId: profile.id, fromName: 'Oramira Ltd',
   });
 
   await logActivity({ entityType: 'invite', entityId: profile.id, action: 'user_invited', metadata: { email: params.email, role: chosen.role, customRole: chosen.customRole, emailSent } });
@@ -193,9 +192,9 @@ export async function createEmployeeInvite(params: {
   const emailSent = await queueNotificationEmail({
     triggerType: 'staff_invite',
     recipientEmail: params.email,
-    subject: 'Πρόσκληση στην ομάδα Oramira / Invitation to the Oramira team',
+    subject: 'Invitation to join the Oramira Ltd team',
     body: inviteEmailHtml(params.fullName, link),
-    senderProfileId: profile.id,
+    senderProfileId: profile.id, fromName: 'Oramira Ltd',
   });
 
   await logActivity({ entityType: 'invite', entityId: profile.id, action: 'employee_verified_invited', metadata: { email: params.email, role: params.role, emailSent } });
@@ -258,8 +257,8 @@ export async function inviteLink(inviteId: string, send = false): Promise<{ link
   const name = ((inv as any).onboarding?.full_name as string | undefined) ?? undefined;
   const emailSent = await queueNotificationEmail({
     triggerType: 'staff_invite', recipientEmail: inv.email,
-    subject: 'Πρόσκληση στην ομάδα Oramira / Invitation to the Oramira team',
-    body: inviteEmailHtml(name, link), senderProfileId: profile.id,
+    subject: 'Invitation to join the Oramira Ltd team',
+    body: inviteEmailHtml(name, link), senderProfileId: profile.id, fromName: 'Oramira Ltd',
   });
   return { link, emailSent };
 }
