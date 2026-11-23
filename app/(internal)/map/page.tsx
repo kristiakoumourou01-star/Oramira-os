@@ -17,7 +17,7 @@ export default async function MapPage({ searchParams }: { searchParams: { lead?:
   const canLeads = effectiveCan(profile.role, profile.moduleAccess, 'leads', 'view', profile.permissions);
   const data = await loadMapData({ withLeads: canLeads });
   const supabase = await createSupabaseServerClient();
-  const { data: staff } = await supabase.from('profiles').select('id, full_name').in('role', ['admin', 'sales', 'management']).order('full_name');
+  const { data: staff } = await supabase.from('profiles').select('id, full_name').in('role', ['admin', 'sales', 'management']).eq('is_active', true).order('full_name');
   const agents = ((staff ?? []) as any[]).map((s) => ({ id: s.id as string, name: (s.full_name ?? '—') as string }));
   if (!agents.some((a) => a.id === profile.id)) agents.unshift({ id: profile.id, name: profile.fullName ?? 'Εγώ' });
 

@@ -82,7 +82,7 @@ export function HomeDashboard({ d, name, planner }: { d: HomeData; name: string;
           <ul className="max-h-[380px] divide-y divide-stone-line overflow-y-auto border-t border-stone-line">
             {d.activity.map((a, i) => {
               const Icon = a.kind === 'payment' ? CreditCard : a.kind === 'lead' ? UserPlus : a.kind === 'reservation' ? KeyRound : a.kind === 'contract' ? FileSignature : Eye;
-              const body = (<><span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-forest/[0.08] text-forest"><Icon size={15} /></span><span className="min-w-0"><span className="block text-[14px] text-charcoal" data-no-tr>{a.text}</span><span className="font-mono text-[12px] text-charcoal-600">{dt(a.at)}</span></span></>);
+              const body = (<><span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-forest/[0.08] text-forest"><Icon size={15} /></span><span className="min-w-0"><span className="block text-[14px] text-charcoal">{a.parts ? a.parts.map((x, k) => <span key={k}>{k > 0 && ' · '}{x.data ? <span data-no-tr>{x.t}</span> : <span>{x.t}</span>}</span>) : <span data-no-tr>{a.text}</span>}</span><span className="font-mono text-[12px] text-charcoal-600">{dt(a.at)}</span></span></>);
               return <li key={i}>{a.href ? <Link href={a.href} className="flex items-center gap-3 px-5 py-2.5 hover:bg-stone-50">{body}</Link> : <div className="flex items-center gap-3 px-5 py-2.5">{body}</div>}</li>;
             })}
             {d.activity.length === 0 && <li className={`px-5 py-8 text-center ${muted}`}>Καμία δραστηριότητα ακόμη.</li>}
@@ -265,7 +265,10 @@ function RevenueChart({ monthly, yoy }: { monthly: HomeData['monthly']; yoy: num
   const [show, setShow] = useState({ a: true, b: true });
   const cur = new Date().getMonth();
   const rows = useMemo(() => (range === 12 ? monthly : monthly.slice(Math.max(0, cur - range + 1), cur + 1)), [monthly, range, cur]);
-  const max = Math.max(1, ...rows.map((r) => Math.max(show.a ? r.thisYear : 0, show.b ? r.lastYear : 0)));
+  const peak = Math.max(0, ...rows.map((r) => Math.max(show.a ? r.thisYear : 0, show.b ? r.lastYear : 0)));
+  // Στρογγυλό μέγιστο (1 / 2 / 5 × 10ⁿ) ώστε οι γραμμές να έχουν καθαρά ποσά· χωρίς δεδομένα μόνο η γραμμή €0.
+  const max = peak > 0 ? (() => { const e = 10 ** Math.floor(Math.log10(peak)); const f = peak / e; return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10) * e; })() : 1;
+  const ticks = peak > 0 ? [0, 0.25, 0.5, 0.75, 1] : [0];
   const W = 1000; const H = 260; const P = 36;
   const x = (i: number) => P + (i / Math.max(rows.length - 1, 1)) * (W - P * 2);
   const yv = (v: number) => H - P - (v / max) * (H - P * 2);
@@ -291,7 +294,7 @@ function RevenueChart({ monthly, yoy }: { monthly: HomeData['monthly']; yoy: num
       </div>
       <div className="px-3 pb-3">
         <svg viewBox={`0 0 ${W} ${H}`} className="h-64 w-full" preserveAspectRatio="none">
-          {[0, 0.25, 0.5, 0.75, 1].map((t) => <g key={t}><line x1={P} x2={W - P} y1={yv(max * t)} y2={yv(max * t)} stroke="#e7e5e4" strokeDasharray={t === 0 ? '' : '4 4'} /><text x={4} y={yv(max * t) + 4} fontSize="11" className="fill-charcoal-600">{eurShort(max * t)}</text></g>)}
+          {ticks.map((t) => <g key={t}><line x1={P} x2={W - P} y1={yv(max * t)} y2={yv(max * t)} stroke="#e7e5e4" strokeDasharray={t === 0 ? '' : '4 4'} /><text x={4} y={yv(max * t) + 4} fontSize="11" className="fill-charcoal-600">{eurShort(max * t)}</text></g>)}
           {show.a && <><path d={`${path('thisYear')} L${x(lastIdx)},${H - P} L${x(0)},${H - P} Z`} fill="rgb(var(--c-forest) / 0.1)" /><path d={path('thisYear')} fill="none" stroke="rgb(var(--c-forest))" strokeWidth="2.5" /></>}
           {show.b && <path d={path('lastYear')} fill="none" stroke="#78716c" strokeWidth="1.8" strokeDasharray="6 5" />}
           {rows.map((r, i) => <text key={r.label} x={x(i)} y={H - 10} textAnchor="middle" fontSize="12" className="fill-charcoal-600">{r.label}</text>)}
