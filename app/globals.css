@@ -358,6 +358,17 @@ html[data-theme='dark'] h4 { color: rgb(var(--c-charcoal)); }
 html[data-theme='dark'] .btn-secondary { color: rgb(var(--c-charcoal)); border-color: rgb(var(--c-stone-line)); }
 
 
+/* Προεπισκόπηση κινητού: πάντα φωτεινή, όπως τη βλέπει ο πελάτης, ακόμη κι αν το CRM είναι σε σκούρο θέμα. */
+html[data-theme='dark'] .force-light {
+  color-scheme: light;
+  --c-stone: 247 243 236; --c-stone-200: 239 233 221; --c-stone-line: 227 218 201;
+  --c-sand: 230 220 200; --c-sand-100: 240 233 218; --c-sand-300: 217 203 170;
+  --c-charcoal: 43 42 39; --c-charcoal-600: 83 79 71; --c-forest-50: 234 240 236; --c-champagne-50: 234 240 236;
+  color: rgb(var(--c-charcoal));
+}
+html[data-theme='dark'] .force-light .bg-white, html[data-theme='dark'] .force-light .panel { background-color: #fff; }
+html[data-theme='dark'] .force-light h1, html[data-theme='dark'] .force-light h2, html[data-theme='dark'] .force-light h3, html[data-theme='dark'] .force-light h4 { color: rgb(var(--c-charcoal)); }
+
 /* Σκούρο θέμα: απαλά χρωματιστά φόντα (π.χ. ετικέτες, κάρτες) σκουραίνουν και τα γράμματά τους ανοίγουν. */
 html[data-theme='dark'] [class~="bg-rose-50"],
 html[data-theme='dark'] [class*="bg-rose-50/"],

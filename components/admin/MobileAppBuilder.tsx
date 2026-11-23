@@ -351,7 +351,7 @@ function Phone({ kind, cfg, projects, company, stats }: { kind: MobileAppKind; c
     : [[Home, 'Αρχική'], [Building2, 'Ακίνητα'], [Calendar, 'Ραντεβού'], [FileText, 'Έγγραφα'], [User, 'Προφίλ']];
   return (
     <div>
-      <div className="mx-auto w-[300px] max-w-full rounded-[42px] bg-charcoal p-2.5 shadow-overlay">
+      <div className="force-light mx-auto w-[300px] max-w-full rounded-[42px] bg-[#2b2a27] p-2.5 shadow-overlay">
         <div className="relative h-[600px] overflow-hidden rounded-[34px] bg-stone-50">
           <div className="flex items-center justify-between px-5 pb-1 pt-2.5 text-[10px] font-semibold text-charcoal"><span>9:41</span><span className="h-4 w-20 rounded-full bg-charcoal" /><span>●●●</span></div>
           <div className="h-[calc(100%-86px)] space-y-3 overflow-y-auto px-3 pb-4">
