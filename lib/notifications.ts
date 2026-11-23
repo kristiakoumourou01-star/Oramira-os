@@ -123,6 +123,8 @@ export async function queueNotificationEmail(params: {
   body: string;
   /** Αν δεν έχει ρυθμιστεί άλλη αποστολή, στέλνεται από το Gmail αυτού του χρήστη (όταν έχει συνδέσει το Google). */
   senderProfileId?: string;
+  /** Το όνομα αποστολέα που βλέπει ο παραλήπτης (π.χ. «Oramira Ltd»). */
+  fromName?: string;
 }): Promise<boolean> {
   const supabase = createSupabaseServiceRoleClient();
   await supabase.from('notification_events').insert({
@@ -140,7 +142,7 @@ export async function queueNotificationEmail(params: {
     // Χωρίς υπηρεσία email: αποστολή από το Gmail του χρήστη που κάνει την ενέργεια.
     if (!params.senderProfileId) return false;
     const { sendViaGmail } = await import('@/lib/gmail-send');
-    return sendViaGmail(params.senderProfileId, params.recipientEmail, params.subject, params.body);
+    return sendViaGmail(params.senderProfileId, params.recipientEmail, params.subject, params.body, params.fromName ?? null);
   }
   try {
     const { Resend } = await import('resend');

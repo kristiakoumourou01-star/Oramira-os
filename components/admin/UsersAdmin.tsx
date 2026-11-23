@@ -102,7 +102,7 @@ function Field({ label, children, wide = false }: { label: string; children: Rea
 /** Αποτέλεσμα πρόσκλησης: link + Αντιγραφή / Email / WhatsApp. */
 function InviteResult({ result, onClose }: { result: { link: string; emailSent: boolean; email: string; name: string }; onClose: () => void }) {
   const [copied, setCopied] = useState(false);
-  const text = `Γεια σου${result.name ? ` ${result.name}` : ''}! Σε προσκαλούμε στην ομάδα της Oramira. Πάτησε εδώ για να ενεργοποιήσεις τον λογαριασμό σου: ${result.link}`;
+  const text = `Dear ${result.name ? result.name.split(' ')[0] : 'colleague'}, you have been invited to join the Oramira Ltd team platform. Please use this link to set your password and sign in: ${result.link}\n\nKind regards,\nOramira Ltd`;
   return (
     <Modal title={result.emailSent ? 'Η πρόσκληση στάλθηκε' : 'Η πρόσκληση δημιουργήθηκε'} onClose={onClose}>
       <p className="mb-3 text-sm text-charcoal-600">
@@ -113,7 +113,7 @@ function InviteResult({ result, onClose }: { result: { link: string; emailSent: 
       <input readOnly value={result.link} onFocus={(e) => e.target.select()} className="input mb-3 text-xs" data-no-tr />
       <div className="flex flex-wrap gap-2">
         <button type="button" onClick={() => { void navigator.clipboard?.writeText(result.link); setCopied(true); }} className="btn-secondary text-sm"><Copy size={14} /> {copied ? 'Αντιγράφηκε ✓' : 'Αντιγραφή link'}</button>
-        <a href={`mailto:${result.email}?subject=${encodeURIComponent('Πρόσκληση στην ομάδα Oramira')}&body=${encodeURIComponent(text)}`} className="btn-secondary text-sm"><Mail size={14} /> Άνοιγμα email</a>
+        <a href={`mailto:${result.email}?subject=${encodeURIComponent('Invitation to join the Oramira Ltd team')}&body=${encodeURIComponent(text)}`} className="btn-secondary text-sm"><Mail size={14} /> Άνοιγμα email</a>
         <a href={`https://wa.me/?text=${encodeURIComponent(text)}`} target="_blank" rel="noreferrer" className="btn-secondary text-sm">WhatsApp</a>
         <button type="button" onClick={onClose} className="btn-primary ml-auto text-sm">Τέλος</button>
       </div>

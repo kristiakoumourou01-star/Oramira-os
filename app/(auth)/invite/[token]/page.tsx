@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { acceptInvite } from '@/app/actions/auth';
 import { Logo } from '@/components/layout/Logo';
+import { PasswordInput } from '@/components/ui/PasswordInput';
 
 /**
  * Invite acceptance — the only door into the system for buyers, investors,
@@ -44,8 +45,8 @@ export default function InvitePage({ params }: { params: { token: string } }) {
         <form onSubmit={handleSubmit} className="panel space-y-4 p-8">
           <div>
             <label className="eyebrow mb-1.5 block">Create a password</label>
-            <input
-              type="password"
+            <PasswordInput
+              
               required
               className="input"
               value={password}
@@ -54,8 +55,8 @@ export default function InvitePage({ params }: { params: { token: string } }) {
           </div>
           <div>
             <label className="eyebrow mb-1.5 block">Confirm password</label>
-            <input
-              type="password"
+            <PasswordInput
+              
               required
               className="input"
               value={confirm}

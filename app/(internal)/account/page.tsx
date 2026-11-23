@@ -15,6 +15,8 @@ import { NotificationPrefs } from '@/components/account/NotificationPrefs';
 import { LogsView, type LogRow } from '@/components/account/LogsView';
 import { DATE_TAG, currentLocale } from '@/lib/locale-shared';
 import { SettingsFrame, type FrameGroup } from '@/components/ui/SettingsFrame';
+import { isCalendarConnected } from '@/lib/calendar-sync';
+import { GoogleCalendarConnect } from '@/components/dashboard/GoogleCalendarConnect';
 
 export const dynamic = 'force-dynamic';
 
@@ -45,7 +47,7 @@ export default async function AccountPage({ searchParams }: { searchParams: { ta
 
   let body: React.ReactNode = null;
   if (tab === 'info') {
-    const [devices, factors] = await Promise.all([listTrustedDevices(me.id), listTotpFactors()]);
+    const [devices, factors, cal] = await Promise.all([listTrustedDevices(me.id), listTotpFactors(), isCalendarConnected(me.id)]);
     const twoFa = factors.length > 0;
     const sec = [
       { icon: KeyRound, title: 'Κωδικός', text: 'Αλλάξτε τον κωδικό σύνδεσης.', href: '/account/password', cta: 'Αλλαγή' },
@@ -58,6 +60,12 @@ export default async function AccountPage({ searchParams }: { searchParams: { ta
         <div><h2 className="font-display text-xl text-charcoal">Πληροφορίες</h2><p className="text-sm text-charcoal-600/75">Το προφίλ σας και τα στοιχεία σύνδεσης</p></div>
         <AccountProfile readOnly={!!me.impersonator} initial={{ fullName: row?.full_name ?? me.fullName ?? '', email: auth.user?.email ?? '', phone: row?.phone ?? '', jobTitle: row?.job_title ?? '', avatarUrl: row?.avatar_url ?? null, roleName: me.roleName, department: row?.department ?? '' }} />
         <LanguagePick lang={requestLocale().lang} num={requestLocale().num} />
+        {cal.configured && (
+          <section className="space-y-3 rounded-2xl border border-stone-line bg-white p-5 shadow-[0_1px_2px_rgba(17,49,36,0.04)]">
+            <div><p className="text-lg font-semibold text-charcoal">Το ημερολόγιό μου</p><p className="text-sm text-charcoal-600/75">Συνδέστε το δικό σας Google Calendar: τα ραντεβού σας περνούν αυτόματα και προς τις δύο μεριές.</p></div>
+            <GoogleCalendarConnect big connected={cal.connected} configured={cal.configured} />
+          </section>
+        )}
         <section className="space-y-3 rounded-2xl border border-stone-line bg-white p-5 shadow-[0_1px_2px_rgba(17,49,36,0.04)]">
           <p className="text-lg font-semibold text-charcoal">Ασφάλεια</p>
           {sec.slice(0, 3).map((s) => (

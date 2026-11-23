@@ -5547,4 +5547,8 @@ export const EN: Record<string, string> = {
 "Νέα, χωρίς υπεύθυνο": "New, unassigned",
 "Ποιος πήρε τι": "Who took what",
 "Άτομα που προσκαλέσατε αλλά δεν έχουν ακόμη ενεργοποιήσει τον λογαριασμό τους.": "People you invited who have not activated their account yet.",
+"Το ημερολόγιό μου": "My calendar",
+"Συνδέστε το δικό σας Google Calendar: τα ραντεβού σας περνούν αυτόματα και προς τις δύο μεριές.": "Connect your own Google Calendar: your appointments sync automatically both ways.",
+"Απόκρυψη κωδικού": "Hide password",
+"Εμφάνιση κωδικού": "Show password",
 };
