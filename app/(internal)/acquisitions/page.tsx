@@ -27,7 +27,7 @@ export default async function AcquisitionsPage({ searchParams }: { searchParams:
 
   const [parcels, { data: agents }, converted] = await Promise.all([
     getParcels(),
-    supabase.from('profiles').select('id, full_name').in('role', ['admin', 'sales', 'management']).order('full_name'),
+    supabase.from('profiles').select('id, full_name').in('role', ['admin', 'sales', 'management']).eq('is_active', true).order('full_name'),
     parcelProjects(),
   ]);
 

@@ -113,8 +113,10 @@ export function ContactsHub({ rows, staff, groupDefs = [], initialRole = '', ini
   const campaignHref = (q: Record<string, string>) => `/marketing?tab=campaigns&${new URLSearchParams(q).toString()}`;
 
   const newThisMonth = rows.filter((r) => Date.parse(r.createdAt) >= new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime()).length;
-  const leadCount = rows.filter((r) => r.roles.includes('lead') || !!r.lead).length;
-  const conv = leadCount + (counts.buyer ?? 0) > 0 ? Math.round(((counts.buyer ?? 0) / (leadCount + (counts.buyer ?? 0))) * 100) : 0;
+  // Ίδιος υπολογισμός με την καρτέλα Leads: από όσους ήρθαν ως lead, πόσοι έγιναν αγοραστές.
+  const leadRows = rows.filter((r) => r.roles.includes('lead') || !!r.lead);
+  const leadCount = leadRows.length;
+  const conv = leadCount ? Math.round((leadRows.filter((r) => r.lead?.status === 'won' || r.roles.includes('buyer')).length / leadCount) * 100) : 0;
   const groupStats = groups.map((g) => ({ g, def: groupDefs.find((d) => d.name === g), n: rows.filter((r) => r.groups.includes(g)).length }));
   const inAnyGroup = rows.filter((r) => r.groups.length > 0).length;
   const go = (v: string) => { setView(v as typeof view); setSel(new Set()); if (v === 'leads') set({ role: 'lead' }); else if (v === 'customers') set({ role: '' }); };

@@ -1,6 +1,7 @@
 /** Τύποι του Dashboard (client-safe). */
 export interface Attention { text: string; href: string; tone: 'warn' | 'info' }
-export interface ActivityItem { text: string; at: string; kind: 'payment' | 'lead' | 'reservation' | 'contract' | 'viewing'; href?: string }
+/** parts: κομμάτια κειμένου· όσα έχουν data=true είναι ονόματα/ποσά (δεν μεταφράζονται). */
+export interface ActivityItem { text: string; parts?: { t: string; data?: boolean }[]; at: string; kind: 'payment' | 'lead' | 'reservation' | 'contract' | 'viewing'; href?: string }
 export interface HomeData {
   todayIn: number; avgDailyIn: number;
   activeLeads: number; newLeadsWeek: number;

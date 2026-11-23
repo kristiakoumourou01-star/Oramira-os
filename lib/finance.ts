@@ -62,7 +62,7 @@ export async function getFinanceSnapshot(): Promise<FinanceSnapshot> {
     supabase.from('units').select('*'),
     supabase.from('contracts').select('id, unit_id, total_price, status'),
     supabase.from('payments').select('contract_id, amount_paid'),
-    supabase.from('reservations').select('buyer_contact_id, reserved_at, status'),
+    supabase.from('reservations').select('buyer_contact_id, reserved_at, status, deposit_amount, deposit_paid'),
     supabase.from('contractor_invoices').select('project_id, amount, status'),
     supabase.from('maintenance_tickets').select('status, warranty_id'),
     supabase.from('leads').select('contact_id, status, created_at'),
@@ -71,13 +71,16 @@ export async function getFinanceSnapshot(): Promise<FinanceSnapshot> {
   const unitToProject = new Map<string, string>();
   for (const u of units ?? []) unitToProject.set(u.id, u.project_id);
 
-  const cashCollected = (payments ?? []).reduce((s, p) => s + Number(p.amount_paid), 0);
+  const paidOnContracts = (payments ?? []).reduce((s, p) => s + Number(p.amount_paid), 0);
+  // Προκαταβολές κρατήσεων που έχουν πληρωθεί αλλά δεν έγιναν ακόμη συμβόλαιο: είναι ήδη εισπράξεις.
+  const depositsHeld = (reservations ?? []).filter((r: any) => r.status === 'active' && r.deposit_paid).reduce((s, r: any) => s + Number(r.deposit_amount ?? 0), 0);
+  const cashCollected = paidOnContracts + depositsHeld;
   const paymentsByContract = new Map<string, number>();
   for (const p of payments ?? []) paymentsByContract.set(p.contract_id, (paymentsByContract.get(p.contract_id) ?? 0) + Number(p.amount_paid));
 
   const signedContracts = (contracts ?? []).filter((c) => c.status === 'signed');
   const totalRevenue = signedContracts.reduce((s, c) => s + Number(c.total_price ?? 0), 0);
-  const outstandingBalance = Math.max(0, totalRevenue - cashCollected);
+  const outstandingBalance = Math.max(0, totalRevenue - paidOnContracts);
 
   const contractorLiabilities = (invoices ?? [])
     .filter((i) => OPEN_INVOICE.includes(i.status))

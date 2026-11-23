@@ -35,11 +35,11 @@ export default async function HRWorkspacePage({ searchParams }: { searchParams: 
 
   const [{ data: pending }, { data: employees }, { data: payslips }, { data: contracts }, { data: commissions }, { data: staff }] = await Promise.all([
     supabase.from('leave_requests').select('id').eq('status', 'pending').order('created_at', { ascending: false }),
-    supabase.from('profiles').select('id, full_name').in('role', INTERNAL_ROLES).order('full_name'),
+    supabase.from('profiles').select('id, full_name').in('role', INTERNAL_ROLES).eq('is_active', true).order('full_name'),
     supabase.from('payslips').select('id, period, gross_amount, net_amount, employer_cost, status, payment_date, profiles(full_name)').order('issued_at', { ascending: false }).limit(50),
     supabase.from('employee_contracts').select('id, type, title, status, start_date, expiry_date, profiles(full_name)').order('created_at', { ascending: false }),
     supabase.from('commissions').select('id, base_value, commission_pct, amount, status, created_at, profiles(full_name)').order('created_at', { ascending: false }).limit(50),
-    supabase.from('profiles').select('id, full_name, job_title, benefits').in('role', INTERNAL_ROLES).order('full_name'),
+    supabase.from('profiles').select('id, full_name, job_title, benefits').in('role', INTERNAL_ROLES).eq('is_active', true).order('full_name'),
   ]);
 
   const { data: docRows } = await (supabase as any).from('documents').select('id, entity_id, title, description, notes, bucket, storage_path, created_at, uploader:uploaded_by(full_name)').eq('entity_type', 'profile').order('created_at', { ascending: false }).limit(2000);

@@ -165,7 +165,7 @@ export async function convertReservationToContract(reservationId: string) {
 
   const { data: reservation, error: resError } = await supabase
     .from('reservations')
-    .select('id, unit_id, buyer_contact_id, status, converted_contract_id, units(project_id, price)')
+    .select('id, unit_id, buyer_contact_id, status, converted_contract_id, deposit_amount, deposit_paid, reserved_at, units(project_id, price)')
     .eq('id', reservationId)
     .single();
   if (resError || !reservation) throw new Error('Reservation not found');
@@ -193,6 +193,17 @@ export async function convertReservationToContract(reservationId: string) {
 
   // Installments from the unit's / project's payment plan (Τιμοκατάλογος → Πρόγραμμα πληρωμών).
   await buildSchedule(supabase, contract.id).catch(() => null);
+
+  // Η προκαταβολή που έχει ήδη πληρωθεί περνά ως πληρωμή του συμβολαίου (πρώτη δόση),
+  // ώστε να μετρά στις εισπράξεις και να μειώνει το υπόλοιπο του αγοραστή.
+  const dep = Number((reservation as any).deposit_amount ?? 0);
+  if ((reservation as any).deposit_paid && dep > 0) {
+    const { data: first } = await (supabase as any).from('payment_schedules').select('id').eq('contract_id', contract.id).order('due_date', { ascending: true }).limit(1).maybeSingle();
+    await (supabase as any).from('payments').insert({
+      contract_id: contract.id, payment_schedule_id: first?.id ?? null, amount_paid: dep,
+      paid_at: (reservation as any).reserved_at ?? new Date().toISOString(), method: 'deposit', reference: 'Reservation deposit',
+    });
+  }
 
   await supabase
     .from('units')

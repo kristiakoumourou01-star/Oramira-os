@@ -35,7 +35,7 @@ export async function loadHome(): Promise<HomeData> {
     q(db.from('payments').select('id, amount_paid, paid_at, payment_schedule_id, contract_id, contracts(buyer_contact_id, contacts:buyer_contact_id(full_name))').gte('paid_at', lastYearStart).order('paid_at', { ascending: false }).limit(5000)),
     q(db.from('leads').select('id, status, source, value, budget_max, budget_min, created_at, last_contacted_at, stage_entered_at, won_at, assigned_to, contact_id, contacts(full_name, nationality)').is('deleted_at', null).limit(5000)),
     q(db.from('units').select('id, status, project_id, price, unit_number')),
-    q(db.from('reservations').select('id, status, reserved_at, expires_at, deposit_amount, unit_id, units(unit_number), contacts:buyer_contact_id(full_name)').order('reserved_at', { ascending: false }).limit(500)),
+    q(db.from('reservations').select('id, status, reserved_at, expires_at, deposit_amount, deposit_paid, unit_id, units(unit_number), contacts:buyer_contact_id(full_name)').order('reserved_at', { ascending: false }).limit(500)),
     q(db.from('payment_schedules').select('id, due_date, amount, description, contract_id, contracts(unit_id, units(unit_number), contacts:buyer_contact_id(full_name)), payments(amount_paid)').lte('due_date', in30).order('due_date').limit(500)),
     q(db.from('contracts').select('id, status, signed_at, created_at, total_price, contacts:buyer_contact_id(full_name)').limit(1000)),
     q(db.from('viewings').select('id, scheduled_at, status, lead_id, meeting_link, contacts(full_name), projects(name)').gte('scheduled_at', new Date(now - 30 * DAY).toISOString()).limit(500)),
@@ -49,12 +49,18 @@ export async function loadHome(): Promise<HomeData> {
   // ── Εισπράξεις ──
   const ymd = (d: Date) => d.toISOString().slice(0, 10);
   const today = ymd(new Date());
-  const todayIn = payments.filter((p) => String(p.paid_at ?? '').slice(0, 10) === today).reduce((s, p) => s + Number(p.amount_paid ?? 0), 0);
-  const last30 = payments.filter((p) => Date.parse(p.paid_at) >= now - 30 * DAY).reduce((s, p) => s + Number(p.amount_paid ?? 0), 0);
+  // Εισπράξεις = πληρωμές συμβολαίων + πληρωμένες προκαταβολές κρατήσεων που δεν έγιναν ακόμη συμβόλαιο
+  // (όταν γίνουν συμβόλαιο, η προκαταβολή περνά ως πληρωμή — δεν μετρά δύο φορές).
+  const inflows: { paid_at: string; amount_paid: number }[] = [
+    ...payments.map((p: any) => ({ paid_at: p.paid_at, amount_paid: Number(p.amount_paid ?? 0) })),
+    ...reservations.filter((r: any) => r.status === 'active' && r.deposit_paid && r.reserved_at).map((r: any) => ({ paid_at: r.reserved_at, amount_paid: Number(r.deposit_amount ?? 0) })),
+  ];
+  const todayIn = inflows.filter((p) => String(p.paid_at ?? '').slice(0, 10) === today).reduce((s, p) => s + Number(p.amount_paid ?? 0), 0);
+  const last30 = inflows.filter((p) => Date.parse(p.paid_at) >= now - 30 * DAY).reduce((s, p) => s + Number(p.amount_paid ?? 0), 0);
   const monthly = MONTHS.map((label, m) => ({
     label,
-    thisYear: payments.filter((p) => { const d = new Date(p.paid_at); return d.getFullYear() === y && d.getMonth() === m; }).reduce((s, p) => s + Number(p.amount_paid ?? 0), 0),
-    lastYear: payments.filter((p) => { const d = new Date(p.paid_at); return d.getFullYear() === y - 1 && d.getMonth() === m; }).reduce((s, p) => s + Number(p.amount_paid ?? 0), 0),
+    thisYear: inflows.filter((p) => { const d = new Date(p.paid_at); return d.getFullYear() === y && d.getMonth() === m; }).reduce((s, p) => s + Number(p.amount_paid ?? 0), 0),
+    lastYear: inflows.filter((p) => { const d = new Date(p.paid_at); return d.getFullYear() === y - 1 && d.getMonth() === m; }).reduce((s, p) => s + Number(p.amount_paid ?? 0), 0),
   }));
   const curM = new Date().getMonth();
   const ytd = monthly.slice(0, curM + 1).reduce((s, m) => s + m.thisYear, 0);
@@ -110,11 +116,13 @@ export async function loadHome(): Promise<HomeData> {
 
   // ── Ζωντανή δραστηριότητα ──
   const activity: ActivityItem[] = [
-    ...payments.slice(0, 30).map((p) => ({ kind: 'payment' as const, at: p.paid_at, text: `Πληρωμή από ${p.contracts?.contacts?.full_name ?? 'αγοραστή'}: ${eur(Number(p.amount_paid ?? 0))}`, href: '/financials' })),
-    ...leads.slice().sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, 30).map((l) => ({ kind: 'lead' as const, at: l.created_at, text: `Νέο lead: ${l.contacts?.full_name ?? '—'} (${SOURCE_EL[l.source] ?? l.source ?? 'Άλλο'})`, href: `/crm/leads/${l.id}` })),
-    ...reservations.slice(0, 30).map((r) => ({ kind: 'reservation' as const, at: r.reserved_at, text: `Κράτηση μονάδας ${r.units?.unit_number ?? ''} από ${r.contacts?.full_name ?? '—'}${r.deposit_amount ? ` · προκαταβολή ${eur(Number(r.deposit_amount))}` : ''}` })),
-    ...contracts.filter((c) => c.signed_at).map((c) => ({ kind: 'contract' as const, at: c.signed_at, text: `Υπογράφηκε συμβόλαιο: ${c.contacts?.full_name ?? '—'}${c.total_price ? ` · ${eur(Number(c.total_price))}` : ''}` })),
-    ...viewings.filter((v) => Date.parse(v.scheduled_at) <= now).map((v) => ({ kind: 'viewing' as const, at: v.scheduled_at, text: `Viewing με ${v.contacts?.full_name ?? '—'}${v.projects?.name ? ` · ${v.projects.name}` : ''}`, href: v.lead_id ? `/crm/leads/${v.lead_id}` : undefined })),
+    ...payments.slice(0, 30).map((p) => ({ kind: 'payment' as const, at: p.paid_at, text: `Πληρωμή από ${p.contracts?.contacts?.full_name ?? 'αγοραστή'}: ${eur(Number(p.amount_paid ?? 0))}`, parts: [{ t: 'Πληρωμή από' }, { t: p.contracts?.contacts?.full_name ?? '—', data: true }, { t: eur(Number(p.amount_paid ?? 0)), data: true }], href: '/financials' })),
+    ...leads.slice().sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, 30).map((l) => ({ kind: 'lead' as const, at: l.created_at, text: `Νέο lead: ${l.contacts?.full_name ?? '—'} (${SOURCE_EL[l.source] ?? l.source ?? 'Άλλο'})`, parts: [{ t: 'Νέο lead' }, { t: l.contacts?.full_name ?? '—', data: true }, { t: SOURCE_EL[l.source] ?? l.source ?? 'Άλλο' }], href: `/crm/leads/${l.id}` })),
+    ...reservations.slice(0, 30).map((r) => ({ kind: 'reservation' as const, at: r.reserved_at, text: `Κράτηση μονάδας ${r.units?.unit_number ?? ''} από ${r.contacts?.full_name ?? '—'}${r.deposit_amount ? ` · προκαταβολή ${eur(Number(r.deposit_amount))}` : ''}`,
+      parts: [{ t: 'Κράτηση μονάδας' }, { t: r.units?.unit_number ?? '', data: true }, { t: r.contacts?.full_name ?? '—', data: true }, ...(r.deposit_amount ? [{ t: 'Προκαταβολή' }, { t: eur(Number(r.deposit_amount)), data: true }] : [])] })),
+    ...contracts.filter((c) => c.signed_at).map((c) => ({ kind: 'contract' as const, at: c.signed_at, text: `Υπογράφηκε συμβόλαιο: ${c.contacts?.full_name ?? '—'}${c.total_price ? ` · ${eur(Number(c.total_price))}` : ''}`,
+      parts: [{ t: 'Υπογράφηκε συμβόλαιο' }, { t: c.contacts?.full_name ?? '—', data: true }, ...(c.total_price ? [{ t: eur(Number(c.total_price)), data: true }] : [])] })),
+    ...viewings.filter((v) => Date.parse(v.scheduled_at) <= now).map((v) => ({ kind: 'viewing' as const, at: v.scheduled_at, text: `Viewing με ${v.contacts?.full_name ?? '—'}${v.projects?.name ? ` · ${v.projects.name}` : ''}`, parts: [{ t: 'Ξενάγηση' }, { t: v.contacts?.full_name ?? '—', data: true }, ...(v.projects?.name ? [{ t: v.projects.name, data: true }] : [])], href: v.lead_id ? `/crm/leads/${v.lead_id}` : undefined })),
   ].filter((a) => a.at).sort((a, b) => b.at.localeCompare(a.at)).slice(0, 25);
 
   // ── Σήμερα ──

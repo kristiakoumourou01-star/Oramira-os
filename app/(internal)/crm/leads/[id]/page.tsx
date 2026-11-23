@@ -87,7 +87,7 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
     supabase.from('lead_assignments').select('id, note, created_at, to:assigned_to(full_name), by:assigned_by(full_name)').eq('lead_id', lead.id).order('created_at', { ascending: false }),
     supabase.from('viewings').select('id, scheduled_at, status, notes, units(unit_number), projects(name), agent:agent_id(full_name)').eq('lead_id', lead.id).order('scheduled_at', { ascending: false }),
     supabase.from('negotiations').select('id, offered_price, counter_offer, agreed_price, payment_terms, reservation_deposit, notes, created_at, profiles(full_name)').eq('lead_id', lead.id).order('created_at', { ascending: false }),
-    supabase.from('profiles').select('id, full_name').in('role', ['admin', 'sales', 'management']).order('full_name'),
+    supabase.from('profiles').select('id, full_name').in('role', ['admin', 'sales', 'management']).eq('is_active', true).order('full_name'),
   ]);
   const pDupes = loadContactDuplicates(lead.contact_id);
   const [contactMeta, { tags: tagDefs, pipelines: pipeCfg }, { data: pl }, { data: stRow }] = await Promise.all([

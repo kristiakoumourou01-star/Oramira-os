@@ -4153,7 +4153,7 @@ export const EN: Record<string, string> = {
 "· πιθανότητα {}% · {}": "· probability {}% · {}",
 "{} διαθέσιμες μονάδες από {}": "{} available units of {}",
 "{}{}% από τον μέσο όρο": "{}{}% vs the average",
-"{}{} μον. από το προηγούμενο τρίμηνο": "{}{} units vs the previous quarter",
+"{}{} μον. από το προηγούμενο τρίμηνο": "{}{} pts vs the previous quarter",
 "Τελευταίες 30 μέρες": "Last 30 days",
 "Funnel πωλήσεων · 60 μέρες": "Sales funnel · 60 days",
 "Κορυφαίοι πωλητές · 30 μέρες": "Top salespeople · 30 days",
@@ -5579,4 +5579,6 @@ export const EN: Record<string, string> = {
 "πιθανότητα {}%": "probability {}%",
 "Προβάλλονται": "Show",
 "Μέλος ομάδας": "Team member",
+"Πληρωμή από": "Payment from",
+"Υπογράφηκε συμβόλαιο": "Contract signed",
 };

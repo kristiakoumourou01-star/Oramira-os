@@ -132,7 +132,7 @@ type Client = SupabaseClient<any>;
 export async function buildTeamPerformance(supabase: Client, roles: string[]): Promise<PerformanceScore[]> {
   const now = Date.now();
   const [{ data: staff }, leads, { data: followUps }] = await Promise.all([
-    supabase.from('profiles').select('id, full_name').in('role', roles).order('full_name'),
+    supabase.from('profiles').select('id, full_name').in('role', roles).eq('is_active', true).order('full_name'),
     selectResilient(
       supabase.from('leads').select('id, assigned_to, created_at, first_response_at'),
       () => supabase.from('leads').select('id, assigned_to, created_at'),

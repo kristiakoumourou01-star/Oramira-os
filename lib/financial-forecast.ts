@@ -44,7 +44,7 @@ export async function buildFinancialForecast(supabase: Client): Promise<Financia
   const now = Date.now();
 
   const [{ data: reservations }, { data: schedules }, { data: payments }, { data: commissions }, { data: payslips }, { data: invoices }, { data: staff }] = await Promise.all([
-    supabase.from('reservations').select('id, status, deposit_amount, expires_at, units(price)').eq('status', 'active'),
+    supabase.from('reservations').select('id, status, deposit_amount, deposit_paid, expires_at, units(price)').eq('status', 'active'),
     supabase.from('payment_schedules').select('id, amount, due_date').not('due_date', 'is', null),
     supabase.from('payments').select('payment_schedule_id, amount_paid'),
     supabase.from('commissions').select('amount, commission_pct, status'),
@@ -86,9 +86,11 @@ export async function buildFinancialForecast(supabase: Client): Promise<Financia
 
     // Inflow · projected NEW closings from reservations expiring within the horizon.
     const closing = (reservations ?? []).filter((r) => r.expires_at && new Date(r.expires_at).getTime() <= horizon);
-    const projectedClosingsValue = closing.reduce((s, r) => s + Number((r as any).units?.price ?? r.deposit_amount ?? 0), 0) * RESERVATION_CONVERSION;
+    // Η προκαταβολή που έχει ήδη πληρωθεί δεν ξαναμετρά ως μελλοντική είσπραξη.
+    const projectedClosingsValue = closing.reduce((s, r) => s + Math.max(0, Number((r as any).units?.price ?? r.deposit_amount ?? 0) - ((r as any).deposit_paid ? Number(r.deposit_amount ?? 0) : 0)), 0) * RESERVATION_CONVERSION;
     const projectedClosingsCount = Math.round(closing.length * RESERVATION_CONVERSION);
-    const projectedCommissions = projectedClosingsValue * (avgCommissionPct / 100);
+    const fullClosingsValue = closing.reduce((s, r) => s + Number((r as any).units?.price ?? r.deposit_amount ?? 0), 0) * RESERVATION_CONVERSION;
+    const projectedCommissions = fullClosingsValue * (avgCommissionPct / 100);
 
     // Outflow · payroll over the window.
     const payroll = monthlyPayroll * months;
