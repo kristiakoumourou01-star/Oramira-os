@@ -62,7 +62,7 @@ export function ChipList({ items, onChange, placeholder, canEdit }: { items: str
     <div>
       <div className="mb-2 flex flex-wrap gap-1.5">
         {items.map((t) => (
-          <span key={t} className="badge-neutral inline-flex items-center gap-1">{t}{canEdit && <button onClick={() => onChange(items.filter((x) => x !== t))} className="text-charcoal-600/50 hover:text-signal-danger"><X size={11} /></button>}</span>
+          <span key={t} className="badge-forest inline-flex items-center gap-1">{t}{canEdit && <button onClick={() => onChange(items.filter((x) => x !== t))} className="opacity-60 hover:opacity-100"><X size={11} /></button>}</span>
         ))}
         {items.length === 0 && <span className="text-xs text-charcoal-600/50">—</span>}
       </div>
