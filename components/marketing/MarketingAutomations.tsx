@@ -70,7 +70,7 @@ export function MarketingAutomations({ rows, builtins, groups, contacts, tags, s
   return (
     <section className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
-        <div className="min-w-0 flex-1">
+        <div className="min-w-[14rem] flex-1">
           <h2 className="font-display text-xl text-charcoal">Δικοί μου αυτοματισμοί</h2>
           <p className="text-[14px] text-charcoal-600">Μηνύματα που φεύγουν μόνα τους: όταν συμβεί κάτι (νέο lead, ραντεβού, δόση…) ή κάθε μέρα / εβδομάδα / μήνα. Για ένα μήνυμα μία φορά χρησιμοποιήστε τις Καμπάνιες.</p>
         </div>
