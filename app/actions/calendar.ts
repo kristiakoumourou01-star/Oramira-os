@@ -235,10 +235,14 @@ export async function deleteCalendarEvent(id: string) {
 export async function updateCalendarEvent(id: string, patch: {
   title?: string; startISO?: string; durationMin?: number; notes?: string | null; location?: string | null;
   priority?: string; color?: string | null;
+  /** Καλεσμένοι (email). Παίρνουν πρόσκληση / ενημέρωση από το Google Calendar. */
+  guests?: string[];
 }) {
   const profile = await requireProfile();
   const supabase = await createSupabaseServerClient();
   const update: Record<string, unknown> = {};
+  const guests = patch.guests ? cleanEmails(patch.guests) : undefined;
+  if (guests) update.attendees = guests.map((email) => ({ email }));
   if (patch.title != null) update.title = patch.title;
   if (patch.startISO != null) update.start_at = patch.startISO;
   if (patch.durationMin != null) update.duration_min = patch.durationMin;
@@ -246,18 +250,28 @@ export async function updateCalendarEvent(id: string, patch: {
   if (patch.location !== undefined) update.location = patch.location;
   if (patch.priority != null) update.priority = patch.priority;
   if (patch.color !== undefined) update.color = patch.color;
-  const { data: row } = await supabase.from('calendar_events').update(update).eq('id', id).select('google_event_id, title, start_at, duration_min').maybeSingle();
+  const { data: row } = await supabase.from('calendar_events').update(update).eq('id', id).select('google_event_id, title, start_at, duration_min, location').maybeSingle();
   if (row?.google_event_id) {
-    await updateGoogleEvent(profile.id, row.google_event_id, { summary: row.title, start: patch.startISO ?? row.start_at, durationMin: patch.durationMin ?? row.duration_min ?? 45 });
+    await updateGoogleEvent(profile.id, row.google_event_id, { summary: row.title, start: patch.startISO ?? row.start_at, durationMin: patch.durationMin ?? row.duration_min ?? 45, location: patch.location !== undefined ? patch.location : undefined, attendees: guests });
+  } else if (row && guests && guests.length) {
+    // Δεν ήταν ακόμη στο Google: το στέλνουμε τώρα ώστε οι καλεσμένοι να πάρουν πρόσκληση.
+    const pushed = await pushEventToGoogle(profile.id, { summary: row.title, location: row.location ?? undefined, start: row.start_at, durationMin: row.duration_min ?? 45, attendees: guests });
+    if (pushed) await supabase.from('calendar_events').update({ google_event_id: pushed.googleEventId, ...(pushed.meetLink ? { meeting_link: pushed.meetLink } : {}) }).eq('id', id);
   }
   revalidatePath('/dashboard');
+  revalidatePath('/calendar');
+}
+
+/** Καθαρή λίστα email: μικρά γράμματα, έγκυρα, χωρίς διπλά. */
+function cleanEmails(list: string[]): string[] {
+  return Array.from(new Set(list.map((e) => e.trim().toLowerCase()).filter((e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)))).slice(0, 50);
 }
 
 /** Αλλαγή γεγονότος που φτιάχτηκε στο Google Calendar: γράφεται κατευθείαν στο Google. */
-export async function updateGoogleCalendarItem(itemId: string, patch: { title?: string; startISO: string; durationMin?: number; location?: string | null }) {
+export async function updateGoogleCalendarItem(itemId: string, patch: { title?: string; startISO: string; durationMin?: number; location?: string | null; guests?: string[] }) {
   const profile = await requireProfile();
   const gid = itemId.replace(/^g_/, '');
-  const ok = await updateGoogleEvent(profile.id, gid, { summary: patch.title, start: patch.startISO, durationMin: patch.durationMin, location: patch.location });
+  const ok = await updateGoogleEvent(profile.id, gid, { summary: patch.title, start: patch.startISO, durationMin: patch.durationMin, location: patch.location, attendees: patch.guests ? cleanEmails(patch.guests) : undefined });
   revalidatePath('/calendar');
   revalidatePath('/dashboard');
   return { ok };
