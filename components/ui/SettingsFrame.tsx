@@ -36,11 +36,11 @@ export function SettingsFrame({ icon, title, subtitle, aside, groups, activeHref
     <div className="space-y-5">
       <div className="flex flex-wrap items-center gap-4 rounded-2xl border border-forest/15 bg-gradient-to-r from-forest/[0.08] via-forest/[0.03] to-white p-4 shadow-sm">
         <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-forest text-white shadow-[0_6px_16px_-8px_rgb(var(--c-forest)/0.8)]"><Icon size={22} strokeWidth={1.8} /></span>
-        <div className="min-w-0 flex-1">
-          <h1 className="font-display text-[26px] italic leading-tight text-charcoal">{title}</h1>
+        <div className="min-w-[11rem] flex-1">
+          <h1 className="font-display text-[22px] italic leading-tight text-charcoal sm:text-[26px]">{title}</h1>
           <p className="text-[13px] text-charcoal-600">{subtitle}</p>
         </div>
-        {aside && <div className="text-[13px] font-medium text-charcoal">{aside}</div>}
+        {aside && <div className="w-full text-[13px] font-medium text-charcoal sm:w-auto">{aside}</div>}
       </div>
 
       <div className="lg:hidden">
