@@ -48,7 +48,7 @@ export function NavItem({
       onTouchStart={warm}
       onClick={(e) => { if (!e.metaKey && !e.ctrlKey && !e.shiftKey) window.dispatchEvent(new CustomEvent(PENDING_EVENT, { detail: href })); }}
       title={compact ? label : undefined}
-      className={`group relative flex items-center rounded-lg py-[7px] text-[14px] transition-colors duration-150 ${compact ? 'justify-center px-0' : 'gap-2.5 px-3'} ${
+      className={`group relative flex items-center rounded-lg py-[6px] text-[13px] transition-colors duration-150 ${compact ? 'justify-center px-0' : 'gap-2.5 px-3'} ${
         active
           ? 'bg-[color:var(--sb-active-bg)] font-medium text-[color:var(--sb-active-text)]'
           : 'text-[color:var(--sb-text)] hover:bg-[color:var(--sb-hover-bg)] hover:text-[color:var(--sb-text-hover)]'

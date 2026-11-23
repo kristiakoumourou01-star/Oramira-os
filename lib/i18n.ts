@@ -90,7 +90,7 @@ const NAV: Record<string, Tr> = {
   '/crm/leads?tab=retargeting': { el: 'Retargeting', en: 'Retargeting', ru: 'Ретаргетинг' },
   '/crm/leads?tab=closings': { el: 'Κλεισίματα & προμήθειες', en: 'Closings & commissions', ru: 'Сделки и комиссии' },
   '/crm/leads?tab=kpis': { el: 'Στατιστικά', en: 'Statistics', ru: 'Статистика' },
-  '/crm/customers': { el: 'Πελάτες', en: 'Clients', ru: 'Клиенты' },
+  '/crm/customers': { el: 'Πελάτες', en: 'Customers', ru: 'Клиенты' },
   '/crm/customers#child': { el: 'Όλες οι επαφές', en: 'All contacts', ru: 'Все контакты' },
   '/crm/buyers': { el: 'Αγοραστές', en: 'Buyers', ru: 'Покупатели' },
   '/crm/investors': { el: 'Επενδυτές', en: 'Investors', ru: 'Инвесторы' },
