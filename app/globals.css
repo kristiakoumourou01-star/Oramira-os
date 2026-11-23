@@ -460,6 +460,7 @@ html[data-theme='dark'] [class~="text-gray-600"], html[data-theme='dark'] [class
 html[data-theme='dark'] [class~="text-zinc-600"], html[data-theme='dark'] [class~="text-zinc-700"], html[data-theme='dark'] [class~="text-zinc-800"], html[data-theme='dark'] [class~="text-zinc-900"] { color: #e4e4e7 !important; }
 html[data-theme='dark'] [class~="text-stone-600"], html[data-theme='dark'] [class~="text-stone-700"], html[data-theme='dark'] [class~="text-stone-800"], html[data-theme='dark'] [class~="text-stone-900"] { color: #e7e5e4 !important; }
 html[data-theme='dark'] [class*="bg-white/"], html[data-theme='dark'] .hover\:bg-white:hover { background-color: rgb(28 33 31 / 0.85); }
+html[data-theme='dark'] [class*="bg-[#F"], html[data-theme='dark'] [class*="bg-[#f"], html[data-theme='dark'] [class*="bg-[#E"], html[data-theme='dark'] [class*="bg-[#e"], html[data-theme='dark'] .bg-sand-50,
 html[data-theme='dark'] .bg-\[\#F7F4EE\], html[data-theme='dark'] .bg-champagne-50 { background-color: rgb(255 255 255 / 0.06); }
 
 /* Παραστατικά: η εκτύπωση / PDF κρατά μόνο το έγγραφο (.print-area). */
