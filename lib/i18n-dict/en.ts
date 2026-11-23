@@ -5529,4 +5529,9 @@ export const EN: Record<string, string> = {
 "SMS / WhatsApp: τελευταία γραμμή": "SMS / WhatsApp: last line",
 "Email: υποσέλιδο με το τηλέφωνο, το email και το website από τα Στοιχεία εταιρείας.": "Email: a footer with the phone, email and website from Company details.",
 "Κενό = χωρίς υπογραφή.": "Empty = no signature.",
+"Καλεσμένοι (email)": "Guests (email)",
+"Καλεσμένοι": "Guests",
+"Το email δεν είναι σωστό.": "The email is not valid.",
+"π.χ. maria@gmail.com": "e.g. maria@gmail.com",
+"Οποιοδήποτε email. Πατήστε Enter μετά από κάθε email. Θα τους σταλεί πρόσκληση από το Google Calendar.": "Any email. Press Enter after each one. They will get an invitation from Google Calendar.",
 };

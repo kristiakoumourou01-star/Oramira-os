@@ -49,12 +49,12 @@ export async function deleteGoogleEvent(profileId: string, googleEventId: string
 }
 
 /** Patch an existing Google event's time when an internal record is rescheduled. */
-export async function updateGoogleEvent(profileId: string, googleEventId: string, patch: { summary?: string; start: string; durationMin?: number; location?: string | null }): Promise<boolean> {
+export async function updateGoogleEvent(profileId: string, googleEventId: string, patch: { summary?: string; start: string; durationMin?: number; location?: string | null; attendees?: string[] }): Promise<boolean> {
   try {
     const t = await activeToken(profileId);
     if (!t) return false;
     const end = new Date(new Date(patch.start).getTime() + (patch.durationMin ?? DEFAULT_DURATION_MIN) * 60000).toISOString();
-    return updateEvent(t.token, t.calendarId, googleEventId, { summary: patch.summary, start: new Date(patch.start).toISOString(), end, location: patch.location });
+    return updateEvent(t.token, t.calendarId, googleEventId, { summary: patch.summary, start: new Date(patch.start).toISOString(), end, location: patch.location, attendees: patch.attendees });
   } catch { return false; }
 }
 
@@ -78,6 +78,8 @@ export async function getBusyForUser(profileId: string, timeMin: string, timeMax
 export interface ExternalEvent {
   id: string; title: string; start: string; meetingLink?: string | null; link?: string | null;
   durationMin?: number; location?: string | null; allDay?: boolean; cancelled?: boolean; seriesId?: string | null;
+  /** Καλεσμένοι (email), χωρίς τον ίδιο τον χρήστη. */
+  guests?: string[];
 }
 
 /**
@@ -101,6 +103,7 @@ export async function getGoogleEventsForUser(profileId: string, timeMin: string,
         id: `g_${e.id}`, title: e.summary ?? '(busy)', start, meetingLink: e.hangoutLink ?? null, link: e.htmlLink ?? null,
         durationMin: allDay ? 30 : Math.max(5, Math.min(24 * 60, dur || 45)), location: e.location ?? null, allDay,
         cancelled: e.status === 'cancelled', seriesId: e.recurringEventId ?? null,
+        guests: (e.attendees ?? []).filter((a) => !a.self && a.email).map((a) => a.email as string),
       };
     })
     .filter((e) => e.start || e.cancelled)

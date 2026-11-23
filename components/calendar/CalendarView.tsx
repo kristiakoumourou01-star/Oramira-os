@@ -340,6 +340,16 @@ function EventDetail({ item, onClose, onChanged }: { item: CalendarItem; onClose
   const [edit, setEdit] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [f, setF] = useState({ title: item.title, date: toLocalDate(item.start), time: toLocalTime(item.start), dur: String(item.durationMin), location: item.location ?? '' });
+  const [guests, setGuests] = useState<string[]>(item.guests ?? []);
+  const [guestDraft, setGuestDraft] = useState('');
+  const addGuests = (raw: string) => {
+    const found = raw.split(/[\s,;]+/).map((x) => x.trim().toLowerCase()).filter(Boolean);
+    const ok = found.filter((x) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x));
+    if (found.length && !ok.length) { setErr('Το email δεν είναι σωστό.'); return; }
+    setErr(null);
+    setGuests((g) => Array.from(new Set([...g, ...ok])));
+    setGuestDraft('');
+  };
   const s = styleFor(item.type);
   const canEdit = item.editable && (item.source === 'internal' || item.source === 'google');
   const run = (fn: () => Promise<unknown>) => { setBusy(true); fn().then(onChanged).finally(() => setBusy(false)); };
@@ -348,13 +358,14 @@ function EventDetail({ item, onClose, onChanged }: { item: CalendarItem; onClose
     const start = new Date(y, (m ?? 1) - 1, d ?? 1, hh ?? 9, mm ?? 0);
     if (!f.title.trim() || isNaN(start.getTime())) { setErr('Συμπληρώστε τίτλο, ημερομηνία και ώρα.'); return; }
     const durationMin = Math.max(5, Math.min(24 * 60, Number(f.dur) || item.durationMin));
+    const allGuests = guestDraft.trim() ? Array.from(new Set([...guests, ...guestDraft.split(/[\s,;]+/).map((x) => x.trim().toLowerCase()).filter((x) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x))])) : guests;
     setBusy(true); setErr(null);
     try {
       if (item.source === 'google') {
-        const r = await updateGoogleCalendarItem(item.id, { title: f.title.trim(), startISO: start.toISOString(), durationMin, location: f.location.trim() || null });
+        const r = await updateGoogleCalendarItem(item.id, { title: f.title.trim(), startISO: start.toISOString(), durationMin, location: f.location.trim() || null, guests: allGuests });
         if (!r.ok) { setErr('Το Google Calendar δεν δέχτηκε την αλλαγή. Δοκιμάστε ξανά.'); return; }
       } else {
-        await updateCalendarEvent(item.id, { title: f.title.trim(), startISO: start.toISOString(), durationMin, location: f.location.trim() || null });
+        await updateCalendarEvent(item.id, { title: f.title.trim(), startISO: start.toISOString(), durationMin, location: f.location.trim() || null, guests: allGuests });
       }
       onChanged();
     } finally { setBusy(false); }
@@ -362,7 +373,7 @@ function EventDetail({ item, onClose, onChanged }: { item: CalendarItem; onClose
   const field = 'w-full rounded-lg border border-stone-line bg-white px-3 py-2 text-sm text-charcoal outline-none focus:border-forest';
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-forest-deep/40 p-4" onClick={onClose}>
-      <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-overlay" onClick={(e) => e.stopPropagation()}>
+      <div className="max-h-[calc(100dvh-2rem)] w-full max-w-sm overflow-y-auto rounded-2xl bg-white p-5 shadow-overlay" onClick={(e) => e.stopPropagation()}>
         <div className="mb-3 flex items-start justify-between">
           <div className="min-w-0">
             <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold ${s.chip}`}><span className={`h-1.5 w-1.5 rounded-full ${s.dot}`} />{s.label}</span>
@@ -382,6 +393,23 @@ function EventDetail({ item, onClose, onChanged }: { item: CalendarItem; onClose
               <label className="block text-xs text-charcoal-600"><span>Διάρκεια (λεπτά)</span><input type="number" min={5} step={5} className={`${field} mt-1`} value={f.dur} onChange={(e) => setF({ ...f, dur: e.target.value })} /></label>
               <label className="block text-xs text-charcoal-600"><span>Τοποθεσία</span><input className={`${field} mt-1`} value={f.location} onChange={(e) => setF({ ...f, location: e.target.value })} /></label>
             </div>
+            <div className="block text-xs text-charcoal-600">
+              <span>Καλεσμένοι (email)</span>
+              <div className={`${field} mt-1 flex min-h-[42px] flex-wrap items-center gap-1.5 py-1.5`}>
+                {guests.map((g) => (
+                  <span key={g} className="inline-flex items-center gap-1 rounded-full bg-forest/10 px-2 py-0.5 text-[12px] text-charcoal" data-no-tr>
+                    {g}
+                    <button type="button" onClick={() => setGuests((x) => x.filter((y) => y !== g))} aria-label="Αφαίρεση" className="text-charcoal-600 hover:text-signal-danger"><X size={12} /></button>
+                  </span>
+                ))}
+                <input type="email" value={guestDraft} placeholder={guests.length ? '' : 'π.χ. maria@gmail.com'}
+                  onChange={(e) => setGuestDraft(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ',' || e.key === ' ') { e.preventDefault(); if (guestDraft.trim()) addGuests(guestDraft); } else if (e.key === 'Backspace' && !guestDraft && guests.length) setGuests((x) => x.slice(0, -1)); }}
+                  onBlur={() => { if (guestDraft.trim()) addGuests(guestDraft); }}
+                  className="min-w-[140px] flex-1 border-0 bg-transparent p-0 text-sm outline-none focus:ring-0" />
+              </div>
+              <span className="mt-1 block text-[11px] text-charcoal-600/70">Οποιοδήποτε email. Πατήστε Enter μετά από κάθε email. Θα τους σταλεί πρόσκληση από το Google Calendar.</span>
+            </div>
             {err && <p className="text-xs text-signal-danger">{err}</p>}
             <div className="flex gap-2 pt-1">
               <button disabled={busy} onClick={save} className="btn-primary px-3 py-1.5 text-xs">Αποθήκευση</button>
@@ -391,6 +419,12 @@ function EventDetail({ item, onClose, onChanged }: { item: CalendarItem; onClose
         ) : (
           <>
             {item.location && <p className="mb-2 text-sm text-charcoal-600">📍 <span data-no-tr>{item.location}</span></p>}
+            {(item.guests?.length ?? 0) > 0 && (
+              <div className="mb-3">
+                <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-charcoal-600/70">Καλεσμένοι</p>
+                <div className="flex flex-wrap gap-1.5">{item.guests!.map((g) => <span key={g} className="rounded-full bg-forest/10 px-2 py-0.5 text-[12px] text-charcoal" data-no-tr>{g}</span>)}</div>
+              </div>
+            )}
             <div className="flex flex-wrap gap-2">
               {item.meetingLink && <a href={item.meetingLink} target="_blank" rel="noreferrer" className="btn-secondary px-3 py-1.5 text-xs"><Video size={13} /> Join</a>}
               {item.leadId && <Link href={`/crm/leads/${item.leadId}`} className="btn-secondary px-3 py-1.5 text-xs"><ExternalLink size={13} /> Lead</Link>}

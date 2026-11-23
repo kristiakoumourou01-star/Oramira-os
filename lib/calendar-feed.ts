@@ -56,7 +56,7 @@ export async function getCalendarFeed(profileId: string, fromISO: string, toISO:
   try {
     const { data } = await supabase
       .from('calendar_events')
-      .select('id, title, type, start_at, duration_min, status, color, location, meeting_link, google_event_id, related_lead_id')
+      .select('id, title, type, start_at, duration_min, status, color, location, meeting_link, google_event_id, related_lead_id, attendees')
       .eq('profile_id', profileId)
       .neq('status', 'cancelled')
       .gte('start_at', fromISO)
@@ -83,6 +83,11 @@ export async function getCalendarFeed(profileId: string, fromISO: string, toISO:
         meetingLink: e.meeting_link ?? null,
         leadId: e.related_lead_id ?? null,
         editable: true,
+        guests: (() => {
+          const own = Array.isArray((e as any).attendees) ? ((e as any).attendees as any[]).map((a) => a?.email).filter(Boolean) : [];
+          const g = e.google_event_id ? gById.get(e.google_event_id)?.guests : undefined;
+          return Array.from(new Set([...(g ?? []), ...own]));
+        })(),
       });
     }
   } catch { /* degrade */ }
@@ -146,6 +151,7 @@ export async function getCalendarFeed(profileId: string, fromISO: string, toISO:
       meetingLink: g.meetingLink ?? null,
       leadId: null,
       editable: !g.allDay,
+      guests: g.guests ?? [],
     });
   }
 

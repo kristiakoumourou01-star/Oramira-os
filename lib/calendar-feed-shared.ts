@@ -15,4 +15,6 @@ export interface CalendarItem {
   meetingLink: string | null;
   leadId: string | null;
   editable: boolean; // internal rows can be edited/cancelled in-app
+  /** Καλεσμένοι (email) — παίρνουν πρόσκληση από το Google Calendar. */
+  guests?: string[];
 }

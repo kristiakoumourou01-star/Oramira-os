@@ -72,6 +72,7 @@ export interface GCalEvent {
   id: string; summary?: string; status?: string; location?: string; recurringEventId?: string;
   start?: { dateTime?: string; date?: string }; end?: { dateTime?: string; date?: string };
   hangoutLink?: string; htmlLink?: string;
+  attendees?: { email?: string; displayName?: string; responseStatus?: string; self?: boolean; organizer?: boolean }[];
 }
 
 /** Τα γεγονότα ενός διαστήματος. Με showDeleted επιστρέφει και όσα σβήστηκαν στο Google (status «cancelled»). */
@@ -130,11 +131,12 @@ export async function deleteEvent(accessToken: string, calendarId: string, event
 }
 
 /** Patch an existing event's time (two-way sync on internal reschedule). */
-export async function updateEvent(accessToken: string, calendarId: string, eventId: string, patch: { summary?: string; start?: string; end?: string; location?: string | null }): Promise<boolean> {
+export async function updateEvent(accessToken: string, calendarId: string, eventId: string, patch: { summary?: string; start?: string; end?: string; location?: string | null; attendees?: string[] }): Promise<boolean> {
   try {
     const body: any = {};
     if (patch.summary) body.summary = patch.summary;
     if (patch.location !== undefined) body.location = patch.location ?? '';
+    if (patch.attendees) body.attendees = patch.attendees.map((email) => ({ email }));
     if (patch.start) body.start = { dateTime: patch.start };
     if (patch.end) body.end = { dateTime: patch.end };
     const res = await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}?sendUpdates=all`, {
