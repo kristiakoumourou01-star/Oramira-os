@@ -7,6 +7,8 @@ import { useRouter } from 'next/navigation';
 import { Check, X, Trash2, CalendarPlus, Pencil } from 'lucide-react';
 import { requestLeave, decideLeave, cancelLeave, setLeaveBalance } from '@/app/actions/hr';
 import { DATE_TAG, currentLocale } from '@/lib/locale-shared';
+import { StatusPill } from '@/components/ui/StatusPill';
+import { toneFor } from '@/lib/status-tone-shared';
 
 export interface LeaveRow { id: string; profile_id: string; employee: string | null; leave_type: string; start_date: string; end_date: string; days: number | null; reason: string | null; status: string; created_at: string }
 export interface BalanceRow { profile_id: string; leave_type: string; year: number; total_days: number; used_days: number }
@@ -123,13 +125,13 @@ export function LeaveManager({ requests, balances, employees, me, canEdit }: { r
           <table className="o-table">
             <thead><tr><th>Υπάλληλος</th><th>Τύπος</th><th>Διάστημα</th><th>Μέρες</th><th>Κατάσταση</th><th>Λόγος</th><th /></tr></thead>
             <tbody>
-              {rows.map((r) => { const [sl, sc] = STATUS[r.status] ?? [r.status, 'badge-neutral']; return (
+              {rows.map((r) => { const [sl] = STATUS[r.status] ?? [r.status]; return (
                 <tr key={r.id}>
                   <td className="font-medium text-charcoal" data-no-tr>{r.employee ?? '—'}</td>
                   <td>{typeLabel(r.leave_type)}</td>
                   <td className="whitespace-nowrap">{fmt(r.start_date)}{r.end_date !== r.start_date ? ` → ${fmt(r.end_date)}` : ''}</td>
                   <td className="figure">{r.days ?? '—'}</td>
-                  <td><span className={sc}>{sl}</span></td>
+                  <td><StatusPill tone={toneFor(r.status)} dot>{sl}</StatusPill></td>
                   <td className="max-w-[16rem] truncate text-xs text-charcoal-600/70" data-no-tr>{r.reason ?? ''}</td>
                   <td className="whitespace-nowrap text-right">
                     {r.status === 'pending' && canEdit && <>

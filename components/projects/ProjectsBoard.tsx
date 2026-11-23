@@ -8,6 +8,8 @@ import { useRouter } from 'next/navigation';
 import { Building2, MapPin, LayoutGrid, Columns3, X, ArrowUpRight, Tags, Map as MapIcon, Pencil, Plus, Trash2, GripVertical, List, Search, Home, TrendingUp } from 'lucide-react';
 import { HubCards } from '@/components/ui/HubCards';
 import { PopSelect } from '@/components/ui/PopSelect';
+import { StatusPill } from '@/components/ui/StatusPill';
+import { toneFor } from '@/lib/status-tone-shared';
 import { Pager } from '@/components/ui/SidePanel';
 import { deleteProject } from '@/app/actions/project-flow';
 import { saveOrgSlice } from '@/app/actions/org-settings';
@@ -84,7 +86,7 @@ export function ProjectsBoard({ projects: initial, canEdit, stages, rawStages, c
     <div key={p.id} role="button" tabIndex={0} onClick={() => setOpenId(p.id)} onKeyDown={(e) => { if (e.key === 'Enter') setOpenId(p.id); }}
       draggable={compact && canEdit} onDragStart={(e) => { setDrag(p.id); e.dataTransfer.effectAllowed = 'move'; }} onDragEnd={() => { setDrag(null); setOver(null); }}
       className={compact ? `${laneRow} cursor-pointer ${drag === p.id ? 'opacity-40' : ''}` : 'cursor-pointer rounded-[14px] border border-stone-line bg-white p-4 shadow-sm transition-colors duration-150 hover:border-forest/40'}>
-      {!compact && <div className="mb-3 flex items-start justify-between"><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-forest/[0.09] text-forest"><Building2 size={18} /></span><span className="rounded-full border border-stone-line px-2.5 py-0.5 text-[12px] font-medium text-charcoal-600">{statusLabel(p.status)}</span></div>}
+      {!compact && <div className="mb-3 flex items-start justify-between"><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-forest/[0.09] text-forest"><Building2 size={18} /></span><StatusPill tone={toneFor(p.status)} dot>{statusLabel(p.status)}</StatusPill></div>}
       <p className={compact ? 'font-semibold text-charcoal' : 'text-[17px] font-semibold text-charcoal'} data-no-tr>{p.name}</p>
       {p.location && <p className="mt-0.5 flex items-center gap-1 text-[13px] text-charcoal-600" data-no-tr><MapPin size={12} strokeWidth={1.75} /> {p.location}</p>}
       <div className={`${compact ? 'mt-1.5' : 'mt-3 border-t border-stone-line pt-3'} flex items-center justify-between text-[13px]`}>
@@ -142,7 +144,7 @@ export function ProjectsBoard({ projects: initial, canEdit, stages, rawStages, c
                     <tr key={p.id} onClick={() => setOpenId(p.id)} className="cursor-pointer">
                       <td className="o-strong" data-no-tr><span className="block max-w-[200px] truncate" title={p.name}>{p.name}</span></td>
                       <td data-no-tr><span className="block max-w-[160px] truncate">{p.location || '—'}</span></td>
-                      <td>{statusLabel(p.status)}</td>
+                      <td><StatusPill tone={toneFor(p.status)} dot>{statusLabel(p.status)}</StatusPill></td>
                       <td>{fmtDate(p.delivery_date)}</td>
                       <td className="tabular-nums">{p.total}</td>
                       <td className="tabular-nums">{p.available}</td>

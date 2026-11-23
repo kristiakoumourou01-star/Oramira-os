@@ -6,6 +6,8 @@ import Link from 'next/link';
 import { Check, FileText } from 'lucide-react';
 import { approvePayroll } from '@/app/actions/hr';
 import { formatCurrency } from '@/lib/format';
+import { StatusPill } from '@/components/ui/StatusPill';
+import { toneFor } from '@/lib/status-tone-shared';
 
 export interface PayslipRow {
   id: string;
@@ -17,8 +19,6 @@ export interface PayslipRow {
   status: string;
   payment_date: string | null;
 }
-
-const STATUS_CLASS: Record<string, string> = { draft: 'badge-champagne', approved: 'badge-forest', paid: 'badge-forest' };
 
 export function PayrollApprovals({ payslips }: { payslips: PayslipRow[] }) {
   const [isPending, startTransition] = useTransition();
@@ -38,7 +38,7 @@ export function PayrollApprovals({ payslips }: { payslips: PayslipRow[] }) {
               <td className="figure">{formatCurrency(p.gross_amount)}</td>
               <td className="figure">{formatCurrency(p.net_amount)}</td>
               <td className="figure text-charcoal-600">{formatCurrency(p.employer_cost)}</td>
-              <td><span className={STATUS_CLASS[p.status] ?? 'badge-neutral'}>{({ draft: 'Πρόχειρο', approved: 'Εγκρίθηκε', paid: 'Πληρώθηκε' } as Record<string, string>)[p.status] ?? p.status}</span></td>
+              <td><StatusPill tone={toneFor(p.status)} dot>{({ draft: 'Πρόχειρο', approved: 'Εγκρίθηκε', paid: 'Πληρώθηκε' } as Record<string, string>)[p.status] ?? p.status}</StatusPill></td>
               <td className="text-right">
                 <div className="flex items-center justify-end gap-2">
                   <Link href={`/payslips/${p.id}`} className="btn-ghost text-xs"><FileText size={13} strokeWidth={1.75} /> View</Link>

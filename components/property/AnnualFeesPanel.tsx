@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 import { CalendarPlus } from 'lucide-react';
 import { PopSelect } from '@/components/ui/PopSelect';
 import { Pager } from '@/components/ui/SidePanel';
+import { StatusPill, StatusDot } from '@/components/ui/StatusPill';
+import { toneFor } from '@/lib/status-tone-shared';
 import { generateAnnualFees, setAnnualFee, setChargeStatus } from '@/app/actions/unit-history';
 import { CHARGE_KIND, CHARGE_STATUS } from '@/lib/unit-history-shared';
 import { formatCurrency, formatDate } from '@/lib/format';
@@ -89,7 +91,7 @@ export function AnnualFeesPanel({ projectId, units, charges, canEdit, ready }: {
                   <td data-no-tr><span className="block max-w-[220px] truncate">{c.description ?? '—'}</span></td>
                   <td className="tabular-nums">{formatDate(c.dueDate ?? c.createdAt)}</td>
                   <td className="tabular-nums">{formatCurrency(c.amount)}</td>
-                  <td>{canEdit ? <PopSelect width="w-[124px]" ariaLabel="Κατάσταση χρέωσης" value={c.status} onChange={(v) => start(async () => { await setChargeStatus(c.id, v as 'pending' | 'paid' | 'cancelled'); router.refresh(); })} options={Object.entries(CHARGE_STATUS)} /> : CHARGE_STATUS[c.status] ?? c.status}</td>
+                  <td>{canEdit ? <span className="flex items-center gap-2"><StatusDot tone={toneFor(c.status)} /><PopSelect width="w-[124px]" ariaLabel="Κατάσταση χρέωσης" value={c.status} onChange={(v) => start(async () => { await setChargeStatus(c.id, v as 'pending' | 'paid' | 'cancelled'); router.refresh(); })} options={Object.entries(CHARGE_STATUS)} /></span> : <StatusPill tone={toneFor(c.status)} dot>{CHARGE_STATUS[c.status] ?? c.status}</StatusPill>}</td>
                 </tr>
               ))}
               {list.length === 0 && <tr><td colSpan={7} className="py-8 text-center text-sm text-charcoal-600">Καμία χρέωση σε αυτή την προβολή.</td></tr>}

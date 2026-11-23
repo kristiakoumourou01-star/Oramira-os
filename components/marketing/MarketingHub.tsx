@@ -4,6 +4,8 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { FileBarChart, Gift, Plus, Search, X, Trash2, Copy, Send, Handshake, Pencil, Power, Zap } from 'lucide-react';
 import { PopSelect } from '@/components/ui/PopSelect';
+import { StatusPill } from '@/components/ui/StatusPill';
+import { toneFor } from '@/lib/status-tone-shared';
 import { Briefing, Pager } from '@/components/ui/SidePanel';
 import { saveReferralCode, setReferralActive, addRedemption, setRedemptionStatus } from '@/app/actions/referrals';
 import { HubCards } from '@/components/ui/HubCards';
@@ -142,9 +144,9 @@ export function MarketingHub({ campaigns, groups, contacts, tags, prefill, refer
                     return (
                       <tr key={c.id} className="cursor-pointer" onClick={() => setView(c)}>
                         <td className="o-strong"><span className="block max-w-[260px] truncate" data-no-tr>{c.name}</span><span className="block text-[11px] font-normal text-charcoal-600">{formatDate(c.sentAt ?? c.createdAt)}</span></td>
-                        <td><span data-no-tr>{CHANNEL_NAME[c.channel]}</span></td>
+                        <td><StatusPill tone="blue"><span data-no-tr>{CHANNEL_NAME[c.channel]}</span></StatusPill></td>
                         <td>
-                          <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${c.status === 'sent' ? 'bg-forest/[0.09] text-forest' : c.status === 'scheduled' ? 'bg-forest text-white' : 'bg-stone-100 text-charcoal-600'}`}>{STATUS_LABEL[c.status]}</span>
+                          <StatusPill tone={toneFor(c.status)} dot>{STATUS_LABEL[c.status]}</StatusPill>
                           {c.status === 'scheduled' && c.scheduledAt && <span className="mt-0.5 block whitespace-nowrap text-[11px] tabular-nums text-charcoal-600">{formatDateTime(c.scheduledAt)}</span>}
                         </td>
                         <td data-no-tr><span className="block max-w-[180px] truncate">{audienceLabel(c.audience, roleLabel)}</span></td>
@@ -220,7 +222,7 @@ function ReferralsPanel({ data, contacts, canEdit }: { data: ReferralData; conta
                 {data.codes.map((c) => (
                   <tr key={c.id}>
                     <td className="o-strong font-mono" data-no-tr>{c.code}</td>
-                    <td><span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${c.active ? 'bg-forest/[0.09] text-forest' : 'bg-stone-100 text-charcoal-600'}`}>{c.active ? 'Ενεργός' : 'Ανενεργός'}</span></td>
+                    <td><StatusPill tone={c.active ? 'green' : 'neutral'} dot>{c.active ? 'Ενεργός' : 'Ανενεργός'}</StatusPill></td>
                     <td data-no-tr>{c.referrer ?? '—'}</td>
                     <td>{rewardText(c.refType, c.refValue)}</td>
                     <td>{rewardText(c.eeType, c.eeValue)}</td>
@@ -255,7 +257,7 @@ function ReferralsPanel({ data, contacts, canEdit }: { data: ReferralData; conta
                   <tr key={r.id}>
                     <td className="o-strong" data-no-tr>{r.referee ?? '—'}</td>
                     <td className="font-mono" data-no-tr>{r.code}</td>
-                    <td><span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${r.status === 'rejected' ? 'bg-stone-100 text-charcoal-600' : 'bg-forest/[0.09] text-forest'}`}>{RSTATUS[r.status] ?? r.status}</span></td>
+                    <td><StatusPill tone={toneFor(r.status)} dot>{RSTATUS[r.status] ?? r.status}</StatusPill></td>
                     <td>{formatDate(r.createdAt)}</td>
                     <td>{canEdit && <span className="flex justify-end"><PopSelect width="min-w-[150px]" value={r.status} onChange={(v) => act(() => setRedemptionStatus(r.id, v), 'Η κατάσταση άλλαξε.')} options={Object.entries(RSTATUS)} /></span>}</td>
                   </tr>

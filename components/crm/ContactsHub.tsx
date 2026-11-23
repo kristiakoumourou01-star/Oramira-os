@@ -9,7 +9,7 @@ import { Plus, Download, Search, X, Users, Check, CalendarDays, ChevronLeft, Che
 import { createContact, bulkUpdateContacts, updateContactBasics, deleteContact, importContacts, createContactGroup, updateContactGroup, deleteContactGroup } from '@/app/actions/contacts-hub';
 import { Eye, Pencil, Trash2, Filter, LayoutGrid, Upload, Mail, Phone, ExternalLink, Sparkles, ListChecks, UserCheck } from 'lucide-react';
 import {
-  ALL_ROLES, CONTACT_STATUSES, DEFAULT_FILTERS, ROLE_EL, ROLE_TONE, SOURCE_EL, STATUS_EL, STATUS_TONE,
+  ALL_ROLES, CONTACT_STATUSES, DEFAULT_FILTERS, ROLE_EL, SOURCE_EL, STATUS_EL, STATUS_TONE,
   contactsCsv, filterContacts, roleCounts, type ContactFilters, type ContactGroup, type ContactListRow, type ContactRole, type ContactStatus,
 } from '@/lib/contacts-hub-shared';
 import { LEAD_SOURCES } from '@/lib/lead-automation-shared';
@@ -18,6 +18,7 @@ import { formatCurrency, formatDate } from '@/lib/format';
 import { PhoneInput } from '@/components/ui/PhoneInput';
 import { HubCards } from '@/components/ui/HubCards';
 import { PopSelect } from '@/components/ui/PopSelect';
+import { StatusPill, type Tone } from '@/components/ui/StatusPill';
 import { Briefing, SideStat, Pager } from '@/components/ui/SidePanel';
 import { DATE_TAG, currentLocale } from '@/lib/locale-shared';
 
@@ -224,7 +225,7 @@ export function ContactsHub({ rows, staff, groupDefs = [], initialRole = '', ini
                       {has('group') && <td>{r.groups.length ? <span className="flex items-center gap-1" title={r.groups.join(', ')}><span className="max-w-[120px] truncate rounded-full border border-stone-line px-2 py-0.5 text-[11px] font-medium text-charcoal" data-no-tr>{r.groups[0]}</span>{r.groups.length > 1 && <span className="text-[11px] text-charcoal-600">+{r.groups.length - 1}</span>}</span> : <span>—</span>}</td>}
                       {has('tags') && <td className="text-[13px] text-charcoal-600" data-no-tr>{r.tags.join(', ') || '—'}</td>}
                       {has('joined') && <td className="text-charcoal-600">{ddmmyyyy(r.createdAt)}</td>}
-                      {has('roles') && <td className=""><span className="flex flex-wrap gap-1">{r.roles.length ? r.roles.map((x) => <span key={x} className={ROLE_TONE[x]}>{ROLE_EL[x]}</span>) : <span className="text-charcoal-600">—</span>}</span></td>}
+                      {has('roles') && <td className=""><span className="flex flex-wrap gap-1">{r.roles.length ? r.roles.map((x) => <StatusPill key={x} tone={ROLE_PILL[x] ?? 'neutral'}>{ROLE_EL[x]}</StatusPill>) : <span className="text-charcoal-600">—</span>}</span></td>}
                       <td className="" onClick={(e) => e.stopPropagation()}>
                         <span className="flex justify-end gap-1">
                           {canEdit && <button type="button" onClick={() => setEditRow(r)} title="Επεξεργασία πελάτη" aria-label="Επεξεργασία πελάτη" className={iconBtn}><Pencil size={15} /></button>}
@@ -498,7 +499,7 @@ function GroupDialog({ group, rows, preselect, onClose, onSaved }: { group: Cont
                 <label key={r.id} className="flex cursor-pointer items-center gap-3 px-3 py-2 text-sm hover:bg-stone-50">
                   <input type="checkbox" checked={members.has(r.id)} onChange={() => flip(r.id)} />
                   <span className="min-w-0 flex-1"><span className="block truncate font-medium text-charcoal" data-no-tr>{r.name}</span><span className="block truncate text-[12px] text-charcoal-600" data-no-tr>{[r.email, r.phone].filter(Boolean).join(' · ')}</span></span>
-                  <span className="hidden gap-1 sm:flex">{r.roles.slice(0, 2).map((x) => <span key={x} className={ROLE_TONE[x]}>{ROLE_EL[x]}</span>)}</span>
+                  <span className="hidden gap-1 sm:flex">{r.roles.slice(0, 2).map((x) => <StatusPill key={x} tone={ROLE_PILL[x] ?? 'neutral'}>{ROLE_EL[x]}</StatusPill>)}</span>
                 </label>
               ))}
               {shown.length === 0 && <p className="p-4 text-center text-sm text-charcoal-600">Κανένας πελάτης.</p>}
@@ -513,6 +514,9 @@ function GroupDialog({ group, rows, preselect, onClose, onSaved }: { group: Cont
 }
 
 const LEAD_STATUS = (st: string | undefined) => (st === 'won' ? 'converted' : st === 'lost' ? 'lost' : 'lead');
+const ROLE_PILL: Record<string, Tone> = { lead: 'amber', buyer: 'green', investor: 'blue', homeowner: 'green', seller: 'blue', partner: 'neutral', tenant: 'neutral', supplier: 'neutral', newsletter: 'neutral' };
+const LEAD_PILL: Record<string, Tone> = { lead: 'amber', converted: 'green', lost: 'red' };
+const SRC_BLUE = new Set(['website', 'meta', 'google', 'whatsapp', 'portal']);
 const LEAD_STATUS_EL: Record<string, string> = { lead: 'Lead', converted: 'Έγινε πελάτης', lost: 'Χάθηκε' };
 const PIPE: { key: string; label: string; stages: string[]; empty: string }[] = [
   { key: 'new', label: 'Νέα', stages: ['new'], empty: 'Κανένα νέο lead.' },
@@ -589,10 +593,10 @@ function LeadsPanel({ rows, canEdit, canCreate, onAdd, onEdit, onDelete, onConve
                         {has('last') && <td className="font-semibold text-charcoal" data-no-tr>{n.last || '—'}</td>}
                         {has('email') && <td data-no-tr><span className="block max-w-[150px] truncate" title={r.email ?? ''}>{r.email || '—'}</span></td>}
                         {has('phone') && <td className="text-charcoal-600" data-no-tr>{r.phone || '—'}</td>}
-                        {has('source') && <td className=""><span className="whitespace-nowrap rounded-full border border-stone-line px-2 py-0.5 text-[12px] text-charcoal">{SOURCE_EL[r.lead?.source ?? r.source ?? 'manual'] ?? r.lead?.source}</span></td>}
-                        {has('status') && <td className=""><span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[12px] font-medium ${s2 === 'lost' ? 'bg-stone-100 text-charcoal-600' : 'bg-forest/[0.09] text-forest'}`}>{LEAD_STATUS_EL[s2]}</span></td>}
-                        {has('contact') && <td className="text-charcoal-600">{r.lead?.contacted || r.lastContactAt ? 'Έγινε' : 'Δεν έγινε'}</td>}
-                        {has('approved') && <td className="">{r.optIn ? <span className="inline-flex items-center gap-1 rounded-full bg-forest px-2 py-0.5 text-[12px] font-medium text-white"><Check size={12} /> Ναι</span> : <span className="text-[13px] text-charcoal-600">Όχι</span>}</td>}
+                        {has('source') && <td className=""><StatusPill tone={SRC_BLUE.has(r.lead?.source ?? r.source ?? 'manual') ? 'blue' : 'neutral'}>{SOURCE_EL[r.lead?.source ?? r.source ?? 'manual'] ?? r.lead?.source}</StatusPill></td>}
+                        {has('status') && <td className=""><StatusPill tone={LEAD_PILL[s2] ?? 'neutral'} dot>{LEAD_STATUS_EL[s2]}</StatusPill></td>}
+                        {has('contact') && <td>{r.lead?.contacted || r.lastContactAt ? <StatusPill tone="green" dot>Έγινε</StatusPill> : <StatusPill tone="red" dot>Δεν έγινε</StatusPill>}</td>}
+                        {has('approved') && <td className="">{r.optIn ? <StatusPill tone="green"><Check size={12} /> Ναι</StatusPill> : <StatusPill tone="neutral">Όχι</StatusPill>}</td>}
                         {has('added') && <td className="text-charcoal-600">{ddmmyyyy(r.lead?.createdAt ?? r.createdAt)}</td>}
                         <td className=""><span className="flex justify-end gap-1">
                           {canEdit && !r.roles.includes('buyer') && <button type="button" onClick={() => onConvert(r)} title="Μετατροπή σε πελάτη" aria-label="Μετατροπή σε πελάτη" className={iconBtn}><UserCheck size={15} /></button>}

@@ -6,7 +6,8 @@ import { useRouter } from 'next/navigation';
 import { ArrowUpRight, Search } from 'lucide-react';
 import { PopSelect } from '@/components/ui/PopSelect';
 import { Pager } from '@/components/ui/SidePanel';
-import { UnitStatusBadge } from './UnitStatusBadge';
+import { UnitStatusBadge, UNIT_TONE } from './UnitStatusBadge';
+import { StatusDot } from '@/components/ui/StatusPill';
 import { EditUnitButton } from './EditUnitButton';
 import { DeleteUnitButton } from './DeleteUnitButton';
 import { setUnitStatus } from '@/app/actions/project-flow';
@@ -83,7 +84,7 @@ export function UnitInventoryTable({ projectId, units, buildings = [], canEdit =
                 <td className="tabular-nums">{u.bedrooms ?? '—'}</td>
                 <td className="tabular-nums">{u.price != null ? formatCurrency(Number(u.price)) : '—'}</td>
                 <td data-no-tr><span className="block max-w-[160px] truncate">{u.owner_name ?? '—'}</span></td>
-                <td>{canEdit ? <PopSelect width="w-[140px]" ariaLabel="Κατάσταση" value={st(u)} onChange={(v) => change(u, v)} options={STATUS} /> : <UnitStatusBadge status={st(u)} />}</td>
+                <td>{canEdit ? <span className="flex items-center gap-2"><StatusDot tone={UNIT_TONE[st(u)] ?? 'neutral'} /><PopSelect width="w-[140px]" ariaLabel="Κατάσταση" value={st(u)} onChange={(v) => change(u, v)} options={STATUS} /></span> : <UnitStatusBadge status={st(u)} />}</td>
                 <td>
                   <span className="flex justify-end gap-0.5">
                     <Link href={`/projects/${projectId}/units/${u.id}`} title="Άνοιγμα" aria-label="Άνοιγμα" className="flex h-8 w-8 items-center justify-center rounded-full text-charcoal-600 transition hover:bg-stone-100 hover:text-charcoal"><ArrowUpRight size={15} /></Link>
