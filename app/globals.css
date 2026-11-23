@@ -358,6 +358,17 @@ html[data-theme='dark'] h4 { color: rgb(var(--c-charcoal)); }
 html[data-theme='dark'] .btn-secondary { color: rgb(var(--c-charcoal)); border-color: rgb(var(--c-stone-line)); }
 
 
+/* Προεπισκόπηση κινητού: πάντα φωτεινή, όπως τη βλέπει ο πελάτης, ακόμη κι αν το CRM είναι σε σκούρο θέμα. */
+html[data-theme='dark'] .force-light {
+  color-scheme: light;
+  --c-stone: 247 243 236; --c-stone-200: 239 233 221; --c-stone-line: 227 218 201;
+  --c-sand: 230 220 200; --c-sand-100: 240 233 218; --c-sand-300: 217 203 170;
+  --c-charcoal: 43 42 39; --c-charcoal-600: 83 79 71; --c-forest-50: 234 240 236; --c-champagne-50: 234 240 236;
+  color: rgb(var(--c-charcoal));
+}
+html[data-theme='dark'] .force-light .bg-white, html[data-theme='dark'] .force-light .panel { background-color: #fff; }
+html[data-theme='dark'] .force-light h1, html[data-theme='dark'] .force-light h2, html[data-theme='dark'] .force-light h3, html[data-theme='dark'] .force-light h4 { color: rgb(var(--c-charcoal)); }
+
 /* Σκούρο θέμα: απαλά χρωματιστά φόντα (π.χ. ετικέτες, κάρτες) σκουραίνουν και τα γράμματά τους ανοίγουν. */
 html[data-theme='dark'] [class~="bg-rose-50"],
 html[data-theme='dark'] [class*="bg-rose-50/"],
@@ -460,6 +471,7 @@ html[data-theme='dark'] [class~="text-gray-600"], html[data-theme='dark'] [class
 html[data-theme='dark'] [class~="text-zinc-600"], html[data-theme='dark'] [class~="text-zinc-700"], html[data-theme='dark'] [class~="text-zinc-800"], html[data-theme='dark'] [class~="text-zinc-900"] { color: #e4e4e7 !important; }
 html[data-theme='dark'] [class~="text-stone-600"], html[data-theme='dark'] [class~="text-stone-700"], html[data-theme='dark'] [class~="text-stone-800"], html[data-theme='dark'] [class~="text-stone-900"] { color: #e7e5e4 !important; }
 html[data-theme='dark'] [class*="bg-white/"], html[data-theme='dark'] .hover\:bg-white:hover { background-color: rgb(28 33 31 / 0.85); }
+html[data-theme='dark'] [class*="bg-[#F"], html[data-theme='dark'] [class*="bg-[#f"], html[data-theme='dark'] [class*="bg-[#E"], html[data-theme='dark'] [class*="bg-[#e"], html[data-theme='dark'] .bg-sand-50,
 html[data-theme='dark'] .bg-\[\#F7F4EE\], html[data-theme='dark'] .bg-champagne-50 { background-color: rgb(255 255 255 / 0.06); }
 
 /* Παραστατικά: η εκτύπωση / PDF κρατά μόνο το έγγραφο (.print-area). */
