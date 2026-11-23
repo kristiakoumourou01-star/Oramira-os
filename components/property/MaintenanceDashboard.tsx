@@ -8,6 +8,7 @@ import { assignTicketContractor, setTicketStatus } from '@/app/actions/property'
 import { addCharge, setChargeStatus } from '@/app/actions/unit-history';
 import { PopSelect } from '@/components/ui/PopSelect';
 import { Pager } from '@/components/ui/SidePanel';
+import { StatusPill, type Tone } from '@/components/ui/StatusPill';
 import { ChargeDialog } from '@/components/units/UnitHistoryPanel';
 import { CHARGE_STATUS } from '@/lib/unit-history-shared';
 import { formatCurrency, formatDate } from '@/lib/format';
@@ -34,6 +35,8 @@ export interface ContractorOption { id: string; company_name: string }
 const STATUS: [string, string][] = [['open', 'Ανοιχτό'], ['acknowledged', 'Παραλήφθηκε'], ['in_progress', 'Σε εξέλιξη'], ['awaiting_parts', 'Αναμονή υλικών'], ['resolved', 'Λύθηκε'], ['closed', 'Κλειστό'], ['reopened', 'Ξανάνοιξε']];
 const OPEN = ['open', 'acknowledged', 'in_progress', 'awaiting_parts', 'reopened'];
 export const CATEGORY: Record<string, string> = { plumbing: 'Υδραυλικά', electrical: 'Ηλεκτρολογικά', hvac: 'Κλιματισμός / θέρμανση', appliance: 'Συσκευές', pool: 'Πισίνα', garden: 'Κήπος', cleaning: 'Καθαρισμός', structural: 'Δομικά', cosmetic: 'Φινιρίσματα', warranty: 'Εγγύηση', other: 'Άλλο' };
+const STATUS_TONE: Record<string, Tone> = { open: 'blue', acknowledged: 'blue', in_progress: 'amber', awaiting_parts: 'amber', resolved: 'green', closed: 'neutral', reopened: 'red' };
+const PRIORITY_TONE: Record<string, Tone> = { low: 'neutral', medium: 'blue', high: 'amber', emergency: 'red' };
 const PRIORITY: Record<string, string> = { low: 'Χαμηλή', medium: 'Κανονική', high: 'Υψηλή', emergency: 'Επείγον' };
 
 /** Κέντρο αιτημάτων ιδιοκτητών: φίλτρα, πίνακας, και καρτέλα αιτήματος με κατάσταση, συνεργείο και χρέωση στον ιδιοκτήτη. */
@@ -89,8 +92,8 @@ export function MaintenanceDashboard({ tickets, contractors, canEdit = true }: {
                     <td>{CATEGORY[t.category ?? 'other'] ?? t.category}</td>
                     <td><span data-no-tr>{t.project_name ?? ''}</span>{t.unit_number && <span data-no-tr> · {t.unit_number}</span>}</td>
                     <td data-no-tr>{t.owner_name ?? '—'}</td>
-                    <td><span className={t.priority === 'emergency' ? 'font-semibold text-signal-danger' : ''}>{PRIORITY[t.priority] ?? t.priority}</span></td>
-                    <td>{STATUS.find(([k]) => k === t.status)?.[1] ?? t.status}</td>
+                    <td><StatusPill tone={PRIORITY_TONE[t.priority] ?? 'neutral'}>{PRIORITY[t.priority] ?? t.priority}</StatusPill></td>
+                    <td><StatusPill tone={STATUS_TONE[t.status] ?? 'neutral'} dot>{STATUS.find(([k]) => k === t.status)?.[1] ?? t.status}</StatusPill></td>
                     <td className="tabular-nums">{charged ? formatCurrency(charged) : '—'}</td>
                     <td className="tabular-nums">{formatDate(t.created_at)}</td>
                   </tr>

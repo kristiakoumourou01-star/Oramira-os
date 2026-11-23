@@ -6,8 +6,10 @@ import { Hand, UserCheck } from 'lucide-react';
 import type { AssignedLeadRow } from '@/lib/sales-hub-shared';
 import { DATE_TAG, currentLocale } from '@/lib/locale-shared';
 import { Pager } from '@/components/ui/SidePanel';
+import { StatusPill } from '@/components/ui/StatusPill';
 
 const SRC: Record<string, string> = { website: 'Website', meta: 'Meta', google: 'Google', organic: 'Organic', referral: 'Σύσταση', whatsapp: 'WhatsApp', walk_in: 'Walk-in', portal: 'Portal', other: 'Άλλο' };
+const SRC_BLUE = new Set(['website', 'meta', 'google', 'portal', 'whatsapp']);
 const PERIODS = [['7', '7 μέρες'], ['30', '30 μέρες'], ['60', '60 μέρες']] as const;
 
 /**
@@ -75,15 +77,15 @@ export function AssignedLeads({ rows }: { rows: AssignedLeadRow[] }) {
               {shown.map((r) => (
                 <tr key={r.id}>
                   <td><Link href={`/crm/leads/${r.id}`} className="font-medium text-charcoal hover:text-forest" data-no-tr>{r.name ?? '—'}</Link></td>
-                  <td>{r.source ? SRC[r.source] ?? r.source : '—'}</td>
+                  <td>{r.source ? <StatusPill tone={SRC_BLUE.has(r.source) ? 'blue' : 'neutral'}>{SRC[r.source] ?? r.source}</StatusPill> : '—'}</td>
                   <td data-no-tr>{r.assignedToName ?? '—'}</td>
                   <td>
                     {r.assignedBy && r.assignedBy === r.assignedTo
-                      ? <span className="inline-flex items-center gap-1 text-charcoal"><Hand size={13} /> <span>Ανάληψη</span></span>
-                      : <span className="inline-flex items-center gap-1 text-charcoal-600"><UserCheck size={13} /> <span>Ανάθεση από</span> <span data-no-tr>{r.assignedByName ?? 'σύστημα'}</span></span>}
+                      ? <StatusPill tone="green"><Hand size={12} /> <span>Ανάληψη</span></StatusPill>
+                      : <StatusPill tone="blue"><UserCheck size={12} /> <span>Ανάθεση από</span> <span data-no-tr>{r.assignedByName ?? 'σύστημα'}</span></StatusPill>}
                   </td>
                   <td className="tabular-nums">{when(r.assignedAt ?? r.createdAt)}</td>
-                  <td>{r.contacted ? <span className="text-charcoal">Ναι</span> : <span className="text-signal-danger">Όχι ακόμη</span>}</td>
+                  <td>{r.contacted ? <StatusPill tone="green" dot>Ναι</StatusPill> : <StatusPill tone="red" dot>Όχι ακόμη</StatusPill>}</td>
                 </tr>
               ))}
             </tbody>

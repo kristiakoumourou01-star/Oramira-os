@@ -4,6 +4,7 @@ import { useMemo, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Columns3, Search, X, Pencil, FileText, Eye, Upload, Users, UserMinus, CalendarClock, Plane, Phone, Mail } from 'lucide-react';
 import { PopSelect } from '@/components/ui/PopSelect';
+import { StatusPill } from '@/components/ui/StatusPill';
 import { PhoneInput } from '@/components/ui/PhoneInput';
 import { Pager } from '@/components/ui/SidePanel';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
@@ -131,12 +132,12 @@ export function EmployeesPanel({ rows, actions, toolbar, canEdit, canEditDocs, m
                     {has('dept') && <td>{hr.department || '—'}</td>}
                     {has('email') && <td data-no-tr><span className="block max-w-[180px] truncate" title={r.email ?? ''}>{r.email || '—'}</span></td>}
                     {has('mobile') && <td data-no-tr>{hr.phone || '—'}</td>}
-                    {has('role') && <td>{r.roleLabel}</td>}
+                    {has('role') && <td><StatusPill tone={r.role === 'owner' || r.role === 'admin' ? 'violet' : 'blue'}>{r.roleLabel}</StatusPill></td>}
                     {has('type') && <td>{hr.employmentType ? EMPLOYMENT_TYPE_EL[hr.employmentType] ?? hr.employmentType : '—'}</td>}
                     {has('start') && <td>{ddmmyyyy(hr.startDate)}</td>}
                     {has('end') && <td className={hr.endDate ? 'font-medium text-charcoal' : ''} title={hr.terminationReason ?? ''}>{ddmmyyyy(hr.endDate)}</td>}
                     {has('contract') && <td onClick={(e) => e.stopPropagation()}>{hr.contract ? <DocLink doc={hr.contract} label="Προβολή" /> : <span>—</span>}</td>}
-                    {has('status') && <td><StatusPill active={r.is_active} terminated={term} onLeave={hr.onLeaveToday} /></td>}
+                    {has('status') && <td><EmpStatus active={r.is_active} terminated={term} onLeave={hr.onLeaveToday} /></td>}
                     {has('dob') && <td>{ddmmyyyy(hr.dateOfBirth)}</td>}
                     {has('nationality') && <td>{hr.nationality || '—'}</td>}
                     {has('idp') && <td data-no-tr>{hr.idPassport || '—'}</td>}
@@ -167,11 +168,11 @@ export function EmployeesPanel({ rows, actions, toolbar, canEdit, canEditDocs, m
   );
 }
 
-function StatusPill({ active, terminated, onLeave }: { active: boolean; terminated: boolean; onLeave: boolean }) {
-  if (terminated) return <span className="rounded-full border border-stone-line px-2 py-0.5 text-[11px] font-medium text-charcoal-600">Τερματισμένος</span>;
-  if (!active) return <span className="rounded-full border border-stone-line px-2 py-0.5 text-[11px] font-medium text-charcoal-600">Χωρίς πρόσβαση</span>;
-  if (onLeave) return <span className="rounded-full border border-forest/30 bg-forest/[0.06] px-2 py-0.5 text-[11px] font-medium text-forest">Σε άδεια</span>;
-  return <span className="rounded-full border border-forest/30 bg-forest/[0.08] px-2 py-0.5 text-[11px] font-medium text-forest">Ενεργός</span>;
+function EmpStatus({ active, terminated, onLeave }: { active: boolean; terminated: boolean; onLeave: boolean }) {
+  if (terminated) return <StatusPill tone="red" dot>Τερματισμένος</StatusPill>;
+  if (!active) return <StatusPill tone="neutral" dot>Χωρίς πρόσβαση</StatusPill>;
+  if (onLeave) return <StatusPill tone="amber" dot>Σε άδεια</StatusPill>;
+  return <StatusPill tone="green" dot>Ενεργός</StatusPill>;
 }
 
 function DocLink({ doc, label }: { doc: EmployeeDoc; label?: string }) {
@@ -219,7 +220,7 @@ function QuickView({ r, canEdit, canEditDocs, onClose, onEdit }: { r: EmployeeRo
             <div className="min-w-0">
               <p className="truncate text-[18px] font-semibold text-charcoal" data-no-tr>{r.full_name ?? '—'}</p>
               <p className="flex flex-wrap gap-x-1.5 text-[13px] text-charcoal-600">{[hr.jobTitle, hr.department, r.roleLabel].filter(Boolean).map((x, i) => <span key={i}>{i > 0 && <span className="mr-1.5 opacity-60">·</span>}<span>{x}</span></span>)}</p>
-              <div className="mt-1"><StatusPill active={r.is_active} terminated={term} onLeave={hr.onLeaveToday} /></div>
+              <div className="mt-1"><EmpStatus active={r.is_active} terminated={term} onLeave={hr.onLeaveToday} /></div>
             </div>
           </div>
           <button type="button" onClick={onClose} aria-label="Κλείσιμο" className={iconBtn}><X size={17} /></button>

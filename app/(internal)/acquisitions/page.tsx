@@ -5,6 +5,7 @@ import { getParcels, STAGE_LABEL } from '@/lib/acquisitions';
 import { detectAssembly } from '@/lib/land-assembly';
 import { HubTabs, type HubTabDef } from '@/components/ui/HubTabs';
 import { WorkspaceHeader } from '@/components/ui/WorkspaceHeader';
+import { StatusPill, type Tone } from '@/components/ui/StatusPill';
 import { AcquisitionMap } from '@/components/acquisitions/AcquisitionMap';
 import { AcquisitionBoard } from '@/components/acquisitions/AcquisitionBoard';
 import { NewParcelForm } from '@/components/acquisitions/NewParcelForm';
@@ -12,6 +13,8 @@ import { AssemblyPanel } from '@/components/acquisitions/AssemblyPanel';
 import { Phone, MessageCircle, Mail } from 'lucide-react';
 import { parcelProjects } from '@/lib/project-flow';
 import { formatCurrency } from '@/lib/format';
+
+const STAGE_TONE: Record<string, Tone> = { new: 'amber', contacted: 'blue', interested: 'blue', under_review: 'blue', negotiation: 'blue', due_diligence: 'amber', offer_made: 'amber', acquired: 'green', lost: 'red' };
 
 const DAY = 86400000;
 const BAND: Record<string, string> = { Prime: 'bg-forest text-white', Strong: 'bg-forest/12 text-forest', Moderate: 'bg-champagne-50 text-champagne-600', Weak: 'bg-sand-100 text-charcoal-600/70' };
@@ -53,7 +56,7 @@ export default async function AcquisitionsPage({ searchParams }: { searchParams:
                       <td className="o-strong" data-no-tr><Link href={`/acquisitions/${p.id}`} className="hover:text-forest">{p.reference}</Link></td>
                       <td data-no-tr>{p.ownerName ?? '—'}</td>
                       <td data-no-tr><span className="block max-w-[160px] truncate">{p.location ?? '—'}</span></td>
-                      <td>{STAGE_LABEL[p.stage]}</td>
+                      <td><StatusPill tone={STAGE_TONE[p.stage] ?? 'neutral'} dot>{STAGE_LABEL[p.stage]}</StatusPill></td>
                       <td className="text-right tabular-nums">{p.readiness.score}</td>
                       <td className="text-right tabular-nums">{p.uplift ? formatCurrency(p.uplift.marginAbs) : '—'}</td>
                       <td className="text-right"><span className={`figure rounded-md px-2 py-0.5 text-xs font-semibold ${BAND[p.score.band]}`}>{p.score.score}</span></td>

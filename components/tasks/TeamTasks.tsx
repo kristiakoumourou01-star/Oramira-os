@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Plus, Search, X, Pencil, Trash2, Circle, CheckCircle, PhoneCall, ListChecks, Phone } from 'lucide-react';
 import { PopSelect } from '@/components/ui/PopSelect';
+import { StatusPill, type Tone } from '@/components/ui/StatusPill';
 import { Pager } from '@/components/ui/SidePanel';
 import { createTeamTask, updateTeamTask, completeTeamTask, deleteTeamTask } from '@/app/actions/team-tasks';
 import { createCallList, previewCallList, getCallListItems, markCallItem, updateCallList, deleteCallList } from '@/app/actions/call-lists';
@@ -16,7 +17,7 @@ const lbl = 'mb-1 block text-[12px] font-semibold uppercase tracking-wide text-c
 const iconBtn = 'flex h-8 w-8 items-center justify-center rounded-full text-charcoal-600 transition hover:bg-forest/10 hover:text-forest';
 const fmt = (iso: string) => new Date(iso).toLocaleString(DATE_TAG[currentLocale().lang], { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 const local = (iso: string | null) => { if (!iso) return ''; const d = new Date(iso); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 16); };
-const CHIP: Record<BoardStatus, string> = { done: 'bg-forest text-white', progress: 'bg-forest/[0.1] text-forest', open: 'bg-stone-100 text-charcoal-600', overdue: 'bg-rose-50 text-signal-danger' };
+const CHIP: Record<BoardStatus, Tone> = { done: 'green', progress: 'amber', open: 'blue', overdue: 'red' };
 
 /**
  * Tasks όπως στο FitnessCRM: «Λίστες κλήσεων από μια αναφορά, ανατεθειμένες
@@ -94,7 +95,7 @@ export function TeamTasks({ rows, staff, me, isLead, initialView, reports, group
                       <span className="text-sm tabular-nums text-charcoal">{`${r.done} από ${r.total}`}</span>
                       <span className="mt-1 block h-1.5 w-full overflow-hidden rounded-full bg-stone-100"><span className="block h-full rounded-full bg-forest" style={{ width: `${pct}%` }} /></span>
                     </td>
-                    <td><span className={`rounded-full px-2 py-0.5 text-[12px] font-medium ${CHIP[r.status]}`}>{STATUS_EL[r.status]}</span></td>
+                    <td><span className="flex items-center gap-1.5"><StatusPill tone={CHIP[r.status]} dot>{STATUS_EL[r.status]}</StatusPill>{(r.priority === 'high' || r.priority === 'urgent') && r.status !== 'done' && <StatusPill tone="red">{PRIORITY_EL[r.priority]}</StatusPill>}</span></td>
                   </tr>
                 );
               })}
@@ -219,7 +220,7 @@ function TaskPanel({ row, me, isLead, onClose, onEdit, onChanged, onDone }: { ro
             <div key={m.taskId} className="flex items-center gap-3 px-3 py-2.5">
               <button type="button" disabled={!can || pending} onClick={() => toggle(m.taskId, m.done)} aria-label={m.done ? 'Άνοιγμα ξανά' : 'Ολοκλήρωση'} className="text-forest disabled:opacity-40">{m.done ? <CheckCircle size={20} /> : <Circle size={20} className="text-charcoal-600/50 hover:text-forest" />}</button>
               <span className="min-w-0 flex-1"><span className="block font-medium text-charcoal" data-no-tr>{m.name}{m.userId === me ? ' (εγώ)' : ''}</span>{m.outcome && <span className="block truncate text-[12px] text-charcoal-600" data-no-tr>{m.outcome}</span>}</span>
-              <span className={`rounded-full px-2 py-0.5 text-[12px] font-medium ${m.done ? 'bg-forest text-white' : 'bg-stone-100 text-charcoal-600'}`}>{m.done ? 'Ολοκληρώθηκε' : 'Ανοιχτή'}</span>
+              <StatusPill tone={m.done ? 'green' : 'blue'} dot>{m.done ? 'Ολοκληρώθηκε' : 'Ανοιχτή'}</StatusPill>
             </div>
           );
         })}
