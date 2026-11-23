@@ -1,7 +1,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { getCurrentProfile } from '@/lib/auth';
 import { selectResilient } from '@/lib/db-resilient';
-import { CLOSED_STATUSES, type AgentStat, type FollowUpItem, type NewLead, type SourceCost } from '@/lib/sales-hub-shared';
+import { CLOSED_STATUSES, type AgentStat, type FollowUpItem, type NewLead, type SourceCost, type AssignedLeadRow } from '@/lib/sales-hub-shared';
 
 /**
  * Διαχείριση leads — φόρτωση δεδομένων για «Νέα leads», «Follow-ups» και
@@ -169,4 +169,33 @@ export async function getAgentStats(days: number): Promise<{ rows: AgentStat[]; 
     .map(({ _resp, ...a }) => ({ ...a, responseMin: median(_resp) }))
     .sort((x, y) => y.assigned - x.assigned || x.name.localeCompare(y.name, 'el'));
   return { rows, unassigned, hasCosts: costs.length > 0 };
+}
+
+
+/**
+ * Ανατεθειμένα leads (για Owner / Manager): ποιος πήρε ποιο lead, μόνος του ή με
+ * ανάθεση από άλλον, και πότε. Τελευταίες `days` μέρες.
+ */
+export async function getAssignedLeads(days = 60): Promise<AssignedLeadRow[]> {
+  const supabase = (await createSupabaseServerClient()) as any;
+  const since = new Date(Date.now() - days * 86400000).toISOString();
+  const { data, error } = await supabase.from('leads')
+    .select('id, created_at, status, source, assigned_to, assigned_by, assigned_at, last_contacted_at, first_response_at, contacts(full_name)')
+    .not('assigned_to', 'is', null)
+    .or(`assigned_at.gte.${since},and(assigned_at.is.null,created_at.gte.${since})`)
+    .order('assigned_at', { ascending: false, nullsFirst: false }).limit(1000);
+  if (error) return [];
+  const ids = Array.from(new Set((data ?? []).flatMap((l: any) => [l.assigned_to, l.assigned_by]).filter(Boolean)));
+  const names = new Map<string, string | null>();
+  if (ids.length) {
+    const { data: ps } = await supabase.from('profiles').select('id, full_name').in('id', ids);
+    for (const p of (ps ?? []) as any[]) names.set(p.id, p.full_name);
+  }
+  return ((data ?? []) as any[]).map((l) => ({
+    id: l.id, name: l.contacts?.full_name ?? null, source: l.source ?? null, status: l.status,
+    assignedTo: l.assigned_to, assignedToName: names.get(l.assigned_to) ?? null,
+    assignedBy: l.assigned_by ?? null, assignedByName: l.assigned_by ? names.get(l.assigned_by) ?? null : null,
+    assignedAt: l.assigned_at ?? null, createdAt: l.created_at,
+    contacted: !!(l.last_contacted_at || l.first_response_at),
+  }));
 }
