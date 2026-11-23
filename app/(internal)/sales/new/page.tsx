@@ -39,7 +39,7 @@ export default async function NewLeadsPage({ searchParams }: { searchParams: { v
         </div>
       )}
       {view === 'assigned'
-        ? <AssignedLeads rows={assigned} />
+        ? <AssignedLeads rows={assigned} agents={agents} />
         : <NewLeadsInbox leads={leads} agents={agents} currentUserId={profile.id} canClaim={canClaimLeads(profile)} canAssign={manager} />}
     </div>
   );

@@ -31,7 +31,7 @@ export function Pager({ from, to, total, page, pages, onPage }: { from: number; 
   const nums = Array.from(new Set([0, 1, page - 1, page, page + 1, pages - 1].filter((n) => n >= 0 && n < pages))).sort((a, b) => a - b);
   return (
     <div className="flex flex-wrap items-center justify-between gap-2 border-t border-stone-line px-5 py-3 text-sm text-charcoal-600">
-      <span>Εμφάνιση {from}–{to} από {total}</span>
+      <span>{`Εμφάνιση ${from}–${to} από ${total}`}</span>
       {pages > 1 && <span className="flex items-center gap-1">
         <button type="button" disabled={page === 0} onClick={() => onPage(page - 1)} className="rounded-lg border border-stone-line px-3.5 py-1.5 text-charcoal disabled:text-charcoal-600/50">Προηγούμενη</button>
         {nums.map((n, i) => (
