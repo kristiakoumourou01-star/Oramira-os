@@ -561,3 +561,7 @@ html[data-theme='dark'] .pill-violet  { background-color: rgb(139 92 246 / 0.18)
 html[data-theme='dark'] .pill-forest  { background-color: rgb(var(--c-forest) / 0.25); color: #e7efe9; border-color: rgb(var(--c-forest) / 0.45); }
 html[data-theme='dark'] .pill-neutral { background-color: rgb(255 255 255 / 0.08); color: rgb(255 255 255 / 0.78); border-color: rgb(255 255 255 / 0.14); }
 .pill-solo, html[data-theme='dark'] .pill-solo { display: inline-block; width: 8px; height: 8px; flex-shrink: 0; border: 0; border-radius: 9999px; background-color: currentColor; }
+
+/* Γραμμή φόρτωσης σελίδας (NavProgress) */
+@keyframes nav-progress { 0% { transform: translateX(-100%); } 100% { transform: translateX(300%); } }
+.nav-progress { animation: nav-progress 0.9s ease-in-out infinite; }

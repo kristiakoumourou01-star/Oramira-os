@@ -1,8 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import type { ReactNode } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
+import { useEffect, useState, type ReactNode } from 'react';
+
+/** Ο σύνδεσμος που πατήθηκε — φωτίζεται αμέσως, πριν φορτώσει η σελίδα. */
+const PENDING_EVENT = 'oramira:nav-pending';
 
 export function NavItem({
   href,
@@ -22,14 +25,30 @@ export function NavItem({
   others?: string[];
 }) {
   const pathname = usePathname();
-  const matches = (h: string) => pathname === h || pathname.startsWith(h + '/');
+  const router = useRouter();
+  const [pending, setPending] = useState<string | null>(null);
+  useEffect(() => {
+    const on = (e: Event) => setPending((e as CustomEvent<string>).detail);
+    window.addEventListener(PENDING_EVENT, on);
+    return () => window.removeEventListener(PENDING_EVENT, on);
+  }, []);
+  useEffect(() => { setPending(null); }, [pathname]);
+  // Φόρτωση όλης της σελίδας μόλις ο δείκτης περάσει από πάνω — έτσι το κλικ ανοίγει αμέσως.
+  const warm = () => { try { router.prefetch(href, { kind: 'full' } as never); } catch { /* ignore */ } };
+  const here = pending ?? pathname;
+  const matches = (h: string) => here === h || here.startsWith(h + '/');
   const active = matches(href) && !others.some((o) => o !== href && o.length > href.length && matches(o));
 
   return (
     <Link
       href={href}
+      prefetch={false}
+      onMouseEnter={warm}
+      onFocus={warm}
+      onTouchStart={warm}
+      onClick={(e) => { if (!e.metaKey && !e.ctrlKey && !e.shiftKey) window.dispatchEvent(new CustomEvent(PENDING_EVENT, { detail: href })); }}
       title={compact ? label : undefined}
-      className={`group relative flex items-center rounded-lg py-[7px] text-[14px] transition-colors duration-150 ${compact ? 'justify-center px-0' : 'gap-2.5 px-3'} ${
+      className={`group relative flex items-center rounded-lg py-[6px] text-[13px] transition-colors duration-150 ${compact ? 'justify-center px-0' : 'gap-2.5 px-3'} ${
         active
           ? 'bg-[color:var(--sb-active-bg)] font-medium text-[color:var(--sb-active-text)]'
           : 'text-[color:var(--sb-text)] hover:bg-[color:var(--sb-hover-bg)] hover:text-[color:var(--sb-text-hover)]'

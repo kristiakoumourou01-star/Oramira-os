@@ -85,12 +85,12 @@ export function NavGroup({ href, label, icon, items: children, compact = false, 
       <div ref={headRef} className={`group flex items-center rounded-lg pr-1 transition-colors ${active ? 'bg-[color:var(--sb-active-bg)]' : 'hover:bg-[color:var(--sb-hover-bg)]'}`}>
         {children.length > 0 ? (
           // Με υποσελίδες: το πάτημα ανοίγει/κλείνει τη λίστα (δεν φεύγει από τη σελίδα).
-          <button type="button" onClick={toggle} aria-expanded={open} className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-3 py-1.5 text-left text-[14px] transition-colors ${active ? 'font-medium text-[color:var(--sb-active-text)]' : 'text-[color:var(--sb-text)] hover:text-[color:var(--sb-text-hover)]'}`}>
+          <button type="button" onClick={toggle} aria-expanded={open} className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-3 py-1.5 text-left text-[13px] transition-colors ${active ? 'font-medium text-[color:var(--sb-active-text)]' : 'text-[color:var(--sb-text)] hover:text-[color:var(--sb-text-hover)]'}`}>
             <span className={active ? 'text-[color:var(--sb-active-text)]' : 'text-[color:var(--sb-icon)] group-hover:text-[color:var(--sb-text-hover)]'}>{icon}</span>
             <span className="truncate">{label}</span>
           </button>
         ) : (
-          <Link href={href} onClick={() => { keepInPlace(); if (!open) { setOpen(true); announce(); } }} className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-3 py-1.5 text-[14px] transition-colors ${active ? 'font-medium text-[color:var(--sb-active-text)]' : 'text-[color:var(--sb-text)] hover:text-[color:var(--sb-text-hover)]'}`}>
+          <Link href={href} onClick={() => { keepInPlace(); if (!open) { setOpen(true); announce(); } }} className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-3 py-1.5 text-[13px] transition-colors ${active ? 'font-medium text-[color:var(--sb-active-text)]' : 'text-[color:var(--sb-text)] hover:text-[color:var(--sb-text-hover)]'}`}>
             <span className={active ? 'text-[color:var(--sb-active-text)]' : 'text-[color:var(--sb-icon)] group-hover:text-[color:var(--sb-text-hover)]'}>{icon}</span>
             <span className="truncate">{label}</span>
           </Link>

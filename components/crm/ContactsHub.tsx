@@ -264,21 +264,21 @@ const LEAD_STAGE: Record<string, string> = STATUS_EL_PIPE;
 
 function QuickView({ r, onClose }: { r: ContactListRow; onClose: () => void }) {
   const Row = ({ label, value, icon: I, tr }: { label: string; value: React.ReactNode; icon?: any; tr?: boolean }) => (
-    <div className="flex items-center justify-between gap-3 border-b border-stone-line/70 py-2 text-[14px] last:border-0">
-      <span className="flex items-center gap-2 text-charcoal-600">{I && <I size={14} />}{label}</span><span className="truncate text-right font-medium text-charcoal" {...(tr ? {} : { 'data-no-tr': true })}>{value}</span>
+    <div className="flex items-center justify-between gap-3 border-b border-stone-line/70 py-1.5 text-[13px] last:border-0">
+      <span className="flex shrink-0 items-center gap-1.5 text-charcoal-600">{I && <I size={13} />}{label}</span><span className="truncate text-right font-medium text-charcoal" {...(tr ? {} : { 'data-no-tr': true })}>{value}</span>
     </div>
   );
-  const Eyebrow = ({ children }: { children: React.ReactNode }) => <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-forest">{children}</p>;
+  const Eyebrow = ({ children }: { children: React.ReactNode }) => <p className="mb-0.5 text-[10.5px] font-semibold uppercase tracking-[0.1em] text-charcoal-600">{children}</p>;
   const stage = r.lead ? (LEAD_STAGE[r.lead.status] ?? r.lead.status) : '—';
   return (
     <div className="anim-fade fixed inset-0 z-50 flex items-end justify-center bg-charcoal/30 p-0 backdrop-blur-[2px] sm:items-center sm:p-4" onClick={onClose}>
-      <div className="anim-zoom max-h-[92vh] w-full max-w-md overflow-y-auto rounded-t-2xl bg-white shadow-overlay sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-start gap-3 border-b border-stone-line px-5 py-4">
-          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-forest/[0.09] text-[15px] font-semibold text-forest">{r.name.split(' ').map((x) => x[0]).slice(0, 2).join('').toUpperCase()}</span>
-          <div className="min-w-0 flex-1"><p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-charcoal-600">Πελάτης</p><p className="truncate font-display text-lg text-charcoal" data-no-tr>{r.name}</p><p className="truncate text-[13px] text-charcoal-600" data-no-tr>{r.phone ?? r.email ?? ''}</p></div>
+      <div className="anim-zoom max-h-[88vh] w-full max-w-[380px] overflow-y-auto rounded-t-2xl bg-white shadow-overlay sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-start gap-3 border-b border-stone-line px-4 py-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-forest/[0.09] text-[13px] font-semibold text-forest">{r.name.split(' ').map((x) => x[0]).slice(0, 2).join('').toUpperCase()}</span>
+          <div className="min-w-0 flex-1"><p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-charcoal-600">Πελάτης</p><p className="truncate text-[15px] font-semibold text-charcoal" data-no-tr>{r.name}</p><p className="truncate text-[12px] text-charcoal-600" data-no-tr>{r.phone ?? r.email ?? ''}</p></div>
           <button type="button" onClick={onClose} aria-label="Κλείσιμο" className="text-charcoal-600 hover:text-charcoal"><X size={18} /></button>
         </div>
-        <div className="space-y-4 px-5 py-4">
+        <div className="space-y-3 px-4 py-3">
           <section><Eyebrow>Επικοινωνία</Eyebrow>
             <Row icon={Mail} label="E-mail" value={r.email || '—'} />
             <Row icon={Phone} label="Τηλέφωνο" value={r.phone || '—'} />
@@ -297,7 +297,7 @@ function QuickView({ r, onClose }: { r: ContactListRow; onClose: () => void }) {
             <Row label="Στάδιο" value={stage} tr />
           </section>
         </div>
-        <div className="px-5 pb-5"><Link href={`/crm/${r.id}`} className="flex w-full items-center justify-center gap-2 rounded-xl bg-forest py-2.5 text-sm font-semibold text-white hover:bg-forest/90"><ExternalLink size={15} /> Άνοιγμα πλήρους προφίλ</Link></div>
+        <div className="px-4 pb-4"><Link href={`/crm/${r.id}`} className="flex w-full items-center justify-center gap-2 rounded-lg bg-forest py-2 text-[13px] font-semibold text-white hover:bg-forest/90"><ExternalLink size={15} /> Άνοιγμα πλήρους προφίλ</Link></div>
       </div>
     </div>
   );
