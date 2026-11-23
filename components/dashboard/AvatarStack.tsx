@@ -35,7 +35,7 @@ export function AvatarStack({ attendees, size = 20, max = 3 }: { attendees: Atte
       ))}
       {overflow > 0 && (
         <span
-          className="flex items-center justify-center rounded-full border border-white bg-[#F5F1E8] font-medium text-charcoal-600"
+          className="flex items-center justify-center rounded-full border border-white bg-forest/[0.06] font-medium text-charcoal-600"
           style={{ ...dim, marginLeft: -size * 0.35 }}
         >
           +{overflow}

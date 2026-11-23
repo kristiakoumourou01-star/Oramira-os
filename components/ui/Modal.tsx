@@ -102,7 +102,7 @@ export function Modal({
             <h3 id={titleId} className="text-[17px] font-semibold text-charcoal">{title}</h3>
             {description && <p className="mt-0.5 text-xs text-charcoal-600/60">{description}</p>}
           </div>
-          <button type="button" onClick={onClose} aria-label="Close" className="-mr-1 shrink-0 rounded-lg p-1 text-charcoal-600/50 transition-colors hover:bg-[#F5F1E8] hover:text-charcoal">
+          <button type="button" onClick={onClose} aria-label="Close" className="-mr-1 shrink-0 rounded-lg p-1 text-charcoal-600/50 transition-colors hover:bg-forest/[0.06] hover:text-charcoal">
             <X size={18} strokeWidth={1.75} />
           </button>
         </div>

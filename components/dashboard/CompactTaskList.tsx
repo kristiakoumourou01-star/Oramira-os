@@ -23,12 +23,12 @@ export interface CompactTask {
 
 const DAY = 24 * 60 * 60 * 1000;
 const ENTITY_CLS: Record<string, string> = {
-  Lead: 'bg-champagne-50 text-champagne-600', Property: 'bg-forest/[0.06] text-forest', HR: 'bg-forest/[0.06] text-forest', Finance: 'bg-forest/10 text-forest', Task: 'bg-[#F5F1E8] text-charcoal-600/70',
+  Lead: 'bg-champagne-50 text-champagne-600', Property: 'bg-forest/[0.06] text-forest', HR: 'bg-forest/[0.06] text-forest', Finance: 'bg-forest/10 text-forest', Task: 'bg-forest/[0.06] text-charcoal-600/70',
 };
 
 function DueBadge({ due }: { due: string }) {
   const ms = new Date(due).getTime() - Date.now();
-  let cls = 'bg-[#F5F1E8] text-charcoal-600/70'; let text = formatDayMonth(new Date(due));
+  let cls = 'bg-forest/[0.06] text-charcoal-600/70'; let text = formatDayMonth(new Date(due));
   if (ms < 0) { cls = 'bg-signal-danger/10 text-signal-danger'; text = 'Overdue'; }
   else if (ms < DAY) { cls = 'bg-signal-warning/10 text-signal-warning'; text = 'Today'; }
   else if (ms < 3 * DAY) { cls = 'bg-champagne-50 text-champagne-600'; }
@@ -68,7 +68,7 @@ export function CompactTaskList({ tasks }: { tasks: CompactTask[] }) {
     <div>
       <div className="mb-3 flex flex-wrap gap-1">
         {FILTERS.map((f) => (
-          <button key={f.v} onClick={() => setFilter(f.v)} className={`rounded-md px-2 py-1 text-[11px] font-medium transition-colors ${filter === f.v ? 'bg-forest text-white' : 'bg-[#F5F1E8] text-charcoal-600 hover:bg-[#EFE8DA]'}`}>{f.label}</button>
+          <button key={f.v} onClick={() => setFilter(f.v)} className={`rounded-md px-2 py-1 text-[11px] font-medium transition-colors ${filter === f.v ? 'bg-forest text-white' : 'bg-forest/[0.06] text-charcoal-600 hover:bg-forest/[0.1]'}`}>{f.label}</button>
         ))}
       </div>
       {visible.length === 0 ? (
